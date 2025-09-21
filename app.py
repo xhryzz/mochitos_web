@@ -105,7 +105,6 @@ QUESTIONS = [
     "¿Qué prenda interior prefieres que use?",
 ]
 
-
 RELATION_START = date(2025, 8, 2)  # <- fecha de inicio relación
 
 # Inicializar DB
@@ -260,7 +259,6 @@ def get_today_question():
     question_id = c.lastrowid
     conn.close()
     return (question_id, question_text)
-
 
 def days_together():
     return (date.today() - RELATION_START).days
@@ -470,93 +468,135 @@ def index():
                            profile_pictures=profile_pictures,
                            login_error=None)
 
-# Eliminar viaje
+# Eliminar viaje - CORREGIDO
 @app.route('/delete_travel', methods=['POST'])
 def delete_travel():
     if 'username' not in session:
         return redirect('/')
-    travel_id = request.form['travel_id']
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
     
-    # Eliminar fotos asociadas al viaje
-    c.execute("SELECT filename FROM travel_photos WHERE travel_id=?", (travel_id,))
-    photos = c.fetchall()
-    for photo in photos:
-        filename = photo[0]
-        path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        if os.exists(path):
-            os.remove(path)
+    try:
+        travel_id = request.form['travel_id']
+        conn = sqlite3.connect('database.db')
+        c = conn.cursor()
+        
+        # Eliminar fotos asociadas al viaje - CORREGIDO: os.path.exists en lugar de os.exists
+        c.execute("SELECT filename FROM travel_photos WHERE travel_id=?", (travel_id,))
+        photos = c.fetchall()
+        for photo in photos:
+            filename = photo[0]
+            path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            if os.path.exists(path):
+                try:
+                    os.remove(path)
+                except Exception as e:
+                    print(f"Error eliminando archivo {filename}: {e}")
+        
+        c.execute("DELETE FROM travel_photos WHERE travel_id=?", (travel_id,))
+        c.execute("DELETE FROM travels WHERE id=?", (travel_id,))
+        conn.commit()
+        conn.close()
+        return redirect('/')
     
-    c.execute("DELETE FROM travel_photos WHERE travel_id=?", (travel_id,))
-    c.execute("DELETE FROM travels WHERE id=?", (travel_id,))
-    conn.commit()
-    conn.close()
-    return redirect('/')
+    except Exception as e:
+        print(f"Error en delete_travel: {e}")
+        return redirect('/')
 
 # Marcar viaje como visitado/no visitado
 @app.route('/toggle_travel_status', methods=['POST'])
 def toggle_travel_status():
     if 'username' not in session:
         return redirect('/')
-    travel_id = request.form['travel_id']
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    c.execute("SELECT is_visited FROM travels WHERE id=?", (travel_id,))
-    current_status = c.fetchone()[0]
-    new_status = 0 if current_status else 1
-    c.execute("UPDATE travels SET is_visited=? WHERE id=?", (new_status, travel_id))
-    conn.commit()
-    conn.close()
-    return redirect('/')
+    
+    try:
+        travel_id = request.form['travel_id']
+        conn = sqlite3.connect('database.db')
+        c = conn.cursor()
+        c.execute("SELECT is_visited FROM travels WHERE id=?", (travel_id,))
+        current_status = c.fetchone()[0]
+        new_status = 0 if current_status else 1
+        c.execute("UPDATE travels SET is_visited=? WHERE id=?", (new_status, travel_id))
+        conn.commit()
+        conn.close()
+        return redirect('/')
+    
+    except Exception as e:
+        print(f"Error en toggle_travel_status: {e}")
+        return redirect('/')
 
-# Eliminar elemento de la lista de deseos
+# Eliminar elemento de la lista de deseos - MEJORADO con manejo de errores
 @app.route('/delete_wishlist_item', methods=['POST'])
 def delete_wishlist_item():
     if 'username' not in session:
         return redirect('/')
-    item_id = request.form['item_id']
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    c.execute("DELETE FROM wishlist WHERE id=?", (item_id,))
-    conn.commit()
-    conn.close()
-    return redirect('/')
+    
+    try:
+        item_id = request.form['item_id']
+        user = session['username']
+        
+        conn = sqlite3.connect('database.db')
+        c = conn.cursor()
+        
+        # Verificar que el usuario es el creador del item para mayor seguridad
+        c.execute("SELECT created_by FROM wishlist WHERE id=?", (item_id,))
+        result = c.fetchone()
+        
+        if result and result[0] == user:
+            c.execute("DELETE FROM wishlist WHERE id=?", (item_id,))
+            conn.commit()
+        
+        conn.close()
+        return redirect('/')
+    
+    except Exception as e:
+        print(f"Error en delete_wishlist_item: {e}")
+        return redirect('/')
 
 # Editar elemento de la lista de deseos
 @app.route('/edit_wishlist_item', methods=['POST'])
 def edit_wishlist_item():
     if 'username' not in session:
         return redirect('/')
-    item_id = request.form['item_id']
-    product_name = request.form['product_name'].strip()
-    product_link = request.form.get('product_link', '').strip()
-    notes = request.form.get('notes', '').strip()
     
-    if product_name:
-        conn = sqlite3.connect('database.db')
-        c = conn.cursor()
-        c.execute("UPDATE wishlist SET product_name=?, product_link=?, notes=? WHERE id=?", 
-                 (product_name, product_link, notes, item_id))
-        conn.commit()
-        conn.close()
-    return redirect('/')
+    try:
+        item_id = request.form['item_id']
+        product_name = request.form['product_name'].strip()
+        product_link = request.form.get('product_link', '').strip()
+        notes = request.form.get('notes', '').strip()
+        
+        if product_name:
+            conn = sqlite3.connect('database.db')
+            c = conn.cursor()
+            c.execute("UPDATE wishlist SET product_name=?, product_link=?, notes=? WHERE id=?", 
+                     (product_name, product_link, notes, item_id))
+            conn.commit()
+            conn.close()
+        return redirect('/')
+    
+    except Exception as e:
+        print(f"Error en edit_wishlist_item: {e}")
+        return redirect('/')
 
 # Marcar elemento como comprado/no comprado
 @app.route('/toggle_wishlist_status', methods=['POST'])
 def toggle_wishlist_status():
     if 'username' not in session:
         return redirect('/')
-    item_id = request.form['item_id']
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    c.execute("SELECT is_purchased FROM wishlist WHERE id=?", (item_id,))
-    current_status = c.fetchone()[0]
-    new_status = 0 if current_status else 1
-    c.execute("UPDATE wishlist SET is_purchased=? WHERE id=?", (new_status, item_id))
-    conn.commit()
-    conn.close()
-    return redirect('/')
+    
+    try:
+        item_id = request.form['item_id']
+        conn = sqlite3.connect('database.db')
+        c = conn.cursor()
+        c.execute("SELECT is_purchased FROM wishlist WHERE id=?", (item_id,))
+        current_status = c.fetchone()[0]
+        new_status = 0 if current_status else 1
+        c.execute("UPDATE wishlist SET is_purchased=? WHERE id=?", (new_status, item_id))
+        conn.commit()
+        conn.close()
+        return redirect('/')
+    
+    except Exception as e:
+        print(f"Error en toggle_wishlist_status: {e}")
+        return redirect('/')
 
 # Actualizar ubicación
 @app.route('/update_location', methods=['POST'])
@@ -564,23 +604,28 @@ def update_location():
     if 'username' not in session:
         return jsonify({'error': 'No autorizado'}), 401
     
-    data = request.get_json()
-    location_name = data.get('location_name')
-    latitude = data.get('latitude')
-    longitude = data.get('longitude')
-    username = session['username']
-    
-    if location_name and latitude and longitude:
-        conn = sqlite3.connect('database.db')
-        c = conn.cursor()
-        c.execute("INSERT OR REPLACE INTO locations (username, location_name, latitude, longitude, updated_at) VALUES (?, ?, ?, ?, ?)",
-                 (username, location_name, latitude, longitude, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-        conn.commit()
-        conn.close()
+    try:
+        data = request.get_json()
+        location_name = data.get('location_name')
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        username = session['username']
         
-        return jsonify({'success': True, 'message': 'Ubicación actualizada correctamente'})
+        if location_name and latitude and longitude:
+            conn = sqlite3.connect('database.db')
+            c = conn.cursor()
+            c.execute("INSERT OR REPLACE INTO locations (username, location_name, latitude, longitude, updated_at) VALUES (?, ?, ?, ?, ?)",
+                     (username, location_name, latitude, longitude, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            conn.commit()
+            conn.close()
+            
+            return jsonify({'success': True, 'message': 'Ubicación actualizada correctamente'})
+        
+        return jsonify({'error': 'Datos incompletos'}), 400
     
-    return jsonify({'error': 'Datos incompletos'}), 400
+    except Exception as e:
+        print(f"Error en update_location: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
 
 # Obtener ubicaciones
 @app.route('/get_locations', methods=['GET'])
@@ -588,8 +633,13 @@ def get_locations():
     if 'username' not in session:
         return jsonify({'error': 'No autorizado'}), 401
     
-    locations = get_user_locations()
-    return jsonify(locations)
+    try:
+        locations = get_user_locations()
+        return jsonify(locations)
+    
+    except Exception as e:
+        print(f"Error en get_locations: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
 
 @app.route('/horario')
 def horario():
@@ -602,57 +652,67 @@ def get_schedules():
     if 'username' not in session:
         return jsonify({'error': 'No autorizado'}), 401
     
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    
-    # Obtener todos los horarios de la base de datos
-    c.execute("SELECT username, day, time, activity, color FROM schedules")
-    rows = c.fetchall()
-    conn.close()
-    
-    # Estructurar los datos
-    schedules = {
-        'mochito': {},
-        'mochita': {}
-    }
-    
-    for username, day, time, activity, color in rows:
-        if day not in schedules[username]:
-            schedules[username][day] = {}
-        schedules[username][day][time] = {
-            'activity': activity,
-            'color': color
+    try:
+        conn = sqlite3.connect('database.db')
+        c = conn.cursor()
+        
+        # Obtener todos los horarios de la base de datos
+        c.execute("SELECT username, day, time, activity, color FROM schedules")
+        rows = c.fetchall()
+        conn.close()
+        
+        # Estructurar los datos
+        schedules = {
+            'mochito': {},
+            'mochita': {}
         }
+        
+        for username, day, time, activity, color in rows:
+            if day not in schedules[username]:
+                schedules[username][day] = {}
+            schedules[username][day][time] = {
+                'activity': activity,
+                'color': color
+            }
+        
+        return jsonify(schedules)
     
-    return jsonify(schedules)
+    except Exception as e:
+        print(f"Error en get_schedules: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
 
 @app.route('/api/schedules', methods=['POST'])
 def save_schedules():
     if 'username' not in session:
         return jsonify({'error': 'No autorizado'}), 401
     
-    data = request.get_json()
+    try:
+        data = request.get_json()
+        
+        conn = sqlite3.connect('database.db')
+        c = conn.cursor()
+        
+        # Limpiar horarios existentes
+        c.execute("DELETE FROM schedules")
+        
+        # Insertar nuevos horarios
+        for username in ['mochito', 'mochita']:
+            for day, times in data[username].items():
+                for time, activity_data in times.items():
+                    if activity_data['activity']:  # Solo guardar si hay actividad
+                        c.execute(
+                            "INSERT INTO schedules (username, day, time, activity, color) VALUES (?, ?, ?, ?, ?)",
+                            (username, day, time, activity_data['activity'], activity_data['color'])
+                        )
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True})
     
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    
-    # Limpiar horarios existentes
-    c.execute("DELETE FROM schedules")
-    
-    # Insertar nuevos horarios
-    for username in ['mochito', 'mochita']:
-        for day, times in data[username].items():
-            for time, activity_data in times.items():
-                if activity_data['activity']:  # Solo guardar si hay actividad
-                    c.execute(
-                        "INSERT INTO schedules (username, day, time, activity, color) VALUES (?, ?, ?, ?, ?)",
-                        (username, day, time, activity_data['activity'], activity_data['color'])
-                    )
-    
-    conn.commit()
-    conn.close()
-    
-    return jsonify({'success': True})
+    except Exception as e:
+        print(f"Error en save_schedules: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
 
 @app.route('/logout')
 def logout():

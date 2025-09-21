@@ -3,15 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Christian y Clara 💖 - Álbumes</title>
+    <title>Christian y Clara 💖</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Montserrat:wght@300;400;500;600;700&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
-          crossorigin=""/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root {
             --primary-color: #e84393;
@@ -23,6 +20,9 @@
             --card-bg: rgba(255, 255, 255, 0.95);
             --shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
             --gradient: linear-gradient(135deg, #e84393 0%, #fd79a8 50%, #a29bfe 100%);
+            --visited-color: #00b894;
+            --wishlist-color: #fd79a8;
+            --purchased-color: #b2bec3;
         }
         
         * {
@@ -56,10 +56,11 @@
         }
         
         .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    padding-bottom: 40px; /* Añade espacio para el footer */
+}
         
         /* Header y banner */
         .banner {
@@ -194,6 +195,7 @@
         input[type="text"],
         input[type="password"],
         input[type="date"],
+        input[type="url"],
         input[type="file"],
         textarea {
             background: #f8f8f8;
@@ -231,6 +233,15 @@
             transition: all 0.5s ease;
             z-index: -1;
         }
+
+        .autor-link {
+    text-decoration: none;   /* quita subrayado */
+    color: inherit;          /* hereda el color del texto normal */
+    font-weight: bold;       /* opcional: en negrita para destacarlo */
+}
+.autor-link:hover {
+    color: red;              /* opcional: al pasar el mouse cambia de color */
+}
         
         button:hover::before {
             width: 100%;
@@ -263,362 +274,6 @@
             background: var(--primary-color);
             color: white;
             transform: translateY(-3px);
-        }
-        
-        /* Estilos para el mapa */
-        .leaflet-container {
-            border-radius: 15px;
-            z-index: 1;
-        }
-
-        .distance-info {
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        .location-tag {
-            background: rgba(255, 255, 255, 0.8);
-            padding: 10px 20px;
-            border-radius: 50px;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .airplane-marker {
-            transition: transform 0.5s ease;
-        }
-
-        .airplane-marker.animated {
-            animation: fly 5s linear infinite;
-        }
-
-        @keyframes fly {
-            0% { transform: translate(0, 0) rotate(0deg); }
-            25% { transform: translate(10px, -5px) rotate(5deg); }
-            50% { transform: translate(0, -10px) rotate(0deg); }
-            75% { transform: translate(-10px, -5px) rotate(-5deg); }
-            100% { transform: translate(0, 0) rotate(0deg); }
-        }
-
-        .distance-line {
-            stroke: #e84393;
-            stroke-width: 3;
-            stroke-dasharray: 10;
-            animation: dash 30s linear infinite;
-        }
-
-        @keyframes dash {
-            to {
-                stroke-dashoffset: 1000;
-            }
-        }
-        
-        .location-status {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-top: 15px;
-            flex-wrap: wrap;
-        }
-        
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.9rem;
-        }
-        
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-        
-        .status-online {
-            background-color: #4cd964;
-        }
-        
-        .status-offline {
-            background-color: #ff3b30;
-        }
-        
-        /* Nuevos estilos para álbumes mejorados */
-        .albums-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 25px;
-            margin-top: 20px;
-        }
-
-        .album-card {
-            background: white;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-            transition: all 0.3s ease;
-            position: relative;
-        }
-
-        .album-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
-        }
-
-        .album-cover {
-            position: relative;
-            height: 220px;
-            overflow: hidden;
-            cursor: pointer;
-        }
-
-        .album-cover img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.5s ease;
-        }
-
-        .album-card:hover .album-cover img {
-            transform: scale(1.05);
-        }
-
-        .empty-album {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #ffe8f3 0%, #fbc2eb 100%);
-            color: #e84393;
-        }
-
-        .empty-album i {
-            font-size: 3rem;
-            margin-bottom: 10px;
-        }
-
-        .album-actions {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            display: flex;
-            gap: 10px;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .album-card:hover .album-actions {
-            opacity: 1;
-        }
-
-        .icon-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border: none;
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(5px);
-            color: #e84393;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s ease;
-        }
-
-        .icon-btn:hover {
-            background: #e84393;
-            color: white;
-            transform: scale(1.1);
-        }
-
-        .album-info {
-            padding: 20px;
-        }
-
-        .album-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.4rem;
-            color: var(--dark-text);
-            margin-bottom: 8px;
-            font-weight: 700;
-        }
-
-        .album-meta {
-            color: #777;
-            font-size: 0.9rem;
-            margin: 0;
-        }
-
-        /* Modal styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(5px);
-            overflow: auto;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .modal-content {
-            background-color: #fff;
-            margin: 2% auto;
-            border-radius: 16px;
-            width: 90%;
-            max-width: 1200px;
-            position: relative;
-            animation: slideIn 0.3s ease;
-            max-height: 90vh;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        @keyframes slideIn {
-            from { transform: translateY(-50px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        .modal-header {
-            padding: 20px 25px;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .close-modal {
-            color: #aaa;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: color 0.2s ease;
-        }
-
-        .close-modal:hover {
-            color: #e84393;
-        }
-
-        .modal-body {
-            padding: 25px;
-            overflow-y: auto;
-        }
-
-        .album-full-view {
-            width: 100%;
-        }
-
-        .album-photos-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-        }
-
-        .photo-thumb {
-            width: 100%;
-            height: 180px;
-            object-fit: cover;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .photo-thumb:hover {
-            transform: scale(1.03);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-        }
-
-        .modal-photo {
-            max-width: 100%;
-            max-height: 70vh;
-            display: block;
-            margin: 0 auto;
-            border-radius: 8px;
-        }
-
-        .photo-info {
-            padding: 20px;
-            text-align: center;
-        }
-
-        .btn-danger {
-            background: #ff4757;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            margin-top: 15px;
-        }
-
-        .btn-danger:hover {
-            background: #ff2e43;
-            transform: translateY(-2px);
-        }
-
-        /* Formulario de edición de título */
-        .edit-title-form {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .edit-title-input {
-            flex: 1;
-            padding: 10px 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-family: 'Montserrat', sans-serif;
-        }
-
-        /* Pregunta del día */
-        .question {
-            font-size: 1.4rem;
-            margin-bottom: 20px;
-            color: var(--dark-text);
-            font-weight: 600;
-            line-height: 1.5;
-            padding: 20px;
-            background: rgba(162, 155, 254, 0.1);
-            border-radius: 15px;
-            border-left: 5px solid var(--accent-color);
-        }
-        
-        .answers {
-            margin-top: 25px;
-        }
-        
-        .answer-item {
-            background: #f8f8f8;
-            padding: 15px 20px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-            border-left: 5px solid var(--accent-color);
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--gradient);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
         }
         
         /* Contadores */
@@ -744,14 +399,546 @@
             100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
         }
         
+        /* Estilos para la sección de viajes */
+        .travel-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .travel-tab {
+            padding: 12px 25px;
+            cursor: pointer;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .travel-tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        
+        .travel-tab:hover:not(.active) {
+            color: var(--secondary-color);
+        }
+        
+        .travel-content {
+            display: none;
+        }
+        
+        .travel-content.active {
+            display: block;
+        }
+        
+        .travels-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+        
+        .travel-card {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .travel-card.visited {
+            border-left: 5px solid var(--visited-color);
+        }
+        
+        .travel-card.wishlist {
+            border-left: 5px solid var(--wishlist-color);
+        }
+        
+        .travel-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+        }
+        
+        .travel-cover {
+            position: relative;
+            height: 180px;
+            overflow: hidden;
+        }
+        
+        .travel-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+        
+        .travel-card:hover .travel-cover img {
+            transform: scale(1.05);
+        }
+        
+        .travel-status {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .status-visited {
+            background: var(--visited-color);
+        }
+        
+        .status-wishlist {
+            background: var(--wishlist-color);
+        }
+        
+        .travel-info {
+            padding: 20px;
+        }
+        
+        .travel-destination {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.3rem;
+            color: var(--dark-text);
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+        
+        .travel-date {
+            color: #777;
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+        }
+        
+        .travel-description {
+            color: #555;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+        
+        .travel-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #888;
+        }
+        
+        .travel-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .travel-form {
+            margin-top: 25px;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 12px;
+        }
+        
+        /* Estilos para la lista de deseos */
+        .wishlist-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .wishlist-tab {
+            padding: 12px 25px;
+            cursor: pointer;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .wishlist-tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        
+        .wishlist-tab:hover:not(.active) {
+            color: var(--secondary-color);
+        }
+        
+        .wishlist-content {
+            display: none;
+        }
+        
+        .wishlist-content.active {
+            display: block;
+        }
+        
+        .wishlist-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+        
+        .wishlist-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .wishlist-card.purchased {
+            opacity: 0.7;
+            border-left: 5px solid var(--purchased-color);
+        }
+        
+        .wishlist-card:not(.purchased) {
+            border-left: 5px solid var(--wishlist-color);
+        }
+        
+        .wishlist-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+        }
+        
+        .wishlist-status {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .status-purchased {
+            background: var(--purchased-color);
+        }
+        
+        .status-wanted {
+            background: var(--wishlist-color);
+        }
+        
+        .wishlist-product {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.3rem;
+            color: var(--dark-text);
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+        
+        .wishlist-link {
+            color: var(--accent-color);
+            margin-bottom: 12px;
+            display: block;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        
+        .wishlist-link:hover {
+            color: var(--primary-color);
+            text-decoration: underline;
+        }
+        
+        .wishlist-notes {
+            color: #555;
+            margin-bottom: 15px;
+            line-height: 1.5;
+            font-style: italic;
+        }
+        
+        .wishlist-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #888;
+        }
+        
+        .wishlist-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .wishlist-form {
+            margin-top: 25px;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 12px;
+        }
+        
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(5px);
+            color: #e84393;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        
+        .icon-btn:hover {
+            background: #e84393;
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        /* Modal para editar elementos de la lista de deseos */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
+            overflow: auto;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+            animation: slideIn 0.3s ease;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .modal-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .close-modal {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        
+        .close-modal:hover {
+            color: #e84393;
+        }
+        
+        .modal-body {
+            padding: 25px;
+            overflow-y: auto;
+        }
+        
+        /* Pregunta del día */
+        .question {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            color: var(--dark-text);
+            font-weight: 600;
+            line-height: 1.5;
+            padding: 20px;
+            background: rgba(162, 155, 254, 0.1);
+            border-radius: 15px;
+            border-left: 5px solid var(--accent-color);
+        }
+        
+        .answers {
+            margin-top: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .answer-item {
+            background: #f8f8f8;
+            padding: 15px 20px;
+            border-radius: 12px;
+            border-left: 5px solid var(--accent-color);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* Estilos para el mapa de distancia */
+        .distance-map-container {
+            margin-top: 20px;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            height: 400px;
+            position: relative;
+        }
+        
+        #distanceMap {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+        
+        .distance-info {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            z-index: 2;
+            max-width: 300px;
+            backdrop-filter: blur(5px);
+        }
+        
+        .distance-info h4 {
+            margin-bottom: 10px;
+            color: var(--primary-color);
+            font-family: 'Playfair Display', serif;
+        }
+        
+        .distance-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent-color);
+            margin: 10px 0;
+        }
+        
+        .location-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .location-form input {
+            margin-bottom: 0;
+            padding: 10px 15px;
+        }
+        
+        .location-form button {
+            padding: 10px 15px;
+        }
+        
+        .location-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 10px;
+            border-radius: 20px;
+            background: var(--gradient);
+            color: white;
+            font-size: 0.8rem;
+            margin-top: 5px;
+        }
+        
+        .location-badge img {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        /* Perfil de usuario */
+        .profile-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .profile-picture {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--primary-color);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .profile-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .profile-form input[type="file"] {
+            display: none;
+        }
+        
+        .profile-form label {
+            background: var(--gradient);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 50px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .profile-form label:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(232, 67, 147, 0.4);
+        }
+        
         /* Responsive */
         @media (max-width: 992px) {
             .banner h1 {
                 font-size: 3.5rem;
             }
             
-            .albums-grid {
+            .travels-grid {
                 grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            }
+            
+            .wishlist-grid {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            }
+            
+            .distance-info {
+                max-width: 250px;
             }
         }
         
@@ -789,8 +976,37 @@
                 display: inline-flex;
             }
             
-            .albums-grid {
+            .travels-grid {
                 grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            }
+            
+            .wishlist-grid {
+                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            }
+            
+            .travel-tabs, .wishlist-tabs {
+                flex-wrap: wrap;
+            }
+            
+            .travel-tab, .wishlist-tab {
+                padding: 8px 15px;
+            }
+            
+            .distance-map-container {
+                height: 350px;
+            }
+            
+            .distance-info {
+                position: relative;
+                top: 0;
+                right: 0;
+                max-width: 100%;
+                margin-bottom: 15px;
+            }
+            
+            .profile-section {
+                flex-direction: column;
+                text-align: center;
             }
         }
         
@@ -811,12 +1027,21 @@
                 padding: 30px 20px;
             }
             
-            .albums-grid {
+            .travels-grid {
                 grid-template-columns: 1fr;
             }
             
-            .album-photos-grid {
-                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            .wishlist-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .distance-map-container {
+                height: 300px;
+            }
+            
+            .user-avatar {
+                width: 40px;
+                height: 40px;
             }
         }
         
@@ -833,45 +1058,84 @@
         .delay-1 { animation-delay: 0.2s; }
         .delay-2 { animation-delay: 0.4s; }
         .delay-3 { animation-delay: 0.6s; }
+        .delay-4 { animation-delay: 0.8s; }
+
+
+        /* Footer */
+.site-footer {
+    background: var(--gradient);
+    color: white;
+    text-align: center;
+    padding: 20px;
+    margin-top: 40px;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.site-footer::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.site-footer p {
+    margin: 0;
+    font-weight: 500;
+    font-size: 1rem;
+}
+
+        /* Icono de ajustes */
+.settings-icon {
+    position: fixed;
+    top: 30px;
+    left: 30px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: white;
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    box-shadow: var(--shadow);
+    z-index: 1000;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.settings-icon:hover {
+    background: var(--primary-color);
+    color: white;
+    transform: translateY(-3px) rotate(45deg);
+}
     </style>
 </head>
 <body>
 <!-- Corazones flotantes de fondo -->
 <div class="floating-hearts" id="hearts-container"></div>
 
-<!-- Modal para ver álbum completo -->
-<div id="albumModal" class="modal">
+<!-- Modal para editar elemento de la lista de deseos -->
+<div id="editWishlistModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2 id="modalAlbumTitle">Título del Álbum</h2>
+            <h2>Editar producto</h2>
             <span class="close-modal">&times;</span>
         </div>
         <div class="modal-body">
-            <div class="album-full-view">
-                <div class="album-photos-grid" id="albumPhotosContainer">
-                    <!-- Las fotos se cargarán aquí dinámicamente -->
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal para ver foto individual -->
-<div id="photoModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 id="modalPhotoTitle">Foto</h3>
-            <span class="close-modal">&times;</span>
-        </div>
-        <div class="modal-body">
-            <img class="modal-photo" id="modalPhoto" src="">
-            <div class="photo-info">
-                <p id="photoUploader"></p>
-                <form method="POST" action="/delete_photo" class="delete-photo-form">
-                    <input type="hidden" name="photo_id" id="photoToDelete">
-                    <button type="submit" class="btn-danger"><i class="fas fa-trash"></i> Eliminar foto</button>
-                </form>
-            </div>
+            <form method="POST" action="/edit_wishlist_item" id="editWishlistForm">
+                <input type="hidden" name="item_id" id="editItemId">
+                <input type="text" name="product_name" id="editProductName" placeholder="Nombre del producto" required>
+                <input type="url" name="product_link" id="editProductLink" placeholder="Enlace (opcional)">
+                <textarea name="notes" id="editNotes" placeholder="Notas (opcional)" rows="3"></textarea>
+                <button type="submit"><i class="fas fa-save"></i> Guardar cambios</button>
+            </form>
         </div>
     </div>
 </div>
@@ -915,9 +1179,46 @@
     </div>
 </div>
 
+<!-- Icono de ajustes en esquina superior izquierda -->
+<div class="settings-icon" id="settingsIcon">
+    <i class="fas fa-user-cog"></i>
+</div>
+
+<!-- Modal de perfil (oculto inicialmente) -->
+<div id="profileModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Mi Perfil</h2>
+            <span class="close-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="profile-section">
+                {% if profile_pictures[session.username] %}
+                    <img src="/uploads/{{ profile_pictures[session.username] }}" alt="Foto de perfil" class="profile-picture">
+                {% else %}
+                    <div class="profile-picture" style="background: var(--gradient); display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; font-weight: bold;">
+                        {{ session.username[0]|upper }}
+                    </div>
+                {% endif %}
+                <div>
+                    <h4>Hola, {{ session.username }}</h4>
+                    <p>Actualiza tu foto de perfil.</p>
+                </div>
+            </div>
+            <form method="POST" enctype="multipart/form-data" class="profile-form">
+                <label for="profile-upload" class="custom-file-upload">
+                    <i class="fas fa-user-circle"></i> Elegir foto de perfil
+                </label>
+                <input id="profile-upload" type="file" name="profile_picture" accept="image/*" style="display: none;">
+                <button type="submit" name="update_profile"><i class="fas fa-sync-alt"></i> Actualizar foto</button>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Contadores -->
 <div class="section animate-in delay-1">
-    <h3>Nuestra Historia</h3>
+    <h3>Nosotros</h3>
     <div class="counters">
         <div class="counter-item">
             <h4>Días juntos</h4>
@@ -936,51 +1237,69 @@
     </form>
 </div>
 
-<!-- Mapa de distancia en tiempo real -->
+<!-- Mapa de Distancia -->
 <div class="section animate-in delay-2">
-    <h3>Nuestra Distancia en Tiempo Real</h3>
-    <div id="distance-map" style="height: 400px; border-radius: 15px; overflow: hidden; margin-bottom: 20px;"></div>
-    <div class="distance-info">
-        <p id="distance-text" style="text-align: center; font-size: 1.2rem; margin-bottom: 15px;">
-            <i class="fas fa-road"></i> Distancia actual: <span id="km">{% if current_distance %}{{ current_distance }}{% else %}0{% endif %}</span> km
-        </p>
-        <div style="display: flex; justify-content: center; gap: 20px;">
-            <div class="location-tag">
-                <i class="fas fa-map-marker-alt" style="color: #e84393;"></i> 
-                <span id="valencia-name">Christian</span>
+    <h3>Distancia</h3>
+    <p>Cuánta distancia hay entre nosotros.</p>
+    
+    <div class="distance-map-container">
+        <div id="distanceMap"></div>
+        <div class="distance-info">
+            <h4>Distancia entre nosotros</h4>
+            <div class="distance-value" id="distanceValue">Cargando...</div>
+            <div id="locationInfo">
+                <div class="location-badge">
+                    {% if profile_pictures['mochito'] %}
+                        <img src="/uploads/{{ profile_pictures['mochito'] }}" alt="Christian">
+                    {% else %}
+                        <span>C</span>
+                    {% endif %}
+                    <span id="christianLocation">Algemesí, Valencia</span>
+                </div>
+                <div class="location-badge">
+                    {% if profile_pictures['mochita'] %}
+                        <img src="/uploads/{{ profile_pictures['mochita'] }}" alt="Clara">
+                    {% else %}
+                        <span>C</span>
+                    {% endif %}
+                    <span id="claraLocation">Córdoba</span>
+                </div>
             </div>
-            <div class="location-tag">
-                <i class="fas fa-map-marker-alt" style="color: #a29bfe;"></i> 
-                <span id="cordoba-name">Clara</span>
-            </div>
-        </div>
-        <div class="location-status">
-            <div class="status-indicator">
-                <span class="status-dot status-online" id="status-tu"></span>
-                <span>Christian: <span id="status-text-tu">Conectado</span></span>
-            </div>
-            <div class="status-indicator">
-                <span class="status-dot status-offline" id="status-novia"></span>
-                <span>Clara: <span id="status-text-novia">Desconectado</span></span>
-            </div>
-        </div>
-        <div style="text-align: center; margin-top: 15px;">
-            <button id="locate-me" class="icon-btn">
-                <i class="fas fa-location-crosshairs"></i> Actualizar mi ubicación
-            </button>
+            
+            <form class="location-form" id="locationForm">
+                <input type="text" id="userLocation" placeholder="Tu ubicación actual" required>
+                <button type="submit"><i class="fas fa-map-marker-alt"></i> Actualizar ubicación</button>
+            </form>
         </div>
     </div>
 </div>
 
+<!-- Sección de Horarios -->
+<div class="section animate-in delay-2">
+    <h3>Nuestros Horarios</h3>
+    <p>Nuestros horarios y activiades (editables).</p>
+    <a href="/horario">
+        <button style="width: 100%;">
+            <i class="fas fa-calendar-alt"></i> Ver Horarios
+        </button>
+    </a>
+</div>
+
 <!-- Pregunta diaria -->
-<div class="section animate-in delay-3">
+<div class="section animate-in delay-2">
     <h3>Pregunta del día</h3>
     <p class="question"><b>{{ question }}</b></p>
     {% if show_answers %}
         <div class="answers">
             {% for u, a in answers %}
                 <div class="answer-item">
-                    <div class="user-avatar">{{ u[0] }}</div>
+                    <div class="user-avatar">
+                        {% if profile_pictures[u] %}
+                            <img src="/uploads/{{ profile_pictures[u] }}" alt="{{ u }}">
+                        {% else %}
+                            {{ u[0]|upper }}
+                        {% endif %}
+                    </div>
                     <div>
                         <b>{{ u }}:</b> {{ a }}
                     </div>
@@ -1000,78 +1319,296 @@
     {% endif %}
 </div>
 
-<!-- Álbumes -->
-<div class="section">
-    <h3>Nuestros Recuerdos</h3>
-    <form method="POST" class="inline-form">
-        <input type="text" name="album_name" placeholder="Nombre del nuevo álbum" required>
-        <button type="submit"><i class="fas fa-plus"></i> Crear álbum</button>
-    </form>
-
-    <div class="albums-grid">
-        {% for id, name, created_by in albums %}
-        <div class="album-card">
-            <div class="album-cover" onclick="openAlbum({{ id }}, '{{ name }}')">
-                {% if photos_dict[id] %}
-                    <img src="/uploads/{{ photos_dict[id][0][1] }}" alt="{{ name }}">
-                {% else %}
-                    <div class="empty-album">
-                        <i class="fas fa-images"></i>
-                        <p>Álbum vacío</p>
-                    </div>
+<!-- Sección de Lista de Deseos -->
+<div class="section animate-in delay-3">
+    <h3>Nuestra Lista de Deseos</h3>
+    <p>Cosas que nos gustaría tener o regalarnos mutuamente.</p>
+    
+    <div class="wishlist-tabs" id="wishlist-tabs-container">
+        <div class="wishlist-tab active" data-tab="wanted">Deseados</div>
+        <div class="wishlist-tab" data-tab="purchased">Comprados</div>
+        <div class="wishlist-tab" data-tab="add-wishlist">Añadir Deseo</div>
+    </div>
+    
+    <div class="wishlist-content active" id="wanted-tab">
+        <div class="wishlist-grid">
+            {% for id, product_name, product_link, notes, created_by, created_at, is_purchased in wishlist_items if not is_purchased %}
+            <div class="wishlist-card">
+                <div class="wishlist-status status-wanted">Deseado</div>
+                <h3 class="wishlist-product">{{ product_name }}</h3>
+                {% if product_link %}
+                <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+                    <i class="fas fa-link"></i> Ver producto
+                </a>
                 {% endif %}
-                <div class="album-actions">
-                    <form method="POST" action="/delete_album" class="delete-form">
-                        <input type="hidden" name="album_id" value="{{ id }}">
-                        <button type="submit" class="icon-btn" title="Eliminar álbum">
+                {% if notes %}
+                <p class="wishlist-notes">{{ notes }}</p>
+                {% endif %}
+                <div class="wishlist-meta">
+                    <span>
+                        <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                            {% if profile_pictures[created_by] %}
+                                <img src="/uploads/{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                            {% else %}
+                                {{ created_by[0]|upper }}
+                            {% endif %}
+                        </div>
+                        Creado por {{ created_by }}
+                    </span>
+                    <span>{{ created_at[:10] }}</span>
+                </div>
+                
+                <div class="wishlist-actions">
+                    <form method="POST" action="/toggle_wishlist_status">
+                        <input type="hidden" name="item_id" value="{{ id }}">
+                        <button type="submit" class="icon-btn" title="Marcar como comprado">
+                            <i class="fas fa-check"></i>
+                        </button>
+                    </form>
+                    <button class="icon-btn" title="Editar" onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`)">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+                        <input type="hidden" name="item_id" value="{{ id }}">
+                        <button type="submit" class="icon-btn" title="Eliminar">
                             <i class="fas fa-trash"></i>
                         </button>
                     </form>
                 </div>
             </div>
-            <div class="album-info">
-                <h3 class="album-title">{{ name }}</h3>
-                <p class="album-meta">{{ photos_dict[id]|length }} fotos • Creado por {{ created_by }}</p>
-                
-                <form method="POST" action="/edit_album_title" class="edit-title-form">
-                    <input type="hidden" name="album_id" value="{{ id }}">
-                    <input type="text" name="new_title" value="{{ name }}" class="edit-title-input" required>
-                    <button type="submit" class="icon-btn" title="Guardar cambios"><i class="fas fa-check"></i></button>
-                </form>
-                
-                <form method="POST" enctype="multipart/form-data" class="inline-form">
-                    <input type="hidden" name="album_id" value="{{ id }}">
-                    <label for="photo-upload-{{ id }}" class="custom-file-upload">
-                        <i class="fas fa-camera"></i> Añadir foto
-                    </label>
-                    <input id="photo-upload-{{ id }}" type="file" name="photo" accept="image/*" required style="display: none;">
-                    <button type="submit"><i class="fas fa-cloud-upload-alt"></i> Subir</button>
-                </form>
-            </div>
+            {% else %}
+            <p>No hay productos en tu lista de deseos. ¡Añade el primero!</p>
+            {% endfor %}
         </div>
-        {% endfor %}
+    </div>
+    
+    <div class="wishlist-content" id="purchased-tab">
+        <div class="wishlist-grid">
+            {% for id, product_name, product_link, notes, created_by, created_at, is_purchased in wishlist_items if is_purchased %}
+            <div class="wishlist-card purchased">
+                <div class="wishlist-status status-purchased">Comprado</div>
+                <h3 class="wishlist-product">{{ product_name }}</h3>
+                {% if product_link %}
+                <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+                    <i class="fas fa-link"></i> Ver producto
+                </a>
+                {% endif %}
+                {% if notes %}
+                <p class="wishlist-notes">{{ notes }}</p>
+                {% endif %}
+                <div class="wishlist-meta">
+                    <span>
+                        <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                            {% if profile_pictures[created_by] %}
+                                <img src="/uploads/{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                            {% else %}
+                                {{ created_by[0]|upper }}
+                            {% endif %}
+                        </div>
+                        Creado por {{ created_by }}
+                    </span>
+                    <span>{{ created_at[:10] }}</span>
+                </div>
+                
+                <div class="wishlist-actions">
+                    <form method="POST" action="/toggle_wishlist_status">
+                        <input type="hidden" name="item_id" value="{{ id }}">
+                        <button type="submit" class="icon-btn" title="Marcar como no comprado">
+                            <i class="fas fa-undo"></i>
+                        </button>
+                    </form>
+                    <button class="icon-btn" title="Editar" onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`)">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+                        <input type="hidden" name="item_id" value="{{ id }}">
+                        <button type="submit" class="icon-btn" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <p>No hay productos comprados todavía.</p>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="wishlist-content" id="add-wishlist-tab">
+        <div class="wishlist-form">
+            <h4>Añadir nuevo producto</h4>
+            <form method="POST">
+                <input type="text" name="product_name" placeholder="Nombre del producto" required>
+                <input type="url" name="product_link" placeholder="Enlace (opcional)">
+                <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
+                <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Sección de Viajes -->
+<div class="section animate-in delay-4">
+    <h3>Nuestros Viajes</h3>
+    <p>Lugares que hemos visitado y destinos que soñamos conocer juntos.</p>
+    
+    <div class="travel-tabs" id="travel-tabs-container">
+        <div class="travel-tab active" data-tab="visited">Lugares Visitados</div>
+        <div class="travel-tab" data-tab="wishlist-travel">Quiero Ir</div>
+        <div class="travel-tab" data-tab="add-travel">Añadir Viaje</div>
+    </div>
+    
+    <div class="travel-content active" id="visited-tab">
+        <div class="travels-grid">
+            {% for id, destination, description, travel_date, is_visited, created_by in travels if is_visited %}
+            <div class="travel-card visited">
+                <div class="travel-cover">
+                    {% if travel_photos_dict[id] %}
+                        <img src="/uploads/{{ travel_photos_dict[id][0][1] }}" alt="{{ destination }}">
+                    {% else %}
+                        <div class="empty-album">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                    {% endif %}
+                    <div class="travel-status status-visited">Visitado</div>
+                </div>
+                <div class="travel-info">
+                    <h3 class="travel-destination">{{ destination }}</h3>
+                    {% if travel_date %}
+                    <p class="travel-date">{{ travel_date }}</p>
+                    {% endif %}
+                    {% if description %}
+                    <p class="travel-description">{{ description }}</p>
+                    {% endif %}
+                    <div class="travel-meta">
+                        <span>{{ travel_photos_dict[id]|length }} fotos</span>
+                        <span>
+                            <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                                {% if profile_pictures[created_by] %}
+                                    <img src="/uploads/{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                                {% else %}
+                                    {{ created_by[0]|upper }}
+                                {% endif %}
+                            </div>
+                            Creado por {{ created_by }}
+                        </span>
+                    </div>
+                    
+                    <div class="travel-actions">
+                        <form method="POST" action="/toggle_travel_status">
+                            <input type="hidden" name="travel_id" value="{{ id }}">
+                            <button type="submit" class="icon-btn" title="Mover a deseados">
+                                <i class="fas fa-heart"></i>
+                            </button>
+                        </form>
+                        <form method="POST" enctype="multipart/form-data" class="travel-photo-form">
+                            <input type="hidden" name="travel_id" value="{{ id }}">
+                            <label for="travel-photo-{{ id }}" class="icon-btn" title="Añadir foto">
+                                <i class="fas fa-camera"></i>
+                            </label>
+                            <input id="travel-photo-{{ id }}" type="file" name="travel_photo" accept="image/*" style="display: none;" onchange="this.form.submit()">
+                        </form>
+                        <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
+                            <input type="hidden" name="travel_id" value="{{ id }}">
+                            <button type="submit" class="icon-btn" title="Eliminar viaje">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            </form>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <p>No hay lugares visitados todavía. ¡Añade el primero!</p>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="travel-content" id="wishlist-travel-tab">
+        <div class="travels-grid">
+            {% for id, destination, description, travel_date, is_visited, created_by in travels if not is_visited %}
+            <div class="travel-card wishlist">
+                <div class="travel-cover">
+                    {% if travel_photos_dict[id] %}
+                        <img src="/uploads/{{ travel_photos_dict[id][0][1] }}" alt="{{ destination }}">
+                    {% else %}
+                        <div class="empty-album">
+                            <i class="fas fa-heart"></i>
+                        </div>
+                    {% endif %}
+                    <div class="travel-status status-wishlist">Deseado</div>
+                </div>
+                <div class="travel-info">
+                    <h3 class="travel-destination">{{ destination }}</h3>
+                    {% if description %}
+                    <p class="travel-description">{{ description }}</p>
+                    {% endif %}
+                    <div class="travel-meta">
+                        <span>{{ travel_photos_dict[id]|length }} fotos</span>
+                        <span>
+                            <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                                {% if profile_pictures[created_by] %}
+                                    <img src="/uploads/{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                                {% else %}
+                                    {{ created_by[0]|upper }}
+                                {% endif %}
+                            </div>
+                            Creado por {{ created_by }}
+                        </span>
+                    </div>
+                    
+                    <div class="travel-actions">
+                        <form method="POST" action="/toggle_travel_status">
+                            <input type="hidden" name="travel_id" value="{{ id }}">
+                            <button type="submit" class="icon-btn" title="Marcar como visitado">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        </form>
+                        <form method="POST" enctype="multipart/form-data" class="travel-photo-form">
+                            <input type="hidden" name="travel_id" value="{{ id }}">
+                            <label for="travel-photo-{{ id }}" class="icon-btn" title="Añadir foto">
+                                <i class="fas fa-camera"></i>
+                            </label>
+                            <input id="travel-photo-{{ id }}" type="file" name="travel_photo" accept="image/*" style="display: none;" onchange="this.form.submit()">
+                        </form>
+                        <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
+                            <input type="hidden" name="travel_id" value="{{ id }}">
+                            <button type="submit" class="icon-btn" title="Eliminar viaje">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <p>No hay destinos en tu lista de deseos. ¡Añade el primero!</p>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="travel-content" id="add-travel-tab">
+        <div class="travel-form">
+            <h4>Añadir nuevo viaje</h4>
+            <form method="POST">
+                <input type="text" name="travel_destination" placeholder="Destino" required>
+                <textarea name="travel_description" placeholder="Descripción (opcional)" rows="3"></textarea>
+                <input type="date" name="travel_date">
+                <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                    <input type="checkbox" id="travel_visited" name="travel_visited" style="width: auto; margin-right: 10px;">
+                    <label for="travel_visited">¿Ya lo hemos visitado?</label>
+                </div>
+                <button type="submit"><i class="fas fa-plus"></i> Añadir viaje</button>
+            </form>
+        </div>
     </div>
 </div>
 
 {% endif %}
 
+
 </div>
 
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
-        crossorigin=""></script>
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // Variables globales
-    let map;
-    let userMarkers = {};
-    let connectionLine;
-    let airplaneMarker;
-    let locationWatchId = null;
-    let updateInterval;
-    const username = '{{ session.username }}';
-
     // Crear corazones flotantes
     function createHearts() {
         const container = document.getElementById('hearts-container');
@@ -1088,318 +1625,41 @@
         }
     }
     
-    // Mapa de distancia en tiempo real
-    function initDistanceMap() {
-        // Inicializar mapa
-        map = L.map('distance-map').setView([39.5, -3.0], 6);
-        
-        // Añadir capa de tiles
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-        
-        // Inicializar línea de conexión
-        connectionLine = L.polyline([], {
-            color: '#e84393',
-            weight: 3,
-            dashArray: '10, 10',
-            className: 'distance-line'
-        }).addTo(map);
-        
-        // Añadir avión animado
-        const airplaneIcon = L.divIcon({
-            className: 'airplane-marker animated',
-            html: '<div style="font-size:24px; color:#e84393;">✈</div>',
-            iconSize: [24, 24],
-            iconAnchor: [12, 12]
+    // Funcionalidad para las pestañas de lista de deseos
+    document.querySelectorAll('#wishlist-tabs-container .wishlist-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Desactivar todas las pestañas de lista de deseos
+            document.querySelectorAll('#wishlist-tabs-container .wishlist-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.wishlist-content').forEach(c => c.classList.remove('active'));
+            
+            // Activar la pestaña seleccionada
+            tab.classList.add('active');
+            const tabId = tab.getAttribute('data-tab');
+            document.getElementById(`${tabId}-tab`).classList.add('active');
         });
-        
-        airplaneMarker = L.marker([0, 0], {
-            icon: airplaneIcon,
-            interactive: false
-        }).addTo(map);
-        
-        // Cargar ubicaciones iniciales
-        updateLocations();
-        
-        // Configurar actualización periódica
-        updateInterval = setInterval(updateLocations, 5000); // Actualizar cada 5 segundos
-        
-        // Configurar el botón de ubicación
-        document.getElementById('locate-me').addEventListener('click', locateUser);
-        
-        // Iniciar seguimiento de ubicación
-        startLocationTracking();
-    }
+    });
     
-    // Actualizar ubicaciones desde el servidor
-    function updateLocations() {
-        fetch('/get_locations')
-            .then(response => response.json())
-            .then(locations => {
-                updateMapWithLocations(locations);
-                updateStatusIndicators(locations);
-            })
-            .catch(error => {
-                console.error('Error loading location data:', error);
-            });
-    }
-    
-    // Actualizar el mapa con las ubicaciones
-    function updateMapWithLocations(locations) {
-        // Eliminar marcadores antiguos
-        Object.values(userMarkers).forEach(marker => {
-            if (marker) map.removeLayer(marker);
+    // Funcionalidad para las pestañas de viajes
+    document.querySelectorAll('#travel-tabs-container .travel-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Desactivar todas las pestañas de viajes
+            document.querySelectorAll('#travel-tabs-container .travel-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.travel-content').forEach(c => c.classList.remove('active'));
+            
+            // Activar la pestaña seleccionada
+            tab.classList.add('active');
+            const tabId = tab.getAttribute('data-tab');
+            document.getElementById(`${tabId}-tab`).classList.add('active');
         });
-        userMarkers = {};
-        
-        // Añadir nuevos marcadores
-        for (const [user, data] of Object.entries(locations)) {
-            if (data.lat && data.lng) {
-                const icon = L.divIcon({
-                    className: 'custom-marker',
-                    html: `<div style="background-color:${user === 'tu' ? '#e84393' : '#a29bfe'}; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; border:3px solid white; box-shadow:0 0 10px rgba(0,0,0,0.3);">
-                              <i class="fas fa-${user === 'tu' ? 'user' : 'heart'}"></i>
-                           </div>`,
-                    iconSize: [30, 30],
-                    iconAnchor: [15, 15]
-                });
-                
-                userMarkers[user] = L.marker([data.lat, data.lng], {icon})
-                    .addTo(map)
-                    .bindPopup(`<b>${data.name}</b><br>${formatLastUpdate(data.last_update)}`);
-            }
-        }
-        
-        // Actualizar línea de conexión y avión
-        updateConnectionLine(locations);
-    }
+    });
     
-    // Actualizar indicadores de estado
-    function updateStatusIndicators(locations) {
-        for (const [user, data] of Object.entries(locations)) {
-            const statusElement = document.getElementById(`status-${user}`);
-            const statusTextElement = document.getElementById(`status-text-${user}`);
-            
-            if (statusElement && statusTextElement) {
-                const isOnline = isUserOnline(data.last_update);
-                statusElement.className = `status-dot ${isOnline ? 'status-online' : 'status-offline'}`;
-                statusTextElement.textContent = isOnline ? 'Conectado' : 'Desconectado';
-            }
-        }
-    }
-    
-    // Comprobar si un usuario está online
-    function isUserOnline(lastUpdate) {
-        if (!lastUpdate) return false;
-        
-        const updateTime = new Date(lastUpdate);
-        const now = new Date();
-        const diffMinutes = (now - updateTime) / (1000 * 60);
-        
-        return diffMinutes < 10; // Considerar online si se actualizó en los últimos 10 minutos
-    }
-    
-    // Formatear última actualización
-    function formatLastUpdate(timestamp) {
-        if (!timestamp) return 'Nunca actualizado';
-        
-        const updateTime = new Date(timestamp);
-        const now = new Date();
-        const diffMinutes = Math.floor((now - updateTime) / (1000 * 60));
-        
-        if (diffMinutes < 1) return 'Actualizado ahora mismo';
-        if (diffMinutes < 60) return `Actualizado hace ${diffMinutes} min`;
-        
-        const diffHours = Math.floor(diffMinutes / 60);
-        if (diffHours < 24) return `Actualizado hace ${diffHours} h`;
-        
-        const diffDays = Math.floor(diffHours / 24);
-        return `Actualizado hace ${diffDays} días`;
-    }
-    
-    // Actualizar línea de conexión y avión
-    function updateConnectionLine(locations) {
-        if (locations.tu && locations.novia && 
-            locations.tu.lat && locations.tu.lng && 
-            locations.novia.lat && locations.novia.lng) {
-            
-            // Actualizar línea
-            const linePoints = [
-                [locations.tu.lat, locations.tu.lng],
-                [locations.novia.lat, locations.novia.lng]
-            ];
-            connectionLine.setLatLngs(linePoints);
-            
-            // Calcular y mostrar distancia
-            const distance = calculateDistance(
-                [locations.tu.lat, locations.tu.lng],
-                [locations.novia.lat, locations.novia.lng]
-            );
-            document.getElementById('km').textContent = distance;
-            
-            // Actualizar avión
-            animateAirplane(linePoints);
-            
-            // Ajustar vista del mapa para mostrar ambos puntos
-            const group = new L.featureGroup([
-                userMarkers.tu, 
-                userMarkers.novia
-            ]);
-            map.fitBounds(group.getBounds().pad(0.2));
-        }
-    }
-    
-    // Calcular distancia entre dos puntos (fórmula haversine)
-    function calculateDistance(coord1, coord2) {
-        const [lat1, lon1] = coord1;
-        const [lat2, lon2] = coord2;
-        
-        const R = 6371; // Radio de la Tierra en km
-        const dLat = deg2rad(lat2 - lat1);
-        const dLon = deg2rad(lon2 - lon1);
-        
-        const a = 
-            Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-        
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-        const distance = R * c;
-        
-        return distance.toFixed(1);
-    }
-    
-    function deg2rad(deg) {
-        return deg * (Math.PI/180);
-    }
-    
-    // Animación del avión
-    function animateAirplane(linePoints) {
-        let airplanePosition = 0;
-        
-        function moveAirplane() {
-            airplanePosition = (airplanePosition + 0.005) % 1;
-            
-            const lat = linePoints[0][0] + (linePoints[1][0] - linePoints[0][0]) * airplanePosition;
-            const lng = linePoints[0][1] + (linePoints[1][1] - linePoints[0][1]) * airplanePosition;
-            
-            airplaneMarker.setLatLng([lat, lng]);
-            
-            // Calcular rotación para que apunte en la dirección del movimiento
-            const nextLat = linePoints[0][0] + (linePoints[1][0] - linePoints[0][0]) * ((airplanePosition + 0.01) % 1);
-            const nextLng = linePoints[0][1] + (linePoints[1][1] - linePoints[0][1]) * ((airplanePosition + 0.01) % 1);
-            
-            const angle = Math.atan2(nextLng - lng, nextLat - lat) * 180 / Math.PI;
-            airplaneMarker._icon.style.transform = `rotate(${angle}deg)`;
-            
-            requestAnimationFrame(moveAirplane);
-        }
-        
-        moveAirplane();
-    }
-    
-    // Iniciar seguimiento de ubicación
-    function startLocationTracking() {
-        if ('geolocation' in navigator) {
-            // Obtener ubicación inmediatamente
-            locateUser();
-            
-            // Configurar actualización periódica de ubicación
-            locationWatchId = navigator.geolocation.watchPosition(
-                position => {
-                    updateUserLocation(position.coords.latitude, position.coords.longitude);
-                },
-                error => {
-                    console.error('Error getting location:', error);
-                    alert('No se pudo acceder a tu ubicación. Asegúrate de habilitar los permisos de ubicación.');
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 30000
-                }
-            );
-        } else {
-            alert('Tu navegador no soporta geolocalización');
-        }
-    }
-    
-    // Localizar usuario (botón)
-    function locateUser() {
-        if ('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition(
-                position => {
-                    updateUserLocation(position.coords.latitude, position.coords.longitude);
-                    map.setView([position.coords.latitude, position.coords.longitude], 13);
-                },
-                error => {
-                    console.error('Error getting location:', error);
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 10000
-                }
-            );
-        }
-    }
-    
-    // Actualizar ubicación del usuario en el servidor
-    function updateUserLocation(lat, lng) {
-        fetch('/update_location', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                lat: lat,
-                lng: lng
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                console.log('Ubicación actualizada correctamente');
-            }
-        })
-        .catch(error => {
-            console.error('Error updating location:', error);
-        });
-    }
-    
-    // Funcionalidad para los modales
-    function openAlbum(albumId, albumTitle) {
-        // Establecer el título en el modal
-        document.getElementById('modalAlbumTitle').textContent = albumTitle;
-        
-        // Limpiar contenedor de fotos
-        const photosContainer = document.getElementById('albumPhotosContainer');
-        photosContainer.innerHTML = '';
-        
-        // Simular la carga de fotos (en un caso real, esto vendría del servidor)
-        // Para este ejemplo, usaremos imágenes de placeholder
-        const photoCount = Math.floor(Math.random() * 12) + 4; // Entre 4 y 15 fotos
-        
-        for (let i = 1; i <= photoCount; i++) {
-            const photoId = i;
-            const thumb = document.createElement('img');
-            thumb.src = `https://picsum.photos/300/200?random=${albumId}${i}`;
-            thumb.alt = `Foto ${i}`;
-            thumb.classList.add('photo-thumb');
-            thumb.onclick = () => openPhoto(photoId, `Foto ${i} de ${albumTitle}`, `Usuario ${i % 2 ? 'Christian' : 'Clara'}`);
-            photosContainer.appendChild(thumb);
-        }
-        
-        // Mostrar el modal
-        document.getElementById('albumModal').style.display = 'block';
-    }
-    
-    function openPhoto(photoId, photoTitle, uploadedBy) {
-        document.getElementById('modalPhotoTitle').textContent = photoTitle;
-        document.getElementById('modalPhoto').src = `https://picsum.photos/800/600?random=${photoId}`;
-        document.getElementById('photoUploader').textContent = `Subido por: ${uploadedBy}`;
-        document.getElementById('photoToDelete').value = photoId;
-        document.getElementById('photoModal').style.display = 'block';
+    // Abrir modal para editar elemento de la lista de deseos
+    function openEditModal(id, name, link, notes) {
+        document.getElementById('editItemId').value = id;
+        document.getElementById('editProductName').value = name;
+        document.getElementById('editProductLink').value = link;
+        document.getElementById('editNotes').value = notes;
+        document.getElementById('editWishlistModal').style.display = 'block';
     }
     
     // Cerrar modales
@@ -1420,15 +1680,205 @@
         });
     });
     
+    // Mapa de distancia
+    let map, christianMarker, claraMarker, distanceLine;
+    let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" }; // Algemesí, Valencia
+    let claraLocation = { lat: 37.8882, lng: -4.7794, name: "Córdoba" }; // Córdoba
+    
+    function initMap() {
+        // Inicializar el mapa centrado en España
+        map = L.map('distanceMap').setView([39.5, -3.0], 6);
+        
+        // Añadir capa de OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Iconos personalizados con fotos de perfil
+        const christianIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style="background-image: url('{% if profile_pictures['mochito'] %}/uploads/{{ profile_pictures['mochito'] }}{% else %}data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"50\" fill=\"%23e84393\"/><text x=\"50\" y=\"60\" font-size=\"40\" text-anchor=\"middle\" fill=\"white\">C</text></svg>{% endif %}'); background-size: cover; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
+        });
+        
+        const claraIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style="background-image: url('{% if profile_pictures['mochita'] %}/uploads/{{ profile_pictures['mochita'] }}{% else %}data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"50\" fill=\"%23a29bfe\"/><text x=\"50\" y=\"60\" font-size=\"40\" text-anchor=\"middle\" fill=\"white\">C</text></svg>{% endif %}'); background-size: cover; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
+        });
+        
+        // Añadir marcadores iniciales
+        christianMarker = L.marker([christianLocation.lat, christianLocation.lng], { icon: christianIcon }).addTo(map);
+        claraMarker = L.marker([claraLocation.lat, claraLocation.lng], { icon: claraIcon }).addTo(map);
+        
+        // Añadir línea de distancia
+        updateDistanceLine();
+        
+        // Actualizar información de distancia
+        updateDistanceInfo();
+        
+        // Cargar ubicaciones guardadas si existen
+        loadSavedLocations();
+    }
+    
+    function updateDistanceLine() {
+        // Eliminar línea existente si hay una
+        if (distanceLine) {
+            map.removeLayer(distanceLine);
+        }
+        
+        // Crear nueva línea
+        distanceLine = L.polyline([
+            [christianLocation.lat, christianLocation.lng],
+            [claraLocation.lat, claraLocation.lng]
+        ], {
+            color: '#e84393',
+            weight: 3,
+            dashArray: '10, 10',
+            lineJoin: 'round'
+        }).addTo(map);
+        
+        // Ajustar el zoom para que ambos marcadores sean visibles
+        const group = new L.featureGroup([christianMarker, claraMarker]);
+        map.fitBounds(group.getBounds().pad(0.2));
+    }
+    
+    function updateDistanceInfo() {
+        // Calcular distancia en línea recta (en km)
+        const distance = calculateDistance(
+            christianLocation.lat, christianLocation.lng,
+            claraLocation.lat, claraLocation.lng
+        );
+        
+        // Mostrar distancia
+        document.getElementById('distanceValue').textContent = `${distance.toFixed(1)} km`;
+        document.getElementById('christianLocation').textContent = christianLocation.name;
+        document.getElementById('claraLocation').textContent = claraLocation.name;
+    }
+    
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        // Fórmula Haversine para calcular distancia entre dos puntos
+        const R = 6371; // Radio de la Tierra en km
+        const dLat = deg2rad(lat2 - lat1);
+        const dLon = deg2rad(lon2 - lon1);
+        const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+            Math.sin(dLon/2) * Math.sin(dLon/2); 
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+        return R * c;
+    }
+    
+    function deg2rad(deg) {
+        return deg * (Math.PI/180);
+    }
+    
+    // Geocodificación: convertir dirección a coordenadas
+    async function geocodeAddress(address) {
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`);
+            const data = await response.json();
+            
+            if (data && data.length > 0) {
+                return {
+                    lat: parseFloat(data[0].lat),
+                    lng: parseFloat(data[0].lon),
+                    name: data[0].display_name.split(',')[0] // Primera parte del nombre
+                };
+            }
+            throw new Error('Ubicación no encontrada');
+        } catch (error) {
+            console.error('Error en geocodificación:', error);
+            alert('No se pudo encontrar la ubicación. Por favor, intenta con una dirección más específica.');
+            return null;
+        }
+    }
+    
+    // Guardar ubicaciones en localStorage
+    function saveLocations() {
+        const locations = {
+            christian: christianLocation,
+            clara: claraLocation
+        };
+        localStorage.setItem('coupleLocations', JSON.stringify(locations));
+    }
+    
+    // Cargar ubicaciones desde localStorage
+    function loadSavedLocations() {
+        const saved = localStorage.getItem('coupleLocations');
+        if (saved) {
+            const locations = JSON.parse(saved);
+            christianLocation = locations.christian || christianLocation;
+            claraLocation = locations.clara || claraLocation;
+            
+            // Actualizar marcadores
+            christianMarker.setLatLng([christianLocation.lat, christianLocation.lng]);
+            claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
+            
+            // Actualizar línea e información
+            updateDistanceLine();
+            updateDistanceInfo();
+        }
+    }
+    
+    // Manejar el formulario de actualización de ubicación
+    document.getElementById('locationForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const locationInput = document.getElementById('userLocation').value;
+        if (!locationInput) return;
+        
+        // Mostrar indicador de carga
+        const submitButton = this.querySelector('button');
+        const originalText = submitButton.innerHTML;
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...';
+        submitButton.disabled = true;
+        
+        // Obtener coordenadas de la dirección
+        const locationData = await geocodeAddress(locationInput);
+        
+        if (locationData) {
+            // Determinar qué usuario está actualizando
+            const currentUser = '{{ session.username }}';
+            if (currentUser === 'mochito') {
+                christianLocation = locationData;
+                christianMarker.setLatLng([christianLocation.lat, christianLocation.lng]);
+            } else if (currentUser === 'mochita') {
+                claraLocation = locationData;
+                claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
+            }
+            
+            // Actualizar línea e información
+            updateDistanceLine();
+            updateDistanceInfo();
+            
+            // Guardar en localStorage
+            saveLocations();
+            
+            // Limpiar campo de entrada
+            document.getElementById('userLocation').value = '';
+            
+            // Mostrar mensaje de éxito
+            alert(`¡Ubicación actualizada correctamente! Ahora estás en ${locationData.name}`);
+        }
+        
+        // Restaurar botón
+        submitButton.innerHTML = originalText;
+        submitButton.disabled = false;
+    });
+    
     // Efectos de animación al cargar
     document.addEventListener('DOMContentLoaded', function() {
         createHearts();
+        initMap();
         
         // Agregar animaciones a los elementos
         const elements = document.querySelectorAll('.section, .banner');
         elements.forEach((el, index) => {
             el.classList.add('animate-in');
-            el.classList.add(`delay-${index % 4}`);
+            el.classList.add(`delay-${index % 5}`);
         });
         
         // Configurar los eventos para los inputs de archivo
@@ -1437,16 +1887,37 @@
                 const label = this.previousElementSibling;
                 if (this.files.length > 0) {
                     label.querySelector('i').className = 'fas fa-check';
-                    label.querySelector('span').textContent = this.files[0].name;
+                    if (label.querySelector('span')) {
+                        label.querySelector('span').textContent = this.files[0].name;
+                    }
                 }
             });
         });
-        
-        // Inicializar el mapa de distancia si el usuario está logueado
-        if (document.getElementById('distance-map') && username !== 'None') {
-            initDistanceMap();
-        }
     });
+
+    // Abrir modal de perfil al hacer clic en el icono de ajustes
+document.getElementById('settingsIcon').addEventListener('click', () => {
+    document.getElementById('profileModal').style.display = 'block';
+});
+
+// Cerrar modal de perfil
+document.querySelector('#profileModal .close-modal').addEventListener('click', () => {
+    document.getElementById('profileModal').style.display = 'none';
+});
+
+// Cerrar modal al hacer clic fuera del contenido
+window.addEventListener('click', (event) => {
+    const modal = document.getElementById('profileModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+});
 </script>
+<footer class="site-footer">
+    <p>Esta web ha sido realizada por 
+        <a href="https://www.instagram.com/chriismartinezz/" target="_blank" class="autor-link">Christian Martínez</a> ❤️
+    </p>
+</footer>
+
 </body>
 </html>

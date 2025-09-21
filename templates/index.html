@@ -1,0 +1,1452 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Christian y Clara 💖 - Álbumes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Montserrat:wght@300;400;500;600;700&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+          crossorigin=""/>
+    <style>
+        :root {
+            --primary-color: #e84393;
+            --secondary-color: #fd79a8;
+            --accent-color: #a29bfe;
+            --light-pink: #ffe8f3;
+            --dark-text: #2d3436;
+            --light-text: #ffffff;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+            --gradient: linear-gradient(135deg, #e84393 0%, #fd79a8 50%, #a29bfe 100%);
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: linear-gradient(135deg, #ffe8f3 0%, #dfe6e9 100%);
+            color: var(--dark-text);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%23e84393' fill-opacity='0.05' d='M0,224L48,213.3C96,203,192,181,288,160C384,139,480,117,576,122.7C672,128,768,160,864,170.7C960,181,1056,171,1152,165.3C1248,160,1344,160,1392,160L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
+            background-size: cover;
+            z-index: -1;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* Header y banner */
+        .banner {
+            position: relative;
+            margin-bottom: 40px;
+            border-radius: 25px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            height: 450px;
+            transition: all 0.5s ease;
+        }
+        
+        .banner img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.5s ease;
+        }
+        
+        .banner:hover img {
+            transform: scale(1.05);
+        }
+        
+        .banner-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+            padding: 40px 30px 30px;
+            color: white;
+            text-align: center;
+        }
+        
+        .banner h1 {
+            font-family: 'Dancing Script', cursive;
+            font-size: 4.5rem;
+            margin-bottom: 15px;
+            text-shadow: 0 3px 6px rgba(0,0,0,0.5);
+            letter-spacing: 2px;
+        }
+        
+        .banner-form {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .custom-file-upload {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 12px 25px;
+            border-radius: 50px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .custom-file-upload:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Tarjetas de sección */
+        .section {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .section::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: var(--gradient);
+        }
+        
+        .section:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+        
+        .section h3 {
+            color: var(--primary-color);
+            font-family: 'Playfair Display', serif;
+            font-size: 2.2rem;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid var(--secondary-color);
+            display: inline-block;
+            position: relative;
+        }
+        
+        .section h3::after {
+            content: "";
+            position: absolute;
+            bottom: -3px;
+            left: 0;
+            width: 50px;
+            height: 3px;
+            background: var(--accent-color);
+        }
+        
+        /* Botones y formularios */
+        form {
+            margin-top: 20px;
+        }
+        
+        input, button, textarea {
+            font-family: 'Montserrat', sans-serif;
+            border-radius: 50px;
+            border: none;
+            padding: 15px 25px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        input[type="text"],
+        input[type="password"],
+        input[type="date"],
+        input[type="file"],
+        textarea {
+            background: #f8f8f8;
+            border: 2px solid #eee;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 4px rgba(162, 155, 254, 0.3);
+        }
+        
+        button {
+            background: var(--gradient);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-block;
+            box-shadow: 0 5px 15px rgba(232, 67, 147, 0.4);
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+        
+        button::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(to right, var(--secondary-color), var(--primary-color));
+            transition: all 0.5s ease;
+            z-index: -1;
+        }
+        
+        button:hover::before {
+            width: 100%;
+        }
+        
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(232, 67, 147, 0.5);
+        }
+        
+        .logout {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: white;
+            color: var(--primary-color);
+            text-decoration: none;
+            padding: 12px 25px;
+            border-radius: 50px;
+            font-weight: 600;
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .logout:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-3px);
+        }
+        
+        /* Estilos para el mapa */
+        .leaflet-container {
+            border-radius: 15px;
+            z-index: 1;
+        }
+
+        .distance-info {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .location-tag {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px 20px;
+            border-radius: 50px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .airplane-marker {
+            transition: transform 0.5s ease;
+        }
+
+        .airplane-marker.animated {
+            animation: fly 5s linear infinite;
+        }
+
+        @keyframes fly {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(10px, -5px) rotate(5deg); }
+            50% { transform: translate(0, -10px) rotate(0deg); }
+            75% { transform: translate(-10px, -5px) rotate(-5deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+
+        .distance-line {
+            stroke: #e84393;
+            stroke-width: 3;
+            stroke-dasharray: 10;
+            animation: dash 30s linear infinite;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: 1000;
+            }
+        }
+        
+        .location-status {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .status-online {
+            background-color: #4cd964;
+        }
+        
+        .status-offline {
+            background-color: #ff3b30;
+        }
+        
+        /* Nuevos estilos para álbumes mejorados */
+        .albums-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+
+        .album-card {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .album-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+        }
+
+        .album-cover {
+            position: relative;
+            height: 220px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .album-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .album-card:hover .album-cover img {
+            transform: scale(1.05);
+        }
+
+        .empty-album {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #ffe8f3 0%, #fbc2eb 100%);
+            color: #e84393;
+        }
+
+        .empty-album i {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        .album-actions {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 10px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .album-card:hover .album-actions {
+            opacity: 1;
+        }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(5px);
+            color: #e84393;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .icon-btn:hover {
+            background: #e84393;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .album-info {
+            padding: 20px;
+        }
+
+        .album-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.4rem;
+            color: var(--dark-text);
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .album-meta {
+            color: #777;
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
+            overflow: auto;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 2% auto;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 1200px;
+            position: relative;
+            animation: slideIn 0.3s ease;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .close-modal {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .close-modal:hover {
+            color: #e84393;
+        }
+
+        .modal-body {
+            padding: 25px;
+            overflow-y: auto;
+        }
+
+        .album-full-view {
+            width: 100%;
+        }
+
+        .album-photos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .photo-thumb {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .photo-thumb:hover {
+            transform: scale(1.03);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .modal-photo {
+            max-width: 100%;
+            max-height: 70vh;
+            display: block;
+            margin: 0 auto;
+            border-radius: 8px;
+        }
+
+        .photo-info {
+            padding: 20px;
+            text-align: center;
+        }
+
+        .btn-danger {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+        }
+
+        .btn-danger:hover {
+            background: #ff2e43;
+            transform: translateY(-2px);
+        }
+
+        /* Formulario de edición de título */
+        .edit-title-form {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .edit-title-input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        /* Pregunta del día */
+        .question {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            color: var(--dark-text);
+            font-weight: 600;
+            line-height: 1.5;
+            padding: 20px;
+            background: rgba(162, 155, 254, 0.1);
+            border-radius: 15px;
+            border-left: 5px solid var(--accent-color);
+        }
+        
+        .answers {
+            margin-top: 25px;
+        }
+        
+        .answer-item {
+            background: #f8f8f8;
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border-left: 5px solid var(--accent-color);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        /* Contadores */
+        .counters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+        
+        .counter-item {
+            flex: 1;
+            min-width: 220px;
+            text-align: center;
+            padding: 25px;
+            background: var(--gradient);
+            border-radius: 18px;
+            color: white;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .counter-item::before {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: rgba(255, 255, 255, 0.1);
+            transform: rotate(45deg);
+            transition: all 0.5s ease;
+        }
+        
+        .counter-item:hover::before {
+            transform: rotate(45deg) translate(20px, 20px);
+        }
+        
+        .counter-item h4 {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            font-weight: 500;
+            position: relative;
+        }
+        
+        .counter-item p {
+            font-size: 2.5rem;
+            font-weight: 700;
+            position: relative;
+        }
+        
+        /* Login */
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            background: var(--gradient);
+        }
+        
+        .login-box {
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 25px;
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .login-box::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 8px;
+            background: var(--gradient);
+        }
+        
+        .login-box h3 {
+            color: var(--primary-color);
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            margin-bottom: 25px;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #ffeded;
+            border-radius: 12px;
+            border-left: 5px solid #e74c3c;
+        }
+        
+        /* Efectos especiales */
+        .floating-hearts {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        .heart {
+            position: absolute;
+            color: rgba(232, 67, 147, 0.3);
+            font-size: 20px;
+            animation: float 8s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+        }
+        
+        /* Responsive */
+        @media (max-width: 992px) {
+            .banner h1 {
+                font-size: 3.5rem;
+            }
+            
+            .albums-grid {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .banner {
+                height: 350px;
+            }
+            
+            .banner h1 {
+                font-size: 2.8rem;
+            }
+            
+            .inline-form {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .inline-form input {
+                min-width: unset;
+            }
+            
+            .counters {
+                flex-direction: column;
+            }
+            
+            .banner-form {
+                flex-direction: column;
+            }
+            
+            .logout {
+                position: relative;
+                top: unset;
+                right: unset;
+                margin-bottom: 20px;
+                display: inline-flex;
+            }
+            
+            .albums-grid {
+                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .section {
+                padding: 20px;
+            }
+            
+            .banner h1 {
+                font-size: 2.2rem;
+            }
+            
+            .section h3 {
+                font-size: 1.8rem;
+            }
+            
+            .login-box {
+                padding: 30px 20px;
+            }
+            
+            .albums-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .album-photos-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            }
+        }
+        
+        /* Animaciones de entrada */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-in {
+            animation: fadeIn 0.6s ease forwards;
+        }
+        
+        .delay-1 { animation-delay: 0.2s; }
+        .delay-2 { animation-delay: 0.4s; }
+        .delay-3 { animation-delay: 0.6s; }
+    </style>
+</head>
+<body>
+<!-- Corazones flotantes de fondo -->
+<div class="floating-hearts" id="hearts-container"></div>
+
+<!-- Modal para ver álbum completo -->
+<div id="albumModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalAlbumTitle">Título del Álbum</h2>
+            <span class="close-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="album-full-view">
+                <div class="album-photos-grid" id="albumPhotosContainer">
+                    <!-- Las fotos se cargarán aquí dinámicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para ver foto individual -->
+<div id="photoModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalPhotoTitle">Foto</h3>
+            <span class="close-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <img class="modal-photo" id="modalPhoto" src="">
+            <div class="photo-info">
+                <p id="photoUploader"></p>
+                <form method="POST" action="/delete_photo" class="delete-photo-form">
+                    <input type="hidden" name="photo_id" id="photoToDelete">
+                    <button type="submit" class="btn-danger"><i class="fas fa-trash"></i> Eliminar foto</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+
+{% if not session.username %}
+<div class="login-container">
+    <div class="login-box animate-in">
+        <h3>Iniciar sesión</h3>
+        {% if login_error %}
+            <div class="error-message">{{ login_error }}</div>
+        {% endif %}
+        <form method="POST">
+            <input type="text" name="username" placeholder="Usuario" required>
+            <input type="password" name="password" placeholder="Contraseña" required>
+            <button type="submit">Entrar <i class="fas fa-arrow-right"></i></button>
+        </form>
+    </div>
+</div>
+{% else %}
+
+<a href="/logout" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
+
+<!-- Banner editable -->
+<div class="section banner animate-in">
+    {% if banner_file %}
+        <img src="/uploads/{{ banner_file }}" alt="Banner">
+    {% else %}
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='450' viewBox='0 0 1200 450' fill='none'%3E%3Crect width='1200' height='450' fill='%23FD79A8'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='60' fill='white'%3EChristian %3Cspan font-size='70' fill='%23E84393'%3E❤%3C/span%3E Clara%3C/text%3E%3C/svg%3E" alt="Banner por defecto">
+    {% endif %}
+    <div class="banner-overlay">
+        <h1>Christian <span class="heart">❤️</span> Clara</h1>
+        <form method="POST" enctype="multipart/form-data" class="banner-form">
+            <label for="banner-upload" class="custom-file-upload">
+                <i class="fas fa-image"></i> Elegir imagen
+            </label>
+            <input id="banner-upload" type="file" name="banner" accept="image/*" required style="display: none;">
+            <button type="submit"><i class="fas fa-sync-alt"></i> Cambiar banner</button>
+        </form>
+    </div>
+</div>
+
+<!-- Contadores -->
+<div class="section animate-in delay-1">
+    <h3>Nuestra Historia</h3>
+    <div class="counters">
+        <div class="counter-item">
+            <h4>Días juntos</h4>
+            <p>{{ days_together }}</p>
+        </div>
+        {% if days_until_meeting is not none %}
+        <div class="counter-item">
+            <h4>Días hasta vernos</h4>
+            <p>{{ days_until_meeting }}</p>
+        </div>
+        {% endif %}
+    </div>
+    <form method="POST" class="inline-form">
+        <input type="date" name="meeting_date" required>
+        <button type="submit"><i class="fas fa-calendar-alt"></i> Actualizar fecha</button>
+    </form>
+</div>
+
+<!-- Mapa de distancia en tiempo real -->
+<div class="section animate-in delay-2">
+    <h3>Nuestra Distancia en Tiempo Real</h3>
+    <div id="distance-map" style="height: 400px; border-radius: 15px; overflow: hidden; margin-bottom: 20px;"></div>
+    <div class="distance-info">
+        <p id="distance-text" style="text-align: center; font-size: 1.2rem; margin-bottom: 15px;">
+            <i class="fas fa-road"></i> Distancia actual: <span id="km">{% if current_distance %}{{ current_distance }}{% else %}0{% endif %}</span> km
+        </p>
+        <div style="display: flex; justify-content: center; gap: 20px;">
+            <div class="location-tag">
+                <i class="fas fa-map-marker-alt" style="color: #e84393;"></i> 
+                <span id="valencia-name">Christian</span>
+            </div>
+            <div class="location-tag">
+                <i class="fas fa-map-marker-alt" style="color: #a29bfe;"></i> 
+                <span id="cordoba-name">Clara</span>
+            </div>
+        </div>
+        <div class="location-status">
+            <div class="status-indicator">
+                <span class="status-dot status-online" id="status-tu"></span>
+                <span>Christian: <span id="status-text-tu">Conectado</span></span>
+            </div>
+            <div class="status-indicator">
+                <span class="status-dot status-offline" id="status-novia"></span>
+                <span>Clara: <span id="status-text-novia">Desconectado</span></span>
+            </div>
+        </div>
+        <div style="text-align: center; margin-top: 15px;">
+            <button id="locate-me" class="icon-btn">
+                <i class="fas fa-location-crosshairs"></i> Actualizar mi ubicación
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Pregunta diaria -->
+<div class="section animate-in delay-3">
+    <h3>Pregunta del día</h3>
+    <p class="question"><b>{{ question }}</b></p>
+    {% if show_answers %}
+        <div class="answers">
+            {% for u, a in answers %}
+                <div class="answer-item">
+                    <div class="user-avatar">{{ u[0] }}</div>
+                    <div>
+                        <b>{{ u }}:</b> {{ a }}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        {% if user_answer %}
+            <p>Tu respuesta: {{ user_answer }}</p>
+            <p>La otra persona ya respondió, pero no puedes verla hasta que contestes.</p>
+        {% else %}
+            <form method="POST" class="inline-form">
+                <input type="text" name="answer" placeholder="Tu respuesta..." required>
+                <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+            </form>
+        {% endif %}
+    {% endif %}
+</div>
+
+<!-- Álbumes -->
+<div class="section">
+    <h3>Nuestros Recuerdos</h3>
+    <form method="POST" class="inline-form">
+        <input type="text" name="album_name" placeholder="Nombre del nuevo álbum" required>
+        <button type="submit"><i class="fas fa-plus"></i> Crear álbum</button>
+    </form>
+
+    <div class="albums-grid">
+        {% for id, name, created_by in albums %}
+        <div class="album-card">
+            <div class="album-cover" onclick="openAlbum({{ id }}, '{{ name }}')">
+                {% if photos_dict[id] %}
+                    <img src="/uploads/{{ photos_dict[id][0][1] }}" alt="{{ name }}">
+                {% else %}
+                    <div class="empty-album">
+                        <i class="fas fa-images"></i>
+                        <p>Álbum vacío</p>
+                    </div>
+                {% endif %}
+                <div class="album-actions">
+                    <form method="POST" action="/delete_album" class="delete-form">
+                        <input type="hidden" name="album_id" value="{{ id }}">
+                        <button type="submit" class="icon-btn" title="Eliminar álbum">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="album-info">
+                <h3 class="album-title">{{ name }}</h3>
+                <p class="album-meta">{{ photos_dict[id]|length }} fotos • Creado por {{ created_by }}</p>
+                
+                <form method="POST" action="/edit_album_title" class="edit-title-form">
+                    <input type="hidden" name="album_id" value="{{ id }}">
+                    <input type="text" name="new_title" value="{{ name }}" class="edit-title-input" required>
+                    <button type="submit" class="icon-btn" title="Guardar cambios"><i class="fas fa-check"></i></button>
+                </form>
+                
+                <form method="POST" enctype="multipart/form-data" class="inline-form">
+                    <input type="hidden" name="album_id" value="{{ id }}">
+                    <label for="photo-upload-{{ id }}" class="custom-file-upload">
+                        <i class="fas fa-camera"></i> Añadir foto
+                    </label>
+                    <input id="photo-upload-{{ id }}" type="file" name="photo" accept="image/*" required style="display: none;">
+                    <button type="submit"><i class="fas fa-cloud-upload-alt"></i> Subir</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% endif %}
+
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+        crossorigin=""></script>
+
+<script>
+    // Variables globales
+    let map;
+    let userMarkers = {};
+    let connectionLine;
+    let airplaneMarker;
+    let locationWatchId = null;
+    let updateInterval;
+    const username = '{{ session.username }}';
+
+    // Crear corazones flotantes
+    function createHearts() {
+        const container = document.getElementById('hearts-container');
+        const heartCount = 15;
+        
+        for (let i = 0; i < heartCount; i++) {
+            const heart = document.createElement('div');
+            heart.classList.add('heart');
+            heart.innerHTML = '❤';
+            heart.style.left = Math.random() * 100 + 'vw';
+            heart.style.animationDelay = Math.random() * 5 + 's';
+            heart.style.fontSize = (Math.random() * 15 + 15) + 'px';
+            container.appendChild(heart);
+        }
+    }
+    
+    // Mapa de distancia en tiempo real
+    function initDistanceMap() {
+        // Inicializar mapa
+        map = L.map('distance-map').setView([39.5, -3.0], 6);
+        
+        // Añadir capa de tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Inicializar línea de conexión
+        connectionLine = L.polyline([], {
+            color: '#e84393',
+            weight: 3,
+            dashArray: '10, 10',
+            className: 'distance-line'
+        }).addTo(map);
+        
+        // Añadir avión animado
+        const airplaneIcon = L.divIcon({
+            className: 'airplane-marker animated',
+            html: '<div style="font-size:24px; color:#e84393;">✈</div>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+        
+        airplaneMarker = L.marker([0, 0], {
+            icon: airplaneIcon,
+            interactive: false
+        }).addTo(map);
+        
+        // Cargar ubicaciones iniciales
+        updateLocations();
+        
+        // Configurar actualización periódica
+        updateInterval = setInterval(updateLocations, 5000); // Actualizar cada 5 segundos
+        
+        // Configurar el botón de ubicación
+        document.getElementById('locate-me').addEventListener('click', locateUser);
+        
+        // Iniciar seguimiento de ubicación
+        startLocationTracking();
+    }
+    
+    // Actualizar ubicaciones desde el servidor
+    function updateLocations() {
+        fetch('/get_locations')
+            .then(response => response.json())
+            .then(locations => {
+                updateMapWithLocations(locations);
+                updateStatusIndicators(locations);
+            })
+            .catch(error => {
+                console.error('Error loading location data:', error);
+            });
+    }
+    
+    // Actualizar el mapa con las ubicaciones
+    function updateMapWithLocations(locations) {
+        // Eliminar marcadores antiguos
+        Object.values(userMarkers).forEach(marker => {
+            if (marker) map.removeLayer(marker);
+        });
+        userMarkers = {};
+        
+        // Añadir nuevos marcadores
+        for (const [user, data] of Object.entries(locations)) {
+            if (data.lat && data.lng) {
+                const icon = L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div style="background-color:${user === 'tu' ? '#e84393' : '#a29bfe'}; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; border:3px solid white; box-shadow:0 0 10px rgba(0,0,0,0.3);">
+                              <i class="fas fa-${user === 'tu' ? 'user' : 'heart'}"></i>
+                           </div>`,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+                
+                userMarkers[user] = L.marker([data.lat, data.lng], {icon})
+                    .addTo(map)
+                    .bindPopup(`<b>${data.name}</b><br>${formatLastUpdate(data.last_update)}`);
+            }
+        }
+        
+        // Actualizar línea de conexión y avión
+        updateConnectionLine(locations);
+    }
+    
+    // Actualizar indicadores de estado
+    function updateStatusIndicators(locations) {
+        for (const [user, data] of Object.entries(locations)) {
+            const statusElement = document.getElementById(`status-${user}`);
+            const statusTextElement = document.getElementById(`status-text-${user}`);
+            
+            if (statusElement && statusTextElement) {
+                const isOnline = isUserOnline(data.last_update);
+                statusElement.className = `status-dot ${isOnline ? 'status-online' : 'status-offline'}`;
+                statusTextElement.textContent = isOnline ? 'Conectado' : 'Desconectado';
+            }
+        }
+    }
+    
+    // Comprobar si un usuario está online
+    function isUserOnline(lastUpdate) {
+        if (!lastUpdate) return false;
+        
+        const updateTime = new Date(lastUpdate);
+        const now = new Date();
+        const diffMinutes = (now - updateTime) / (1000 * 60);
+        
+        return diffMinutes < 10; // Considerar online si se actualizó en los últimos 10 minutos
+    }
+    
+    // Formatear última actualización
+    function formatLastUpdate(timestamp) {
+        if (!timestamp) return 'Nunca actualizado';
+        
+        const updateTime = new Date(timestamp);
+        const now = new Date();
+        const diffMinutes = Math.floor((now - updateTime) / (1000 * 60));
+        
+        if (diffMinutes < 1) return 'Actualizado ahora mismo';
+        if (diffMinutes < 60) return `Actualizado hace ${diffMinutes} min`;
+        
+        const diffHours = Math.floor(diffMinutes / 60);
+        if (diffHours < 24) return `Actualizado hace ${diffHours} h`;
+        
+        const diffDays = Math.floor(diffHours / 24);
+        return `Actualizado hace ${diffDays} días`;
+    }
+    
+    // Actualizar línea de conexión y avión
+    function updateConnectionLine(locations) {
+        if (locations.tu && locations.novia && 
+            locations.tu.lat && locations.tu.lng && 
+            locations.novia.lat && locations.novia.lng) {
+            
+            // Actualizar línea
+            const linePoints = [
+                [locations.tu.lat, locations.tu.lng],
+                [locations.novia.lat, locations.novia.lng]
+            ];
+            connectionLine.setLatLngs(linePoints);
+            
+            // Calcular y mostrar distancia
+            const distance = calculateDistance(
+                [locations.tu.lat, locations.tu.lng],
+                [locations.novia.lat, locations.novia.lng]
+            );
+            document.getElementById('km').textContent = distance;
+            
+            // Actualizar avión
+            animateAirplane(linePoints);
+            
+            // Ajustar vista del mapa para mostrar ambos puntos
+            const group = new L.featureGroup([
+                userMarkers.tu, 
+                userMarkers.novia
+            ]);
+            map.fitBounds(group.getBounds().pad(0.2));
+        }
+    }
+    
+    // Calcular distancia entre dos puntos (fórmula haversine)
+    function calculateDistance(coord1, coord2) {
+        const [lat1, lon1] = coord1;
+        const [lat2, lon2] = coord2;
+        
+        const R = 6371; // Radio de la Tierra en km
+        const dLat = deg2rad(lat2 - lat1);
+        const dLon = deg2rad(lon2 - lon1);
+        
+        const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+        
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+        const distance = R * c;
+        
+        return distance.toFixed(1);
+    }
+    
+    function deg2rad(deg) {
+        return deg * (Math.PI/180);
+    }
+    
+    // Animación del avión
+    function animateAirplane(linePoints) {
+        let airplanePosition = 0;
+        
+        function moveAirplane() {
+            airplanePosition = (airplanePosition + 0.005) % 1;
+            
+            const lat = linePoints[0][0] + (linePoints[1][0] - linePoints[0][0]) * airplanePosition;
+            const lng = linePoints[0][1] + (linePoints[1][1] - linePoints[0][1]) * airplanePosition;
+            
+            airplaneMarker.setLatLng([lat, lng]);
+            
+            // Calcular rotación para que apunte en la dirección del movimiento
+            const nextLat = linePoints[0][0] + (linePoints[1][0] - linePoints[0][0]) * ((airplanePosition + 0.01) % 1);
+            const nextLng = linePoints[0][1] + (linePoints[1][1] - linePoints[0][1]) * ((airplanePosition + 0.01) % 1);
+            
+            const angle = Math.atan2(nextLng - lng, nextLat - lat) * 180 / Math.PI;
+            airplaneMarker._icon.style.transform = `rotate(${angle}deg)`;
+            
+            requestAnimationFrame(moveAirplane);
+        }
+        
+        moveAirplane();
+    }
+    
+    // Iniciar seguimiento de ubicación
+    function startLocationTracking() {
+        if ('geolocation' in navigator) {
+            // Obtener ubicación inmediatamente
+            locateUser();
+            
+            // Configurar actualización periódica de ubicación
+            locationWatchId = navigator.geolocation.watchPosition(
+                position => {
+                    updateUserLocation(position.coords.latitude, position.coords.longitude);
+                },
+                error => {
+                    console.error('Error getting location:', error);
+                    alert('No se pudo acceder a tu ubicación. Asegúrate de habilitar los permisos de ubicación.');
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 30000
+                }
+            );
+        } else {
+            alert('Tu navegador no soporta geolocalización');
+        }
+    }
+    
+    // Localizar usuario (botón)
+    function locateUser() {
+        if ('geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                position => {
+                    updateUserLocation(position.coords.latitude, position.coords.longitude);
+                    map.setView([position.coords.latitude, position.coords.longitude], 13);
+                },
+                error => {
+                    console.error('Error getting location:', error);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000
+                }
+            );
+        }
+    }
+    
+    // Actualizar ubicación del usuario en el servidor
+    function updateUserLocation(lat, lng) {
+        fetch('/update_location', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                lat: lat,
+                lng: lng
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                console.log('Ubicación actualizada correctamente');
+            }
+        })
+        .catch(error => {
+            console.error('Error updating location:', error);
+        });
+    }
+    
+    // Funcionalidad para los modales
+    function openAlbum(albumId, albumTitle) {
+        // Establecer el título en el modal
+        document.getElementById('modalAlbumTitle').textContent = albumTitle;
+        
+        // Limpiar contenedor de fotos
+        const photosContainer = document.getElementById('albumPhotosContainer');
+        photosContainer.innerHTML = '';
+        
+        // Simular la carga de fotos (en un caso real, esto vendría del servidor)
+        // Para este ejemplo, usaremos imágenes de placeholder
+        const photoCount = Math.floor(Math.random() * 12) + 4; // Entre 4 y 15 fotos
+        
+        for (let i = 1; i <= photoCount; i++) {
+            const photoId = i;
+            const thumb = document.createElement('img');
+            thumb.src = `https://picsum.photos/300/200?random=${albumId}${i}`;
+            thumb.alt = `Foto ${i}`;
+            thumb.classList.add('photo-thumb');
+            thumb.onclick = () => openPhoto(photoId, `Foto ${i} de ${albumTitle}`, `Usuario ${i % 2 ? 'Christian' : 'Clara'}`);
+            photosContainer.appendChild(thumb);
+        }
+        
+        // Mostrar el modal
+        document.getElementById('albumModal').style.display = 'block';
+    }
+    
+    function openPhoto(photoId, photoTitle, uploadedBy) {
+        document.getElementById('modalPhotoTitle').textContent = photoTitle;
+        document.getElementById('modalPhoto').src = `https://picsum.photos/800/600?random=${photoId}`;
+        document.getElementById('photoUploader').textContent = `Subido por: ${uploadedBy}`;
+        document.getElementById('photoToDelete').value = photoId;
+        document.getElementById('photoModal').style.display = 'block';
+    }
+    
+    // Cerrar modales
+    document.querySelectorAll('.close-modal').forEach(closeBtn => {
+        closeBtn.addEventListener('click', () => {
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.style.display = 'none';
+            });
+        });
+    });
+    
+    // Cerrar modal al hacer clic fuera del contenido
+    window.addEventListener('click', (event) => {
+        document.querySelectorAll('.modal').forEach(modal => {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    });
+    
+    // Efectos de animación al cargar
+    document.addEventListener('DOMContentLoaded', function() {
+        createHearts();
+        
+        // Agregar animaciones a los elementos
+        const elements = document.querySelectorAll('.section, .banner');
+        elements.forEach((el, index) => {
+            el.classList.add('animate-in');
+            el.classList.add(`delay-${index % 4}`);
+        });
+        
+        // Configurar los eventos para los inputs de archivo
+        document.querySelectorAll('input[type="file"]').forEach(input => {
+            input.addEventListener('change', function() {
+                const label = this.previousElementSibling;
+                if (this.files.length > 0) {
+                    label.querySelector('i').className = 'fas fa-check';
+                    label.querySelector('span').textContent = this.files[0].name;
+                }
+            });
+        });
+        
+        // Inicializar el mapa de distancia si el usuario está logueado
+        if (document.getElementById('distance-map') && username !== 'None') {
+            initDistanceMap();
+        }
+    });
+</script>
+</body>
+</html>

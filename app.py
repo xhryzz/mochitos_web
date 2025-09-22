@@ -133,6 +133,17 @@ def init_db():
                     password TEXT
                 )
             ''')
+
+            # Tabla de horas personalizadas por usuario (para construir las filas)
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS schedule_times (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT NOT NULL,
+                    time TEXT NOT NULL,
+                    UNIQUE (username, time)
+                )
+            ''')
+
             
             # Tabla de preguntas diarias
             c.execute('''
@@ -754,31 +765,38 @@ def horario():
 def get_schedules():
     if 'username' not in session:
         return jsonify({'error': 'No autorizado'}), 401
-    
+
     try:
         conn = get_db_connection()
-        
         with conn.cursor() as c:
-            # Obtener todos los horarios de la base de datos
+            # 1) Horarios guardados
             c.execute("SELECT username, day, time, activity, color FROM schedules")
             rows = c.fetchall()
-            
-            # Estructurar los datos
-            schedules = {
-                'mochito': {},
-                'mochita': {}
-            }
-            
+
+            schedules = {'mochito': {}, 'mochita': {}}
             for username, day, time, activity, color in rows:
+                if username not in schedules:
+                    schedules[username] = {}
                 if day not in schedules[username]:
                     schedules[username][day] = {}
                 schedules[username][day][time] = {
                     'activity': activity,
                     'color': color
                 }
-            
-            return jsonify(schedules)
-    
+
+            # 2) Horas personalizadas
+            c.execute("SELECT username, time FROM schedule_times ORDER BY time")
+            times_rows = c.fetchall()
+            customTimes = {'mochito': [], 'mochita': []}
+            for username, time in times_rows:
+                if username in customTimes:
+                    customTimes[username].append(time)
+
+            return jsonify({
+                'schedules': schedules,
+                'customTimes': customTimes
+            })
+
     except Exception as e:
         print(f"Error en get_schedules: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
@@ -786,40 +804,58 @@ def get_schedules():
         if 'conn' in locals():
             conn.close()
 
-@app.route('/api/schedules', methods=['POST'])
+
+@app.route('/api/schedules/save', methods=['POST'])
 def save_schedules():
     if 'username' not in session:
         return jsonify({'error': 'No autorizado'}), 401
-    
+
     try:
-        data = request.get_json()
-        
+        data = request.get_json(force=True)
+
+        schedules_payload = data.get('schedules', {})
+        custom_times_payload = data.get('customTimes', {})
+
         conn = get_db_connection()
-        
         with conn.cursor() as c:
-            # Limpiar horarios existentes
+            # 1) Guardar horas personalizadas
+            # Estrategia simple: limpiar por usuario y reinsertar
+            for user, times in (custom_times_payload or {}).items():
+                c.execute("DELETE FROM schedule_times WHERE username=%s", (user,))
+                for hhmm in times:
+                    c.execute("""
+                        INSERT INTO schedule_times (username, time)
+                        VALUES (%s, %s)
+                        ON CONFLICT (username, time) DO NOTHING
+                    """, (user, hhmm))
+
+            # 2) Guardar actividades (reemplazo completo)
             c.execute("DELETE FROM schedules")
-            
-            # Insertar nuevos horarios
-            for username in ['mochito', 'mochita']:
-                for day, times in data[username].items():
-                    for time, activity_data in times.items():
-                        if activity_data['activity']:  # Solo guardar si hay actividad
-                            c.execute(
-                                "INSERT INTO schedules (username, day, time, activity, color) VALUES (%s, %s, %s, %s, %s)",
-                                (username, day, time, activity_data['activity'], activity_data['color'])
-                            )
-            
+
+            for user in ['mochito', 'mochita']:
+                user_days = (schedules_payload or {}).get(user, {})
+                for day, times in (user_days or {}).items():
+                    for hhmm, obj in (times or {}).items():
+                        activity = (obj or {}).get('activity', '').strip()
+                        color = (obj or {}).get('color', '#e84393')
+                        if activity:
+                            c.execute("""
+                                INSERT INTO schedules (username, day, time, activity, color)
+                                VALUES (%s, %s, %s, %s, %s)
+                                ON CONFLICT (username, day, time)
+                                DO UPDATE SET activity=EXCLUDED.activity, color=EXCLUDED.color
+                            """, (user, day, hhmm, activity, color))
+
             conn.commit()
-            
-            return jsonify({'success': True})
-    
+            return jsonify({'ok': True})
+
     except Exception as e:
         print(f"Error en save_schedules: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
     finally:
         if 'conn' in locals():
             conn.close()
+
 
 @app.route('/logout')
 def logout():

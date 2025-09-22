@@ -866,397 +866,434 @@
         </div>
     </div>
 
-    <script>
-        // Variables globales
-        let currentUser = 'both';
-        let currentView = 'week';
-        let selectedCell = null;
-        let selectedColor = '#e84393';
-        let schedules = {
-            mochito: {},
-            mochita: {}
-        };
-        let originalTime = null;
-        let customTimes = {
-            mochito: ["8:00", "9:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"],
-            mochita: ["8:00", "9:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"]
-        };
+<script>
+  // ========================
+  // Variables globales
+  // ========================
+  let currentUser = 'both';
+  let currentView  = 'week';
+  let selectedCell = null;
+  let selectedColor = '#e84393';
+  let originalTime = null;
 
-        // Cargar horarios desde el servidor
-        function loadSchedules() {
-            // En una implementación real, esto haría una petición al servidor
-            // Por ahora usamos datos de ejemplo
-            try {
-                const savedSchedules = localStorage.getItem('schedules');
-                if (savedSchedules) {
-                    schedules = JSON.parse(savedSchedules);
-                }
-                
-                const savedCustomTimes = localStorage.getItem('customTimes');
-                if (savedCustomTimes) {
-                    customTimes = JSON.parse(savedCustomTimes);
-                }
-            } catch (e) {
-                console.error('Error al cargar datos locales:', e);
-            }
-            
-            generateScheduleTable();
-        }
+  // Estructura de horarios y horas visibles
+  let schedules = { mochito: {}, mochita: {} };
+  let customTimes = {
+    mochito: ["8:00","9:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00","23:00"],
+    mochita: ["8:00","9:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00","23:00"]
+  };
 
-        // Guardar horarios
-        function saveSchedules() {
-            try {
-                localStorage.setItem('schedules', JSON.stringify(schedules));
-                localStorage.setItem('customTimes', JSON.stringify(customTimes));
-                alert('Horarios guardados correctamente');
-            } catch (e) {
-                console.error('Error al guardar:', e);
-                alert('Error al guardar los horarios');
-            }
-        }
+  // Horas por defecto si la base está vacía
+  const fallbackDefaultTimes = ["8:00","9:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00","23:00"];
 
-        // Formatear hora a formato HH:MM
-        function formatTime(hours, minutes) {
-            const h = parseInt(hours) || 0;
-            const m = parseInt(minutes) || 0;
-            return `${h}:${m.toString().padStart(2, '0')}`;
-        }
+  // ========================
+  // Helpers de horas
+  // ========================
+  function compareTimeStrings(a, b) {
+    const [ah, am] = a.split(':').map(Number);
+    const [bh, bm] = b.split(':').map(Number);
+    if (ah !== bh) return ah - bh;
+    return am - bm;
+  }
 
-        // Parsear hora desde formato HH:MM
-        function parseTime(timeStr) {
-            const parts = timeStr.split(':');
-            return {
-                hour: parseInt(parts[0]) || 0,
-                minute: parseInt(parts[1]) || 0
-            };
-        }
+  function uniqueSortedTimes(arr) {
+    return Array.from(new Set(arr)).sort(compareTimeStrings);
+  }
 
-        // Agregar una hora personalizada
-        function addCustomTime() {
-            const hourInput = document.getElementById('custom-hour');
-            const minuteInput = document.getElementById('custom-minute');
-            
-            const hour = parseInt(hourInput.value) || 0;
-            const minute = parseInt(minuteInput.value) || 0;
-            
-            if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-                alert('Por favor, introduce una hora válida (0-23) y minutos válidos (0-59)');
-                return;
-            }
-            
-            const timeFormatted = formatTime(hour, minute);
-            
-            // Determinar a qué usuario agregar la hora
-            const targetUser = currentUser === 'both' ? 'mochito' : currentUser;
-            
-            // Evitar duplicados
-            if (!customTimes[targetUser].includes(timeFormatted)) {
-                customTimes[targetUser].push(timeFormatted);
-                customTimes[targetUser].sort((a, b) => {
-                    const [aHour, aMinute] = a.split(':').map(Number);
-                    const [bHour, bMinute] = b.split(':').map(Number);
-                    return aHour - bHour || aMinute - bMinute;
-                });
-                
-                generateScheduleTable();
-            }
-            
-            // Limpiar inputs
-            hourInput.value = '';
-            minuteInput.value = '';
-        }
+  function extractTimesFromSchedules(userKey) {
+    const s = schedules[userKey] || {};
+    const set = new Set();
+    Object.values(s).forEach(timesObj => {
+      if (timesObj && typeof timesObj === 'object') {
+        Object.keys(timesObj).forEach(t => set.add(t));
+      }
+    });
+    return Array.from(set).sort(compareTimeStrings);
+  }
 
-        // Eliminar una hora completa
-        function deleteTime(timeToDelete, user) {
-            if (confirm(`¿Estás seguro de que quieres eliminar la hora ${timeToDelete} de ${user}?`)) {
-                // Eliminar la hora de la lista
-                customTimes[user] = customTimes[user].filter(time => time !== timeToDelete);
-                
-                // Eliminar todas las actividades de esta hora para el usuario
-                const days = ['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'];
-                
-                days.forEach(day => {
-                    if (schedules[user][day] && schedules[user][day][timeToDelete]) {
-                        delete schedules[user][day][timeToDelete];
-                    }
-                });
-                
-                // Regenerar la tabla
-                generateScheduleTable();
-            }
-        }
+  // Formatear hora a formato HH:MM
+  function formatTime(hours, minutes) {
+    const h = Number.isFinite(parseInt(hours)) ? parseInt(hours) : 0;
+    const m = Number.isFinite(parseInt(minutes)) ? parseInt(minutes) : 0;
+    return `${h}:${m.toString().padStart(2, '0')}`;
+  }
 
-        // Generar la tabla de horarios
-        function generateScheduleTable() {
-            const tableBody = document.querySelector('#schedule-table tbody');
-            tableBody.innerHTML = '';
-            
-            // Determinar qué horas mostrar según la vista actual
-            let timesToShow = [];
-            if (currentView === 'week') {
-                // Combinar y ordenar todas las horas de ambos usuarios
-                const allTimes = [...new Set([...customTimes.mochito, ...customTimes.mochita])];
-                timesToShow = allTimes.sort((a, b) => {
-                    const [aHour, aMinute] = a.split(':').map(Number);
-                    const [bHour, bMinute] = b.split(':').map(Number);
-                    return aHour - bHour || aMinute - bMinute;
-                });
-            } else {
-                timesToShow = customTimes[currentView];
-            }
-            
-            // Generar filas para cada hora
-            timesToShow.forEach(timeFormatted => {
-                const row = document.createElement('tr');
-                
-                // Celda de hora
-                const hourCell = document.createElement('td');
-                hourCell.className = 'hour-cell';
-                hourCell.textContent = timeFormatted;
-                
-                // Botón para eliminar hora (solo si estamos en vista de usuario específico)
-                if (currentView !== 'week') {
-                    const deleteButton = document.createElement('button');
-                    deleteButton.className = 'delete-time-btn';
-                    deleteButton.innerHTML = '<i class="fas fa-times"></i>';
-                    deleteButton.title = `Eliminar esta hora de ${currentView}`;
-                    deleteButton.addEventListener('click', (e) => {
-                        e.stopPropagation(); // Evitar que se active el evento de la celda
-                        deleteTime(timeFormatted, currentView);
-                    });
-                    hourCell.appendChild(deleteButton);
-                }
-                
-                row.appendChild(hourCell);
-                
-                // Celdas para cada día
-                const days = ['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'];
-                days.forEach(day => {
-                    const cell = document.createElement('td');
-                    cell.className = 'schedule-cell';
-                    cell.dataset.time = timeFormatted;
-                    cell.dataset.day = day;
-                    
-                    // Determinar si la celda es editable (dependiendo del usuario actual)
-                    if (currentUser !== 'both') {
-                        cell.classList.add('editable');
-                    }
-                    
-                    // Mostrar actividades según la vista actual
-                    if (currentView === 'week' || currentView === 'mochito') {
-                        const mochitoActivity = schedules.mochito[day] && schedules.mochito[day][timeFormatted];
-                        if (mochitoActivity) {
-                            const activityDiv = document.createElement('div');
-                            activityDiv.className = 'activity';
-                            activityDiv.textContent = 'M: ' + mochitoActivity.activity;
-                            activityDiv.style.backgroundColor = mochitoActivity.color;
-                            cell.appendChild(activityDiv);
-                        }
-                    }
-                    
-                    if (currentView === 'week' || currentView === 'mochita') {
-                        const mochitaActivity = schedules.mochita[day] && schedules.mochita[day][timeFormatted];
-                        if (mochitaActivity) {
-                            const activityDiv = document.createElement('div');
-                            activityDiv.className = 'activity';
-                            activityDiv.textContent = 'C: ' + mochitaActivity.activity;
-                            activityDiv.style.backgroundColor = mochitaActivity.color;
-                            cell.appendChild(activityDiv);
-                        }
-                    }
-                    
-                    // Agregar evento de clic si la celda es editable
-                    if (cell.classList.contains('editable')) {
-                        cell.addEventListener('click', () => {
-                            openEditModal(cell);
-                        });
-                    }
-                    
-                    row.appendChild(cell);
-                });
-                
-                tableBody.appendChild(row);
-            });
-        }
+  // Parsear hora desde formato HH:MM
+  function parseTime(timeStr) {
+    const parts = timeStr.split(':');
+    return {
+      hour: parseInt(parts[0]) || 0,
+      minute: parseInt(parts[1]) || 0
+    };
+  }
 
-        // Abrir modal para editar actividad
-        function openEditModal(cell) {
-            selectedCell = cell;
-            const modal = document.getElementById('event-modal');
-            const time = cell.dataset.time;
-            const day = cell.dataset.day;
-            originalTime = time;
-            
-            const {hour, minute} = parseTime(time);
-            
-            document.getElementById('activity-day').value = day;
-            document.getElementById('activity-hour').value = hour;
-            document.getElementById('activity-minute').value = minute;
-            
-            // Verificar si ya existe una actividad en esta celda
-            const currentUserKey = currentUser === 'mochito' ? 'mochito' : 'mochita';
-            const existingActivity = schedules[currentUserKey][day] && schedules[currentUserKey][day][time];
-            
-            if (existingActivity) {
-                document.getElementById('activity-text').value = existingActivity.activity;
-                selectedColor = existingActivity.color;
-                
-                // Marcar el color seleccionado
-                document.querySelectorAll('.color-option').forEach(option => {
-                    if (option.dataset.color === selectedColor) {
-                        option.classList.add('selected');
-                    } else {
-                        option.classList.remove('selected');
-                    }
-                });
-            } else {
-                document.getElementById('activity-text').value = '';
-                selectedColor = '#e84393';
-                
-                // Marcar el primer color como seleccionado
-                document.querySelectorAll('.color-option').forEach((option, index) => {
-                    if (index === 0) {
-                        option.classList.add('selected');
-                    } else {
-                        option.classList.remove('selected');
-                    }
-                });
-            }
-            
-            modal.style.display = 'flex';
-        }
+  // ========================
+  // Cargar desde el servidor
+  // ========================
+  async function loadSchedules() {
+    try {
+      const res = await fetch('/api/schedules', { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
 
-        // Guardar actividad
-        function saveActivity() {
-            const day = document.getElementById('activity-day').value;
-            const hour = document.getElementById('activity-hour').value;
-            const minute = document.getElementById('activity-minute').value;
-            const activity = document.getElementById('activity-text').value;
-            const currentUserKey = currentUser === 'mochito' ? 'mochito' : 'mochita';
-            
-            // Validar la hora
-            if (!hour && hour !== 0) {
-                alert('Por favor, introduce una hora válida');
-                return;
-            }
-            
-            // Formatear la hora a HH:MM
-            const newTime = formatTime(hour, minute);
-            
-            // Si es una nueva hora, agregarla a la lista del usuario actual
-            if (!customTimes[currentUserKey].includes(newTime)) {
-                customTimes[currentUserKey].push(newTime);
-                customTimes[currentUserKey].sort((a, b) => {
-                    const [aHour, aMinute] = a.split(':').map(Number);
-                    const [bHour, bMinute] = b.split(':').map(Number);
-                    return aHour - bHour || aMinute - bMinute;
-                });
-            }
-            
-            if (!activity.trim()) {
-                // Si no hay actividad, eliminar la existente
-                if (schedules[currentUserKey][day] && schedules[currentUserKey][day][originalTime]) {
-                    delete schedules[currentUserKey][day][originalTime];
-                }
-            } else {
-                // Si cambió la hora, eliminar la actividad de la hora original
-                if (originalTime !== newTime && schedules[currentUserKey][day] && schedules[currentUserKey][day][originalTime]) {
-                    delete schedules[currentUserKey][day][originalTime];
-                }
-                
-                // Guardar la actividad en la nueva hora
-                if (!schedules[currentUserKey][day]) {
-                    schedules[currentUserKey][day] = {};
-                }
-                schedules[currentUserKey][day][newTime] = {
-                    activity: activity,
-                    color: selectedColor
-                };
-            }
-            
-            // Cerrar modal y regenerar tabla
-            document.getElementById('event-modal').style.display = 'none';
-            generateScheduleTable();
-        }
+      // Tu endpoint GET devuelve el objeto de horarios directamente (no envuelve en {schedules: ...})
+      schedules = data && (data.mochito || data.mochita) ? data : { mochito:{}, mochita:{} };
 
-        // Eliminar actividad
-        function deleteActivity() {
-            const day = document.getElementById('activity-day').value;
-            const currentUserKey = currentUser === 'mochito' ? 'mochito' : 'mochita';
-            
-            if (schedules[currentUserKey][day] && schedules[currentUserKey][day][originalTime]) {
-                delete schedules[currentUserKey][day][originalTime];
-            }
-            
-            // Cerrar modal y regenerar tabla
-            document.getElementById('event-modal').style.display = 'none';
-            generateScheduleTable();
-        }
+      // Construir horas visibles usando:
+      // - lo que haya en la base (para no perder horas "raras")
+      // - más el fallback por si la base está vacía
+      const timesMochitoFromDB = extractTimesFromSchedules('mochito');
+      const timesMochitaFromDB = extractTimesFromSchedules('mochita');
 
-        // Inicializar la aplicación
-        document.addEventListener('DOMContentLoaded', () => {
-            // Cargar horarios
-            loadSchedules();
-            
-            // Configurar botones de usuario
-            document.querySelectorAll('.user-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    document.querySelectorAll('.user-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    currentUser = btn.dataset.user;
-                    
-                    // Si se selecciona un usuario específico, cambiar también la vista
-                    if (currentUser !== 'both') {
-                        document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-                        document.querySelector(`.view-btn[data-view="${currentUser}"]`).classList.add('active');
-                        currentView = currentUser;
-                    }
-                    
-                    generateScheduleTable();
-                });
-            });
-            
-            // Configurar botones de vista
-            document.querySelectorAll('.view-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    currentView = btn.dataset.view;
-                    generateScheduleTable();
-                });
-            });
-            
-            // Configurar opciones de color
-            document.querySelectorAll('.color-option').forEach(option => {
-                option.addEventListener('click', () => {
-                    document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
-                    option.classList.add('selected');
-                    selectedColor = option.dataset.color;
-                });
-            });
-            
-            // Configurar botón para agregar hora personalizada
-            document.getElementById('add-time-btn').addEventListener('click', addCustomTime);
-            
-            // Configurar botones del modal
-            document.getElementById('cancel-btn').addEventListener('click', () => {
-                document.getElementById('event-modal').style.display = 'none';
-            });
-            
-            document.getElementById('confirm-btn').addEventListener('click', saveActivity);
-            
-            document.getElementById('delete-btn').addEventListener('click', deleteActivity);
-            
-            // Configurar botón de guardar
-            document.getElementById('save-btn').addEventListener('click', saveSchedules);
-            
-            // Cerrar modal al hacer clic fuera
-            document.getElementById('event-modal').addEventListener('click', (e) => {
-                if (e.target === document.getElementById('event-modal')) {
-                    document.getElementById('event-modal').style.display = 'none';
-                }
-            });
+      customTimes.mochito = uniqueSortedTimes(
+        (timesMochitoFromDB.length ? timesMochitoFromDB : []).concat(fallbackDefaultTimes)
+      );
+      customTimes.mochita = uniqueSortedTimes(
+        (timesMochitaFromDB.length ? timesMochitaFromDB : []).concat(fallbackDefaultTimes)
+      );
+
+    } catch (e) {
+      console.error('Error cargando horarios del servidor:', e);
+      // Fallback local para no dejar la tabla vacía
+      schedules = { mochito:{}, mochita:{} };
+      customTimes.mochito = [...fallbackDefaultTimes];
+      customTimes.mochita = [...fallbackDefaultTimes];
+    }
+
+    generateScheduleTable();
+  }
+
+  // ========================
+  // Guardar en el servidor
+  // ========================
+  async function saveSchedules() {
+    const btn = document.getElementById('save-btn');
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+    try {
+      // Tu endpoint POST espera el objeto schedules directamente (no {schedules: ...})
+      const res = await fetch('/api/schedules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(schedules)
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      await res.json();
+      alert('Horarios guardados correctamente');
+    } catch (e) {
+      console.error('Error al guardar en servidor:', e);
+      alert('No se pudo guardar. Inténtalo de nuevo.');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
+  }
+
+  // ========================
+  // UI: generar tabla
+  // ========================
+  function generateScheduleTable() {
+    const tableBody = document.querySelector('#schedule-table tbody');
+    tableBody.innerHTML = '';
+
+    // Determinar qué horas mostrar según la vista
+    let timesToShow = [];
+    if (currentView === 'week') {
+      const allTimes = uniqueSortedTimes([
+        ...customTimes.mochito,
+        ...customTimes.mochita,
+        ...extractTimesFromSchedules('mochito'),
+        ...extractTimesFromSchedules('mochita'),
+      ]);
+      timesToShow = allTimes;
+    } else {
+      const base = currentView === 'mochito' ? 'mochito' : 'mochita';
+      const fromDB = extractTimesFromSchedules(base);
+      timesToShow = uniqueSortedTimes([
+        ...customTimes[base],
+        ...fromDB
+      ]);
+    }
+
+    timesToShow.forEach(timeFormatted => {
+      const row = document.createElement('tr');
+
+      // Celda de hora
+      const hourCell = document.createElement('td');
+      hourCell.className = 'hour-cell';
+      hourCell.textContent = timeFormatted;
+
+      // Botón eliminar hora (solo en vista de usuario específico)
+      if (currentView !== 'week') {
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'delete-time-btn';
+        deleteButton.innerHTML = '<i class="fas fa-times"></i>';
+        deleteButton.title = `Eliminar esta hora de ${currentView}`;
+        deleteButton.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deleteTime(timeFormatted, currentView);
         });
-    </script>
+        hourCell.appendChild(deleteButton);
+      }
+
+      row.appendChild(hourCell);
+
+      // Celdas de días
+      const days = ['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'];
+      days.forEach(day => {
+        const cell = document.createElement('td');
+        cell.className = 'schedule-cell';
+        cell.dataset.time = timeFormatted;
+        cell.dataset.day = day;
+
+        // Editable solo si hemos elegido un usuario específico
+        if (currentUser !== 'both') {
+          cell.classList.add('editable');
+        }
+
+        // Mostrar actividades según vista
+        if (currentView === 'week' || currentView === 'mochito') {
+          const mochitoActivity = schedules.mochito[day] && schedules.mochito[day][timeFormatted];
+          if (mochitoActivity) {
+            const activityDiv = document.createElement('div');
+            activityDiv.className = 'activity';
+            activityDiv.textContent = 'M: ' + mochitoActivity.activity;
+            activityDiv.style.backgroundColor = mochitoActivity.color;
+            cell.appendChild(activityDiv);
+          }
+        }
+
+        if (currentView === 'week' || currentView === 'mochita') {
+          const mochitaActivity = schedules.mochita[day] && schedules.mochita[day][timeFormatted];
+          if (mochitaActivity) {
+            const activityDiv = document.createElement('div');
+            activityDiv.className = 'activity';
+            activityDiv.textContent = 'C: ' + mochitaActivity.activity;
+            activityDiv.style.backgroundColor = mochitaActivity.color;
+            cell.appendChild(activityDiv);
+          }
+        }
+
+        // Abrir modal al hacer clic (si es editable)
+        if (cell.classList.contains('editable')) {
+          cell.addEventListener('click', () => openEditModal(cell));
+        }
+
+        row.appendChild(cell);
+      });
+
+      tableBody.appendChild(row);
+    });
+  }
+
+  // ========================
+  // Gestión de horas custom
+  // ========================
+  function addCustomTime() {
+    const hourInput = document.getElementById('custom-hour');
+    const minuteInput = document.getElementById('custom-minute');
+
+    const hour = parseInt(hourInput.value) || 0;
+    const minute = parseInt(minuteInput.value) || 0;
+
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      alert('Por favor, introduce una hora válida (0-23) y minutos válidos (0-59)');
+      return;
+    }
+
+    const timeFormatted = formatTime(hour, minute);
+
+    // Determinar a qué usuario agregar la hora (si está "ambos", la añadimos a mochito)
+    const targetUser = currentUser === 'both' ? 'mochito' : currentUser;
+
+    if (!customTimes[targetUser].includes(timeFormatted)) {
+      customTimes[targetUser].push(timeFormatted);
+      customTimes[targetUser] = uniqueSortedTimes(customTimes[targetUser]);
+      generateScheduleTable();
+    }
+
+    hourInput.value = '';
+    minuteInput.value = '';
+  }
+
+  function deleteTime(timeToDelete, user) {
+    if (confirm(`¿Estás seguro de que quieres eliminar la hora ${timeToDelete} de ${user}?`)) {
+      // Quitar la hora de la lista visual
+      customTimes[user] = customTimes[user].filter(t => t !== timeToDelete);
+
+      // Eliminar todas las actividades de esa hora para el usuario
+      const days = ['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'];
+      days.forEach(day => {
+        if (schedules[user][day] && schedules[user][day][timeToDelete]) {
+          delete schedules[user][day][timeToDelete];
+        }
+      });
+
+      generateScheduleTable();
+    }
+  }
+
+  // ========================
+  // Modal de edición
+  // ========================
+  function openEditModal(cell) {
+    selectedCell = cell;
+    const modal = document.getElementById('event-modal');
+    const time = cell.dataset.time;
+    const day  = cell.dataset.day;
+    originalTime = time;
+
+    const { hour, minute } = parseTime(time);
+    document.getElementById('activity-day').value   = day;
+    document.getElementById('activity-hour').value  = hour;
+    document.getElementById('activity-minute').value = minute;
+
+    const currentUserKey = (currentUser === 'mochito') ? 'mochito' : 'mochita';
+    const existingActivity = schedules[currentUserKey][day] && schedules[currentUserKey][day][time];
+
+    if (existingActivity) {
+      document.getElementById('activity-text').value = existingActivity.activity;
+      selectedColor = existingActivity.color;
+      document.querySelectorAll('.color-option').forEach(opt => {
+        opt.classList.toggle('selected', opt.dataset.color === selectedColor);
+      });
+    } else {
+      document.getElementById('activity-text').value = '';
+      selectedColor = '#e84393';
+      const options = document.querySelectorAll('.color-option');
+      options.forEach((opt, idx) => opt.classList.toggle('selected', idx === 0));
+    }
+
+    modal.style.display = 'flex';
+  }
+
+  function saveActivity() {
+    const day = document.getElementById('activity-day').value;
+    const hour = document.getElementById('activity-hour').value;
+    const minute = document.getElementById('activity-minute').value;
+    const activity = document.getElementById('activity-text').value.trim();
+    const currentUserKey = (currentUser === 'mochito') ? 'mochito' : 'mochita';
+
+    if (!hour && hour !== 0) {
+      alert('Por favor, introduce una hora válida');
+      return;
+    }
+
+    const newTime = formatTime(hour, minute);
+
+    // Añadir fila de hora si no existe en el listado visual
+    if (!customTimes[currentUserKey].includes(newTime)) {
+      customTimes[currentUserKey].push(newTime);
+      customTimes[currentUserKey] = uniqueSortedTimes(customTimes[currentUserKey]);
+    }
+
+    if (!schedules[currentUserKey][day]) {
+      schedules[currentUserKey][day] = {};
+    }
+
+    if (!activity) {
+      // Sin texto => borrar actividad en esa hora
+      if (schedules[currentUserKey][day][originalTime]) {
+        delete schedules[currentUserKey][day][originalTime];
+      }
+    } else {
+      // Si cambió la hora, borrar la entrada anterior
+      if (originalTime !== newTime && schedules[currentUserKey][day][originalTime]) {
+        delete schedules[currentUserKey][day][originalTime];
+      }
+      // Guardar/actualizar
+      schedules[currentUserKey][day][newTime] = {
+        activity: activity,
+        color: selectedColor
+      };
+    }
+
+    document.getElementById('event-modal').style.display = 'none';
+    generateScheduleTable();
+  }
+
+  function deleteActivity() {
+    const day = document.getElementById('activity-day').value;
+    const currentUserKey = (currentUser === 'mochito') ? 'mochito' : 'mochita';
+
+    if (schedules[currentUserKey][day] && schedules[currentUserKey][day][originalTime]) {
+      delete schedules[currentUserKey][day][originalTime];
+    }
+
+    document.getElementById('event-modal').style.display = 'none';
+    generateScheduleTable();
+  }
+
+  // ========================
+  // Inicialización
+  // ========================
+  document.addEventListener('DOMContentLoaded', () => {
+    // Cargar horarios desde Postgres
+    loadSchedules();
+
+    // Selector “Ver Ambos / Solo Mochito / Solo Mochita”
+    document.querySelectorAll('.user-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.user-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentUser = btn.dataset.user;
+
+        if (currentUser !== 'both') {
+          document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+          document.querySelector(`.view-btn[data-view="${currentUser}"]`).classList.add('active');
+          currentView = currentUser;
+        } else {
+          document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+          document.querySelector(`.view-btn[data-view="week"]`).classList.add('active');
+          currentView = 'week';
+        }
+
+        generateScheduleTable();
+      });
+    });
+
+    // Selector de vista
+    document.querySelectorAll('.view-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentView = btn.dataset.view;
+        generateScheduleTable();
+      });
+    });
+
+    // Colores del modal
+    document.querySelectorAll('.color-option').forEach(option => {
+      option.addEventListener('click', () => {
+        document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+        option.classList.add('selected');
+        selectedColor = option.dataset.color;
+      });
+    });
+
+    // Añadir hora personalizada
+    document.getElementById('add-time-btn').addEventListener('click', addCustomTime);
+
+    // Botones del modal
+    document.getElementById('cancel-btn').addEventListener('click', () => {
+      document.getElementById('event-modal').style.display = 'none';
+    });
+    document.getElementById('confirm-btn').addEventListener('click', saveActivity);
+    document.getElementById('delete-btn').addEventListener('click', deleteActivity);
+
+    // Guardar en servidor
+    document.getElementById('save-btn').addEventListener('click', saveSchedules);
+
+    // Cerrar modal al hacer clic fuera
+    document.getElementById('event-modal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('event-modal')) {
+        document.getElementById('event-modal').style.display = 'none';
+      }
+    });
+  });
+</script>
+
 </body>
 </html>

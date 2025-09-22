@@ -1,5 +1,4 @@
-
-app.py : 
+ 
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify
 import psycopg2
 from datetime import datetime, date
@@ -890,5 +889,6 @@ def get_image(image_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 

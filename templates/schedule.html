@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Christian y Clara 💖 - Horarios Separados</title>
+    <title>Christian y Clara 💖 - Horarios</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -878,13 +878,11 @@
 
   // Estructura de horarios y horas visibles
   let schedules = { mochito: {}, mochita: {} };
-  let customTimes = {
-    mochito: ["8:00","9:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00","23:00"],
-    mochita: ["8:00","9:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00","23:00"]
-  };
+  let customTimes = { mochito: [], mochita: [] };
 
   // Horas por defecto si la base está vacía
   const fallbackDefaultTimes = ["8:00","9:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00","23:00"];
+  const DAYS = ['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'];
 
   // ========================
   // Helpers de horas
@@ -928,7 +926,7 @@
   }
 
   // ========================
-  // Cargar desde el servidor
+  // Cargar desde el servidor (FORMA CORRECTA)
   // ========================
   async function loadSchedules() {
     try {
@@ -936,21 +934,27 @@
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
 
-      // Tu endpoint GET devuelve el objeto de horarios directamente (no envuelve en {schedules: ...})
-      schedules = data && (data.mochito || data.mochita) ? data : { mochito:{}, mochita:{} };
+      // Tu backend devuelve { schedules: {...}, customTimes: {...} }
+      const srvSchedules   = data && data.schedules   ? data.schedules   : { mochito:{}, mochita:{} };
+      const srvCustomTimes = data && data.customTimes ? data.customTimes : { mochito:[],  mochita:[] };
 
-      // Construir horas visibles usando:
-      // - lo que haya en la base (para no perder horas "raras")
-      // - más el fallback por si la base está vacía
-      const timesMochitoFromDB = extractTimesFromSchedules('mochito');
-      const timesMochitaFromDB = extractTimesFromSchedules('mochita');
+      schedules = {
+        mochito: srvSchedules.mochito || {},
+        mochita: srvSchedules.mochita || {}
+      };
 
-      customTimes.mochito = uniqueSortedTimes(
-        (timesMochitoFromDB.length ? timesMochitoFromDB : []).concat(fallbackDefaultTimes)
-      );
-      customTimes.mochita = uniqueSortedTimes(
-        (timesMochitaFromDB.length ? timesMochitaFromDB : []).concat(fallbackDefaultTimes)
-      );
+      // Construir horas visibles con lo de la BD + fallback para que siempre haya filas
+      const timesMochitoFromDB = uniqueSortedTimes([
+        ...(srvCustomTimes.mochito || []),
+        ...extractTimesFromSchedules('mochito')
+      ]);
+      const timesMochitaFromDB = uniqueSortedTimes([
+        ...(srvCustomTimes.mochita || []),
+        ...extractTimesFromSchedules('mochita')
+      ]);
+
+      customTimes.mochito = timesMochitoFromDB.length ? timesMochitoFromDB : [...fallbackDefaultTimes];
+      customTimes.mochita = timesMochitaFromDB.length ? timesMochitaFromDB : [...fallbackDefaultTimes];
 
     } catch (e) {
       console.error('Error cargando horarios del servidor:', e);
@@ -964,7 +968,7 @@
   }
 
   // ========================
-  // Guardar en el servidor
+  // Guardar en el servidor (RUTA CORRECTA)
   // ========================
   async function saveSchedules() {
     const btn = document.getElementById('save-btn');
@@ -973,14 +977,16 @@
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
 
     try {
-      // Tu endpoint POST espera el objeto schedules directamente (no {schedules: ...})
-      const res = await fetch('/api/schedules', {
+      // Tu backend guarda en POST /api/schedules/save con {schedules, customTimes}
+      const payload = { schedules, customTimes };
+      const res = await fetch('/api/schedules/save', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(schedules)
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      await res.json();
+      const j = await res.json();
+      if (!j.ok) throw new Error('Respuesta inválida');
       alert('Horarios guardados correctamente');
     } catch (e) {
       console.error('Error al guardar en servidor:', e);
@@ -1041,8 +1047,7 @@
       row.appendChild(hourCell);
 
       // Celdas de días
-      const days = ['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'];
-      days.forEach(day => {
+      DAYS.forEach(day => {
         const cell = document.createElement('td');
         cell.className = 'schedule-cell';
         cell.dataset.time = timeFormatted;
@@ -1060,7 +1065,7 @@
             const activityDiv = document.createElement('div');
             activityDiv.className = 'activity';
             activityDiv.textContent = 'M: ' + mochitoActivity.activity;
-            activityDiv.style.backgroundColor = mochitoActivity.color;
+            activityDiv.style.backgroundColor = mochitoActivity.color || '#6c5ce7';
             cell.appendChild(activityDiv);
           }
         }
@@ -1071,7 +1076,7 @@
             const activityDiv = document.createElement('div');
             activityDiv.className = 'activity';
             activityDiv.textContent = 'C: ' + mochitaActivity.activity;
-            activityDiv.style.backgroundColor = mochitaActivity.color;
+            activityDiv.style.backgroundColor = mochitaActivity.color || '#fd79a8';
             cell.appendChild(activityDiv);
           }
         }
@@ -1124,8 +1129,7 @@
       customTimes[user] = customTimes[user].filter(t => t !== timeToDelete);
 
       // Eliminar todas las actividades de esa hora para el usuario
-      const days = ['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'];
-      days.forEach(day => {
+      DAYS.forEach(day => {
         if (schedules[user][day] && schedules[user][day][timeToDelete]) {
           delete schedules[user][day][timeToDelete];
         }
@@ -1154,8 +1158,8 @@
     const existingActivity = schedules[currentUserKey][day] && schedules[currentUserKey][day][time];
 
     if (existingActivity) {
-      document.getElementById('activity-text').value = existingActivity.activity;
-      selectedColor = existingActivity.color;
+      document.getElementById('activity-text').value = existingActivity.activity || '';
+      selectedColor = existingActivity.color || '#e84393';
       document.querySelectorAll('.color-option').forEach(opt => {
         opt.classList.toggle('selected', opt.dataset.color === selectedColor);
       });
@@ -1294,6 +1298,7 @@
     });
   });
 </script>
+
 
 </body>
 </html>

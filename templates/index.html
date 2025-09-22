@@ -1258,55 +1258,6 @@
     </form>
 </div>
 
-<!-- Mapa de Distancia -->
-<div class="section animate-in delay-2">
-    <h3>Distancia</h3>
-    <p>Cuánta distancia hay entre nosotros.</p>
-    
-    <div class="distance-map-container">
-        <div id="distanceMap"></div>
-        <div class="distance-info">
-            <h4>Distancia entre nosotros</h4>
-            <div class="distance-value" id="distanceValue">Cargando...</div>
-            <div id="locationInfo">
-                <div class="location-badge">
-                    {% if profile_pictures['mochito'] %}
-                       <img src="{{ profile_pictures['mochito'] }}" alt="Christian">
-                    {% else %}
-                        <span>C</span>
-                    {% endif %}
-                    <span id="christianLocation">Algemesí, Valencia</span>
-                </div>
-                <div class="location-badge">
-                    {% if profile_pictures['mochita'] %}
-                        <img src="{{ profile_pictures['mochita'] }}" alt="Clara">
-                    {% else %}
-                        <span>C</span>
-                    {% endif %}
-                    <span id="claraLocation">Córdoba</span>
-                </div>
-            </div>
-            
-            <form class="location-form" id="locationForm">
-                <input type="text" id="userLocation" placeholder="Tu ubicación actual" required>
-                <button type="submit"><i class="fas fa-map-marker-alt"></i> Actualizar ubicación</button>
-            </form>
-        </div>
-    </div>
-</div>
-
-
-<!-- Sección de Horarios -->
-<div class="section animate-in delay-2">
-    <h3>Nuestros Horarios</h3>
-    <p>Nuestros horarios y activiades (editables).</p>
-    <a href="/horario">
-        <button style="width: 100%;">
-            <i class="fas fa-calendar-alt"></i> Ver Horarios
-        </button>
-    </a>
-</div>
-
 <!-- Pregunta diaria -->
 <div class="section animate-in delay-2">
     <h3>Pregunta del día</h3>
@@ -1378,6 +1329,57 @@
             </form>
         {% endif %}
     {% endif %}
+</div>
+
+
+
+<!-- Mapa de Distancia -->
+<div class="section animate-in delay-2">
+    <h3>Distancia</h3>
+    <p>Cuánta distancia hay entre nosotros.</p>
+    
+    <div class="distance-map-container">
+        <div id="distanceMap"></div>
+        <div class="distance-info">
+            <h4>Distancia entre nosotros</h4>
+            <div class="distance-value" id="distanceValue">Cargando...</div>
+            <div id="locationInfo">
+                <div class="location-badge">
+                    {% if profile_pictures['mochito'] %}
+                       <img src="{{ profile_pictures['mochito'] }}" alt="Christian">
+                    {% else %}
+                        <span>C</span>
+                    {% endif %}
+                    <span id="christianLocation">Algemesí, Valencia</span>
+                </div>
+                <div class="location-badge">
+                    {% if profile_pictures['mochita'] %}
+                        <img src="{{ profile_pictures['mochita'] }}" alt="Clara">
+                    {% else %}
+                        <span>C</span>
+                    {% endif %}
+                    <span id="claraLocation">Córdoba</span>
+                </div>
+            </div>
+            
+            <form class="location-form" id="locationForm">
+                <input type="text" id="userLocation" placeholder="Tu ubicación actual" required>
+                <button type="submit"><i class="fas fa-map-marker-alt"></i> Actualizar ubicación</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- Sección de Horarios -->
+<div class="section animate-in delay-2">
+    <h3>Nuestros Horarios</h3>
+    <p>Nuestros horarios y activiades (editables).</p>
+    <a href="/horario">
+        <button style="width: 100%;">
+            <i class="fas fa-calendar-alt"></i> Ver Horarios
+        </button>
+    </a>
 </div>
 
 

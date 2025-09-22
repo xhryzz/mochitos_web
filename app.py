@@ -11,7 +11,7 @@ from base64 import b64encode
 
 import requests
 
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1419704444815413450/3JKL1_--rCETBfXglvS-dytTR9tjEPluO3RXjm2d6aWyB-b-Kd2leV1aiwLyTx7BWhP-"
+DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
 
 
 def notify_discord(event: str, username: str):
@@ -924,4 +924,5 @@ def notify_every_entry():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 

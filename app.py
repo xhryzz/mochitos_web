@@ -411,37 +411,37 @@ def index():
             finally:
                 conn.close()
         
-        # Para usuarios no logueados, pasar un diccionario vacío de profile_pictures
-        profile_pictures = {}
-        return render_template('index.html', login_error=None, profile_pictures=profile_pictures)
+        # Para usuarios no logueados
+        return render_template('index.html', login_error=None, profile_pictures={})
 
+    # --- Si el usuario está logueado ---
     user = session['username']
     question_id, question_text = get_today_question()
     conn = get_db_connection()
 
     try:
         with conn.cursor() as c:
-            # Procesar formularios con PRG
+            # --- Procesar formularios (PRG) ---
             if request.method == 'POST':
-                # Actualizar foto de perfil
                 if 'update_profile' in request.form and 'profile_picture' in request.files:
                     file = request.files['profile_picture']
                     if file and file.filename:
-                        # Leer datos del archivo
                         image_data = file.read()
                         filename = secure_filename(file.filename)
                         mime_type = file.mimetype
-                        
-                        # Guardar en la base de datos
-                        c.execute("INSERT INTO profile_pictures (username, image_data, filename, mime_type, uploaded_at) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (username) DO UPDATE SET image_data = EXCLUDED.image_data, filename = EXCLUDED.filename, mime_type = EXCLUDED.mime_type, uploaded_at = EXCLUDED.uploaded_at",
-                                 (user, image_data, filename, mime_type, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        c.execute("""
+                            INSERT INTO profile_pictures (username, image_data, filename, mime_type, uploaded_at)
+                            VALUES (%s, %s, %s, %s, %s)
+                            ON CONFLICT (username) DO UPDATE
+                            SET image_data=EXCLUDED.image_data, filename=EXCLUDED.filename,
+                                mime_type=EXCLUDED.mime_type, uploaded_at=EXCLUDED.uploaded_at
+                        """, (user, image_data, filename, mime_type, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
-                    
                     return redirect('/')
-                    
+
                 if 'answer' in request.form:
                     answer = request.form['answer'].strip()
-                    c.execute("SELECT * FROM answers WHERE question_id=%s AND username=%s", (question_id, user))
+                    c.execute("SELECT 1 FROM answers WHERE question_id=%s AND username=%s", (question_id, user))
                     if not c.fetchone():
                         c.execute("INSERT INTO answers (question_id, username, answer) VALUES (%s, %s, %s)",
                                   (question_id, user, answer))
@@ -457,107 +457,98 @@ def index():
                 if 'banner' in request.files:
                     file = request.files['banner']
                     if file and file.filename:
-                        # Leer datos del archivo
                         image_data = file.read()
                         filename = secure_filename(file.filename)
                         mime_type = file.mimetype
-                        
                         c.execute("INSERT INTO banner (image_data, filename, mime_type, uploaded_at) VALUES (%s, %s, %s, %s)",
                                   (image_data, filename, mime_type, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
                     return redirect('/')
-                    
-                # Nuevos formularios para viajes
+
                 if 'travel_destination' in request.form:
                     destination = request.form['travel_destination'].strip()
                     description = request.form.get('travel_description', '').strip()
                     travel_date = request.form.get('travel_date', '')
                     is_visited = 'travel_visited' in request.form
-                    
                     if destination:
-                        c.execute("INSERT INTO travels (destination, description, travel_date, is_visited, created_by, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
-                                  (destination, description, travel_date, is_visited, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        c.execute("""
+                            INSERT INTO travels (destination, description, travel_date, is_visited, created_by, created_at)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (destination, description, travel_date, is_visited, user,
+                              datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
                     return redirect('/')
-                    
+
                 if 'travel_photo' in request.files:
                     file = request.files['travel_photo']
                     travel_id = request.form.get('travel_id')
                     if file and file.filename and travel_id:
-                        # Leer datos del archivo
                         image_data = file.read()
                         filename = secure_filename(file.filename)
                         mime_type = file.mimetype
-                        
-                        c.execute("INSERT INTO travel_photos (travel_id, image_data, filename, mime_type, uploaded_by, uploaded_at) VALUES (%s, %s, %s, %s, %s, %s)",
-                                  (travel_id, image_data, filename, mime_type, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        c.execute("""
+                            INSERT INTO travel_photos (travel_id, image_data, filename, mime_type, uploaded_by, uploaded_at)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (travel_id, image_data, filename, mime_type, user,
+                              datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
                     return redirect('/')
-                    
-                # Formulario para lista de deseos
+
                 if 'product_name' in request.form:
                     product_name = request.form['product_name'].strip()
                     product_link = request.form.get('product_link', '').strip()
                     notes = request.form.get('wishlist_notes', '').strip()
-                    
                     if product_name:
-                        c.execute("INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at) VALUES (%s, %s, %s, %s, %s)",
-                                  (product_name, product_link, notes, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        c.execute("""
+                            INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at)
+                            VALUES (%s, %s, %s, %s, %s)
+                        """, (product_name, product_link, notes, user,
+                              datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
                     return redirect('/')
 
-# --- Respuestas ---
-c.execute("SELECT username, answer FROM answers WHERE question_id=%s", (question_id,))
-answers = c.fetchall()
+            # --- Respuestas ---
+            c.execute("SELECT username, answer FROM answers WHERE question_id=%s", (question_id,))
+            answers = c.fetchall()
 
-# Quién es la otra persona (somos dos: mochito / mochita)
-other_user = 'mochita' if user == 'mochito' else 'mochito'
+            other_user = 'mochita' if user == 'mochito' else 'mochito'
+            answers_dict = {u: a for (u, a) in answers}
+            user_answer = answers_dict.get(user)
+            other_answer = answers_dict.get(other_user)
+            show_answers = (user_answer is not None) and (other_answer is not None)
 
-# Diccionario usuario -> respuesta
-answers_dict = {u: a for (u, a) in answers}
-user_answer  = answers_dict.get(user)
-other_answer = answers_dict.get(other_user)
-
-# Solo mostrar ambas respuestas si ambos contestaron
-show_answers = (user_answer is not None) and (other_answer is not None)
-
-
-
-            # Viajes
+            # --- Viajes ---
             c.execute("SELECT id, destination, description, travel_date, is_visited, created_by FROM travels ORDER BY is_visited, travel_date DESC")
             travels = c.fetchall()
-            travel_photos_dict = {}
-            for travel_id, destination, description, travel_date, is_visited, created_by in travels:
-                travel_photos_dict[travel_id] = get_travel_photos(travel_id)
-                
-            # Lista de deseos
+            travel_photos_dict = {tid: get_travel_photos(tid) for tid, *_ in travels}
+
+            # --- Wishlist ---
             c.execute("SELECT id, product_name, product_link, notes, created_by, created_at, is_purchased FROM wishlist ORDER BY is_purchased, created_at DESC")
             wishlist_items = c.fetchall()
 
             banner_file = get_banner()
-            
-            # Obtener fotos de perfil
             profile_pictures = get_profile_pictures()
 
     finally:
         conn.close()
 
     return render_template('index.html',
-                       question=question_text,
-                       show_answers=show_answers,
-                       answers=answers,
-                       user_answer=user_answer,
-                       other_user=other_user,      # 👈 añadido
-                       other_answer=other_answer,  # 👈 añadido
-                       days_together=days_together(),
-                       days_until_meeting=days_until_meeting(),
-                       travels=travels,
-                       travel_photos_dict=travel_photos_dict,
-                       wishlist_items=wishlist_items,
-                       username=user,
-                       banner_file=banner_file,
-                       profile_pictures=profile_pictures,
-                       login_error=None)
+                           question=question_text,
+                           show_answers=show_answers,
+                           answers=answers,
+                           user_answer=user_answer,
+                           other_user=other_user,
+                           other_answer=other_answer,
+                           days_together=days_together(),
+                           days_until_meeting=days_until_meeting(),
+                           travels=travels,
+                           travel_photos_dict=travel_photos_dict,
+                           wishlist_items=wishlist_items,
+                           username=user,
+                           banner_file=banner_file,
+                           profile_pictures=profile_pictures,
+                           login_error=None)
+
 
 
 # Eliminar viaje

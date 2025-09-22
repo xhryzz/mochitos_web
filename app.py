@@ -11,17 +11,100 @@ from base64 import b64encode
 
 import requests
 
-DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1419704444815413450/3JKL1_--rCETBfXglvS-dytTR9tjEPluO3RXjm2d6aWyB-b-Kd2leV1aiwLyTx7BWhP-"
+
+
+
+def _truncate(s: str, limit: int = 1000) -> str:
+    s = s or ""
+    return (s[:limit-3] + "...") if len(s) > limit else s
+
+def _detect_client(req):
+    ua = req.headers.get("User-Agent", "")
+    ua_l = ua.lower()
+
+    # Detección muy ligera (sin librerías)
+    if "edg" in ua_l or "edge" in ua_l: browser = "Edge"
+    elif "opr" in ua_l or "opera" in ua_l: browser = "Opera"
+    elif "chrome" in ua_l and "safari" in ua_l: browser = "Chrome"
+    elif "safari" in ua_l and "chrome" not in ua_l: browser = "Safari"
+    elif "firefox" in ua_l: browser = "Firefox"
+    else: browser = "Desconocido"
+
+    if "windows" in ua_l: os = "Windows"
+    elif "android" in ua_l: os = "Android"
+    elif "iphone" in ua_l or "ios" in ua_l: os = "iOS"
+    elif "ipad" in ua_l: os = "iPadOS"
+    elif "mac os x" in ua_l or "macintosh" in ua_l: os = "macOS"
+    elif "linux" in ua_l: os = "Linux"
+    else: os = "Desconocido"
+
+    is_mobile = ("mobile" in ua_l) or ("android" in ua_l) or ("iphone" in ua_l)
+    is_bot = any(b in ua_l for b in ["bot", "spider", "crawl"])
+
+    xff = req.headers.get("X-Forwarded-For")
+    real_ip = req.headers.get("X-Real-Ip")
+    cf_ip = req.headers.get("CF-Connecting-IP")  # por si algún proxy/CDN lo añade
+    ip = (cf_ip or real_ip or (xff.split(",")[0].strip() if xff else req.remote_addr))
+
+    return {
+        "ua": ua,
+        "browser": browser,
+        "os": os,
+        "device": "Móvil" if is_mobile else "Escritorio",
+        "is_mobile": is_mobile,
+        "is_bot": is_bot,
+        "ip": ip or "desconocida",
+        "xff": xff or "-",
+        "referer": req.headers.get("Referer", "-"),
+        "lang": req.headers.get("Accept-Language", "-"),
+        "method": req.method,
+        "url": req.url,
+        "path": req.path,
+        "host": req.headers.get("Host", "-"),
+        "proto": req.headers.get("X-Forwarded-Proto", req.scheme),
+    }
 
 
 def notify_discord(event: str, username: str):
-    """Manda un mensaje simple a Discord sin mencionar a nadie."""
     if not DISCORD_WEBHOOK_URL:
         return
     try:
-        payload = {
-            "content": f"📥 **{username}** ha {event} a las {datetime.now().strftime('%H:%M:%S')}"
+        c = _detect_client(request)
+        now_iso = datetime.utcnow().isoformat() + "Z"  # timestamp ISO para Discord
+
+        embed = {
+            "title": f"{event} · {username}",
+            "description": f"Actividad de **{username}**",
+            "color": 0xE84393,  # rosa mochito 😄
+            "timestamp": now_iso,
+            "fields": [
+                {"name": "Ruta", "value": f"`{c['method']}` {c['path']}", "inline": True},
+                {"name": "Host", "value": _truncate(c["host"]), "inline": True},
+                {"name": "Protocolo", "value": _truncate(c["proto"]), "inline": True},
+
+                {"name": "IP", "value": _truncate(c["ip"]), "inline": True},
+                {"name": "X-Forwarded-For", "value": _truncate(c["xff"]), "inline": True},
+                {"name": "Idioma", "value": _truncate(c["lang"]), "inline": True},
+
+                {"name": "Navegador", "value": c["browser"], "inline": True},
+                {"name": "SO", "value": c["os"], "inline": True},
+                {"name": "Dispositivo", "value": c["device"], "inline": True},
+
+                {"name": "¿Bot?", "value": "Sí 🤖" if c["is_bot"] else "No", "inline": True},
+                {"name": "Referer", "value": _truncate(c["referer"]), "inline": False},
+                {"name": "URL completa", "value": _truncate(c["url"]), "inline": False},
+                {"name": "User-Agent", "value": _truncate(c["ua"]), "inline": False},
+            ],
+            "footer": {"text": "Mochitos · Webhook de acceso"}
         }
+
+        payload = {
+            "username": "Mochitos Bot",
+            "content": "",  # vacío para no mencionar a nadie
+            "embeds": [embed],
+        }
+
         requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=5)
     except Exception as e:
         print(f"[notify_discord] Error: {e}")
@@ -924,5 +1007,4 @@ def notify_every_entry():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
 

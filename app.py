@@ -1,6 +1,8 @@
+
+app.py : 
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify
 import psycopg2
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 import random
 import os
 from werkzeug.utils import secure_filename
@@ -144,6 +146,7 @@ def init_db():
                 )
             ''')
 
+            
             # Tabla de preguntas diarias
             c.execute('''
                 CREATE TABLE IF NOT EXISTS daily_questions (
@@ -152,7 +155,7 @@ def init_db():
                     date TEXT
                 )
             ''')
-
+            
             # Tabla de respuestas
             c.execute('''
                 CREATE TABLE IF NOT EXISTS answers (
@@ -163,16 +166,7 @@ def init_db():
                     FOREIGN KEY(question_id) REFERENCES daily_questions(id)
                 )
             ''')
-
-            # === NUEVA TABLA PARA RACHA ===
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS streak (
-                    id SERIAL PRIMARY KEY,
-                    count INTEGER DEFAULT 0,
-                    last_date TEXT
-                )
-            ''')
-
+            
             # Tabla de reuniones
             c.execute('''
                 CREATE TABLE IF NOT EXISTS meeting (
@@ -180,7 +174,7 @@ def init_db():
                     meeting_date TEXT
                 )
             ''')
-
+            
             # Tabla de banners - ahora almacena datos binarios
             c.execute('''
                 CREATE TABLE IF NOT EXISTS banner (
@@ -191,7 +185,7 @@ def init_db():
                     uploaded_at TEXT
                 )
             ''')
-
+            
             # Tablas para la nueva funcionalidad de viajes
             c.execute('''
                 CREATE TABLE IF NOT EXISTS travels (
@@ -204,7 +198,7 @@ def init_db():
                     created_at TEXT
                 )
             ''')
-
+            
             # Tabla para fotos de viajes - ahora almacena datos binarios
             c.execute('''
                 CREATE TABLE IF NOT EXISTS travel_photos (
@@ -218,7 +212,7 @@ def init_db():
                     FOREIGN KEY(travel_id) REFERENCES travels(id)
                 )
             ''')
-
+            
             # Tabla para la lista de deseos
             c.execute('''
                 CREATE TABLE IF NOT EXISTS wishlist (
@@ -231,7 +225,7 @@ def init_db():
                     is_purchased BOOLEAN DEFAULT FALSE
                 )
             ''')
-
+            
             # Tabla para horarios
             c.execute('''
                 CREATE TABLE IF NOT EXISTS schedules (
@@ -244,7 +238,7 @@ def init_db():
                     UNIQUE(username, day, time)
                 )
             ''')
-
+            
             # Tabla para ubicaciones
             c.execute('''
                 CREATE TABLE IF NOT EXISTS locations (
@@ -256,7 +250,7 @@ def init_db():
                     updated_at TEXT
                 )
             ''')
-
+            
             # Tabla para fotos de perfil - ahora almacena datos binarios
             c.execute('''
                 CREATE TABLE IF NOT EXISTS profile_pictures (
@@ -268,12 +262,12 @@ def init_db():
                     uploaded_at TEXT
                 )
             ''')
-
+            
             # Crear usuarios predeterminados
             try:
                 c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochito', '1234'))
                 c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochita', '1234'))
-
+                
                 # Ubicaciones iniciales
                 c.execute("INSERT INTO locations (username, location_name, latitude, longitude, updated_at) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (username) DO NOTHING", 
                          ('mochito', 'Algemesí, Valencia', 39.1925, -0.4353, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
@@ -290,6 +284,7 @@ init_db()
 def get_today_question():
     today_str = date.today().isoformat()
     conn = get_db_connection()
+    
     try:
         with conn.cursor() as c:
             # Revisar si ya existe una pregunta para hoy
@@ -317,81 +312,6 @@ def get_today_question():
             return (question_id, question_text)
     finally:
         conn.close()
-
-# ========= LÓGICA DE RACHA =========
-def get_streak():
-    """
-    Devuelve el valor de racha a mostrar hoy.
-    Si la última fecha guardada no es hoy ni ayer, muestra 0 (racha rota).
-    """
-    today = date.today()
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT count, last_date FROM streak ORDER BY id DESC LIMIT 1")
-            row = c.fetchone()
-            if not row:
-                return 0
-            count, last_date_str = row
-            if not last_date_str:
-                return 0
-            last_date = date.fromisoformat(last_date_str)
-            if last_date == today or last_date == today - timedelta(days=1):
-                return count
-            # Rota si pasaron más de 1 día sin que ambos respondieran
-            return 0
-    finally:
-        conn.close()
-
-def update_streak_if_both_answered(today_question_id):
-    """
-    Si ambos han respondido la pregunta 'hoy', actualiza/incrementa racha:
-    - Si last_date == ayer => count += 1
-    - Si last_date == hoy  => no duplica
-    - En cualquier otro caso => count = 1 (reinicio al completar día actual)
-    Guarda last_date = hoy.
-    """
-    today = date.today()
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            # ¿Han respondido ambos hoy?
-            c.execute("""
-                SELECT COUNT(DISTINCT username)
-                FROM answers
-                WHERE question_id = %s AND username IN ('mochito','mochita')
-            """, (today_question_id,))
-            who_count = c.fetchone()[0]
-            if who_count < 2:
-                return  # aún no tocan la racha
-
-            # Leer racha actual
-            c.execute("SELECT id, count, last_date FROM streak ORDER BY id DESC LIMIT 1")
-            row = c.fetchone()
-
-            if row:
-                sid, count, last_date_str = row
-                last_date = date.fromisoformat(last_date_str) if last_date_str else None
-
-                if last_date == today:
-                    # ya se actualizó hoy
-                    return
-                elif last_date == today - timedelta(days=1):
-                    # consecutivo
-                    count = (count or 0) + 1
-                else:
-                    # reinicio al completar hoy
-                    count = 1
-
-                c.execute("UPDATE streak SET count=%s, last_date=%s WHERE id=%s",
-                          (count, today.isoformat(), sid))
-            else:
-                # primer día que ambos responden
-                c.execute("INSERT INTO streak (count, last_date) VALUES (%s, %s)", (1, today.isoformat()))
-            conn.commit()
-    finally:
-        conn.close()
-# ===================================
 
 def days_together():
     return (date.today() - RELATION_START).days
@@ -528,10 +448,6 @@ def index():
                         c.execute("INSERT INTO answers (question_id, username, answer) VALUES (%s, %s, %s)",
                                   (question_id, user, answer))
                         conn.commit()
-
-                        # si al guardar la respuesta ya están ambos, actualizamos racha
-                        update_streak_if_both_answered(question_id)
-
                     return redirect('/')
 
                 if 'meeting_date' in request.form:
@@ -603,10 +519,6 @@ def index():
             other_answer = answers_dict.get(other_user)
             show_answers = (user_answer is not None) and (other_answer is not None)
 
-            # Si ambos respondieron, aseguramos racha actualizada
-            if show_answers:
-                update_streak_if_both_answered(question_id)
-
             # --- Viajes ---
             c.execute("SELECT id, destination, description, travel_date, is_visited, created_by FROM travels ORDER BY is_visited, travel_date DESC")
             travels = c.fetchall()
@@ -618,9 +530,6 @@ def index():
 
             banner_file = get_banner()
             profile_pictures = get_profile_pictures()
-
-            # Racha
-            streak_count = get_streak()
 
     finally:
         conn.close()
@@ -640,7 +549,6 @@ def index():
                            username=user,
                            banner_file=banner_file,
                            profile_pictures=profile_pictures,
-                           streak=streak_count,
                            login_error=None)
 
 
@@ -982,3 +890,5 @@ def get_image(image_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+

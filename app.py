@@ -11,7 +11,8 @@ from base64 import b64encode
 
 import requests
 
-DISCORD_WEBHOOK_URL = os.environ.get("https://discord.com/api/webhooks/1419704444815413450/3JKL1_--rCETBfXglvS-dytTR9tjEPluO3RXjm2d6aWyB-b-Kd2leV1aiwLyTx7BWhP-")  # pega aquí la URL de tu webhook si no usas variables de entorno
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1419704444815413450/3JKL1_--rCETBfXglvS-dytTR9tjEPluO3RXjm2d6aWyB-b-Kd2leV1aiwLyTx7BWhP-"
+
 
 def notify_discord(event: str, username: str):
     """Manda un mensaje simple a Discord sin mencionar a nadie."""
@@ -411,27 +412,26 @@ def get_travel_photos(travel_id):
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if 'username' not in session:
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        conn = get_db_connection()
-        try:
-            with conn.cursor() as c:
-                c.execute("SELECT * FROM users WHERE username=%s AND password=%s", (username, password))
-                user = c.fetchone()
-                if user:
-                    session['username'] = username
-                    notify_discord("iniciado sesión", username)  # 👈 aquí añadimos la notificación
-                    return redirect('/')
-                else:
-                    error = "Usuario o contraseña incorrecta"
-                    return render_template('index.html', login_error=error)
-        finally:
-            conn.close()
-    
-    # Para usuarios no logueados
-    return render_template('index.html', login_error=None, profile_pictures={})
+        if request.method == 'POST':
+            username = request.form['username']
+            password = request.form['password']
+            conn = get_db_connection()
+            try:
+                with conn.cursor() as c:
+                    c.execute("SELECT * FROM users WHERE username=%s AND password=%s", (username, password))
+                    user = c.fetchone()
+                    if user:
+                        session['username'] = username
+                        notify_discord("iniciado sesión", username)
+                        return redirect('/')
+                    else:
+                        error = "Usuario o contraseña incorrecta"
+                        return render_template('index.html', login_error=error)
+            finally:
+                conn.close()
 
+        # Para usuarios no logueados (GET)
+        return render_template('index.html', login_error=None, profile_pictures={})
 
     # --- Si el usuario está logueado ---
     user = session['username']
@@ -526,19 +526,14 @@ def index():
                         conn.commit()
                     return redirect('/')
 
-                       # --- Respuestas ---
+            # --- Respuestas ---
             c.execute("SELECT username, answer FROM answers WHERE question_id=%s", (question_id,))
             answers = c.fetchall()
 
-            # Quién es la otra persona (somos dos: mochito / mochita)
             other_user = 'mochita' if user == 'mochito' else 'mochito'
-
-            # Diccionario usuario -> respuesta
             answers_dict = {u: a for (u, a) in answers}
             user_answer  = answers_dict.get(user)
             other_answer = answers_dict.get(other_user)
-
-            # Solo mostrar ambas respuestas si ambos contestaron
             show_answers = (user_answer is not None) and (other_answer is not None)
 
             # --- Viajes ---
@@ -580,6 +575,7 @@ def index():
                            banner_file=banner_file,
                            profile_pictures=profile_pictures,
                            login_error=None)
+
 
 
 

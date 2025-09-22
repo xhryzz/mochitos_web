@@ -1115,38 +1115,6 @@
     color: white;
     transform: translateY(-3px) rotate(45deg);
 }
-
-
-
-
-
-
-
-.streak-badges {
-    display: flex;
-    gap: 10px;
-    margin: 10px 0 20px 0;
-    flex-wrap: wrap;
-}
-.streak-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    border-radius: 999px;
-    font-weight: 700;
-    font-size: 0.95rem;
-    background: rgba(232, 67, 147, 0.12);
-    border: 2px solid #e84393;
-    color: #e84393;
-}
-.streak-badge.best {
-    background: rgba(162, 155, 254, 0.12);
-    border-color: #a29bfe;
-    color: #6c63ff;
-}
-
-
     </style>
 </head>
 <body>
@@ -1321,13 +1289,6 @@
 <div class="section animate-in delay-2">
     <h3>Pregunta del día</h3>
     <p class="question"><b>{{ question }}</b></p>
-   <div class="streak-badges">
-    <div class="streak-badge">
-        <i class="fas fa-fire"></i>
-        Racha actual: {{ streak }} día{% if streak != 1 %}s{% endif %}
-    </div>
-</div>
-
     {% if show_answers %}
         <div class="answers">
             {% for u, a in answers %}

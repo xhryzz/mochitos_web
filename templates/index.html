@@ -1115,6 +1115,24 @@
     color: white;
     transform: translateY(-3px) rotate(45deg);
 }
+
+
+
+
+
+/* Pregunta del día – bloqueo/blur */
+.answer-item.locked { position: relative; }
+.answer-item .text-blur {
+  filter: blur(7px);
+  user-select: none;
+}
+.lock-note {
+  font-size: 0.85rem;
+  color: #888;
+  margin-top: 6px;
+  display: block;
+}
+
     </style>
 </head>
 <body>
@@ -1286,37 +1304,83 @@
 
 <!-- Pregunta diaria -->
 <div class="section animate-in delay-2">
-    <h3>Pregunta del día</h3>
-    <p class="question"><b>{{ question }}</b></p>
-    {% if show_answers %}
-        <div class="answers">
-            {% for u, a in answers %}
-                <div class="answer-item">
-                    <div class="user-avatar">
-                        {% if profile_pictures[u] %}
-                          <img src="{{ profile_pictures[u] }}" alt="{{ u }}">
-                        {% else %}
-                            {{ u[0]|upper }}
-                        {% endif %}
-                    </div>
-                    <div>
-                        <b>{{ u }}:</b> {{ a }}
-                    </div>
-                </div>
-            {% endfor %}
+  <h3>Pregunta del día</h3>
+  <p class="question"><b>{{ question }}</b></p>
+
+  {% if show_answers %}
+    <!-- Ambos respondieron: mostrar todo -->
+    <div class="answers">
+      {% for u, a in answers %}
+        <div class="answer-item">
+          <div class="user-avatar">
+            {% if profile_pictures[u] %}
+              <img src="{{ profile_pictures[u] }}" alt="{{ u }}">
+            {% else %}
+              {{ u[0]|upper }}
+            {% endif %}
+          </div>
+          <div><b>{{ u }}:</b> {{ a }}</div>
         </div>
-    {% else %}
-        {% if user_answer %}
-            <p>Tu respuesta: {{ user_answer }}</p>
-            <p>La otra persona ya respondió, pero no puedes verla hasta que contestes.</p>
-        {% else %}
-            <form method="POST" class="inline-form">
-                <input type="text" name="answer" placeholder="Tu respuesta..." required>
-                <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-            </form>
-        {% endif %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <!-- Solo uno (o ninguno) respondió -->
+    <div class="answers">
+      {% if user_answer %}
+        <!-- Tu respuesta: visible -->
+        <div class="answer-item">
+          <div class="user-avatar">
+            {% if profile_pictures[username] %}
+              <img src="{{ profile_pictures[username] }}" alt="{{ username }}">
+            {% else %}
+              {{ username[0]|upper }}
+            {% endif %}
+          </div>
+          <div><b>{{ username }}:</b> {{ user_answer }}</div>
+        </div>
+      {% endif %}
+
+      {% if other_answer %}
+        <!-- Respuesta de la otra persona: borrosa hasta que ambos respondan -->
+        <div class="answer-item locked">
+          <div class="user-avatar">
+            {% if profile_pictures[other_user] %}
+              <img src="{{ profile_pictures[other_user] }}" alt="{{ other_user }}">
+            {% else %}
+              {{ other_user[0]|upper }}
+            {% endif %}
+          </div>
+          <div>
+            <b>{{ other_user }}:</b>
+            <span class="text-blur">{{ other_answer }}</span>
+            <span class="lock-note">Se mostrará cuando contestéis los dos.</span>
+          </div>
+        </div>
+      {% else %}
+        <!-- La otra persona aún no respondió -->
+        <div class="answer-item">
+          <div class="user-avatar">
+            {% if profile_pictures[other_user] %}
+              <img src="{{ profile_pictures[other_user] }}" alt="{{ other_user }}">
+            {% else %}
+              {{ other_user[0]|upper }}
+            {% endif %}
+          </div>
+          <div><b>{{ other_user }}:</b> Aún no ha respondido.</div>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if not user_answer %}
+      <!-- Tu cuadro de respuesta si aún no has respondido -->
+      <form method="POST" class="inline-form" style="margin-top: 15px;">
+        <input type="text" name="answer" placeholder="Tu respuesta..." required>
+        <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+      </form>
     {% endif %}
+  {% endif %}
 </div>
+
 
 <!-- Sección de Lista de Deseos -->
 <div class="section animate-in delay-3">

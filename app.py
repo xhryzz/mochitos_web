@@ -1,4 +1,5 @@
- 
+asi?? : 
+
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify
 import psycopg2
 from datetime import datetime, date
@@ -508,23 +509,36 @@ def index():
                         conn.commit()
                     return redirect('/')
 
-            # --- Respuestas ---
+                       # --- Respuestas ---
             c.execute("SELECT username, answer FROM answers WHERE question_id=%s", (question_id,))
             answers = c.fetchall()
 
+            # Quién es la otra persona (somos dos: mochito / mochita)
             other_user = 'mochita' if user == 'mochito' else 'mochito'
+
+            # Diccionario usuario -> respuesta
             answers_dict = {u: a for (u, a) in answers}
-            user_answer = answers_dict.get(user)
+            user_answer  = answers_dict.get(user)
             other_answer = answers_dict.get(other_user)
+
+            # Solo mostrar ambas respuestas si ambos contestaron
             show_answers = (user_answer is not None) and (other_answer is not None)
 
             # --- Viajes ---
-            c.execute("SELECT id, destination, description, travel_date, is_visited, created_by FROM travels ORDER BY is_visited, travel_date DESC")
+            c.execute("""
+                SELECT id, destination, description, travel_date, is_visited, created_by
+                FROM travels
+                ORDER BY is_visited, travel_date DESC
+            """)
             travels = c.fetchall()
             travel_photos_dict = {tid: get_travel_photos(tid) for tid, *_ in travels}
 
             # --- Wishlist ---
-            c.execute("SELECT id, product_name, product_link, notes, created_by, created_at, is_purchased FROM wishlist ORDER BY is_purchased, created_at DESC")
+            c.execute("""
+                SELECT id, product_name, product_link, notes, created_by, created_at, is_purchased
+                FROM wishlist
+                ORDER BY is_purchased, created_at DESC
+            """)
             wishlist_items = c.fetchall()
 
             banner_file = get_banner()
@@ -549,6 +563,7 @@ def index():
                            banner_file=banner_file,
                            profile_pictures=profile_pictures,
                            login_error=None)
+
 
 
 
@@ -889,6 +904,3 @@ def get_image(image_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-

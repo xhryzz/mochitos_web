@@ -1120,21 +1120,30 @@
 
 
 
-/* Pregunta del día – bloqueo/blur */
-.answer-item { position: relative; }
-.answer-item .answer-text { white-space: pre-wrap; }
-.answer-item.blurred .answer-text { filter: blur(10px); user-select: none; }
-.answer-item.blurred .blur-hint {
-    position: absolute;
-    inset: 0;
+
+
+.streak-badges {
     display: flex;
+    gap: 10px;
+    margin: 10px 0 20px 0;
+    flex-wrap: wrap;
+}
+.streak-badge {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    background: rgba(255,255,255,0.6);
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 999px;
     font-weight: 700;
-    border-radius: 12px;
-    text-align: center;
-    padding: 10px;
+    font-size: 0.95rem;
+    background: rgba(232, 67, 147, 0.12);
+    border: 2px solid #e84393;
+    color: #e84393;
+}
+.streak-badge.best {
+    background: rgba(162, 155, 254, 0.12);
+    border-color: #a29bfe;
+    color: #6c63ff;
 }
 
 
@@ -1144,7 +1153,7 @@
 <!-- Corazones flotantes de fondo -->
 <div class="floating-hearts" id="hearts-container"></div>
 
-<!-- MODAL EDITAR WISHLIST -->
+<!-- Modal para editar elemento de la lista de deseos -->
 <div id="editWishlistModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -1164,6 +1173,7 @@
 </div>
 
 <div class="container">
+
 {% if not session.username %}
 <div class="login-container">
     <div class="login-box animate-in">
@@ -1182,12 +1192,12 @@
 
 <a href="/logout" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
 
-<!-- BANNER -->
+<!-- Banner editable -->
 <div class="section banner animate-in">
     {% if banner_file %}
-        <img src="{{ banner_file }}" alt="Banner">
+        <img src="/uploads/{{ banner_file }}" alt="Banner">
     {% else %}
-        <img src="data:image/svg+xml,%3Csvg ... %3E" alt="Banner por defecto">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='450' viewBox='0 0 1200 450' fill='none'%3E%3Crect width='1200' height='450' fill='%23FD79A8'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='60' fill='white'%3EChristian %3Cspan font-size='70' fill='%23E84393'%3E❤%3C/span%3E Clara%3C/text%3E%3C/svg%3E" alt="Banner por defecto">
     {% endif %}
     <div class="banner-overlay">
         <h1>Christian <span class="heart">❤️</span> Clara</h1>
@@ -1201,11 +1211,12 @@
     </div>
 </div>
 
-<!-- PERFIL -->
+<!-- Icono de ajustes en esquina superior izquierda -->
 <div class="settings-icon" id="settingsIcon">
     <i class="fas fa-user-cog"></i>
 </div>
 
+<!-- Modal de perfil (oculto inicialmente) -->
 <div id="profileModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -1215,7 +1226,7 @@
         <div class="modal-body">
             <div class="profile-section">
                 {% if profile_pictures[session.username] %}
-                    <img src="{{ profile_pictures[session.username] }}" alt="Foto de perfil" class="profile-picture">
+                    <img src="/uploads/{{ profile_pictures[session.username] }}" alt="Foto de perfil" class="profile-picture">
                 {% else %}
                     <div class="profile-picture" style="background: var(--gradient); display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; font-weight: bold;">
                         {{ session.username[0]|upper }}
@@ -1258,81 +1269,6 @@
     </form>
 </div>
 
-<!-- Pregunta diaria -->
-<div class="section animate-in delay-2">
-    <h3>Pregunta del día</h3>
-    <p class="question"><b>{{ question }}</b></p>
-
-    {% if show_answers %}
-        <!-- Ambos respondieron: se ven las dos respuestas -->
-        <div class="answers">
-            {% for u, a in answers %}
-                <div class="answer-item">
-                    <div class="user-avatar">
-                        {% if profile_pictures[u] %}
-                            <img src="{{ profile_pictures[u] }}" alt="{{ u }}">
-                        {% else %}
-                            {{ u[0]|upper }}
-                        {% endif %}
-                    </div>
-                    <div><b>{{ u }}:</b> <span class="answer-text">{{ a }}</span></div>
-                </div>
-            {% endfor %}
-        </div>
-
-    {% else %}
-        {% if user_answer and not other_answer %}
-            <!-- Yo ya contesté y la otra persona aún no -->
-            <div class="answers">
-                <div class="answer-item">
-                    <div class="user-avatar">
-                        {% if profile_pictures[username] %}
-                            <img src="{{ profile_pictures[username] }}" alt="{{ username }}">
-                        {% else %}
-                            {{ username[0]|upper }}
-                        {% endif %}
-                    </div>
-                    <div><b>Tú:</b> <span class="answer-text">{{ user_answer }}</span></div>
-                </div>
-            </div>
-            <p style="margin-top:10px;">Aún falta la respuesta de <b>{{ other_user }}</b> 🕒</p>
-
-        {% elif (not user_answer) and other_answer %}
-            <!-- La otra persona ya contestó, yo NO: muestro blur + mi formulario -->
-            <form method="POST" class="inline-form" style="margin-bottom:15px;">
-                <input type="text" name="answer" placeholder="Tu respuesta..." required>
-                <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-            </form>
-
-            <div class="answers">
-                <div class="answer-item blurred">
-                    <div class="user-avatar">
-                        {% if profile_pictures[other_user] %}
-                            <img src="{{ profile_pictures[other_user] }}" alt="{{ other_user }}">
-                        {% else %}
-                            {{ other_user[0]|upper }}
-                        {% endif %}
-                    </div>
-                    <div>
-                        <b>{{ other_user }}:</b>
-                        <span class="answer-text">{{ other_answer }}</span>
-                        <div class="blur-hint">Responde para desbloquear</div>
-                    </div>
-                </div>
-            </div>
-
-        {% else %}
-            <!-- Nadie ha contestado: solo mi formulario -->
-            <form method="POST" class="inline-form">
-                <input type="text" name="answer" placeholder="Tu respuesta..." required>
-                <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-            </form>
-        {% endif %}
-    {% endif %}
-</div>
-
-
-
 <!-- Mapa de Distancia -->
 <div class="section animate-in delay-2">
     <h3>Distancia</h3>
@@ -1346,7 +1282,7 @@
             <div id="locationInfo">
                 <div class="location-badge">
                     {% if profile_pictures['mochito'] %}
-                       <img src="{{ profile_pictures['mochito'] }}" alt="Christian">
+                        <img src="/uploads/{{ profile_pictures['mochito'] }}" alt="Christian">
                     {% else %}
                         <span>C</span>
                     {% endif %}
@@ -1354,7 +1290,7 @@
                 </div>
                 <div class="location-badge">
                     {% if profile_pictures['mochita'] %}
-                        <img src="{{ profile_pictures['mochita'] }}" alt="Clara">
+                        <img src="/uploads/{{ profile_pictures['mochita'] }}" alt="Clara">
                     {% else %}
                         <span>C</span>
                     {% endif %}
@@ -1370,11 +1306,10 @@
     </div>
 </div>
 
-
 <!-- Sección de Horarios -->
 <div class="section animate-in delay-2">
     <h3>Nuestros Horarios</h3>
-    <p>Nuestros horarios y actividades (editables).</p>
+    <p>Nuestros horarios y activiades (editables).</p>
     <a href="/horario">
         <button style="width: 100%;">
             <i class="fas fa-calendar-alt"></i> Ver Horarios
@@ -1382,7 +1317,46 @@
     </a>
 </div>
 
+<!-- Pregunta diaria -->
+<div class="section animate-in delay-2">
+    <h3>Pregunta del día</h3>
+    <p class="question"><b>{{ question }}</b></p>
+   <div class="streak-badges">
+    <div class="streak-badge">
+        <i class="fas fa-fire"></i>
+        Racha actual: {{ streak }} día{% if streak != 1 %}s{% endif %}
+    </div>
+</div>
 
+    {% if show_answers %}
+        <div class="answers">
+            {% for u, a in answers %}
+                <div class="answer-item">
+                    <div class="user-avatar">
+                        {% if profile_pictures[u] %}
+                            <img src="/uploads/{{ profile_pictures[u] }}" alt="{{ u }}">
+                        {% else %}
+                            {{ u[0]|upper }}
+                        {% endif %}
+                    </div>
+                    <div>
+                        <b>{{ u }}:</b> {{ a }}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        {% if user_answer %}
+            <p>Tu respuesta: {{ user_answer }}</p>
+            <p>La otra persona ya respondió, pero no puedes verla hasta que contestes.</p>
+        {% else %}
+            <form method="POST" class="inline-form">
+                <input type="text" name="answer" placeholder="Tu respuesta..." required>
+                <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+            </form>
+        {% endif %}
+    {% endif %}
+</div>
 
 <!-- Sección de Lista de Deseos -->
 <div class="section animate-in delay-3">
@@ -1413,7 +1387,7 @@
                     <span>
                         <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
                             {% if profile_pictures[created_by] %}
-                               <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                                <img src="/uploads/{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
                             {% else %}
                                 {{ created_by[0]|upper }}
                             {% endif %}
@@ -1465,7 +1439,7 @@
                     <span>
                         <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
                             {% if profile_pictures[created_by] %}
-                                <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                                <img src="/uploads/{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
                             {% else %}
                                 {{ created_by[0]|upper }}
                             {% endif %}
@@ -1529,7 +1503,7 @@
             <div class="travel-card visited">
                 <div class="travel-cover">
                     {% if travel_photos_dict[id] %}
-                        <img src="{{ travel_photos_dict[id][0]['data_url'] }}" alt="{{ destination }}">
+                        <img src="/uploads/{{ travel_photos_dict[id][0][1] }}" alt="{{ destination }}">
                     {% else %}
                         <div class="empty-album">
                             <i class="fas fa-map-marker-alt"></i>
@@ -1550,7 +1524,7 @@
                         <span>
                             <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
                                 {% if profile_pictures[created_by] %}
-                                    <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                                    <img src="/uploads/{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
                                 {% else %}
                                     {{ created_by[0]|upper }}
                                 {% endif %}
@@ -1594,7 +1568,7 @@
             <div class="travel-card wishlist">
                 <div class="travel-cover">
                     {% if travel_photos_dict[id] %}
-                        <img src="{{ travel_photos_dict[id][0]['data_url'] }}" alt="{{ destination }}">
+                        <img src="/uploads/{{ travel_photos_dict[id][0][1] }}" alt="{{ destination }}">
                     {% else %}
                         <div class="empty-album">
                             <i class="fas fa-heart"></i>
@@ -1612,7 +1586,7 @@
                         <span>
                             <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
                                 {% if profile_pictures[created_by] %}
-                                    <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                                    <img src="/uploads/{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
                                 {% else %}
                                     {{ created_by[0]|upper }}
                                 {% endif %}
@@ -1747,44 +1721,54 @@
     
     // Mapa de distancia
     let map, christianMarker, claraMarker, distanceLine;
-    let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" };
-    let claraLocation = { lat: 37.8882, lng: -4.7794, name: "Córdoba" };
-
+    let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" }; // Algemesí, Valencia
+    let claraLocation = { lat: 37.8882, lng: -4.7794, name: "Córdoba" }; // Córdoba
+    
     function initMap() {
+        // Inicializar el mapa centrado en España
         map = L.map('distanceMap').setView([39.5, -3.0], 6);
-
-        // Capa base de OpenStreetMap
+        
+        // Añadir capa de OpenStreetMap
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
-
-        // Iconos personalizados usando base64 o fallback SVG
+        
+        // Iconos personalizados con fotos de perfil
         const christianIcon = L.divIcon({
             className: 'custom-div-icon',
-            html: `<div style="background-image: url('{{ profile_pictures["mochito"] or "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"50\" fill=\"%23e84393\"/><text x=\"50\" y=\"60\" font-size=\"40\" text-anchor=\"middle\" fill=\"white\">C</text></svg>" }}'); background-size: cover; width: 40px; height: 40px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
+            html: `<div style="background-image: url('{% if profile_pictures['mochito'] %}/uploads/{{ profile_pictures['mochito'] }}{% else %}data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"50\" fill=\"%23e84393\"/><text x=\"50\" y=\"60\" font-size=\"40\" text-anchor=\"middle\" fill=\"white\">C</text></svg>{% endif %}'); background-size: cover; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
             iconSize: [40, 40],
             iconAnchor: [20, 20]
         });
-
+        
         const claraIcon = L.divIcon({
             className: 'custom-div-icon',
-            html: `<div style="background-image: url('{{ profile_pictures["mochita"] or "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"50\" fill=\"%23a29bfe\"/><text x=\"50\" y=\"60\" font-size=\"40\" text-anchor=\"middle\" fill=\"white\">C</text></svg>" }}'); background-size: cover; width: 40px; height: 40px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
+            html: `<div style="background-image: url('{% if profile_pictures['mochita'] %}/uploads/{{ profile_pictures['mochita'] }}{% else %}data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"50\" fill=\"%23a29bfe\"/><text x=\"50\" y=\"60\" font-size=\"40\" text-anchor=\"middle\" fill=\"white\">C</text></svg>{% endif %}'); background-size: cover; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
             iconSize: [40, 40],
             iconAnchor: [20, 20]
         });
-
-        // Marcadores
+        
+        // Añadir marcadores iniciales
         christianMarker = L.marker([christianLocation.lat, christianLocation.lng], { icon: christianIcon }).addTo(map);
         claraMarker = L.marker([claraLocation.lat, claraLocation.lng], { icon: claraIcon }).addTo(map);
-
+        
+        // Añadir línea de distancia
         updateDistanceLine();
+        
+        // Actualizar información de distancia
         updateDistanceInfo();
+        
+        // Cargar ubicaciones guardadas si existen
         loadSavedLocations();
     }
-
+    
     function updateDistanceLine() {
-        if (distanceLine) map.removeLayer(distanceLine);
-
+        // Eliminar línea existente si hay una
+        if (distanceLine) {
+            map.removeLayer(distanceLine);
+        }
+        
+        // Crear nueva línea
         distanceLine = L.polyline([
             [christianLocation.lat, christianLocation.lng],
             [claraLocation.lat, claraLocation.lng]
@@ -1794,35 +1778,41 @@
             dashArray: '10, 10',
             lineJoin: 'round'
         }).addTo(map);
-
+        
+        // Ajustar el zoom para que ambos marcadores sean visibles
         const group = new L.featureGroup([christianMarker, claraMarker]);
         map.fitBounds(group.getBounds().pad(0.2));
     }
-
+    
     function updateDistanceInfo() {
+        // Calcular distancia en línea recta (en km)
         const distance = calculateDistance(
             christianLocation.lat, christianLocation.lng,
             claraLocation.lat, claraLocation.lng
         );
+        
+        // Mostrar distancia
         document.getElementById('distanceValue').textContent = `${distance.toFixed(1)} km`;
         document.getElementById('christianLocation').textContent = christianLocation.name;
         document.getElementById('claraLocation').textContent = claraLocation.name;
     }
-
+    
     function calculateDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371;
+        // Fórmula Haversine para calcular distancia entre dos puntos
+        const R = 6371; // Radio de la Tierra en km
         const dLat = deg2rad(lat2 - lat1);
         const dLon = deg2rad(lon2 - lon1);
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                  Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-                  Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+            Math.sin(dLon/2) * Math.sin(dLon/2); 
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
         return R * c;
     }
-
-    function deg2rad(deg) { return deg * (Math.PI/180); }
-
-
+    
+    function deg2rad(deg) {
+        return deg * (Math.PI/180);
+    }
     
     // Geocodificación: convertir dirección a coordenadas
     async function geocodeAddress(address) {
@@ -1970,4 +1960,3 @@ window.addEventListener('click', (event) => {
 
 </body>
 </html>
-

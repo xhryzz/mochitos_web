@@ -1,18 +1,25 @@
 from flask import Flask, render_template, request, redirect, session, send_from_directory, jsonify
-import sqlite3
+import psycopg2
 from datetime import datetime, date
 import random
 import os
 from werkzeug.utils import secure_filename
+import urllib.parse as urlparse
+from contextlib import closing
 
 app = Flask(__name__)
-app.secret_key = 'tu_clave_secreta_aqui'
+app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
 
 # Configuración de uploads
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Configuración de PostgreSQL para Render
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -107,209 +114,249 @@ QUESTIONS = [
 
 RELATION_START = date(2025, 8, 2)  # <- fecha de inicio relación
 
+# Función para obtener conexión a la base de datos
+def get_db_connection():
+    if DATABASE_URL:
+        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+    else:
+        # Para desarrollo local si no hay DATABASE_URL
+        conn = psycopg2.connect(
+            host="localhost",
+            database="mochitosdb",
+            user="postgres",
+            password="password"
+        )
+    return conn
+
 # Inicializar DB
 def init_db():
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE,
-            password TEXT
-        )
-    ''')
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS daily_questions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            question TEXT,
-            date TEXT
-        )
-    ''')
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS answers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            question_id INTEGER,
-            username TEXT,
-            answer TEXT,
-            FOREIGN KEY(question_id) REFERENCES daily_questions(id)
-        )
-    ''')
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS meeting (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            meeting_date TEXT
-        )
-    ''')
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS banner (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            filename TEXT
-        )
-    ''')
-    # Tablas para la nueva funcionalidad de viajes
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS travels (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            destination TEXT NOT NULL,
-            description TEXT,
-            travel_date TEXT,
-            is_visited BOOLEAN DEFAULT 0,
-            created_by TEXT,
-            created_at TEXT
-        )
-    ''')
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS travel_photos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            travel_id INTEGER,
-            filename TEXT,
-            uploaded_by TEXT,
-            uploaded_at TEXT,
-            FOREIGN KEY(travel_id) REFERENCES travels(id)
-        )
-    ''')
-    # Tabla para la lista de deseos
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS wishlist (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            product_name TEXT NOT NULL,
-            product_link TEXT,
-            notes TEXT,
-            created_by TEXT,
-            created_at TEXT,
-            is_purchased BOOLEAN DEFAULT 0
-        )
-    ''')
-    # Tabla para horarios
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS schedules (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL,
-            day TEXT NOT NULL,
-            time TEXT NOT NULL,
-            activity TEXT,
-            color TEXT,
-            UNIQUE(username, day, time)
-        )
-    ''')
-    # Tabla para ubicaciones
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS locations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE,
-            location_name TEXT,
-            latitude REAL,
-            longitude REAL,
-            updated_at TEXT
-        )
-    ''')
-    # Tabla para fotos de perfil
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS profile_pictures (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE,
-            filename TEXT,
-            uploaded_at TEXT
-        )
-    ''')
-    # Crear usuarios predeterminados
-    try:
-        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", ('mochito', '1234'))
-        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", ('mochita', '1234'))
-        # Ubicaciones iniciales
-        c.execute("INSERT OR IGNORE INTO locations (username, location_name, latitude, longitude, updated_at) VALUES (?, ?, ?, ?, ?)", 
-                 ('mochito', 'Algemesí, Valencia', 39.1925, -0.4353, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-        c.execute("INSERT OR IGNORE INTO locations (username, location_name, latitude, longitude, updated_at) VALUES (?, ?, ?, ?, ?)", 
-                 ('mochita', 'Córdoba', 37.8882, -4.7794, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-    except:
-        pass
-    conn.commit()
-    conn.close()
+    with closing(get_db_connection()) as conn:
+        with conn.cursor() as c:
+            # Tabla de usuarios
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT UNIQUE,
+                    password TEXT
+                )
+            ''')
+            
+            # Tabla de preguntas diarias
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS daily_questions (
+                    id SERIAL PRIMARY KEY,
+                    question TEXT,
+                    date TEXT
+                )
+            ''')
+            
+            # Tabla de respuestas
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS answers (
+                    id SERIAL PRIMARY KEY,
+                    question_id INTEGER,
+                    username TEXT,
+                    answer TEXT,
+                    FOREIGN KEY(question_id) REFERENCES daily_questions(id)
+                )
+            ''')
+            
+            # Tabla de reuniones
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS meeting (
+                    id SERIAL PRIMARY KEY,
+                    meeting_date TEXT
+                )
+            ''')
+            
+            # Tabla de banners
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS banner (
+                    id SERIAL PRIMARY KEY,
+                    filename TEXT
+                )
+            ''')
+            
+            # Tablas para la nueva funcionalidad de viajes
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS travels (
+                    id SERIAL PRIMARY KEY,
+                    destination TEXT NOT NULL,
+                    description TEXT,
+                    travel_date TEXT,
+                    is_visited BOOLEAN DEFAULT FALSE,
+                    created_by TEXT,
+                    created_at TEXT
+                )
+            ''')
+            
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS travel_photos (
+                    id SERIAL PRIMARY KEY,
+                    travel_id INTEGER,
+                    filename TEXT,
+                    uploaded_by TEXT,
+                    uploaded_at TEXT,
+                    FOREIGN KEY(travel_id) REFERENCES travels(id)
+                )
+            ''')
+            
+            # Tabla para la lista de deseos
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS wishlist (
+                    id SERIAL PRIMARY KEY,
+                    product_name TEXT NOT NULL,
+                    product_link TEXT,
+                    notes TEXT,
+                    created_by TEXT,
+                    created_at TEXT,
+                    is_purchased BOOLEAN DEFAULT FALSE
+                )
+            ''')
+            
+            # Tabla para horarios
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS schedules (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT NOT NULL,
+                    day TEXT NOT NULL,
+                    time TEXT NOT NULL,
+                    activity TEXT,
+                    color TEXT,
+                    UNIQUE(username, day, time)
+                )
+            ''')
+            
+            # Tabla para ubicaciones
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS locations (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT UNIQUE,
+                    location_name TEXT,
+                    latitude REAL,
+                    longitude REAL,
+                    updated_at TEXT
+                )
+            ''')
+            
+            # Tabla para fotos de perfil
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS profile_pictures (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT UNIQUE,
+                    filename TEXT,
+                    uploaded_at TEXT
+                )
+            ''')
+            
+            # Crear usuarios predeterminados
+            try:
+                c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochito', '1234'))
+                c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochita', '1234'))
+                
+                # Ubicaciones iniciales
+                c.execute("INSERT INTO locations (username, location_name, latitude, longitude, updated_at) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (username) DO NOTHING", 
+                         ('mochito', 'Algemesí, Valencia', 39.1925, -0.4353, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                c.execute("INSERT INTO locations (username, location_name, latitude, longitude, updated_at) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (username) DO NOTHING", 
+                         ('mochita', 'Córdoba', 37.8882, -4.7794, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            except Exception as e:
+                print(f"Error al crear usuarios predeterminados: {e}")
+                conn.rollback()
+            else:
+                conn.commit()
 
 init_db()
 
 def get_today_question():
     today_str = date.today().isoformat()
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
+    conn = get_db_connection()
+    
+    try:
+        with conn.cursor() as c:
+            # Revisar si ya existe una pregunta para hoy
+            c.execute("SELECT id, question FROM daily_questions WHERE date=%s", (today_str,))
+            q = c.fetchone()
+            if q:
+                return q
 
-    # Revisar si ya existe una pregunta para hoy
-    c.execute("SELECT id, question FROM daily_questions WHERE date=?", (today_str,))
-    q = c.fetchone()
-    if q:
+            # Obtener todas las preguntas que ya salieron
+            c.execute("SELECT question FROM daily_questions")
+            used_questions = [row[0] for row in c.fetchall()]
+
+            # Filtrar las preguntas restantes
+            remaining_questions = [q for q in QUESTIONS if q not in used_questions]
+
+            if not remaining_questions:
+                # Se acabaron las preguntas
+                return (None, "Ya no hay más preguntas disponibles ❤️")
+
+            # Escoger una pregunta nueva
+            question_text = random.choice(remaining_questions)
+            c.execute("INSERT INTO daily_questions (question, date) VALUES (%s, %s) RETURNING id", (question_text, today_str))
+            question_id = c.fetchone()[0]
+            conn.commit()
+            return (question_id, question_text)
+    finally:
         conn.close()
-        return q
-
-    # Obtener todas las preguntas que ya salieron
-    c.execute("SELECT question FROM daily_questions")
-    used_questions = [row[0] for row in c.fetchall()]
-
-    # Filtrar las preguntas restantes
-    remaining_questions = [q for q in QUESTIONS if q not in used_questions]
-
-    if not remaining_questions:
-        # Se acabaron las preguntas
-        conn.close()
-        return (None, "Ya no hay más preguntas disponibles ❤️")
-
-    # Escoger una pregunta nueva
-    question_text = random.choice(remaining_questions)
-    c.execute("INSERT INTO daily_questions (question, date) VALUES (?, ?)", (question_text, today_str))
-    conn.commit()
-    question_id = c.lastrowid
-    conn.close()
-    return (question_id, question_text)
 
 def days_together():
     return (date.today() - RELATION_START).days
 
 def days_until_meeting():
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    c.execute("SELECT meeting_date FROM meeting ORDER BY id DESC LIMIT 1")
-    row = c.fetchone()
-    conn.close()
-    if row:
-        meeting_date = datetime.strptime(row[0], "%Y-%m-%d").date()
-        delta = (meeting_date - date.today()).days
-        return max(delta, 0)
-    return None
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT meeting_date FROM meeting ORDER BY id DESC LIMIT 1")
+            row = c.fetchone()
+            if row:
+                meeting_date = datetime.strptime(row[0], "%Y-%m-%d").date()
+                delta = (meeting_date - date.today()).days
+                return max(delta, 0)
+            return None
+    finally:
+        conn.close()
 
 def get_banner():
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    c.execute("SELECT filename FROM banner ORDER BY id DESC LIMIT 1")
-    row = c.fetchone()
-    conn.close()
-    if row:
-        return row[0]
-    return None
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT filename FROM banner ORDER BY id DESC LIMIT 1")
+            row = c.fetchone()
+            if row:
+                return row[0]
+            return None
+    finally:
+        conn.close()
 
 def get_user_locations():
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    c.execute("SELECT username, location_name, latitude, longitude FROM locations")
-    locations = {}
-    for row in c.fetchall():
-        username, location_name, latitude, longitude = row
-        locations[username] = {
-            'name': location_name,
-            'lat': latitude,
-            'lng': longitude
-        }
-    conn.close()
-    return locations
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT username, location_name, latitude, longitude FROM locations")
+            locations = {}
+            for row in c.fetchall():
+                username, location_name, latitude, longitude = row
+                locations[username] = {
+                    'name': location_name,
+                    'lat': latitude,
+                    'lng': longitude
+                }
+            return locations
+    finally:
+        conn.close()
 
 def get_profile_pictures():
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    c.execute("SELECT username, filename FROM profile_pictures")
-    pictures = {}
-    for row in c.fetchall():
-        username, filename = row
-        pictures[username] = filename
-    conn.close()
-    return pictures
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT username, filename FROM profile_pictures")
+            pictures = {}
+            for row in c.fetchall():
+                username, filename = row
+                pictures[username] = filename
+            return pictures
+    finally:
+        conn.close()
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -317,17 +364,19 @@ def index():
         if request.method == 'POST':
             username = request.form['username']
             password = request.form['password']
-            conn = sqlite3.connect('database.db')
-            c = conn.cursor()
-            c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
-            user = c.fetchone()
-            conn.close()
-            if user:
-                session['username'] = username
-                return redirect('/')
-            else:
-                error = "Usuario o contraseña incorrecta"
-                return render_template('index.html', login_error=error)
+            conn = get_db_connection()
+            try:
+                with conn.cursor() as c:
+                    c.execute("SELECT * FROM users WHERE username=%s AND password=%s", (username, password))
+                    user = c.fetchone()
+                    if user:
+                        session['username'] = username
+                        return redirect('/')
+                    else:
+                        error = "Usuario o contraseña incorrecta"
+                        return render_template('index.html', login_error=error)
+            finally:
+                conn.close()
         
         # Para usuarios no logueados, pasar un diccionario vacío de profile_pictures
         profile_pictures = {}
@@ -335,123 +384,118 @@ def index():
 
     user = session['username']
     question_id, question_text = get_today_question()
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
+    conn = get_db_connection()
 
-    # Procesar formularios con PRG
-    if request.method == 'POST':
-        # Actualizar foto de perfil
-        if 'update_profile' in request.form and 'profile_picture' in request.files:
-            file = request.files['profile_picture']
-            if file and allowed_file(file.filename):
-                ext = file.filename.rsplit('.', 1)[1].lower()
-                unique_name = f"profile_{user}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}.{ext}"
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_name))
+    try:
+        with conn.cursor() as c:
+            # Procesar formularios con PRG
+            if request.method == 'POST':
+                # Actualizar foto de perfil
+                if 'update_profile' in request.form and 'profile_picture' in request.files:
+                    file = request.files['profile_picture']
+                    if file and allowed_file(file.filename):
+                        ext = file.filename.rsplit('.', 1)[1].lower()
+                        unique_name = f"profile_{user}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}.{ext}"
+                        file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_name))
+                        
+                        # Guardar en la base de datos
+                        c.execute("INSERT INTO profile_pictures (username, filename, uploaded_at) VALUES (%s, %s, %s) ON CONFLICT (username) DO UPDATE SET filename = EXCLUDED.filename, uploaded_at = EXCLUDED.uploaded_at",
+                                 (user, unique_name, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        conn.commit()
+                    
+                    return redirect('/')
+                    
+                if 'answer' in request.form:
+                    answer = request.form['answer'].strip()
+                    c.execute("SELECT * FROM answers WHERE question_id=%s AND username=%s", (question_id, user))
+                    if not c.fetchone():
+                        c.execute("INSERT INTO answers (question_id, username, answer) VALUES (%s, %s, %s)",
+                                  (question_id, user, answer))
+                        conn.commit()
+                    return redirect('/')
+
+                if 'meeting_date' in request.form:
+                    meeting_date = request.form['meeting_date']
+                    c.execute("INSERT INTO meeting (meeting_date) VALUES (%s)", (meeting_date,))
+                    conn.commit()
+                    return redirect('/')
+
+                if 'banner' in request.files:
+                    file = request.files['banner']
+                    if file and allowed_file(file.filename):
+                        ext = file.filename.rsplit('.', 1)[1].lower()
+                        unique_name = f"banner_{datetime.now().strftime('%Y%m%d%H%M%S%f')}.{ext}"
+                        file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_name))
+                        c.execute("INSERT INTO banner (filename) VALUES (%s)", (unique_name,))
+                        conn.commit()
+                    return redirect('/')
+                    
+                # Nuevos formularios para viajes
+                if 'travel_destination' in request.form:
+                    destination = request.form['travel_destination'].strip()
+                    description = request.form.get('travel_description', '').strip()
+                    travel_date = request.form.get('travel_date', '')
+                    is_visited = 'travel_visited' in request.form
+                    
+                    if destination:
+                        c.execute("INSERT INTO travels (destination, description, travel_date, is_visited, created_by, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
+                                  (destination, description, travel_date, is_visited, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        conn.commit()
+                    return redirect('/')
+                    
+                if 'travel_photo' in request.files:
+                    file = request.files['travel_photo']
+                    travel_id = request.form.get('travel_id')
+                    if file and allowed_file(file.filename) and travel_id:
+                        ext = file.filename.rsplit('.', 1)[1].lower()
+                        unique_name = f"travel_{datetime.now().strftime('%Y%m%d%H%M%S%f')}.{ext}"
+                        file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_name))
+                        c.execute("INSERT INTO travel_photos (travel_id, filename, uploaded_by, uploaded_at) VALUES (%s, %s, %s, %s)",
+                                  (travel_id, unique_name, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        conn.commit()
+                    return redirect('/')
+                    
+                # Formulario para lista de deseos
+                if 'product_name' in request.form:
+                    product_name = request.form['product_name'].strip()
+                    product_link = request.form.get('product_link', '').strip()
+                    notes = request.form.get('wishlist_notes', '').strip()
+                    
+                    if product_name:
+                        c.execute("INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at) VALUES (%s, %s, %s, %s, %s)",
+                                  (product_name, product_link, notes, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        conn.commit()
+                    return redirect('/')
+
+            # Respuestas
+            c.execute("SELECT username, answer FROM answers WHERE question_id=%s", (question_id,))
+            answers = c.fetchall()
+            show_answers = len(answers) == 2
+            user_answer = None
+            if not show_answers:
+                for u, a in answers:
+                    if u == user:
+                        user_answer = a
+
+            # Viajes
+            c.execute("SELECT id, destination, description, travel_date, is_visited, created_by FROM travels ORDER BY is_visited, travel_date DESC")
+            travels = c.fetchall()
+            travel_photos_dict = {}
+            for travel_id, destination, description, travel_date, is_visited, created_by in travels:
+                c.execute("SELECT id, filename, uploaded_by FROM travel_photos WHERE travel_id=%s ORDER BY id DESC", (travel_id,))
+                travel_photos_dict[travel_id] = c.fetchall()
                 
-                # Guardar en la base de datos
-                c.execute("INSERT OR REPLACE INTO profile_pictures (username, filename, uploaded_at) VALUES (?, ?, ?)",
-                         (user, unique_name, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                conn.commit()
-            
-            conn.close()
-            return redirect('/')
-            
-        if 'answer' in request.form:
-            answer = request.form['answer'].strip()
-            c.execute("SELECT * FROM answers WHERE question_id=? AND username=?", (question_id, user))
-            if not c.fetchone():
-                c.execute("INSERT INTO answers (question_id, username, answer) VALUES (?, ?, ?)",
-                          (question_id, user, answer))
-                conn.commit()
-            conn.close()
-            return redirect('/')
+            # Lista de deseos
+            c.execute("SELECT id, product_name, product_link, notes, created_by, created_at, is_purchased FROM wishlist ORDER BY is_purchased, created_at DESC")
+            wishlist_items = c.fetchall()
 
-        if 'meeting_date' in request.form:
-            meeting_date = request.form['meeting_date']
-            c.execute("INSERT INTO meeting (meeting_date) VALUES (?)", (meeting_date,))
-            conn.commit()
-            conn.close()
-            return redirect('/')
-
-        if 'banner' in request.files:
-            file = request.files['banner']
-            if file and allowed_file(file.filename):
-                ext = file.filename.rsplit('.', 1)[1].lower()
-                unique_name = f"banner_{datetime.now().strftime('%Y%m%d%H%M%S%f')}.{ext}"
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_name))
-                c.execute("INSERT INTO banner (filename) VALUES (?)", (unique_name,))
-                conn.commit()
-            conn.close()
-            return redirect('/')
+            banner_file = get_banner()
             
-        # Nuevos formularios para viajes
-        if 'travel_destination' in request.form:
-            destination = request.form['travel_destination'].strip()
-            description = request.form.get('travel_description', '').strip()
-            travel_date = request.form.get('travel_date', '')
-            is_visited = 1 if 'travel_visited' in request.form else 0
-            
-            if destination:
-                c.execute("INSERT INTO travels (destination, description, travel_date, is_visited, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                          (destination, description, travel_date, is_visited, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                conn.commit()
-            conn.close()
-            return redirect('/')
-            
-        if 'travel_photo' in request.files:
-            file = request.files['travel_photo']
-            travel_id = request.form.get('travel_id')
-            if file and allowed_file(file.filename) and travel_id:
-                ext = file.filename.rsplit('.', 1)[1].lower()
-                unique_name = f"travel_{datetime.now().strftime('%Y%m%d%H%M%S%f')}.{ext}"
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_name))
-                c.execute("INSERT INTO travel_photos (travel_id, filename, uploaded_by, uploaded_at) VALUES (?, ?, ?, ?)",
-                          (travel_id, unique_name, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                conn.commit()
-            conn.close()
-            return redirect('/')
-            
-        # Formulario para lista de deseos
-        if 'product_name' in request.form:
-            product_name = request.form['product_name'].strip()
-            product_link = request.form.get('product_link', '').strip()
-            notes = request.form.get('wishlist_notes', '').strip()
-            
-            if product_name:
-                c.execute("INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at) VALUES (?, ?, ?, ?, ?)",
-                          (product_name, product_link, notes, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                conn.commit()
-            conn.close()
-            return redirect('/')
+            # Obtener fotos de perfil
+            profile_pictures = get_profile_pictures()
 
-    # Respuestas
-    c.execute("SELECT username, answer FROM answers WHERE question_id=?", (question_id,))
-    answers = c.fetchall()
-    show_answers = len(answers) == 2
-    user_answer = None
-    if not show_answers:
-        for u, a in answers:
-            if u == user:
-                user_answer = a
-
-    # Viajes
-    c.execute("SELECT id, destination, description, travel_date, is_visited, created_by FROM travels ORDER BY is_visited, travel_date DESC")
-    travels = c.fetchall()
-    travel_photos_dict = {}
-    for travel_id, destination, description, travel_date, is_visited, created_by in travels:
-        c.execute("SELECT id, filename, uploaded_by FROM travel_photos WHERE travel_id=? ORDER BY id DESC", (travel_id,))
-        travel_photos_dict[travel_id] = c.fetchall()
-        
-    # Lista de deseos
-    c.execute("SELECT id, product_name, product_link, notes, created_by, created_at, is_purchased FROM wishlist ORDER BY is_purchased, created_at DESC")
-    wishlist_items = c.fetchall()
-
-    banner_file = get_banner()
-    
-    # Obtener fotos de perfil
-    profile_pictures = get_profile_pictures()
-
-    conn.close()
+    finally:
+        conn.close()
 
     return render_template('index.html',
                            question=question_text,
@@ -468,7 +512,7 @@ def index():
                            profile_pictures=profile_pictures,
                            login_error=None)
 
-# Eliminar viaje - CORREGIDO
+# Eliminar viaje
 @app.route('/delete_travel', methods=['POST'])
 def delete_travel():
     if 'username' not in session:
@@ -476,30 +520,33 @@ def delete_travel():
     
     try:
         travel_id = request.form['travel_id']
-        conn = sqlite3.connect('database.db')
-        c = conn.cursor()
+        conn = get_db_connection()
         
-        # Eliminar fotos asociadas al viaje - CORREGIDO: os.path.exists en lugar de os.exists
-        c.execute("SELECT filename FROM travel_photos WHERE travel_id=?", (travel_id,))
-        photos = c.fetchall()
-        for photo in photos:
-            filename = photo[0]
-            path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            if os.path.exists(path):
-                try:
-                    os.remove(path)
-                except Exception as e:
-                    print(f"Error eliminando archivo {filename}: {e}")
+        with conn.cursor() as c:
+            # Eliminar fotos asociadas al viaje
+            c.execute("SELECT filename FROM travel_photos WHERE travel_id=%s", (travel_id,))
+            photos = c.fetchall()
+            for photo in photos:
+                filename = photo[0]
+                path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                if os.path.exists(path):
+                    try:
+                        os.remove(path)
+                    except Exception as e:
+                        print(f"Error eliminando archivo {filename}: {e}")
+            
+            c.execute("DELETE FROM travel_photos WHERE travel_id=%s", (travel_id,))
+            c.execute("DELETE FROM travels WHERE id=%s", (travel_id,))
+            conn.commit()
         
-        c.execute("DELETE FROM travel_photos WHERE travel_id=?", (travel_id,))
-        c.execute("DELETE FROM travels WHERE id=?", (travel_id,))
-        conn.commit()
-        conn.close()
         return redirect('/')
     
     except Exception as e:
         print(f"Error en delete_travel: {e}")
         return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 # Marcar viaje como visitado/no visitado
 @app.route('/toggle_travel_status', methods=['POST'])
@@ -509,21 +556,25 @@ def toggle_travel_status():
     
     try:
         travel_id = request.form['travel_id']
-        conn = sqlite3.connect('database.db')
-        c = conn.cursor()
-        c.execute("SELECT is_visited FROM travels WHERE id=?", (travel_id,))
-        current_status = c.fetchone()[0]
-        new_status = 0 if current_status else 1
-        c.execute("UPDATE travels SET is_visited=? WHERE id=?", (new_status, travel_id))
-        conn.commit()
-        conn.close()
+        conn = get_db_connection()
+        
+        with conn.cursor() as c:
+            c.execute("SELECT is_visited FROM travels WHERE id=%s", (travel_id,))
+            current_status = c.fetchone()[0]
+            new_status = not current_status
+            c.execute("UPDATE travels SET is_visited=%s WHERE id=%s", (new_status, travel_id))
+            conn.commit()
+        
         return redirect('/')
     
     except Exception as e:
         print(f"Error en toggle_travel_status: {e}")
         return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
-# Eliminar elemento de la lista de deseos - MEJORADO con manejo de errores
+# Eliminar elemento de la lista de deseos
 @app.route('/delete_wishlist_item', methods=['POST'])
 def delete_wishlist_item():
     if 'username' not in session:
@@ -533,23 +584,25 @@ def delete_wishlist_item():
         item_id = request.form['item_id']
         user = session['username']
         
-        conn = sqlite3.connect('database.db')
-        c = conn.cursor()
+        conn = get_db_connection()
         
-        # Verificar que el usuario es el creador del item para mayor seguridad
-        c.execute("SELECT created_by FROM wishlist WHERE id=?", (item_id,))
-        result = c.fetchone()
+        with conn.cursor() as c:
+            # Verificar que el usuario es el creador del item para mayor seguridad
+            c.execute("SELECT created_by FROM wishlist WHERE id=%s", (item_id,))
+            result = c.fetchone()
+            
+            if result and result[0] == user:
+                c.execute("DELETE FROM wishlist WHERE id=%s", (item_id,))
+                conn.commit()
         
-        if result and result[0] == user:
-            c.execute("DELETE FROM wishlist WHERE id=?", (item_id,))
-            conn.commit()
-        
-        conn.close()
         return redirect('/')
     
     except Exception as e:
         print(f"Error en delete_wishlist_item: {e}")
         return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 # Editar elemento de la lista de deseos
 @app.route('/edit_wishlist_item', methods=['POST'])
@@ -564,17 +617,21 @@ def edit_wishlist_item():
         notes = request.form.get('notes', '').strip()
         
         if product_name:
-            conn = sqlite3.connect('database.db')
-            c = conn.cursor()
-            c.execute("UPDATE wishlist SET product_name=?, product_link=?, notes=? WHERE id=?", 
-                     (product_name, product_link, notes, item_id))
-            conn.commit()
-            conn.close()
-        return redirect('/')
+            conn = get_db_connection()
+            
+            with conn.cursor() as c:
+                c.execute("UPDATE wishlist SET product_name=%s, product_link=%s, notes=%s WHERE id=%s", 
+                         (product_name, product_link, notes, item_id))
+                conn.commit()
+            
+            return redirect('/')
     
     except Exception as e:
         print(f"Error en edit_wishlist_item: {e}")
         return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 # Marcar elemento como comprado/no comprado
 @app.route('/toggle_wishlist_status', methods=['POST'])
@@ -584,19 +641,23 @@ def toggle_wishlist_status():
     
     try:
         item_id = request.form['item_id']
-        conn = sqlite3.connect('database.db')
-        c = conn.cursor()
-        c.execute("SELECT is_purchased FROM wishlist WHERE id=?", (item_id,))
-        current_status = c.fetchone()[0]
-        new_status = 0 if current_status else 1
-        c.execute("UPDATE wishlist SET is_purchased=? WHERE id=?", (new_status, item_id))
-        conn.commit()
-        conn.close()
+        conn = get_db_connection()
+        
+        with conn.cursor() as c:
+            c.execute("SELECT is_purchased FROM wishlist WHERE id=%s", (item_id,))
+            current_status = c.fetchone()[0]
+            new_status = not current_status
+            c.execute("UPDATE wishlist SET is_purchased=%s WHERE id=%s", (new_status, item_id))
+            conn.commit()
+        
         return redirect('/')
     
     except Exception as e:
         print(f"Error en toggle_wishlist_status: {e}")
         return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 # Actualizar ubicación
 @app.route('/update_location', methods=['POST'])
@@ -612,12 +673,12 @@ def update_location():
         username = session['username']
         
         if location_name and latitude and longitude:
-            conn = sqlite3.connect('database.db')
-            c = conn.cursor()
-            c.execute("INSERT OR REPLACE INTO locations (username, location_name, latitude, longitude, updated_at) VALUES (?, ?, ?, ?, ?)",
-                     (username, location_name, latitude, longitude, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-            conn.commit()
-            conn.close()
+            conn = get_db_connection()
+            
+            with conn.cursor() as c:
+                c.execute("INSERT INTO locations (username, location_name, latitude, longitude, updated_at) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (username) DO UPDATE SET location_name = EXCLUDED.location_name, latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, updated_at = EXCLUDED.updated_at",
+                         (username, location_name, latitude, longitude, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                conn.commit()
             
             return jsonify({'success': True, 'message': 'Ubicación actualizada correctamente'})
         
@@ -626,6 +687,9 @@ def update_location():
     except Exception as e:
         print(f"Error en update_location: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 # Obtener ubicaciones
 @app.route('/get_locations', methods=['GET'])
@@ -653,33 +717,35 @@ def get_schedules():
         return jsonify({'error': 'No autorizado'}), 401
     
     try:
-        conn = sqlite3.connect('database.db')
-        c = conn.cursor()
+        conn = get_db_connection()
         
-        # Obtener todos los horarios de la base de datos
-        c.execute("SELECT username, day, time, activity, color FROM schedules")
-        rows = c.fetchall()
-        conn.close()
-        
-        # Estructurar los datos
-        schedules = {
-            'mochito': {},
-            'mochita': {}
-        }
-        
-        for username, day, time, activity, color in rows:
-            if day not in schedules[username]:
-                schedules[username][day] = {}
-            schedules[username][day][time] = {
-                'activity': activity,
-                'color': color
+        with conn.cursor() as c:
+            # Obtener todos los horarios de la base de datos
+            c.execute("SELECT username, day, time, activity, color FROM schedules")
+            rows = c.fetchall()
+            
+            # Estructurar los datos
+            schedules = {
+                'mochito': {},
+                'mochita': {}
             }
-        
-        return jsonify(schedules)
+            
+            for username, day, time, activity, color in rows:
+                if day not in schedules[username]:
+                    schedules[username][day] = {}
+                schedules[username][day][time] = {
+                    'activity': activity,
+                    'color': color
+                }
+            
+            return jsonify(schedules)
     
     except Exception as e:
         print(f"Error en get_schedules: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 @app.route('/api/schedules', methods=['POST'])
 def save_schedules():
@@ -689,30 +755,32 @@ def save_schedules():
     try:
         data = request.get_json()
         
-        conn = sqlite3.connect('database.db')
-        c = conn.cursor()
+        conn = get_db_connection()
         
-        # Limpiar horarios existentes
-        c.execute("DELETE FROM schedules")
-        
-        # Insertar nuevos horarios
-        for username in ['mochito', 'mochita']:
-            for day, times in data[username].items():
-                for time, activity_data in times.items():
-                    if activity_data['activity']:  # Solo guardar si hay actividad
-                        c.execute(
-                            "INSERT INTO schedules (username, day, time, activity, color) VALUES (?, ?, ?, ?, ?)",
-                            (username, day, time, activity_data['activity'], activity_data['color'])
-                        )
-        
-        conn.commit()
-        conn.close()
-        
-        return jsonify({'success': True})
+        with conn.cursor() as c:
+            # Limpiar horarios existentes
+            c.execute("DELETE FROM schedules")
+            
+            # Insertar nuevos horarios
+            for username in ['mochito', 'mochita']:
+                for day, times in data[username].items():
+                    for time, activity_data in times.items():
+                        if activity_data['activity']:  # Solo guardar si hay actividad
+                            c.execute(
+                                "INSERT INTO schedules (username, day, time, activity, color) VALUES (%s, %s, %s, %s, %s)",
+                                (username, day, time, activity_data['activity'], activity_data['color'])
+                            )
+            
+            conn.commit()
+            
+            return jsonify({'success': True})
     
     except Exception as e:
         print(f"Error en save_schedules: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 @app.route('/logout')
 def logout():

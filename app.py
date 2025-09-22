@@ -9,6 +9,22 @@ from contextlib import closing
 import io
 from base64 import b64encode
 
+import requests
+
+DISCORD_WEBHOOK_URL = os.environ.get("https://discord.com/api/webhooks/1419704444815413450/3JKL1_--rCETBfXglvS-dytTR9tjEPluO3RXjm2d6aWyB-b-Kd2leV1aiwLyTx7BWhP-")  # pega aquí la URL de tu webhook si no usas variables de entorno
+
+def notify_discord(event: str, username: str):
+    """Manda un mensaje simple a Discord sin mencionar a nadie."""
+    if not DISCORD_WEBHOOK_URL:
+        return
+    try:
+        payload = {
+            "content": f"📥 **{username}** ha {event} a las {datetime.now().strftime('%H:%M:%S')}"
+        }
+        requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=5)
+    except Exception as e:
+        print(f"[notify_discord] Error: {e}")
+
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
@@ -395,25 +411,27 @@ def get_travel_photos(travel_id):
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if 'username' not in session:
-        if request.method == 'POST':
-            username = request.form['username']
-            password = request.form['password']
-            conn = get_db_connection()
-            try:
-                with conn.cursor() as c:
-                    c.execute("SELECT * FROM users WHERE username=%s AND password=%s", (username, password))
-                    user = c.fetchone()
-                    if user:
-                        session['username'] = username
-                        return redirect('/')
-                    else:
-                        error = "Usuario o contraseña incorrecta"
-                        return render_template('index.html', login_error=error)
-            finally:
-                conn.close()
-        
-        # Para usuarios no logueados
-        return render_template('index.html', login_error=None, profile_pictures={})
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute("SELECT * FROM users WHERE username=%s AND password=%s", (username, password))
+                user = c.fetchone()
+                if user:
+                    session['username'] = username
+                    notify_discord("iniciado sesión", username)  # 👈 aquí añadimos la notificación
+                    return redirect('/')
+                else:
+                    error = "Usuario o contraseña incorrecta"
+                    return render_template('index.html', login_error=error)
+        finally:
+            conn.close()
+    
+    # Para usuarios no logueados
+    return render_template('index.html', login_error=None, profile_pictures={})
+
 
     # --- Si el usuario está logueado ---
     user = session['username']
@@ -901,7 +919,13 @@ def get_image(image_id):
     finally:
         conn.close()
 
+@app.before_request
+def notify_every_entry():
+    # Solo notifica si hay sesión iniciada y están entrando a la página principal
+    if 'username' in session and request.endpoint == 'index':
+        notify_discord("entrado en la web", session['username'])
+
+
 if __name__ == '__main__':
     app.run(debug=True)
-
 

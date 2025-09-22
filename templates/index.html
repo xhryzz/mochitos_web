@@ -1121,17 +1121,22 @@
 
 
 /* Pregunta del día – bloqueo/blur */
-.answer-item.locked { position: relative; }
-.answer-item .text-blur {
-  filter: blur(7px);
-  user-select: none;
+.answer-item { position: relative; }
+.answer-item .answer-text { white-space: pre-wrap; }
+.answer-item.blurred .answer-text { filter: blur(10px); user-select: none; }
+.answer-item.blurred .blur-hint {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.6);
+    font-weight: 700;
+    border-radius: 12px;
+    text-align: center;
+    padding: 10px;
 }
-.lock-note {
-  font-size: 0.85rem;
-  color: #888;
-  margin-top: 6px;
-  display: block;
-}
+
 
     </style>
 </head>
@@ -1304,82 +1309,77 @@
 
 <!-- Pregunta diaria -->
 <div class="section animate-in delay-2">
-  <h3>Pregunta del día</h3>
-  <p class="question"><b>{{ question }}</b></p>
+    <h3>Pregunta del día</h3>
+    <p class="question"><b>{{ question }}</b></p>
 
-  {% if show_answers %}
-    <!-- Ambos respondieron: mostrar todo -->
-    <div class="answers">
-      {% for u, a in answers %}
-        <div class="answer-item">
-          <div class="user-avatar">
-            {% if profile_pictures[u] %}
-              <img src="{{ profile_pictures[u] }}" alt="{{ u }}">
-            {% else %}
-              {{ u[0]|upper }}
-            {% endif %}
-          </div>
-          <div><b>{{ u }}:</b> {{ a }}</div>
+    {% if show_answers %}
+        <!-- Ambos respondieron: se ven las dos respuestas -->
+        <div class="answers">
+            {% for u, a in answers %}
+                <div class="answer-item">
+                    <div class="user-avatar">
+                        {% if profile_pictures[u] %}
+                            <img src="{{ profile_pictures[u] }}" alt="{{ u }}">
+                        {% else %}
+                            {{ u[0]|upper }}
+                        {% endif %}
+                    </div>
+                    <div><b>{{ u }}:</b> <span class="answer-text">{{ a }}</span></div>
+                </div>
+            {% endfor %}
         </div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <!-- Solo uno (o ninguno) respondió -->
-    <div class="answers">
-      {% if user_answer %}
-        <!-- Tu respuesta: visible -->
-        <div class="answer-item">
-          <div class="user-avatar">
-            {% if profile_pictures[username] %}
-              <img src="{{ profile_pictures[username] }}" alt="{{ username }}">
-            {% else %}
-              {{ username[0]|upper }}
-            {% endif %}
-          </div>
-          <div><b>{{ username }}:</b> {{ user_answer }}</div>
-        </div>
-      {% endif %}
 
-      {% if other_answer %}
-        <!-- Respuesta de la otra persona: borrosa hasta que ambos respondan -->
-        <div class="answer-item locked">
-          <div class="user-avatar">
-            {% if profile_pictures[other_user] %}
-              <img src="{{ profile_pictures[other_user] }}" alt="{{ other_user }}">
-            {% else %}
-              {{ other_user[0]|upper }}
-            {% endif %}
-          </div>
-          <div>
-            <b>{{ other_user }}:</b>
-            <span class="text-blur">{{ other_answer }}</span>
-            <span class="lock-note">Se mostrará cuando contestéis los dos.</span>
-          </div>
-        </div>
-      {% else %}
-        <!-- La otra persona aún no respondió -->
-        <div class="answer-item">
-          <div class="user-avatar">
-            {% if profile_pictures[other_user] %}
-              <img src="{{ profile_pictures[other_user] }}" alt="{{ other_user }}">
-            {% else %}
-              {{ other_user[0]|upper }}
-            {% endif %}
-          </div>
-          <div><b>{{ other_user }}:</b> Aún no ha respondido.</div>
-        </div>
-      {% endif %}
-    </div>
+    {% else %}
+        {% if user_answer and not other_answer %}
+            <!-- Yo ya contesté y la otra persona aún no -->
+            <div class="answers">
+                <div class="answer-item">
+                    <div class="user-avatar">
+                        {% if profile_pictures[username] %}
+                            <img src="{{ profile_pictures[username] }}" alt="{{ username }}">
+                        {% else %}
+                            {{ username[0]|upper }}
+                        {% endif %}
+                    </div>
+                    <div><b>Tú:</b> <span class="answer-text">{{ user_answer }}</span></div>
+                </div>
+            </div>
+            <p style="margin-top:10px;">Aún falta la respuesta de <b>{{ other_user }}</b> 🕒</p>
 
-    {% if not user_answer %}
-      <!-- Tu cuadro de respuesta si aún no has respondido -->
-      <form method="POST" class="inline-form" style="margin-top: 15px;">
-        <input type="text" name="answer" placeholder="Tu respuesta..." required>
-        <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-      </form>
+        {% elif (not user_answer) and other_answer %}
+            <!-- La otra persona ya contestó, yo NO: muestro blur + mi formulario -->
+            <form method="POST" class="inline-form" style="margin-bottom:15px;">
+                <input type="text" name="answer" placeholder="Tu respuesta..." required>
+                <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+            </form>
+
+            <div class="answers">
+                <div class="answer-item blurred">
+                    <div class="user-avatar">
+                        {% if profile_pictures[other_user] %}
+                            <img src="{{ profile_pictures[other_user] }}" alt="{{ other_user }}">
+                        {% else %}
+                            {{ other_user[0]|upper }}
+                        {% endif %}
+                    </div>
+                    <div>
+                        <b>{{ other_user }}:</b>
+                        <span class="answer-text">{{ other_answer }}</span>
+                        <div class="blur-hint">Responde para desbloquear</div>
+                    </div>
+                </div>
+            </div>
+
+        {% else %}
+            <!-- Nadie ha contestado: solo mi formulario -->
+            <form method="POST" class="inline-form">
+                <input type="text" name="answer" placeholder="Tu respuesta..." required>
+                <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+            </form>
+        {% endif %}
     {% endif %}
-  {% endif %}
 </div>
+
 
 
 <!-- Sección de Lista de Deseos -->

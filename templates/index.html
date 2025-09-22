@@ -1681,54 +1681,44 @@
     
     // Mapa de distancia
     let map, christianMarker, claraMarker, distanceLine;
-    let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" }; // Algemesí, Valencia
-    let claraLocation = { lat: 37.8882, lng: -4.7794, name: "Córdoba" }; // Córdoba
-    
+    let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" };
+    let claraLocation = { lat: 37.8882, lng: -4.7794, name: "Córdoba" };
+
     function initMap() {
-        // Inicializar el mapa centrado en España
         map = L.map('distanceMap').setView([39.5, -3.0], 6);
-        
-        // Añadir capa de OpenStreetMap
+
+        // Capa base de OpenStreetMap
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
-        
-        // Iconos personalizados con fotos de perfil
+
+        // Iconos personalizados usando base64 o fallback SVG
         const christianIcon = L.divIcon({
             className: 'custom-div-icon',
-            html: `<div style="background-image: url('{% if profile_pictures['mochito'] %}/uploads/{{ profile_pictures['mochito'] }}{% else %}data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"50\" fill=\"%23e84393\"/><text x=\"50\" y=\"60\" font-size=\"40\" text-anchor=\"middle\" fill=\"white\">C</text></svg>{% endif %}'); background-size: cover; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
+            html: `<div style="background-image: url('{{ profile_pictures["mochito"] or "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"50\" fill=\"%23e84393\"/><text x=\"50\" y=\"60\" font-size=\"40\" text-anchor=\"middle\" fill=\"white\">C</text></svg>" }}'); background-size: cover; width: 40px; height: 40px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
             iconSize: [40, 40],
             iconAnchor: [20, 20]
         });
-        
+
         const claraIcon = L.divIcon({
             className: 'custom-div-icon',
-            html: `<div style="background-image: url('{% if profile_pictures['mochita'] %}/uploads/{{ profile_pictures['mochita'] }}{% else %}data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"50\" fill=\"%23a29bfe\"/><text x=\"50\" y=\"60\" font-size=\"40\" text-anchor=\"middle\" fill=\"white\">C</text></svg>{% endif %}'); background-size: cover; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
+            html: `<div style="background-image: url('{{ profile_pictures["mochita"] or "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"50\" fill=\"%23a29bfe\"/><text x=\"50\" y=\"60\" font-size=\"40\" text-anchor=\"middle\" fill=\"white\">C</text></svg>" }}'); background-size: cover; width: 40px; height: 40px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
             iconSize: [40, 40],
             iconAnchor: [20, 20]
         });
-        
-        // Añadir marcadores iniciales
+
+        // Marcadores
         christianMarker = L.marker([christianLocation.lat, christianLocation.lng], { icon: christianIcon }).addTo(map);
         claraMarker = L.marker([claraLocation.lat, claraLocation.lng], { icon: claraIcon }).addTo(map);
-        
-        // Añadir línea de distancia
+
         updateDistanceLine();
-        
-        // Actualizar información de distancia
         updateDistanceInfo();
-        
-        // Cargar ubicaciones guardadas si existen
         loadSavedLocations();
     }
-    
+
     function updateDistanceLine() {
-        // Eliminar línea existente si hay una
-        if (distanceLine) {
-            map.removeLayer(distanceLine);
-        }
-        
-        // Crear nueva línea
+        if (distanceLine) map.removeLayer(distanceLine);
+
         distanceLine = L.polyline([
             [christianLocation.lat, christianLocation.lng],
             [claraLocation.lat, claraLocation.lng]
@@ -1738,41 +1728,35 @@
             dashArray: '10, 10',
             lineJoin: 'round'
         }).addTo(map);
-        
-        // Ajustar el zoom para que ambos marcadores sean visibles
+
         const group = new L.featureGroup([christianMarker, claraMarker]);
         map.fitBounds(group.getBounds().pad(0.2));
     }
-    
+
     function updateDistanceInfo() {
-        // Calcular distancia en línea recta (en km)
         const distance = calculateDistance(
             christianLocation.lat, christianLocation.lng,
             claraLocation.lat, claraLocation.lng
         );
-        
-        // Mostrar distancia
         document.getElementById('distanceValue').textContent = `${distance.toFixed(1)} km`;
         document.getElementById('christianLocation').textContent = christianLocation.name;
         document.getElementById('claraLocation').textContent = claraLocation.name;
     }
-    
+
     function calculateDistance(lat1, lon1, lat2, lon2) {
-        // Fórmula Haversine para calcular distancia entre dos puntos
-        const R = 6371; // Radio de la Tierra en km
+        const R = 6371;
         const dLat = deg2rad(lat2 - lat1);
         const dLon = deg2rad(lon2 - lon1);
-        const a = 
-            Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
-            Math.sin(dLon/2) * Math.sin(dLon/2); 
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         return R * c;
     }
-    
-    function deg2rad(deg) {
-        return deg * (Math.PI/180);
-    }
+
+    function deg2rad(deg) { return deg * (Math.PI/180); }
+
+
     
     // Geocodificación: convertir dirección a coordenadas
     async function geocodeAddress(address) {

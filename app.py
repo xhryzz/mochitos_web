@@ -506,21 +506,21 @@ def index():
                         conn.commit()
                     return redirect('/')
 
-            # Respuestas
+# --- Respuestas ---
 c.execute("SELECT username, answer FROM answers WHERE question_id=%s", (question_id,))
 answers = c.fetchall()
 
-# Quién es la otra persona
+# Quién es la otra persona (somos dos: mochito / mochita)
 other_user = 'mochita' if user == 'mochito' else 'mochito'
 
-# Crear diccionario usuario -> respuesta
+# Diccionario usuario -> respuesta
 answers_dict = {u: a for (u, a) in answers}
-
-user_answer = answers_dict.get(user)
+user_answer  = answers_dict.get(user)
 other_answer = answers_dict.get(other_user)
 
-# Solo mostrar ambas respuestas si los dos contestaron
+# Solo mostrar ambas respuestas si ambos contestaron
 show_answers = (user_answer is not None) and (other_answer is not None)
+
 
 
             # Viajes

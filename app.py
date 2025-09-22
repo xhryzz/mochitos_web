@@ -381,16 +381,18 @@ def init_db():
 init_db()
 
 def get_today_question():
-    today_str = date.today().isoformat()
+    now = datetime.now()
+    # Corte a las 00:00 -> usamos solo la fecha de hoy
+    today_str = now.date().isoformat()
     conn = get_db_connection()
     
     try:
         with conn.cursor() as c:
-            # Revisar si ya existe una pregunta para hoy
             c.execute("SELECT id, question FROM daily_questions WHERE date=%s", (today_str,))
             q = c.fetchone()
             if q:
                 return q
+
 
             # Obtener todas las preguntas que ya salieron
             c.execute("SELECT question FROM daily_questions")

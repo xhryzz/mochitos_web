@@ -507,14 +507,21 @@ def index():
                     return redirect('/')
 
             # Respuestas
-            c.execute("SELECT username, answer FROM answers WHERE question_id=%s", (question_id,))
-            answers = c.fetchall()
-            show_answers = len(answers) == 2
-            user_answer = None
-            if not show_answers:
-                for u, a in answers:
-                    if u == user:
-                        user_answer = a
+c.execute("SELECT username, answer FROM answers WHERE question_id=%s", (question_id,))
+answers = c.fetchall()
+
+# Quién es la otra persona
+other_user = 'mochita' if user == 'mochito' else 'mochito'
+
+# Crear diccionario usuario -> respuesta
+answers_dict = {u: a for (u, a) in answers}
+
+user_answer = answers_dict.get(user)
+other_answer = answers_dict.get(other_user)
+
+# Solo mostrar ambas respuestas si los dos contestaron
+show_answers = (user_answer is not None) and (other_answer is not None)
+
 
             # Viajes
             c.execute("SELECT id, destination, description, travel_date, is_visited, created_by FROM travels ORDER BY is_visited, travel_date DESC")
@@ -536,19 +543,22 @@ def index():
         conn.close()
 
     return render_template('index.html',
-                           question=question_text,
-                           show_answers=show_answers,
-                           answers=answers,
-                           user_answer=user_answer,
-                           days_together=days_together(),
-                           days_until_meeting=days_until_meeting(),
-                           travels=travels,
-                           travel_photos_dict=travel_photos_dict,
-                           wishlist_items=wishlist_items,
-                           username=user,
-                           banner_file=banner_file,
-                           profile_pictures=profile_pictures,
-                           login_error=None)
+                       question=question_text,
+                       show_answers=show_answers,
+                       answers=answers,
+                       user_answer=user_answer,
+                       other_user=other_user,      # 👈 añadido
+                       other_answer=other_answer,  # 👈 añadido
+                       days_together=days_together(),
+                       days_until_meeting=days_until_meeting(),
+                       travels=travels,
+                       travel_photos_dict=travel_photos_dict,
+                       wishlist_items=wishlist_items,
+                       username=user,
+                       banner_file=banner_file,
+                       profile_pictures=profile_pictures,
+                       login_error=None)
+
 
 # Eliminar viaje
 @app.route('/delete_travel', methods=['POST'])

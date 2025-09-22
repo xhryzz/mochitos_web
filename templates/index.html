@@ -1162,7 +1162,7 @@
 <!-- BANNER -->
 <div class="section banner animate-in">
     {% if banner_file %}
-        <img src="data:image/png;base64,{{ banner_file }}" alt="Banner">
+        <img src="{{ banner_file }}" alt="Banner">
     {% else %}
         <img src="data:image/svg+xml,%3Csvg ... %3E" alt="Banner por defecto">
     {% endif %}
@@ -1192,7 +1192,7 @@
         <div class="modal-body">
             <div class="profile-section">
                 {% if profile_pictures[session.username] %}
-                    <img src="data:image/png;base64,{{ profile_pictures[session.username] }}" alt="Foto de perfil" class="profile-picture">
+                    <img src="{{ profile_pictures[session.username] }}" alt="Foto de perfil" class="profile-picture">
                 {% else %}
                     <div class="profile-picture" style="background: var(--gradient); display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; font-weight: bold;">
                         {{ session.username[0]|upper }}
@@ -1248,7 +1248,7 @@
             <div id="locationInfo">
                 <div class="location-badge">
                     {% if profile_pictures['mochito'] %}
-                       <img src="data:image/png;base64,{{ profile_pictures['mochito'] }}" alt="Christian">
+                       <img src="{{ profile_pictures['mochito'] }}" alt="Christian">
                     {% else %}
                         <span>C</span>
                     {% endif %}
@@ -1256,7 +1256,7 @@
                 </div>
                 <div class="location-badge">
                     {% if profile_pictures['mochita'] %}
-                        <img src="data:image/png;base64,{{ profile_pictures['mochita'] }}" alt="Clara">
+                        <img src="{{ profile_pictures['mochita'] }}" alt="Clara">
                     {% else %}
                         <span>C</span>
                     {% endif %}
@@ -1294,7 +1294,7 @@
                 <div class="answer-item">
                     <div class="user-avatar">
                         {% if profile_pictures[u] %}
-                           <img src="data:image/png;base64,{{ profile_pictures[u] }}" alt="{{ u }}">
+                          <img src="{{ profile_pictures[u] }}" alt="{{ u }}">
                         {% else %}
                             {{ u[0]|upper }}
                         {% endif %}
@@ -1347,7 +1347,7 @@
                     <span>
                         <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
                             {% if profile_pictures[created_by] %}
-                               <img src="data:image/png;base64,{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                               <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
                             {% else %}
                                 {{ created_by[0]|upper }}
                             {% endif %}
@@ -1399,7 +1399,7 @@
                     <span>
                         <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
                             {% if profile_pictures[created_by] %}
-                                <img src="data:image/png;base64,{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                                <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
                             {% else %}
                                 {{ created_by[0]|upper }}
                             {% endif %}
@@ -1463,7 +1463,7 @@
             <div class="travel-card visited">
                 <div class="travel-cover">
                     {% if travel_photos_dict[id] %}
-                        <img src="data:image/png;base64,{{ travel_photos_dict[id][0]['data_url'] }}" alt="{{ destination }}">
+                        <img src="{{ travel_photos_dict[id][0]['data_url'] }}" alt="{{ destination }}">
                     {% else %}
                         <div class="empty-album">
                             <i class="fas fa-map-marker-alt"></i>
@@ -1484,7 +1484,7 @@
                         <span>
                             <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
                                 {% if profile_pictures[created_by] %}
-                                    <img src="data:image/png;base64,{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                                    <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
                                 {% else %}
                                     {{ created_by[0]|upper }}
                                 {% endif %}
@@ -1528,7 +1528,7 @@
             <div class="travel-card wishlist">
                 <div class="travel-cover">
                     {% if travel_photos_dict[id] %}
-                        <img src="data:image/png;base64,{{ travel_photos_dict[id][0]['data_url'] }}" alt="{{ destination }}">
+                        <img src="{{ travel_photos_dict[id][0]['data_url'] }}" alt="{{ destination }}">
                     {% else %}
                         <div class="empty-album">
                             <i class="fas fa-heart"></i>
@@ -1546,7 +1546,7 @@
                         <span>
                             <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
                                 {% if profile_pictures[created_by] %}
-                                    <img src="data:image/png;base64,{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                                    <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
                                 {% else %}
                                     {{ created_by[0]|upper }}
                                 {% endif %}

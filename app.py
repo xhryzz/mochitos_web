@@ -9,6 +9,7 @@ from contextlib import closing
 import io
 from base64 import b64encode
 
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
 
@@ -902,4 +903,5 @@ def get_image(image_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 

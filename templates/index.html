@@ -1185,6 +1185,80 @@
 .streak-badge.best{ border-color:var(--accent-color); }
 
 
+
+
+
+
+
+
+
+
+/* Álbum de viaje mejorado */
+.travel-photos{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap:10px;
+  padding:10px;
+}
+.travel-photos img{
+  width:100%;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+  border-radius:12px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.travel-photos img:hover{
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.12);
+}
+
+.empty-album{
+  display:flex; align-items:center; justify-content:center;
+  height:180px;
+  background: linear-gradient(135deg, #f7f7fb 0%, #ffffff 100%);
+  border:2px dashed #e9e9f3;
+  border-radius:14px;
+  color:#a0a3b1; font-weight:600;
+}
+.empty-album i{ font-size: 1.6rem; opacity:.8; }
+
+/* Barra “añadir foto por URL” */
+.photo-add{
+  display:flex; align-items:center; gap:12px;
+  background:#ffffff; border:2px dashed rgba(162,155,254,.5);
+  padding:12px; border-radius:14px; margin-top:12px;
+  transition: box-shadow .2s ease, border-color .2s ease, background .2s ease;
+}
+.photo-add:focus-within{
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 4px rgba(162,155,254,.15);
+  background: #fbfbff;
+}
+.photo-add .photo-icon{
+  width:38px; height:38px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background: var(--gradient); color:#fff; flex-shrink:0;
+  box-shadow: 0 6px 14px rgba(232,67,147,.25);
+}
+.photo-add input[type="url"]{
+  flex:1; min-width:160px; margin:0; border:none; background:transparent;
+  padding:8px 4px; font-size:.95rem;
+}
+.photo-add input[type="url"]:focus{ outline:none; box-shadow:none; }
+.photo-add .photo-btn{
+  border-radius:10px; padding:10px 14px; font-weight:700;
+}
+
+/* Pista pequeñita debajo del form */
+.photo-hint{
+  margin-top:6px; font-size:.85rem; color:#8a8fa3;
+}
+
+/* Ajuste del cover si hay galería arriba */
+.travel-cover{ padding:10px; background:transparent; height:auto; }
+
+
     </style>
 </head>
 <body>
@@ -1627,13 +1701,16 @@
                                 <i class="fas fa-heart"></i>
                             </button>
                         </form>
-                        <form method="POST" class="travel-photo-form">
-    <input type="hidden" name="travel_id" value="{{ id }}">
-    <input type="url" name="travel_photo_url" placeholder="Pega enlace de la foto" required style="width:70%; margin-right:10px; padding:8px;">
-    <button type="submit" class="icon-btn" title="Añadir foto">
-        <i class="fas fa-plus"></i>
-    </button>
+                        <form method="POST" class="photo-add">
+  <div class="photo-icon"><i class="fas fa-image"></i></div>
+  <input type="hidden" name="travel_id" value="{{ id }}">
+  <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
+  <button type="submit" class="photo-btn button">
+    <i class="fas fa-plus"></i> Añadir
+  </button>
 </form>
+<div class="photo-hint">Acepta enlaces directos (JPG/PNG/GIF) o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
+
 
                         <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
                             <input type="hidden" name="travel_id" value="{{ id }}">
@@ -1694,13 +1771,16 @@
                                 <i class="fas fa-check"></i>
                             </button>
                         </form>
-                        <form method="POST" class="travel-photo-form">
-    <input type="hidden" name="travel_id" value="{{ id }}">
-    <input type="url" name="travel_photo_url" placeholder="Pega enlace de la foto" required style="width:70%; margin-right:10px; padding:8px;">
-    <button type="submit" class="icon-btn" title="Añadir foto">
-        <i class="fas fa-plus"></i>
-    </button>
+                        <form method="POST" class="photo-add">
+  <div class="photo-icon"><i class="fas fa-image"></i></div>
+  <input type="hidden" name="travel_id" value="{{ id }}">
+  <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
+  <button type="submit" class="photo-btn button">
+    <i class="fas fa-plus"></i> Añadir
+  </button>
 </form>
+<div class="photo-hint">Acepta enlaces directos (JPG/PNG/GIF) o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
+
 
                         <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
                             <input type="hidden" name="travel_id" value="{{ id }}">

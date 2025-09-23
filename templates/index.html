@@ -1259,7 +1259,6 @@
 
 
 
-
 /* Chip de prioridad */
 .priority-chip{
   display:inline-flex; align-items:center; gap:6px;
@@ -1267,9 +1266,23 @@
   background:#f6f6f9; border:2px solid #eee; color:#444; margin:6px 0 10px 0;
 }
 .priority-chip i{ font-size:.9rem; }
-.priority-high{ border-color:#ff6b6b; color:#b80f0f; }
-.priority-mid{  border-color:#ffd166; color:#996500; }
-.priority-low{  border-color:#6ddccf; color:#0f6b5c; }
+
+/* Colores claros + borde y texto por prioridad */
+.priority-high{ 
+  background:#ffecec;           /* NUEVO */
+  border-color:#ff6b6b; 
+  color:#b80f0f; 
+}
+.priority-mid{  
+  background:#fff6da;           /* NUEVO */
+  border-color:#ffd166; 
+  color:#996500; 
+}
+.priority-low{  
+  background:#e7fffb;           /* NUEVO */
+  border-color:#6ddccf; 
+  color:#0f6b5c; 
+}
 
 
     </style>
@@ -2248,3 +2261,4 @@ document.addEventListener('keydown', (e) => {
 
 </body>
 </html>
+

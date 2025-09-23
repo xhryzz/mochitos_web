@@ -1255,6 +1255,23 @@
 }
 .photo-hint{ margin-top:6px; font-size:.85rem; color:#8a8fa3; }
 
+
+
+
+
+
+/* Chip de prioridad */
+.priority-chip{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 10px; border-radius:999px; font-size:.8rem; font-weight:700;
+  background:#f6f6f9; border:2px solid #eee; color:#444; margin:6px 0 10px 0;
+}
+.priority-chip i{ font-size:.9rem; }
+.priority-high{ border-color:#ff6b6b; color:#b80f0f; }
+.priority-mid{  border-color:#ffd166; color:#996500; }
+.priority-low{  border-color:#6ddccf; color:#0f6b5c; }
+
+
     </style>
 </head>
 <body>
@@ -1273,6 +1290,12 @@
                 <input type="hidden" name="item_id" id="editItemId">
                 <input type="text" name="product_name" id="editProductName" placeholder="Nombre del producto" required>
                 <input type="url" name="product_link" id="editProductLink" placeholder="Enlace (opcional)">
+                <select name="priority" id="editPriority" required>
+  <option value="alta">Prioridad: Alta 🔴</option>
+  <option value="media">Prioridad: Media 🟡</option>
+  <option value="baja">Prioridad: Baja 🟢</option>
+</select>
+
                 <textarea name="notes" id="editNotes" placeholder="Notas (opcional)" rows="3"></textarea>
                 <button type="submit"><i class="fas fa-save"></i> Guardar cambios</button>
             </form>
@@ -1524,105 +1547,121 @@
     
     <div class="wishlist-content active" id="wanted-tab">
         <div class="wishlist-grid">
-            {% for id, product_name, product_link, notes, created_by, created_at, is_purchased in wishlist_items if not is_purchased %}
-            <div class="wishlist-card">
-                <div class="wishlist-status status-wanted">Deseado</div>
-                <h3 class="wishlist-product">{{ product_name }}</h3>
-                {% if product_link %}
-                <a href="{{ product_link }}" target="_blank" class="wishlist-link">
-                    <i class="fas fa-link"></i> Ver producto
-                </a>
-                {% endif %}
-                {% if notes %}
-                <p class="wishlist-notes">{{ notes }}</p>
-                {% endif %}
-                <div class="wishlist-meta">
-                    <span>
-                        <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                            {% if profile_pictures[created_by] %}
-                               <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
-                            {% else %}
-                                {{ created_by[0]|upper }}
-                            {% endif %}
-                        </div>
-                        Creado por {{ created_by }}
-                    </span>
-                    <span>{{ created_at[:10] }}</span>
-                </div>
-                
-                <div class="wishlist-actions">
-                    <form method="POST" action="/toggle_wishlist_status">
-                        <input type="hidden" name="item_id" value="{{ id }}">
-                        <button type="submit" class="icon-btn" title="Marcar como comprado">
-                            <i class="fas fa-check"></i>
-                        </button>
-                    </form>
-                    <button class="icon-btn" title="Editar" onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`)">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
-                        <input type="hidden" name="item_id" value="{{ id }}">
-                        <button type="submit" class="icon-btn" title="Eliminar">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </form>
-                </div>
-            </div>
-            {% else %}
-            <p>No hay productos en tu lista de deseos. ¡Añade el primero!</p>
-            {% endfor %}
+           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority in wishlist_items if not is_purchased %}
+<div class="wishlist-card">
+  <div class="wishlist-status status-wanted">Deseado</div>
+
+  {% set pri = (priority or 'media') %}
+  <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
+    <i class="fas fa-flag"></i> {{ pri|capitalize }}
+  </div>
+
+  <h3 class="wishlist-product">{{ product_name }}</h3>
+  {% if product_link %}
+  <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+    <i class="fas fa-link"></i> Ver producto
+  </a>
+  {% endif %}
+  {% if notes %}
+  <p class="wishlist-notes">{{ notes }}</p>
+  {% endif %}
+  <div class="wishlist-meta">
+    <span>
+      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+        {% if profile_pictures[created_by] %}
+          <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+        {% else %}
+          {{ created_by[0]|upper }}
+        {% endif %}
+      </div>
+      Creado por {{ created_by }}
+    </span>
+    <span>{{ created_at[:10] }}</span>
+  </div>
+
+  <div class="wishlist-actions">
+    <form method="POST" action="/toggle_wishlist_status">
+      <input type="hidden" name="item_id" value="{{ id }}">
+      <button type="submit" class="icon-btn" title="Marcar como comprado">
+        <i class="fas fa-check"></i>
+      </button>
+    </form>
+    <button class="icon-btn" title="Editar"
+      onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}')">
+      <i class="fas fa-edit"></i>
+    </button>
+    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+      <input type="hidden" name="item_id" value="{{ id }}">
+      <button type="submit" class="icon-btn" title="Eliminar">
+        <i class="fas fa-trash"></i>
+      </button>
+    </form>
+  </div>
+</div>
+{% else %}
+<p>No hay productos en tu lista de deseos. ¡Añade el primero!</p>
+{% endfor %}
+
         </div>
     </div>
     
     <div class="wishlist-content" id="purchased-tab">
         <div class="wishlist-grid">
-            {% for id, product_name, product_link, notes, created_by, created_at, is_purchased in wishlist_items if is_purchased %}
-            <div class="wishlist-card purchased">
-                <div class="wishlist-status status-purchased">Comprado</div>
-                <h3 class="wishlist-product">{{ product_name }}</h3>
-                {% if product_link %}
-                <a href="{{ product_link }}" target="_blank" class="wishlist-link">
-                    <i class="fas fa-link"></i> Ver producto
-                </a>
-                {% endif %}
-                {% if notes %}
-                <p class="wishlist-notes">{{ notes }}</p>
-                {% endif %}
-                <div class="wishlist-meta">
-                    <span>
-                        <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                            {% if profile_pictures[created_by] %}
-                                <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
-                            {% else %}
-                                {{ created_by[0]|upper }}
-                            {% endif %}
-                        </div>
-                        Creado por {{ created_by }}
-                    </span>
-                    <span>{{ created_at[:10] }}</span>
-                </div>
-                
-                <div class="wishlist-actions">
-                    <form method="POST" action="/toggle_wishlist_status">
-                        <input type="hidden" name="item_id" value="{{ id }}">
-                        <button type="submit" class="icon-btn" title="Marcar como no comprado">
-                            <i class="fas fa-undo"></i>
-                        </button>
-                    </form>
-                    <button class="icon-btn" title="Editar" onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`)">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
-                        <input type="hidden" name="item_id" value="{{ id }}">
-                        <button type="submit" class="icon-btn" title="Eliminar">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </form>
-                </div>
-            </div>
-            {% else %}
-            <p>No hay productos comprados todavía.</p>
-            {% endfor %}
+           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority in wishlist_items if is_purchased %}
+<div class="wishlist-card purchased">
+  <div class="wishlist-status status-purchased">Comprado</div>
+
+  {% set pri = (priority or 'media') %}
+  <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
+    <i class="fas fa-flag"></i> {{ pri|capitalize }}
+  </div>
+
+  <h3 class="wishlist-product">{{ product_name }}</h3>
+  {% if product_link %}
+  <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+    <i class="fas fa-link"></i> Ver producto
+  </a>
+  {% endif %}
+  {% if notes %}
+  <p class="wishlist-notes">{{ notes }}</p>
+  {% endif %}
+  <div class="wishlist-meta">
+    <span>
+      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+        {% if profile_pictures[created_by] %}
+          <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+        {% else %}
+          {{ created_by[0]|upper }}
+        {% endif %}
+      </div>
+      Creado por {{ created_by }}
+    </span>
+    <span>{{ created_at[:10] }}</span>
+  </div>
+
+  <div class="wishlist-actions">
+    <form method="POST" action="/toggle_wishlist_status">
+      <input type="hidden" name="item_id" value="{{ id }}">
+      <button type="submit" class="icon-btn" title="Marcar como no comprado">
+        <i class="fas fa-undo"></i>
+      </button>
+    </form>
+    <button class="icon-btn" title="Editar"
+      onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}')">
+      <i class="fas fa-edit"></i>
+    </button>
+    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+      <input type="hidden" name="item_id" value="{{ id }}">
+      <button type="submit" class="icon-btn" title="Eliminar">
+        <i class="fas fa-trash"></i>
+      </button>
+    </form>
+  </div>
+</div>
+{% else %}
+<p>No hay productos comprados todavía.</p>
+{% endfor %}
+
         </div>
     </div>
     
@@ -1633,6 +1672,12 @@
                 <input type="text" name="product_name" placeholder="Nombre del producto" required>
                 <input type="url" name="product_link" placeholder="Enlace (opcional)">
                 <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
+                <select name="priority" required style="margin-bottom:15px;">
+  <option value="alta">Prioridad: Alta 🔴</option>
+  <option value="media" selected>Prioridad: Media 🟡</option>
+  <option value="baja">Prioridad: Baja 🟢</option>
+</select>
+
                 <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
             </form>
         </div>
@@ -1895,13 +1940,14 @@
     });
     
     // Abrir modal para editar elemento de la lista de deseos
-    function openEditModal(id, name, link, notes) {
-        document.getElementById('editItemId').value = id;
-        document.getElementById('editProductName').value = name;
-        document.getElementById('editProductLink').value = link;
-        document.getElementById('editNotes').value = notes;
-        document.getElementById('editWishlistModal').style.display = 'block';
-    }
+    function openEditModal(id, name, link, notes, priority) {
+  document.getElementById('editItemId').value = id;
+  document.getElementById('editProductName').value = name;
+  document.getElementById('editProductLink').value = link;
+  document.getElementById('editNotes').value = notes;
+  document.getElementById('editPriority').value = priority || 'media';
+  document.getElementById('editWishlistModal').style.display = 'block';
+}
     
     // Cerrar modales
     document.querySelectorAll('.close-modal').forEach(closeBtn => {

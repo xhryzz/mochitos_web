@@ -1140,35 +1140,60 @@
 
 
 
+/* Popover menú para añadir foto */
+.travel-actions{ position:relative; display:flex; gap:10px; align-items:center; }
 
-/* Ajustes para el formulario de añadir fotos en viajes */
-.travel-photo-form {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 10px;
+.icon-btn.plus{ background: var(--gradient); color:#fff; }
+.icon-btn.plus:hover{ transform: scale(1.08); }
+
+/* Contenedor popover */
+.photo-popover{
+  position:absolute; top:48px; right:0;
+  width:min(420px, calc(100% - 20px));
+  background:#fff; border:1px solid #eee; border-radius:14px;
+  box-shadow: 0 18px 40px rgba(0,0,0,.15);
+  padding:14px 14px 12px;
+  transform: translateY(-8px); opacity:0; pointer-events:none;
+  transition: transform .22s ease, opacity .18s ease;
+  z-index: 5;
+}
+.photo-popover.open{ transform: translateY(0); opacity:1; pointer-events:auto; }
+
+/* Flechita del popover */
+.photo-popover::before{
+  content:""; position:absolute; top:-8px; right:18px;
+  width:16px; height:16px; background:#fff; border-left:1px solid #eee; border-top:1px solid #eee;
+  transform: rotate(45deg);
 }
 
-.travel-photo-form input[type="url"] {
-    flex: 1;
-    min-width: 150px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid #ddd;
-    font-size: 0.9rem;
+/* Cabecera del popover */
+.photo-popover-header{
+  display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;
 }
-
-.travel-photo-form input[type="url"]:focus {
-    border-color: var(--accent-color);
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(162, 155, 254, 0.2);
+.photo-popover-title{
+  font-weight:700; color:var(--dark-text);
 }
-
-.travel-photo-form .icon-btn {
-    flex-shrink: 0;
+.photo-popover .close-btn{
+  width:34px; height:34px; border-radius:10px; border:none; cursor:pointer;
+  background:#f5f5f7; display:flex; align-items:center; justify-content:center;
 }
+.photo-popover .close-btn:hover{ background:#efeff3; }
 
-
+/* Formulario dentro del popover */
+.photo-form-inline{ display:flex; align-items:center; gap:10px; }
+.photo-form-inline input[type="url"]{
+  flex:1; min-width:160px; margin:0;
+  border:1px solid #ddd; border-radius:10px; padding:10px 12px; font-size:.95rem;
+  background:#fafafa;
+}
+.photo-form-inline input[type="url"]:focus{
+  border-color: var(--accent-color);
+  outline:none; box-shadow: 0 0 0 3px rgba(162,155,254,.15);
+}
+.photo-form-inline .button{
+  border-radius:10px; padding:10px 14px; font-weight:700;
+}
+.photo-hint{ margin-top:8px; font-size:.85rem; color:#8a8fa3; }
 
 
 
@@ -1665,42 +1690,47 @@
                     </div>
                     
                     <div class="travel-actions">
-                        <!-- Mover a deseados -->
-                        <form method="POST" action="/toggle_travel_status">
-                            <input type="hidden" name="travel_id" value="{{ id }}">
-                            <button type="submit" class="icon-btn" title="Mover a deseados">
-                                <i class="fas fa-heart"></i>
-                            </button>
-                        </form>
+  <!-- Mover a deseados -->
+  <form method="POST" action="/toggle_travel_status">
+    <input type="hidden" name="travel_id" value="{{ id }}">
+    <button type="submit" class="icon-btn" title="Mover a deseados">
+      <i class="fas fa-heart"></i>
+    </button>
+  </form>
 
-                        <!-- Botón + que abre/cierra la pestañita -->
-                        <button type="button" class="icon-btn plus" title="Añadir foto" onclick="togglePhotoPanel({{ id }})">
-                            <i class="fas fa-plus"></i>
-                        </button>
+  <!-- Botón + -->
+  <button type="button" class="icon-btn plus" title="Añadir foto"
+          onclick="togglePhotoMenu('visited-{{ id }}')">
+    <i class="fas fa-plus"></i>
+  </button>
 
-                        <!-- Pestañita deslizante -->
-                        <div class="photo-panel" id="photo-panel-{{ id }}">
-                            <form method="POST" class="photo-form-inline">
-                                <input type="hidden" name="travel_id" value="{{ id }}">
-                                <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
-                                <button type="submit" class="button">
-                                    <i class="fas fa-check"></i> Guardar
-                                </button>
-                                <button type="button" class="icon-btn" title="Cerrar" onclick="togglePhotoPanel({{ id }})">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </form>
-                            <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
-                        </div>
+  <!-- Menú desplegable (popover) -->
+  <div class="photo-popover" id="photo-popover-visited-{{ id }}">
+    <div class="photo-popover-header">
+      <div class="photo-popover-title">Añadir foto por enlace</div>
+      <button type="button" class="close-btn" onclick="togglePhotoMenu('visited-{{ id }}')">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('visited-{{ id }}')">
+      <input type="hidden" name="travel_id" value="{{ id }}">
+      <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
+      <button type="submit" class="button">
+        <i class="fas fa-check"></i> Guardar
+      </button>
+    </form>
+    <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
+  </div>
 
-                        <!-- Eliminar viaje -->
-                        <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
-                            <input type="hidden" name="travel_id" value="{{ id }}">
-                            <button type="submit" class="icon-btn" title="Eliminar viaje">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </form>
-                    </div>
+  <!-- Eliminar viaje -->
+  <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
+    <input type="hidden" name="travel_id" value="{{ id }}">
+    <button type="submit" class="icon-btn" title="Eliminar viaje">
+      <i class="fas fa-trash"></i>
+    </button>
+  </form>
+</div>
+
                 </div>
             </div>
             {% else %}
@@ -1747,42 +1777,47 @@
                     </div>
                     
                     <div class="travel-actions">
-                        <!-- Marcar como visitado -->
-                        <form method="POST" action="/toggle_travel_status">
-                            <input type="hidden" name="travel_id" value="{{ id }}">
-                            <button type="submit" class="icon-btn" title="Marcar como visitado">
-                                <i class="fas fa-check"></i>
-                            </button>
-                        </form>
+  <!-- Marcar como visitado -->
+  <form method="POST" action="/toggle_travel_status">
+    <input type="hidden" name="travel_id" value="{{ id }}">
+    <button type="submit" class="icon-btn" title="Marcar como visitado">
+      <i class="fas fa-check"></i>
+    </button>
+  </form>
 
-                        <!-- Botón + que abre/cierra la pestañita -->
-                        <button type="button" class="icon-btn plus" title="Añadir foto" onclick="togglePhotoPanel({{ id }})">
-                            <i class="fas fa-plus"></i>
-                        </button>
+  <!-- Botón + -->
+  <button type="button" class="icon-btn plus" title="Añadir foto"
+          onclick="togglePhotoMenu('wish-{{ id }}')">
+    <i class="fas fa-plus"></i>
+  </button>
 
-                        <!-- Pestañita deslizante -->
-                        <div class="photo-panel" id="photo-panel-{{ id }}">
-                            <form method="POST" class="photo-form-inline">
-                                <input type="hidden" name="travel_id" value="{{ id }}">
-                                <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
-                                <button type="submit" class="button">
-                                    <i class="fas fa-check"></i> Guardar
-                                </button>
-                                <button type="button" class="icon-btn" title="Cerrar" onclick="togglePhotoPanel({{ id }})">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </form>
-                            <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
-                        </div>
+  <!-- Menú desplegable (popover) -->
+  <div class="photo-popover" id="photo-popover-wish-{{ id }}">
+    <div class="photo-popover-header">
+      <div class="photo-popover-title">Añadir foto por enlace</div>
+      <button type="button" class="close-btn" onclick="togglePhotoMenu('wish-{{ id }}')">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('wish-{{ id }}')">
+      <input type="hidden" name="travel_id" value="{{ id }}">
+      <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
+      <button type="submit" class="button">
+        <i class="fas fa-check"></i> Guardar
+      </button>
+    </form>
+    <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
+  </div>
 
-                        <!-- Eliminar viaje -->
-                        <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
-                            <input type="hidden" name="travel_id" value="{{ id }}">
-                            <button type="submit" class="icon-btn" title="Eliminar viaje">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </form>
-                    </div>
+  <!-- Eliminar viaje -->
+  <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
+    <input type="hidden" name="travel_id" value="{{ id }}">
+    <button type="submit" class="icon-btn" title="Eliminar viaje">
+      <i class="fas fa-trash"></i>
+    </button>
+  </form>
+</div>
+
                 </div>
             </div>
             {% else %}
@@ -2106,17 +2141,57 @@ window.addEventListener('click', (event) => {
 
 
 
-function togglePhotoPanel(id){
-  const panel = document.getElementById('photo-panel-' + id);
-  if(!panel) return;
-  panel.classList.toggle('open');
 
-  // focusear el input cuando abre
-  if(panel.classList.contains('open')){
-    const input = panel.querySelector('input[type="url"]');
+
+// Abre/cierra un único popover a la vez
+function togglePhotoMenu(key){
+  const id = 'photo-popover-' + key;
+  const target = document.getElementById(id);
+  if(!target) return;
+
+  // Cierra los demás
+  document.querySelectorAll('.photo-popover.open').forEach(p => {
+    if(p.id !== id) p.classList.remove('open');
+  });
+
+  target.classList.toggle('open');
+
+  // focus al input al abrir
+  if(target.classList.contains('open')){
+    const input = target.querySelector('input[type="url"]');
     if(input){ setTimeout(()=> input.focus(), 120); }
   }
 }
+
+// Cerrar al enviar (para sensación de “guardado” instantáneo)
+function closePhotoMenuAfterSubmit(key){
+  const id = 'photo-popover-' + key;
+  const target = document.getElementById(id);
+  if(target) setTimeout(()=> target.classList.remove('open'), 50);
+}
+
+// Cerrar al hacer clic fuera
+document.addEventListener('click', (e) => {
+  const openPop = document.querySelector('.photo-popover.open');
+  if(!openPop) return;
+  const isInsidePopover = openPop.contains(e.target);
+  const isPlusBtn = e.target.closest('.icon-btn.plus');
+  if(!isInsidePopover && !isPlusBtn){
+    openPop.classList.remove('open');
+  }
+});
+
+// Cerrar con ESC
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape'){
+    document.querySelectorAll('.photo-popover.open').forEach(p => p.classList.remove('open'));
+  }
+});
+
+
+
+
+
 
 </script>
 <footer class="site-footer">

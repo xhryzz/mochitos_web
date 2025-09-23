@@ -695,7 +695,13 @@
         }
         
 /* ====== FORMULARIO EN EL MODAL DE LISTA DE DESEOS ====== */
-/* SOLO inputs, selects y textarea dentro del modal de wishlist */
+#editWishlistModal .modal-body form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* SOLO inputs, selects, textarea dentro del modal */
 #editWishlistModal .modal-body input,
 #editWishlistModal .modal-body select,
 #editWishlistModal .modal-body textarea {
@@ -705,9 +711,10 @@
     font-size: 0.95rem;
     outline: none;
     transition: all 0.2s ease;
-    resize: vertical; /* opcional: que el textarea se pueda redimensionar */
+    resize: vertical; /* textarea redimensionable */
 }
 
+/* Foco */
 #editWishlistModal .modal-body input:focus,
 #editWishlistModal .modal-body select:focus,
 #editWishlistModal .modal-body textarea:focus {
@@ -715,6 +722,21 @@
     box-shadow: 0 0 0 3px rgba(109, 220, 207, 0.25);
 }
 
+/* Botón principal SOLO en este modal */
+#editWishlistModal .modal-body button {
+    padding: 12px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    background: #6ddccf;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.25s ease;
+}
+#editWishlistModal .modal-body button:hover {
+    background: #52c6b9;
+}
 
 /* ====== CHIP DE PRIORIDAD ====== */
 #editWishlistModal .priority-chip {
@@ -733,7 +755,7 @@
 #editWishlistModal .priority-high { background:#ffecec; border-color:#ff6b6b; color:#b80f0f; }
 #editWishlistModal .priority-mid  { background:#fff6da; border-color:#ffd166; color:#996500; }
 #editWishlistModal .priority-low  { background:#e7fffb; border-color:#6ddccf; color:#0f6b5c; }
- 
+
         /* Pregunta del día */
         .question {
             font-size: 1.4rem;

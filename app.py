@@ -628,7 +628,7 @@ def index():
                 ORDER BY is_visited, travel_date DESC
             """)
             travels = c.fetchall()
-            # travel_photos_dict = {tid: get_travel_photos(tid) for tid, *_ in travels}
+            travel_photos_dict = {tid: get_travel_photos(tid) for tid, *_ in travels}
 
             # --- Wishlist ---
             c.execute("""
@@ -654,7 +654,7 @@ def index():
                            days_together=days_together(),
                            days_until_meeting=days_until_meeting(),
                            travels=travels,
-                        #    travel_photos_dict=travel_photos_dict,
+                           travel_photos_dict=travel_photos_dict,  # ahora vacío
                            wishlist_items=wishlist_items,
                            username=user,
                            banner_file=banner_file,

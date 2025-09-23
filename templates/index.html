@@ -1138,6 +1138,53 @@
 }
 
 
+
+
+
+/* Ajustes para el formulario de añadir fotos en viajes */
+.travel-photo-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.travel-photo-form input[type="url"] {
+    flex: 1;
+    min-width: 150px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    font-size: 0.9rem;
+}
+
+.travel-photo-form input[type="url"]:focus {
+    border-color: var(--accent-color);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(162, 155, 254, 0.2);
+}
+
+.travel-photo-form .icon-btn {
+    flex-shrink: 0;
+}
+
+
+
+
+
+/* Racha de preguntas */
+.streak-badges{
+    display:flex; gap:12px; flex-wrap:wrap; margin:-5px 0 15px 0;
+}
+.streak-badge{
+    display:inline-flex; align-items:center; gap:8px;
+    background:#f8f8f8; border:2px solid #eee; padding:10px 14px;
+    border-radius:14px; font-weight:600; color:var(--dark-text);
+}
+.streak-badge i{ font-size:1.1rem; color:var(--primary-color); }
+.streak-badge.best{ border-color:var(--accent-color); }
+
+
     </style>
 </head>
 <body>
@@ -1311,6 +1358,18 @@
 <div class="section animate-in delay-2">
     <h3>Pregunta del día</h3>
     <p class="question"><b>{{ question }}</b></p>
+    <!-- Racha (actual y mejor) -->
+<div class="streak-badges">
+  <div class="streak-badge">
+    <i class="fas fa-fire"></i>
+    Racha actual: {{ current_streak }} día{% if current_streak != 1 %}s{% endif %}
+  </div>
+  <div class="streak-badge best">
+    <i class="fas fa-trophy"></i>
+    Mejor racha: {{ best_streak }} día{% if best_streak != 1 %}s{% endif %}
+  </div>
+</div>
+
 
     {% if show_answers %}
         <!-- Ambos respondieron: se ven las dos respuestas -->

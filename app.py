@@ -9,107 +9,6 @@ from contextlib import closing
 import io
 from base64 import b64encode
 
-import requests
-
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1419704444815413450/3JKL1_--rCETBfXglvS-dytTR9tjEPluO3RXjm2d6aWyB-b-Kd2leV1aiwLyTx7BWhP-"
-
-
-
-def _truncate(s: str, limit: int = 1000) -> str:
-    s = s or ""
-    return (s[:limit-3] + "...") if len(s) > limit else s
-
-def _detect_client(req):
-    ua = req.headers.get("User-Agent", "")
-    ua_l = ua.lower()
-
-    # Detección muy ligera (sin librerías)
-    if "edg" in ua_l or "edge" in ua_l: browser = "Edge"
-    elif "opr" in ua_l or "opera" in ua_l: browser = "Opera"
-    elif "chrome" in ua_l and "safari" in ua_l: browser = "Chrome"
-    elif "safari" in ua_l and "chrome" not in ua_l: browser = "Safari"
-    elif "firefox" in ua_l: browser = "Firefox"
-    else: browser = "Desconocido"
-
-    if "windows" in ua_l: os = "Windows"
-    elif "android" in ua_l: os = "Android"
-    elif "iphone" in ua_l or "ios" in ua_l: os = "iOS"
-    elif "ipad" in ua_l: os = "iPadOS"
-    elif "mac os x" in ua_l or "macintosh" in ua_l: os = "macOS"
-    elif "linux" in ua_l: os = "Linux"
-    else: os = "Desconocido"
-
-    is_mobile = ("mobile" in ua_l) or ("android" in ua_l) or ("iphone" in ua_l)
-    is_bot = any(b in ua_l for b in ["bot", "spider", "crawl"])
-
-    xff = req.headers.get("X-Forwarded-For")
-    real_ip = req.headers.get("X-Real-Ip")
-    cf_ip = req.headers.get("CF-Connecting-IP")  # por si algún proxy/CDN lo añade
-    ip = (cf_ip or real_ip or (xff.split(",")[0].strip() if xff else req.remote_addr))
-
-    return {
-        "ua": ua,
-        "browser": browser,
-        "os": os,
-        "device": "Móvil" if is_mobile else "Escritorio",
-        "is_mobile": is_mobile,
-        "is_bot": is_bot,
-        "ip": ip or "desconocida",
-        "xff": xff or "-",
-        "referer": req.headers.get("Referer", "-"),
-        "lang": req.headers.get("Accept-Language", "-"),
-        "method": req.method,
-        "url": req.url,
-        "path": req.path,
-        "host": req.headers.get("Host", "-"),
-        "proto": req.headers.get("X-Forwarded-Proto", req.scheme),
-    }
-
-
-def notify_discord(event: str, username: str):
-    if not DISCORD_WEBHOOK_URL:
-        return
-    try:
-        c = _detect_client(request)
-        now_iso = datetime.utcnow().isoformat() + "Z"  # timestamp ISO para Discord
-
-        embed = {
-            "title": f"{event} · {username}",
-            "description": f"Actividad de **{username}**",
-            "color": 0xE84393,  # rosa mochito 😄
-            "timestamp": now_iso,
-            "fields": [
-                {"name": "Ruta", "value": f"`{c['method']}` {c['path']}", "inline": True},
-                {"name": "Host", "value": _truncate(c["host"]), "inline": True},
-                {"name": "Protocolo", "value": _truncate(c["proto"]), "inline": True},
-
-                {"name": "IP", "value": _truncate(c["ip"]), "inline": True},
-                {"name": "X-Forwarded-For", "value": _truncate(c["xff"]), "inline": True},
-                {"name": "Idioma", "value": _truncate(c["lang"]), "inline": True},
-
-                {"name": "Navegador", "value": c["browser"], "inline": True},
-                {"name": "SO", "value": c["os"], "inline": True},
-                {"name": "Dispositivo", "value": c["device"], "inline": True},
-
-                {"name": "¿Bot?", "value": "Sí 🤖" if c["is_bot"] else "No", "inline": True},
-                {"name": "Referer", "value": _truncate(c["referer"]), "inline": False},
-                {"name": "URL completa", "value": _truncate(c["url"]), "inline": False},
-                {"name": "User-Agent", "value": _truncate(c["ua"]), "inline": False},
-            ],
-            "footer": {"text": "Mochitos · Webhook de acceso"}
-        }
-
-        payload = {
-            "username": "Mochitos Bot",
-            "content": "",  # vacío para no mencionar a nadie
-            "embeds": [embed],
-        }
-
-        requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=5)
-    except Exception as e:
-        print(f"[notify_discord] Error: {e}")
-
-
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
 
@@ -298,19 +197,18 @@ def init_db():
                 )
             ''')
             
-            # Tabla para fotos de viajes - ahora almacena datos binarios
+            # Tabla para fotos de viajes - ahora solo almacena enlaces
             c.execute('''
                 CREATE TABLE IF NOT EXISTS travel_photos (
                     id SERIAL PRIMARY KEY,
                     travel_id INTEGER,
-                    image_data BYTEA,
-                    filename TEXT,
-                    mime_type TEXT,
+                    image_url TEXT NOT NULL,
                     uploaded_by TEXT,
                     uploaded_at TEXT,
                     FOREIGN KEY(travel_id) REFERENCES travels(id)
                 )
             ''')
+
             
             # Tabla para la lista de deseos
             c.execute('''
@@ -381,18 +279,16 @@ def init_db():
 init_db()
 
 def get_today_question():
-    now = datetime.now()
-    # Corte a las 00:00 -> usamos solo la fecha de hoy
-    today_str = now.date().isoformat()
+    today_str = date.today().isoformat()
     conn = get_db_connection()
     
     try:
         with conn.cursor() as c:
+            # Revisar si ya existe una pregunta para hoy
             c.execute("SELECT id, question FROM daily_questions WHERE date=%s", (today_str,))
             q = c.fetchone()
             if q:
                 return q
-
 
             # Obtener todas las preguntas que ya salieron
             c.execute("SELECT question FROM daily_questions")
@@ -480,20 +376,19 @@ def get_travel_photos(travel_id):
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            c.execute("SELECT id, image_data, mime_type, uploaded_by FROM travel_photos WHERE travel_id=%s ORDER BY id DESC", (travel_id,))
+            c.execute("SELECT id, image_url, uploaded_by FROM travel_photos WHERE travel_id=%s ORDER BY id DESC", (travel_id,))
             photos = []
             for row in c.fetchall():
-                photo_id, image_data, mime_type, uploaded_by = row
-                if image_data is None:
-                    continue
+                photo_id, image_url, uploaded_by = row
                 photos.append({
                     'id': photo_id,
-                    'data_url': f"data:{mime_type};base64,{b64encode(image_data).decode('utf-8')}",
+                    'url': image_url,
                     'uploaded_by': uploaded_by
                 })
             return photos
     finally:
         conn.close()
+
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -508,15 +403,14 @@ def index():
                     user = c.fetchone()
                     if user:
                         session['username'] = username
-                        notify_discord("iniciado sesión", username)
                         return redirect('/')
                     else:
                         error = "Usuario o contraseña incorrecta"
                         return render_template('index.html', login_error=error)
             finally:
                 conn.close()
-
-        # Para usuarios no logueados (GET)
+        
+        # Para usuarios no logueados
         return render_template('index.html', login_error=None, profile_pictures={})
 
     # --- Si el usuario está logueado ---
@@ -584,20 +478,19 @@ def index():
                         conn.commit()
                     return redirect('/')
 
-                if 'travel_photo' in request.files:
-                    file = request.files['travel_photo']
+                if 'travel_photo_url' in request.form:
                     travel_id = request.form.get('travel_id')
-                    if file and file.filename and travel_id:
-                        image_data = file.read()
-                        filename = secure_filename(file.filename)
-                        mime_type = file.mimetype
+                    image_url = request.form['travel_photo_url'].strip()
+                    if image_url and travel_id:
                         c.execute("""
-                            INSERT INTO travel_photos (travel_id, image_data, filename, mime_type, uploaded_by, uploaded_at)
-                            VALUES (%s, %s, %s, %s, %s, %s)
-                        """, (travel_id, image_data, filename, mime_type, user,
-                              datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                            INSERT INTO travel_photos (travel_id, image_url, uploaded_by, uploaded_at)
+                            VALUES (%s, %s, %s, %s)
+                        """, (travel_id, image_url, user,
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
                     return redirect('/')
+
+
 
                 if 'product_name' in request.form:
                     product_name = request.form['product_name'].strip()
@@ -612,14 +505,19 @@ def index():
                         conn.commit()
                     return redirect('/')
 
-            # --- Respuestas ---
+                       # --- Respuestas ---
             c.execute("SELECT username, answer FROM answers WHERE question_id=%s", (question_id,))
             answers = c.fetchall()
 
+            # Quién es la otra persona (somos dos: mochito / mochita)
             other_user = 'mochita' if user == 'mochito' else 'mochito'
+
+            # Diccionario usuario -> respuesta
             answers_dict = {u: a for (u, a) in answers}
             user_answer  = answers_dict.get(user)
             other_answer = answers_dict.get(other_user)
+
+            # Solo mostrar ambas respuestas si ambos contestaron
             show_answers = (user_answer is not None) and (other_answer is not None)
 
             # --- Viajes ---
@@ -655,13 +553,12 @@ def index():
                            days_together=days_together(),
                            days_until_meeting=days_until_meeting(),
                            travels=travels,
-                           travel_photos_dict=travel_photos_dict,  # ahora vacío
+                           travel_photos_dict=travel_photos_dict,
                            wishlist_items=wishlist_items,
                            username=user,
                            banner_file=banner_file,
                            profile_pictures=profile_pictures,
                            login_error=None)
-
 
 
 
@@ -1001,14 +898,6 @@ def get_image(image_id):
     finally:
         conn.close()
 
-@app.before_request
-def notify_every_entry():
-    # Solo notifica si hay sesión iniciada y están entrando a la página principal
-    if 'username' in session and request.endpoint == 'index':
-        notify_discord("entrado en la web", session['username'])
-
-
 if __name__ == '__main__':
     app.run(debug=True)
-
 

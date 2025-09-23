@@ -42,32 +42,6 @@
             position: relative;
             overflow-x: hidden;
         }
-
-        /* Estilos globales, EXCLUYENDO el modal de wishlist */
-body input,
-body button,
-body textarea,
-body select {
-    font-family: 'Montserrat', sans-serif;
-    border-radius: 50px;
-    border: none;
-    padding: 15px 25px;
-    font-size: 1rem;
-    transition: all 0.3s ease;
-}
-
-/* Quitar los globales dentro del modal */
-#editWishlistModal input,
-#editWishlistModal button,
-#editWishlistModal textarea,
-#editWishlistModal select {
-    all: unset;                /* 🔑 elimina todos los estilos heredados */
-    font-family: inherit;      /* vuelve a heredar de body */
-    display: block;            /* se comporta como input normal */
-    width: 100%;               /* ancho completo */
-    box-sizing: border-box;    /* padding + border dentro del width */
-}
-
         
         body::before {
             content: "";
@@ -720,68 +694,65 @@ body select {
             transform: scale(1.1);
         }
         
-/* ====== FORMULARIO EN EL MODAL DE LISTA DE DESEOS ====== */
-#editWishlistModal .modal-body form {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-/* SOLO inputs, selects, textarea dentro del modal */
-#editWishlistModal .modal-body input,
-#editWishlistModal .modal-body select,
-#editWishlistModal .modal-body textarea {
-    padding: 12px 15px;
-    border-radius: 12px;
-    border: 2px solid #e0e0e0;
-    font-size: 0.95rem;
-    outline: none;
-    transition: all 0.2s ease;
-    resize: vertical; /* textarea redimensionable */
-}
-
-/* Foco */
-#editWishlistModal .modal-body input:focus,
-#editWishlistModal .modal-body select:focus,
-#editWishlistModal .modal-body textarea:focus {
-    border-color: #6ddccf;
-    box-shadow: 0 0 0 3px rgba(109, 220, 207, 0.25);
-}
-
-/* Botón principal SOLO en este modal */
-#editWishlistModal .modal-body button {
-    padding: 12px;
-    border: none;
-    border-radius: 12px;
-    font-size: 1rem;
-    font-weight: 600;
-    background: #6ddccf;
-    color: #fff;
-    cursor: pointer;
-    transition: background 0.25s ease;
-}
-#editWishlistModal .modal-body button:hover {
-    background: #52c6b9;
-}
-
-/* ====== CHIP DE PRIORIDAD ====== */
-#editWishlistModal .priority-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 999px;
-    font-size: .85rem;
-    font-weight: 600;
-    margin-top: 5px;
-    border: 2px solid transparent;
-}
-
-/* Colores */
-#editWishlistModal .priority-high { background:#ffecec; border-color:#ff6b6b; color:#b80f0f; }
-#editWishlistModal .priority-mid  { background:#fff6da; border-color:#ffd166; color:#996500; }
-#editWishlistModal .priority-low  { background:#e7fffb; border-color:#6ddccf; color:#0f6b5c; }
-
+        /* Modal para editar elementos de la lista de deseos */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
+            overflow: auto;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+            animation: slideIn 0.3s ease;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .modal-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .close-modal {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        
+        .close-modal:hover {
+            color: #e84393;
+        }
+        
+        .modal-body {
+            padding: 25px;
+            overflow-y: auto;
+        }
+        
         /* Pregunta del día */
         .question {
             font-size: 1.4rem;
@@ -1167,128 +1138,6 @@ body select {
 }
 
 
-
-
-/* Popover menú para añadir foto */
-.travel-actions{ position:relative; display:flex; gap:10px; align-items:center; }
-
-.icon-btn.plus{ background: var(--gradient); color:#fff; }
-.icon-btn.plus:hover{ transform: scale(1.08); }
-
-/* Contenedor popover */
-.photo-popover{
-  position:absolute; top:48px; right:0;
-  width:min(420px, calc(100% - 20px));
-  background:#fff; border:1px solid #eee; border-radius:14px;
-  box-shadow: 0 18px 40px rgba(0,0,0,.15);
-  padding:14px 14px 12px;
-  transform: translateY(-8px); opacity:0; pointer-events:none;
-  transition: transform .22s ease, opacity .18s ease;
-  z-index: 5;
-}
-.photo-popover.open{ transform: translateY(0); opacity:1; pointer-events:auto; }
-
-/* Flechita del popover */
-.photo-popover::before{
-  content:""; position:absolute; top:-8px; right:18px;
-  width:16px; height:16px; background:#fff; border-left:1px solid #eee; border-top:1px solid #eee;
-  transform: rotate(45deg);
-}
-
-/* Cabecera del popover */
-.photo-popover-header{
-  display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;
-}
-.photo-popover-title{
-  font-weight:700; color:var(--dark-text);
-}
-.photo-popover .close-btn{
-  width:34px; height:34px; border-radius:10px; border:none; cursor:pointer;
-  background:#f5f5f7; display:flex; align-items:center; justify-content:center;
-}
-.photo-popover .close-btn:hover{ background:#efeff3; }
-
-/* Formulario dentro del popover */
-.photo-form-inline{ display:flex; align-items:center; gap:10px; }
-.photo-form-inline input[type="url"]{
-  flex:1; min-width:160px; margin:0;
-  border:1px solid #ddd; border-radius:10px; padding:10px 12px; font-size:.95rem;
-  background:#fafafa;
-}
-.photo-form-inline input[type="url"]:focus{
-  border-color: var(--accent-color);
-  outline:none; box-shadow: 0 0 0 3px rgba(162,155,254,.15);
-}
-.photo-form-inline .button{
-  border-radius:10px; padding:10px 14px; font-weight:700;
-}
-.photo-hint{ margin-top:8px; font-size:.85rem; color:#8a8fa3; }
-
-
-
-/* Racha de preguntas */
-.streak-badges{
-    display:flex; gap:12px; flex-wrap:wrap; margin:-5px 0 15px 0;
-}
-.streak-badge{
-    display:inline-flex; align-items:center; gap:8px;
-    background:#f8f8f8; border:2px solid #eee; padding:10px 14px;
-    border-radius:14px; font-weight:600; color:var(--dark-text);
-}
-.streak-badge i{ font-size:1.1rem; color:var(--primary-color); }
-.streak-badge.best{ border-color:var(--accent-color); }
-
-
-
-
-
-
-
-
-
-/* Botón + y panel “pestañita” para añadir foto */
-.icon-btn.plus { background: var(--gradient); color:#fff; }
-.icon-btn.plus:hover { transform: scale(1.08); }
-
-.photo-panel{
-  display:block;
-  overflow:hidden;
-  max-height:0;                /* colapsado */
-  opacity:0;
-  transform: translateY(-6px);
-  transition: max-height .3s ease, opacity .25s ease, transform .25s ease;
-  background:#fff;
-  border:1px solid #eee;
-  border-radius:12px;
-  box-shadow: 0 8px 22px rgba(0,0,0,.06);
-  margin-top:10px;
-  padding:0 12px;              /* se verá al abrir */
-}
-.photo-panel.open{
-  max-height:200px;            /* alto suficiente para el formulario */
-  opacity:1;
-  transform: translateY(0);
-  padding:12px;
-}
-.photo-form-inline{
-  display:flex; align-items:center; gap:10px;
-}
-.photo-form-inline input[type="url"]{
-  flex:1; min-width:160px; margin:0;
-  border:1px solid #ddd; border-radius:10px; padding:10px 12px; font-size:.95rem;
-  background:#fafafa;
-}
-.photo-form-inline input[type="url"]:focus{
-  border-color: var(--accent-color);
-  outline:none; box-shadow: 0 0 0 3px rgba(162,155,254,.15);
-}
-.photo-hint{ margin-top:6px; font-size:.85rem; color:#8a8fa3; }
-
-
-
-
-
-
     </style>
 </head>
 <body>
@@ -1307,12 +1156,6 @@ body select {
                 <input type="hidden" name="item_id" id="editItemId">
                 <input type="text" name="product_name" id="editProductName" placeholder="Nombre del producto" required>
                 <input type="url" name="product_link" id="editProductLink" placeholder="Enlace (opcional)">
-                <select name="priority" id="editPriority" required>
-                <option value="alta">Prioridad: Alta 🔴</option>
-                <option value="media">Prioridad: Media 🟡</option>
-                <option value="baja">Prioridad: Baja 🟢</option>
-</select>
-
                 <textarea name="notes" id="editNotes" placeholder="Notas (opcional)" rows="3"></textarea>
                 <button type="submit"><i class="fas fa-save"></i> Guardar cambios</button>
             </form>
@@ -1468,18 +1311,6 @@ body select {
 <div class="section animate-in delay-2">
     <h3>Pregunta del día</h3>
     <p class="question"><b>{{ question }}</b></p>
-    <!-- Racha (actual y mejor) -->
-<div class="streak-badges">
-  <div class="streak-badge">
-    <i class="fas fa-fire"></i>
-    Racha actual: {{ current_streak }} día{% if current_streak != 1 %}s{% endif %}
-  </div>
-  <div class="streak-badge best">
-    <i class="fas fa-trophy"></i>
-    Mejor racha: {{ best_streak }} día{% if best_streak != 1 %}s{% endif %}
-  </div>
-</div>
-
 
     {% if show_answers %}
         <!-- Ambos respondieron: se ven las dos respuestas -->
@@ -1564,121 +1395,105 @@ body select {
     
     <div class="wishlist-content active" id="wanted-tab">
         <div class="wishlist-grid">
-           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority in wishlist_items if not is_purchased %}
-<div class="wishlist-card">
-  <div class="wishlist-status status-wanted">Deseado</div>
-
-  {% set pri = (priority or 'media') %}
-  <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
-    <i class="fas fa-flag"></i> {{ pri|capitalize }}
-  </div>
-
-  <h3 class="wishlist-product">{{ product_name }}</h3>
-  {% if product_link %}
-  <a href="{{ product_link }}" target="_blank" class="wishlist-link">
-    <i class="fas fa-link"></i> Ver producto
-  </a>
-  {% endif %}
-  {% if notes %}
-  <p class="wishlist-notes">{{ notes }}</p>
-  {% endif %}
-  <div class="wishlist-meta">
-    <span>
-      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-        {% if profile_pictures[created_by] %}
-          <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
-        {% else %}
-          {{ created_by[0]|upper }}
-        {% endif %}
-      </div>
-      Creado por {{ created_by }}
-    </span>
-    <span>{{ created_at[:10] }}</span>
-  </div>
-
-  <div class="wishlist-actions">
-    <form method="POST" action="/toggle_wishlist_status">
-      <input type="hidden" name="item_id" value="{{ id }}">
-      <button type="submit" class="icon-btn" title="Marcar como comprado">
-        <i class="fas fa-check"></i>
-      </button>
-    </form>
-    <button class="icon-btn" title="Editar"
-      onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}')">
-      <i class="fas fa-edit"></i>
-    </button>
-    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
-      <input type="hidden" name="item_id" value="{{ id }}">
-      <button type="submit" class="icon-btn" title="Eliminar">
-        <i class="fas fa-trash"></i>
-      </button>
-    </form>
-  </div>
-</div>
-{% else %}
-<p>No hay productos en tu lista de deseos. ¡Añade el primero!</p>
-{% endfor %}
-
+            {% for id, product_name, product_link, notes, created_by, created_at, is_purchased in wishlist_items if not is_purchased %}
+            <div class="wishlist-card">
+                <div class="wishlist-status status-wanted">Deseado</div>
+                <h3 class="wishlist-product">{{ product_name }}</h3>
+                {% if product_link %}
+                <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+                    <i class="fas fa-link"></i> Ver producto
+                </a>
+                {% endif %}
+                {% if notes %}
+                <p class="wishlist-notes">{{ notes }}</p>
+                {% endif %}
+                <div class="wishlist-meta">
+                    <span>
+                        <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                            {% if profile_pictures[created_by] %}
+                               <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                            {% else %}
+                                {{ created_by[0]|upper }}
+                            {% endif %}
+                        </div>
+                        Creado por {{ created_by }}
+                    </span>
+                    <span>{{ created_at[:10] }}</span>
+                </div>
+                
+                <div class="wishlist-actions">
+                    <form method="POST" action="/toggle_wishlist_status">
+                        <input type="hidden" name="item_id" value="{{ id }}">
+                        <button type="submit" class="icon-btn" title="Marcar como comprado">
+                            <i class="fas fa-check"></i>
+                        </button>
+                    </form>
+                    <button class="icon-btn" title="Editar" onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`)">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+                        <input type="hidden" name="item_id" value="{{ id }}">
+                        <button type="submit" class="icon-btn" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <p>No hay productos en tu lista de deseos. ¡Añade el primero!</p>
+            {% endfor %}
         </div>
     </div>
     
     <div class="wishlist-content" id="purchased-tab">
         <div class="wishlist-grid">
-           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority in wishlist_items if is_purchased %}
-<div class="wishlist-card purchased">
-  <div class="wishlist-status status-purchased">Comprado</div>
-
-  {% set pri = (priority or 'media') %}
-  <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
-    <i class="fas fa-flag"></i> {{ pri|capitalize }}
-  </div>
-
-  <h3 class="wishlist-product">{{ product_name }}</h3>
-  {% if product_link %}
-  <a href="{{ product_link }}" target="_blank" class="wishlist-link">
-    <i class="fas fa-link"></i> Ver producto
-  </a>
-  {% endif %}
-  {% if notes %}
-  <p class="wishlist-notes">{{ notes }}</p>
-  {% endif %}
-  <div class="wishlist-meta">
-    <span>
-      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-        {% if profile_pictures[created_by] %}
-          <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
-        {% else %}
-          {{ created_by[0]|upper }}
-        {% endif %}
-      </div>
-      Creado por {{ created_by }}
-    </span>
-    <span>{{ created_at[:10] }}</span>
-  </div>
-
-  <div class="wishlist-actions">
-    <form method="POST" action="/toggle_wishlist_status">
-      <input type="hidden" name="item_id" value="{{ id }}">
-      <button type="submit" class="icon-btn" title="Marcar como no comprado">
-        <i class="fas fa-undo"></i>
-      </button>
-    </form>
-    <button class="icon-btn" title="Editar"
-      onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}')">
-      <i class="fas fa-edit"></i>
-    </button>
-    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
-      <input type="hidden" name="item_id" value="{{ id }}">
-      <button type="submit" class="icon-btn" title="Eliminar">
-        <i class="fas fa-trash"></i>
-      </button>
-    </form>
-  </div>
-</div>
-{% else %}
-<p>No hay productos comprados todavía.</p>
-{% endfor %}
-
+            {% for id, product_name, product_link, notes, created_by, created_at, is_purchased in wishlist_items if is_purchased %}
+            <div class="wishlist-card purchased">
+                <div class="wishlist-status status-purchased">Comprado</div>
+                <h3 class="wishlist-product">{{ product_name }}</h3>
+                {% if product_link %}
+                <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+                    <i class="fas fa-link"></i> Ver producto
+                </a>
+                {% endif %}
+                {% if notes %}
+                <p class="wishlist-notes">{{ notes }}</p>
+                {% endif %}
+                <div class="wishlist-meta">
+                    <span>
+                        <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                            {% if profile_pictures[created_by] %}
+                                <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                            {% else %}
+                                {{ created_by[0]|upper }}
+                            {% endif %}
+                        </div>
+                        Creado por {{ created_by }}
+                    </span>
+                    <span>{{ created_at[:10] }}</span>
+                </div>
+                
+                <div class="wishlist-actions">
+                    <form method="POST" action="/toggle_wishlist_status">
+                        <input type="hidden" name="item_id" value="{{ id }}">
+                        <button type="submit" class="icon-btn" title="Marcar como no comprado">
+                            <i class="fas fa-undo"></i>
+                        </button>
+                    </form>
+                    <button class="icon-btn" title="Editar" onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`)">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+                        <input type="hidden" name="item_id" value="{{ id }}">
+                        <button type="submit" class="icon-btn" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <p>No hay productos comprados todavía.</p>
+            {% endfor %}
         </div>
     </div>
     
@@ -1689,17 +1504,12 @@ body select {
                 <input type="text" name="product_name" placeholder="Nombre del producto" required>
                 <input type="url" name="product_link" placeholder="Enlace (opcional)">
                 <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
-                <select name="priority" required style="margin-bottom:15px;">
-  <option value="alta">Prioridad: Alta 🔴</option>
-  <option value="media" selected>Prioridad: Media 🟡</option>
-  <option value="baja">Prioridad: Baja 🟢</option>
-</select>
-
                 <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
             </form>
         </div>
     </div>
 </div>
+
 <!-- Sección de Viajes -->
 <div class="section animate-in delay-4">
     <h3>Nuestros Viajes</h3>
@@ -1717,11 +1527,7 @@ body select {
             <div class="travel-card visited">
                 <div class="travel-cover">
                     {% if travel_photos_dict[id] %}
-                        <div class="travel-photos">
-                            {% for photo in travel_photos_dict[id] %}
-                                <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
-                            {% endfor %}
-                        </div>
+                        <img src="{{ travel_photos_dict[id][0]['data_url'] }}" alt="{{ destination }}">
                     {% else %}
                         <div class="empty-album">
                             <i class="fas fa-map-marker-alt"></i>
@@ -1752,47 +1558,26 @@ body select {
                     </div>
                     
                     <div class="travel-actions">
-  <!-- Mover a deseados -->
-  <form method="POST" action="/toggle_travel_status">
-    <input type="hidden" name="travel_id" value="{{ id }}">
-    <button type="submit" class="icon-btn" title="Mover a deseados">
-      <i class="fas fa-heart"></i>
-    </button>
-  </form>
-
-  <!-- Botón + -->
-  <button type="button" class="icon-btn plus" title="Añadir foto"
-          onclick="togglePhotoMenu('visited-{{ id }}')">
-    <i class="fas fa-plus"></i>
-  </button>
-
-  <!-- Menú desplegable (popover) -->
-  <div class="photo-popover" id="photo-popover-visited-{{ id }}">
-    <div class="photo-popover-header">
-      <div class="photo-popover-title">Añadir foto por enlace</div>
-      <button type="button" class="close-btn" onclick="togglePhotoMenu('visited-{{ id }}')">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-    <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('visited-{{ id }}')">
-      <input type="hidden" name="travel_id" value="{{ id }}">
-      <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
-      <button type="submit" class="button">
-        <i class="fas fa-check"></i> Guardar
-      </button>
-    </form>
-    <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
-  </div>
-
-  <!-- Eliminar viaje -->
-  <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
-    <input type="hidden" name="travel_id" value="{{ id }}">
-    <button type="submit" class="icon-btn" title="Eliminar viaje">
-      <i class="fas fa-trash"></i>
-    </button>
-  </form>
-</div>
-
+                        <form method="POST" action="/toggle_travel_status">
+                            <input type="hidden" name="travel_id" value="{{ id }}">
+                            <button type="submit" class="icon-btn" title="Mover a deseados">
+                                <i class="fas fa-heart"></i>
+                            </button>
+                        </form>
+                        <form method="POST" enctype="multipart/form-data" class="travel-photo-form">
+                            <input type="hidden" name="travel_id" value="{{ id }}">
+                            <label for="travel-photo-{{ id }}" class="icon-btn" title="Añadir foto">
+                                <i class="fas fa-camera"></i>
+                            </label>
+                            <input id="travel-photo-{{ id }}" type="file" name="travel_photo" accept="image/*" style="display: none;" onchange="this.form.submit()">
+                        </form>
+                        <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
+                            <input type="hidden" name="travel_id" value="{{ id }}">
+                            <button type="submit" class="icon-btn" title="Eliminar viaje">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            </form>
+                    </div>
                 </div>
             </div>
             {% else %}
@@ -1807,14 +1592,10 @@ body select {
             <div class="travel-card wishlist">
                 <div class="travel-cover">
                     {% if travel_photos_dict[id] %}
-                        <div class="travel-photos">
-                            {% for photo in travel_photos_dict[id] %}
-                                <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
-                            {% endfor %}
-                        </div>
+                        <img src="{{ travel_photos_dict[id][0]['data_url'] }}" alt="{{ destination }}">
                     {% else %}
                         <div class="empty-album">
-                            <i class="fas fa-map-marker-alt"></i>
+                            <i class="fas fa-heart"></i>
                         </div>
                     {% endif %}
                     <div class="travel-status status-wishlist">Deseado</div>
@@ -1839,47 +1620,26 @@ body select {
                     </div>
                     
                     <div class="travel-actions">
-  <!-- Marcar como visitado -->
-  <form method="POST" action="/toggle_travel_status">
-    <input type="hidden" name="travel_id" value="{{ id }}">
-    <button type="submit" class="icon-btn" title="Marcar como visitado">
-      <i class="fas fa-check"></i>
-    </button>
-  </form>
-
-  <!-- Botón + -->
-  <button type="button" class="icon-btn plus" title="Añadir foto"
-          onclick="togglePhotoMenu('wish-{{ id }}')">
-    <i class="fas fa-plus"></i>
-  </button>
-
-  <!-- Menú desplegable (popover) -->
-  <div class="photo-popover" id="photo-popover-wish-{{ id }}">
-    <div class="photo-popover-header">
-      <div class="photo-popover-title">Añadir foto por enlace</div>
-      <button type="button" class="close-btn" onclick="togglePhotoMenu('wish-{{ id }}')">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-    <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('wish-{{ id }}')">
-      <input type="hidden" name="travel_id" value="{{ id }}">
-      <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
-      <button type="submit" class="button">
-        <i class="fas fa-check"></i> Guardar
-      </button>
-    </form>
-    <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
-  </div>
-
-  <!-- Eliminar viaje -->
-  <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
-    <input type="hidden" name="travel_id" value="{{ id }}">
-    <button type="submit" class="icon-btn" title="Eliminar viaje">
-      <i class="fas fa-trash"></i>
-    </button>
-  </form>
-</div>
-
+                        <form method="POST" action="/toggle_travel_status">
+                            <input type="hidden" name="travel_id" value="{{ id }}">
+                            <button type="submit" class="icon-btn" title="Marcar como visitado">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        </form>
+                        <form method="POST" enctype="multipart/form-data" class="travel-photo-form">
+                            <input type="hidden" name="travel_id" value="{{ id }}">
+                            <label for="travel-photo-{{ id }}" class="icon-btn" title="Añadir foto">
+                                <i class="fas fa-camera"></i>
+                            </label>
+                            <input id="travel-photo-{{ id }}" type="file" name="travel_photo" accept="image/*" style="display: none;" onchange="this.form.submit()">
+                        </form>
+                        <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
+                            <input type="hidden" name="travel_id" value="{{ id }}">
+                            <button type="submit" class="icon-btn" title="Eliminar viaje">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
             {% else %}
@@ -1957,14 +1717,13 @@ body select {
     });
     
     // Abrir modal para editar elemento de la lista de deseos
-    function openEditModal(id, name, link, notes, priority) {
-  document.getElementById('editItemId').value = id;
-  document.getElementById('editProductName').value = name;
-  document.getElementById('editProductLink').value = link;
-  document.getElementById('editNotes').value = notes;
-  document.getElementById('editPriority').value = priority || 'media';
-  document.getElementById('editWishlistModal').style.display = 'block';
-}
+    function openEditModal(id, name, link, notes) {
+        document.getElementById('editItemId').value = id;
+        document.getElementById('editProductName').value = name;
+        document.getElementById('editProductLink').value = link;
+        document.getElementById('editNotes').value = notes;
+        document.getElementById('editWishlistModal').style.display = 'block';
+    }
     
     // Cerrar modales
     document.querySelectorAll('.close-modal').forEach(closeBtn => {
@@ -2200,62 +1959,6 @@ window.addEventListener('click', (event) => {
         modal.style.display = 'none';
     }
 });
-
-
-
-
-
-
-// Abre/cierra un único popover a la vez
-function togglePhotoMenu(key){
-  const id = 'photo-popover-' + key;
-  const target = document.getElementById(id);
-  if(!target) return;
-
-  // Cierra los demás
-  document.querySelectorAll('.photo-popover.open').forEach(p => {
-    if(p.id !== id) p.classList.remove('open');
-  });
-
-  target.classList.toggle('open');
-
-  // focus al input al abrir
-  if(target.classList.contains('open')){
-    const input = target.querySelector('input[type="url"]');
-    if(input){ setTimeout(()=> input.focus(), 120); }
-  }
-}
-
-// Cerrar al enviar (para sensación de “guardado” instantáneo)
-function closePhotoMenuAfterSubmit(key){
-  const id = 'photo-popover-' + key;
-  const target = document.getElementById(id);
-  if(target) setTimeout(()=> target.classList.remove('open'), 50);
-}
-
-// Cerrar al hacer clic fuera
-document.addEventListener('click', (e) => {
-  const openPop = document.querySelector('.photo-popover.open');
-  if(!openPop) return;
-  const isInsidePopover = openPop.contains(e.target);
-  const isPlusBtn = e.target.closest('.icon-btn.plus');
-  if(!isInsidePopover && !isPlusBtn){
-    openPop.classList.remove('open');
-  }
-});
-
-// Cerrar con ESC
-document.addEventListener('keydown', (e) => {
-  if(e.key === 'Escape'){
-    document.querySelectorAll('.photo-popover.open').forEach(p => p.classList.remove('open'));
-  }
-});
-
-
-
-
-
-
 </script>
 <footer class="site-footer">
     <p>Esta web ha sido realizada por 

@@ -654,7 +654,7 @@ def index():
                            days_together=days_together(),
                            days_until_meeting=days_until_meeting(),
                            travels=travels,
-                           travel_photos_dict=travel_photos_dict,
+                        #    travel_photos_dict=travel_photos_dict,
                            wishlist_items=wishlist_items,
                            username=user,
                            banner_file=banner_file,

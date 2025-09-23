@@ -581,16 +581,21 @@ def index():
                     product_name = request.form['product_name'].strip()
                     product_link = request.form.get('product_link', '').strip()
                     notes = request.form.get('wishlist_notes', '').strip()
-                    priority = request.form.get('priority', 'media').strip()  # NUEVO
+                    priority = request.form.get('priority', 'media').strip()
+                    is_gift = 'is_gift' in request.form
+                    gift_for = request.form.get('gift_for', '')
+                    
                     if priority not in ('alta', 'media', 'baja'):
                         priority = 'media'
+                        
                     if product_name:
                         c.execute("""
-                            INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at, is_purchased, priority)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                            INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at, 
+                                                is_purchased, priority, is_gift, gift_for)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                         """, (product_name, product_link, notes, user,
                             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            False, priority))
+                            False, priority, is_gift, gift_for if is_gift else None))
                         conn.commit()
                     return redirect('/')
 
@@ -619,10 +624,12 @@ def index():
             travels = c.fetchall()
             travel_photos_dict = {tid: get_travel_photos(tid) for tid, *_ in travels}
 
-            # --- Wishlist ---
+            # --- Wishlist --- (ACTUALIZAR ESTA CONSULTA)
             c.execute("""
                 SELECT id, product_name, product_link, notes, created_by, created_at, is_purchased, 
-                    COALESCE(priority, 'media') AS priority
+                    COALESCE(priority, 'media') AS priority,
+                    COALESCE(is_gift, FALSE) as is_gift,
+                    gift_for
                 FROM wishlist
                 ORDER BY 
                     is_purchased ASC,
@@ -771,6 +778,7 @@ def delete_wishlist_item():
             conn.close()
 
 # Editar elemento de la lista de deseos
+# Actualiza la edición de productos
 @app.route('/edit_wishlist_item', methods=['POST'])
 def edit_wishlist_item():
     if 'username' not in session:
@@ -781,18 +789,23 @@ def edit_wishlist_item():
         product_name = request.form['product_name'].strip()
         product_link = request.form.get('product_link', '').strip()
         notes = request.form.get('notes', '').strip()
-        priority = request.form.get('priority', 'media').strip()  # NUEVO
+        priority = request.form.get('priority', 'media').strip()
+        is_gift = 'is_gift' in request.form
+        gift_for = request.form.get('gift_for', '')
+        
         if priority not in ('alta', 'media', 'baja'):
             priority = 'media'
-        
+            
         if product_name:
             conn = get_db_connection()
             with conn.cursor() as c:
                 c.execute("""
                     UPDATE wishlist 
-                    SET product_name=%s, product_link=%s, notes=%s, priority=%s
+                    SET product_name=%s, product_link=%s, notes=%s, priority=%s, 
+                        is_gift=%s, gift_for=%s
                     WHERE id=%s
-                """, (product_name, product_link, notes, priority, item_id))
+                """, (product_name, product_link, notes, priority, 
+                      is_gift, gift_for if is_gift else None, item_id))
                 conn.commit()
             return redirect('/')
     

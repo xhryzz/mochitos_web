@@ -31,139 +31,6 @@
             padding: 0;
         }
         
-
-
-        /* Estilos para los botones de prioridad en la lista de deseos */
-.wishlist-priority {
-    display: flex;
-    gap: 8px;
-    margin: 10px 0;
-    flex-wrap: wrap;
-}
-
-.priority-btn {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 20px;
-    font-family: 'Montserrat', sans-serif;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.priority-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.priority-btn.active {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-    border: 2px solid white;
-}
-
-/* Colores específicos para cada prioridad en wishlist */
-.priority-alta {
-    background: linear-gradient(135deg, #ff6b6b, #ee5a52);
-    color: white;
-}
-
-.priority-media {
-    background: linear-gradient(135deg, #feca57, #ff9f43);
-    color: white;
-}
-
-.priority-baja {
-    background: linear-gradient(135deg, #48dbfb, #0abde3);
-    color: white;
-}
-
-.priority-sin {
-    background: linear-gradient(135deg, #c8d6e5, #8395a7);
-    color: white;
-}
-
-/* Indicador de prioridad en las tarjetas de wishlist */
-.wishlist-priority-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    margin-top: 5px;
-    color: white;
-}
-
-.priority-badge-alta {
-    background: #ff6b6b;
-}
-
-.priority-badge-media {
-    background: #feca57;
-}
-
-.priority-badge-baja {
-    background: #48dbfb;
-}
-
-.priority-badge-sin {
-    background: #c8d6e5;
-    color: #2d3436;
-}
-
-/* Estilos para el formulario de prioridad en wishlist */
-.wishlist-form .priority-buttons {
-    margin: 15px 0;
-}
-
-.wishlist-form .priority-btn {
-    flex: 1;
-    min-width: 120px;
-    justify-content: center;
-}
-
-/* Prioridad en la visualización de items */
-.wishlist-card .priority-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 8px 0;
-}
-
-.priority-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    display: inline-block;
-}
-
-.priority-dot-alta {
-    background: #ff6b6b;
-    box-shadow: 0 0 5px rgba(255, 107, 107, 0.5);
-}
-
-.priority-dot-media {
-    background: #feca57;
-    box-shadow: 0 0 5px rgba(254, 202, 87, 0.5);
-}
-
-.priority-dot-baja {
-    background: #48dbfb;
-    box-shadow: 0 0 5px rgba(72, 219, 251, 0.5);
-}
-
-.priority-dot-sin {
-    background: #c8d6e5;
-    box-shadow: 0 0 5px rgba(200, 214, 229, 0.5);
-}
-
         body {
             font-family: 'Montserrat', sans-serif;
             background: linear-gradient(135deg, #ffe8f3 0%, #dfe6e9 100%);
@@ -1694,24 +1561,20 @@
     <div class="wishlist-content active" id="wanted-tab">
         <div class="wishlist-grid">
            {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority in wishlist_items if not is_purchased %}
-<!-- En la visualización de items de wishlist -->
 <div class="wishlist-card">
-    <div class="wishlist-status status-wanted">Deseado</div>
-    <h3 class="wishlist-product">{{ product_name }}</h3>
-    
-    <!-- Mostrar prioridad -->
-    <div class="priority-info">
-        <span class="priority-dot priority-dot-{{ priority }}"></span>
-        <span class="wishlist-priority-badge priority-badge-{{ priority }}">
-            Prioridad {{ priority|capitalize }}
-        </span>
-    </div>
-    
-    {% if product_link %}
-    <a href="{{ product_link }}" target="_blank" class="wishlist-link">
-        <i class="fas fa-link"></i> Ver producto
-    </a>
-    {% endif %}
+  <div class="wishlist-status status-wanted">Deseado</div>
+
+  {% set pri = (priority or 'media') %}
+  <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
+    <i class="fas fa-flag"></i> {{ pri|capitalize }}
+  </div>
+
+  <h3 class="wishlist-product">{{ product_name }}</h3>
+  {% if product_link %}
+  <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+    <i class="fas fa-link"></i> Ver producto
+  </a>
+  {% endif %}
   {% if notes %}
   <p class="wishlist-notes">{{ notes }}</p>
   {% endif %}
@@ -1815,35 +1678,22 @@
         </div>
     </div>
     
-    <!-- En la sección de añadir nuevo producto -->
-<div class="wishlist-content" id="add-wishlist-tab">
-    <div class="wishlist-form">
-        <h4>Añadir nuevo producto</h4>
-        <form method="POST">
-            <input type="text" name="product_name" placeholder="Nombre del producto" required>
-            <input type="url" name="product_link" placeholder="Enlace (opcional)">
-            <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
-            
-            <!-- Botones de prioridad -->
-            <div class="wishlist-priority">
-                <label style="width: 100%; margin-bottom: 8px; font-weight: 600;">Prioridad:</label>
-                <button type="button" class="priority-btn priority-alta" data-priority="alta">
-                    <i class="fas fa-exclamation-circle"></i> Alta
-                </button>
-                <button type="button" class="priority-btn priority-media active" data-priority="media">
-                    <i class="fas fa-exclamation-triangle"></i> Media
-                </button>
-                <button type="button" class="priority-btn priority-baja" data-priority="baja">
-                    <i class="fas fa-info-circle"></i> Baja
-                </button>
-                <button type="button" class="priority-btn priority-sin" data-priority="sin">
-                    <i class="fas fa-minus-circle"></i> Sin
-                </button>
-            </div>
-            <input type="hidden" name="priority" value="media">
-            
-            <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
-        </form>
+    <div class="wishlist-content" id="add-wishlist-tab">
+        <div class="wishlist-form">
+            <h4>Añadir nuevo producto</h4>
+            <form method="POST">
+                <input type="text" name="product_name" placeholder="Nombre del producto" required>
+                <input type="url" name="product_link" placeholder="Enlace (opcional)">
+                <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
+                <select name="priority" required style="margin-bottom:15px;">
+  <option value="alta">Prioridad: Alta 🔴</option>
+  <option value="media" selected>Prioridad: Media 🟡</option>
+  <option value="baja">Prioridad: Baja 🟢</option>
+</select>
+
+                <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
+            </form>
+        </div>
     </div>
 </div>
 <!-- Sección de Viajes -->
@@ -2399,44 +2249,7 @@ document.addEventListener('keydown', (e) => {
 
 
 
-// Funcionalidad para los botones de prioridad en la lista de deseos
-document.querySelectorAll('.wishlist-priority .priority-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        // Remover clase active de todos los botones del mismo grupo
-        const parent = this.closest('.wishlist-priority');
-        if (parent) {
-            parent.querySelectorAll('.priority-btn').forEach(b => {
-                b.classList.remove('active');
-            });
-            
-            // Añadir clase active al botón clickeado
-            this.classList.add('active');
-            
-            // Actualizar el campo hidden del formulario
-            const form = this.closest('form');
-            if (form) {
-                const priorityInput = form.querySelector('input[name="priority"]');
-                if (priorityInput) {
-                    priorityInput.value = this.getAttribute('data-priority');
-                }
-            }
-        }
-    });
-});
 
-// Inicializar prioridades al cargar la página
-document.addEventListener('DOMContentLoaded', function() {
-    // Establecer prioridad por defecto si no hay ninguna seleccionada
-    document.querySelectorAll('.wishlist-priority').forEach(container => {
-        const activeBtn = container.querySelector('.priority-btn.active');
-        if (!activeBtn) {
-            const defaultBtn = container.querySelector('.priority-btn[data-priority="media"]');
-            if (defaultBtn) {
-                defaultBtn.classList.add('active');
-            }
-        }
-    });
-});
 
 
 </script>

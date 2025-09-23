@@ -628,7 +628,7 @@ def index():
                 ORDER BY is_visited, travel_date DESC
             """)
             travels = c.fetchall()
-            travel_photos_dict = {tid: get_travel_photos(tid) for tid, *_ in travels}
+            # travel_photos_dict = {tid: get_travel_photos(tid) for tid, *_ in travels}
 
             # --- Wishlist ---
             c.execute("""
@@ -1009,4 +1009,5 @@ def notify_every_entry():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 

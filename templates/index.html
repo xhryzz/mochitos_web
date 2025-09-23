@@ -695,44 +695,26 @@
         }
         
 /* ====== FORMULARIO EN EL MODAL DE LISTA DE DESEOS ====== */
-#editWishlistModal .modal-body form {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-/* Inputs y selects SOLO en este modal */
+/* SOLO inputs, selects y textarea dentro del modal de wishlist */
 #editWishlistModal .modal-body input,
-#editWishlistModal .modal-body select {
+#editWishlistModal .modal-body select,
+#editWishlistModal .modal-body textarea {
     padding: 12px 15px;
     border-radius: 12px;
     border: 2px solid #e0e0e0;
     font-size: 0.95rem;
     outline: none;
     transition: all 0.2s ease;
+    resize: vertical; /* opcional: que el textarea se pueda redimensionar */
 }
 
 #editWishlistModal .modal-body input:focus,
-#editWishlistModal .modal-body select:focus {
+#editWishlistModal .modal-body select:focus,
+#editWishlistModal .modal-body textarea:focus {
     border-color: #6ddccf;
     box-shadow: 0 0 0 3px rgba(109, 220, 207, 0.25);
 }
 
-/* Botón principal SOLO en este modal */
-#editWishlistModal .modal-body button {
-    padding: 12px;
-    border: none;
-    border-radius: 12px;
-    font-size: 1rem;
-    font-weight: 600;
-    background: #6ddccf;
-    color: #fff;
-    cursor: pointer;
-    transition: background 0.25s ease;
-}
-#editWishlistModal .modal-body button:hover {
-    background: #52c6b9;
-}
 
 /* ====== CHIP DE PRIORIDAD ====== */
 #editWishlistModal .priority-chip {

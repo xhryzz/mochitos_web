@@ -274,6 +274,21 @@ def init_db():
             else:
                 conn.commit()
 
+                # Asegurar columna 'priority' (alta/media/baja) en wishlist
+            # Asegurar columna 'priority' (alta/media/baja) en wishlist
+            try:
+                c.execute("""
+                    ALTER TABLE wishlist
+                    ADD COLUMN IF NOT EXISTS priority TEXT
+                    CHECK (priority IN ('alta','media','baja'))
+                    DEFAULT 'media'
+                """)
+                conn.commit()  # <-- añade esto
+            except Exception as e:
+                print(f"ALTER wishlist priority: {e}")
+
+
+
 init_db()
 
 def get_today_question():
@@ -566,14 +581,19 @@ def index():
                     product_name = request.form['product_name'].strip()
                     product_link = request.form.get('product_link', '').strip()
                     notes = request.form.get('wishlist_notes', '').strip()
+                    priority = request.form.get('priority', 'media').strip()  # NUEVO
+                    if priority not in ('alta', 'media', 'baja'):
+                        priority = 'media'
                     if product_name:
                         c.execute("""
-                            INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at)
-                            VALUES (%s, %s, %s, %s, %s)
+                            INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at, is_purchased, priority)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
                         """, (product_name, product_link, notes, user,
-                              datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            False, priority))
                         conn.commit()
                     return redirect('/')
+
 
             # --- Respuestas ---
             c.execute("SELECT username, answer FROM answers WHERE question_id=%s", (question_id,))
@@ -601,11 +621,20 @@ def index():
 
             # --- Wishlist ---
             c.execute("""
-                SELECT id, product_name, product_link, notes, created_by, created_at, is_purchased
+                SELECT id, product_name, product_link, notes, created_by, created_at, is_purchased, 
+                    COALESCE(priority, 'media') AS priority
                 FROM wishlist
-                ORDER BY is_purchased, created_at DESC
+                ORDER BY 
+                    is_purchased ASC,
+                    CASE COALESCE(priority, 'media')
+                        WHEN 'alta'  THEN 0
+                        WHEN 'media' THEN 1
+                        ELSE 2
+                    END,
+                    created_at DESC
             """)
             wishlist_items = c.fetchall()
+
 
             banner_file = get_banner()
             profile_pictures = get_profile_pictures()
@@ -752,15 +781,19 @@ def edit_wishlist_item():
         product_name = request.form['product_name'].strip()
         product_link = request.form.get('product_link', '').strip()
         notes = request.form.get('notes', '').strip()
+        priority = request.form.get('priority', 'media').strip()  # NUEVO
+        if priority not in ('alta', 'media', 'baja'):
+            priority = 'media'
         
         if product_name:
             conn = get_db_connection()
-            
             with conn.cursor() as c:
-                c.execute("UPDATE wishlist SET product_name=%s, product_link=%s, notes=%s WHERE id=%s", 
-                         (product_name, product_link, notes, item_id))
+                c.execute("""
+                    UPDATE wishlist 
+                    SET product_name=%s, product_link=%s, notes=%s, priority=%s
+                    WHERE id=%s
+                """, (product_name, product_link, notes, priority, item_id))
                 conn.commit()
-            
             return redirect('/')
     
     except Exception as e:
@@ -769,6 +802,7 @@ def edit_wishlist_item():
     finally:
         if 'conn' in locals():
             conn.close()
+
 
 # Marcar elemento como comprado/no comprado
 @app.route('/toggle_wishlist_status', methods=['POST'])

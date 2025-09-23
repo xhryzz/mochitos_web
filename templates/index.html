@@ -1351,6 +1351,54 @@ select[name="priority"]:active {
 }
 
 
+
+/* Estilos para elementos de regalo */
+.gift-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #ff6b6b, #ffa36b);
+    color: white;
+    margin: 6px 0 10px 0;
+}
+
+.gift-item.blurred {
+    position: relative;
+    overflow: hidden;
+}
+
+.gift-item.blurred .wishlist-product,
+.gift-item.blurred .wishlist-link,
+.gift-item.blurred .wishlist-notes,
+.gift-item.blurred .priority-chip {
+    filter: blur(8px);
+    user-select: none;
+    pointer-events: none;
+}
+
+.gift-hidden-content {
+    text-align: center;
+    padding: 20px 0;
+}
+
+.gift-message {
+    color: #666;
+    font-style: italic;
+    margin-top: 10px;
+}
+
+/* Asegurar que el contenido del regalo oculte el contenido real */
+.gift-item.blurred .wishlist-product:not(.gift-hidden-content h3),
+.gift-item.blurred .wishlist-link,
+.gift-item.blurred .wishlist-notes {
+    opacity: 0.3;
+}
+
+
     </style>
 </head>
 <body>
@@ -1612,7 +1660,6 @@ select[name="priority"]:active {
 </div>
 
 
-
 <!-- Sección de Lista de Deseos -->
 <div class="section animate-in delay-3">
     <h3>Nuestra Lista de Deseos</h3>
@@ -1626,15 +1673,29 @@ select[name="priority"]:active {
     
     <div class="wishlist-content active" id="wanted-tab">
         <div class="wishlist-grid">
-           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority in wishlist_items if not is_purchased %}
-<div class="wishlist-card">
+           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift, gift_for in wishlist_items if not is_purchased %}
+<div class="wishlist-card {% if is_gift and gift_for != session.username %}gift-item blurred{% endif %}">
   <div class="wishlist-status status-wanted">Deseado</div>
+
+  {% if is_gift %}
+  <div class="gift-badge">
+    <i class="fas fa-gift"></i> Regalo para {{ 'ti' if gift_for == session.username else gift_for }}
+  </div>
+  {% endif %}
 
   {% set pri = (priority or 'media') %}
   <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
     <i class="fas fa-flag"></i> {{ pri|capitalize }}
   </div>
 
+  {% if is_gift and gift_for != session.username %}
+  <!-- Elemento de regalo para el otro usuario - contenido oculto -->
+  <div class="gift-hidden-content">
+    <h3 class="wishlist-product">🎁 Regalo Sorpresa</h3>
+    <p class="gift-message">¡Este es un regalo para ti! No podrás verlo hasta después.</p>
+  </div>
+  {% else %}
+  <!-- Contenido normal -->
   <h3 class="wishlist-product">{{ product_name }}</h3>
   {% if product_link %}
   <a href="{{ product_link }}" target="_blank" class="wishlist-link">
@@ -1644,6 +1705,8 @@ select[name="priority"]:active {
   {% if notes %}
   <p class="wishlist-notes">{{ notes }}</p>
   {% endif %}
+  {% endif %}
+
   <div class="wishlist-meta">
     <span>
       <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
@@ -1659,6 +1722,7 @@ select[name="priority"]:active {
   </div>
 
   <div class="wishlist-actions">
+    {% if not (is_gift and gift_for != session.username) or created_by == session.username %}
     <form method="POST" action="/toggle_wishlist_status">
       <input type="hidden" name="item_id" value="{{ id }}">
       <button type="submit" class="icon-btn" title="Marcar como comprado">
@@ -1666,35 +1730,51 @@ select[name="priority"]:active {
       </button>
     </form>
     <button class="icon-btn" title="Editar"
-      onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}')">
+      onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}', {{ 'true' if is_gift else 'false' }}, '{{ gift_for }}')">
       <i class="fas fa-edit"></i>
     </button>
+    {% endif %}
+    {% if created_by == session.username %}
     <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
       <input type="hidden" name="item_id" value="{{ id }}">
       <button type="submit" class="icon-btn" title="Eliminar">
         <i class="fas fa-trash"></i>
       </button>
     </form>
+    {% endif %}
   </div>
 </div>
 {% else %}
 <p>No hay productos en tu lista de deseos. ¡Añade el primero!</p>
 {% endfor %}
-
         </div>
     </div>
     
     <div class="wishlist-content" id="purchased-tab">
         <div class="wishlist-grid">
-           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority in wishlist_items if is_purchased %}
-<div class="wishlist-card purchased">
+           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift, gift_for in wishlist_items if is_purchased %}
+<div class="wishlist-card purchased {% if is_gift and gift_for != session.username %}gift-item blurred{% endif %}">
   <div class="wishlist-status status-purchased">Comprado</div>
+
+  {% if is_gift %}
+  <div class="gift-badge">
+    <i class="fas fa-gift"></i> Regalo para {{ 'ti' if gift_for == session.username else gift_for }}
+  </div>
+  {% endif %}
 
   {% set pri = (priority or 'media') %}
   <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
     <i class="fas fa-flag"></i> {{ pri|capitalize }}
   </div>
 
+  {% if is_gift and gift_for != session.username %}
+  <!-- Elemento de regalo para el otro usuario - contenido oculto -->
+  <div class="gift-hidden-content">
+    <h3 class="wishlist-product">🎁 Regalo Sorpresa</h3>
+    <p class="gift-message">¡Este regalo ya fue comprado!</p>
+  </div>
+  {% else %}
+  <!-- Contenido normal -->
   <h3 class="wishlist-product">{{ product_name }}</h3>
   {% if product_link %}
   <a href="{{ product_link }}" target="_blank" class="wishlist-link">
@@ -1704,6 +1784,8 @@ select[name="priority"]:active {
   {% if notes %}
   <p class="wishlist-notes">{{ notes }}</p>
   {% endif %}
+  {% endif %}
+
   <div class="wishlist-meta">
     <span>
       <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
@@ -1719,14 +1801,17 @@ select[name="priority"]:active {
   </div>
 
   <div class="wishlist-actions">
+    {% if not (is_gift and gift_for != session.username) or created_by == session.username %}
     <form method="POST" action="/toggle_wishlist_status">
       <input type="hidden" name="item_id" value="{{ id }}">
       <button type="submit" class="icon-btn" title="Marcar como no comprado">
         <i class="fas fa-undo"></i>
       </button>
     </form>
+    {% endif %}
+    {% if created_by == session.username %}
     <button class="icon-btn" title="Editar"
-      onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}')">
+      onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}', {{ 'true' if is_gift else 'false' }}, '{{ gift_for }}')">
       <i class="fas fa-edit"></i>
     </button>
     <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
@@ -1735,12 +1820,12 @@ select[name="priority"]:active {
         <i class="fas fa-trash"></i>
       </button>
     </form>
+    {% endif %}
   </div>
 </div>
 {% else %}
 <p>No hay productos comprados todavía.</p>
 {% endfor %}
-
         </div>
     </div>
     
@@ -1751,11 +1836,27 @@ select[name="priority"]:active {
                 <input type="text" name="product_name" placeholder="Nombre del producto" required>
                 <input type="url" name="product_link" placeholder="Enlace (opcional)">
                 <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
+                
+                <div class="gift-option" style="margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="is_gift" name="is_gift" style="width: auto; margin: 0;">
+                        <span>🎁 Marcar como regalo</span>
+                    </label>
+                    
+                    <div id="gift_for_container" style="display: none; margin-top: 10px;">
+                        <label for="gift_for">Regalo para:</label>
+                        <select name="gift_for" id="gift_for" style="margin-left: 10px;">
+                            <option value="mochito">Christian (mochito)</option>
+                            <option value="mochita">Clara (mochita)</option>
+                        </select>
+                    </div>
+                </div>
+                
                 <select name="priority" required style="margin-bottom:15px;">
-  <option value="alta">Prioridad: Alta 🔴</option>
-  <option value="media" selected>Prioridad: Media 🟡</option>
-  <option value="baja">Prioridad: Baja 🟢</option>
-</select>
+                    <option value="alta">Prioridad: Alta 🔴</option>
+                    <option value="media" selected>Prioridad: Media 🟡</option>
+                    <option value="baja">Prioridad: Baja 🟢</option>
+                </select>
 
                 <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
             </form>

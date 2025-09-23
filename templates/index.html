@@ -694,16 +694,16 @@
             transform: scale(1.1);
         }
         
-      /* ====== FORMULARIO EN EL MODAL ====== */
-.modal-body form {
+/* ====== FORMULARIO EN EL MODAL DE LISTA DE DESEOS ====== */
+#editWishlistModal .modal-body form {
     display: flex;
     flex-direction: column;
     gap: 15px;
 }
 
-/* Inputs y selects */
-.modal-body input,
-.modal-body select {
+/* Inputs y selects SOLO en este modal */
+#editWishlistModal .modal-body input,
+#editWishlistModal .modal-body select {
     padding: 12px 15px;
     border-radius: 12px;
     border: 2px solid #e0e0e0;
@@ -712,14 +712,14 @@
     transition: all 0.2s ease;
 }
 
-.modal-body input:focus,
-.modal-body select:focus {
-    border-color: #6ddccf; /* turquesa */
+#editWishlistModal .modal-body input:focus,
+#editWishlistModal .modal-body select:focus {
+    border-color: #6ddccf;
     box-shadow: 0 0 0 3px rgba(109, 220, 207, 0.25);
 }
 
-/* Botón principal */
-.modal-body button {
+/* Botón principal SOLO en este modal */
+#editWishlistModal .modal-body button {
     padding: 12px;
     border: none;
     border-radius: 12px;
@@ -730,12 +730,12 @@
     cursor: pointer;
     transition: background 0.25s ease;
 }
-.modal-body button:hover {
+#editWishlistModal .modal-body button:hover {
     background: #52c6b9;
 }
 
-/* ====== CHIP DE PRIORIDAD (ya tienes esto, lo integramos) ====== */
-.priority-chip {
+/* ====== CHIP DE PRIORIDAD ====== */
+#editWishlistModal .priority-chip {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -748,11 +748,10 @@
 }
 
 /* Colores */
-.priority-high { background:#ffecec; border-color:#ff6b6b; color:#b80f0f; }
-.priority-mid  { background:#fff6da; border-color:#ffd166; color:#996500; }
-.priority-low  { background:#e7fffb; border-color:#6ddccf; color:#0f6b5c; }
-
-        
+#editWishlistModal .priority-high { background:#ffecec; border-color:#ff6b6b; color:#b80f0f; }
+#editWishlistModal .priority-mid  { background:#fff6da; border-color:#ffd166; color:#996500; }
+#editWishlistModal .priority-low  { background:#e7fffb; border-color:#6ddccf; color:#0f6b5c; }
+ 
         /* Pregunta del día */
         .question {
             font-size: 1.4rem;
@@ -1279,9 +1278,9 @@
                 <input type="text" name="product_name" id="editProductName" placeholder="Nombre del producto" required>
                 <input type="url" name="product_link" id="editProductLink" placeholder="Enlace (opcional)">
                 <select name="priority" id="editPriority" required>
-  <option value="alta">Prioridad: Alta 🔴</option>
-  <option value="media">Prioridad: Media 🟡</option>
-  <option value="baja">Prioridad: Baja 🟢</option>
+                <option value="alta">Prioridad: Alta 🔴</option>
+                <option value="media">Prioridad: Media 🟡</option>
+                <option value="baja">Prioridad: Baja 🟢</option>
 </select>
 
                 <textarea name="notes" id="editNotes" placeholder="Notas (opcional)" rows="3"></textarea>

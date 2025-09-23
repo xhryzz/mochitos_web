@@ -1351,7 +1351,6 @@ select[name="priority"]:active {
 }
 
 
-
 /* Estilos para elementos de regalo */
 .gift-badge {
     display: inline-flex;
@@ -1364,172 +1363,6 @@ select[name="priority"]:active {
     background: linear-gradient(135deg, #ff6b6b, #ffa36b);
     color: white;
     margin: 6px 0 10px 0;
-}
-
-.gift-item.blurred {
-    position: relative;
-    overflow: hidden;
-}
-
-.gift-item.blurred .wishlist-product,
-.gift-item.blurred .wishlist-link,
-.gift-item.blurred .wishlist-notes,
-.gift-item.blurred .priority-chip {
-    filter: blur(8px);
-    user-select: none;
-    pointer-events: none;
-}
-
-.gift-hidden-content {
-    text-align: center;
-    padding: 20px 0;
-}
-
-.gift-message {
-    color: #666;
-    font-style: italic;
-    margin-top: 10px;
-}
-
-/* Asegurar que el contenido del regalo oculte el contenido real */
-.gift-item.blurred .wishlist-product:not(.gift-hidden-content h3),
-.gift-item.blurred .wishlist-link,
-.gift-item.blurred .wishlist-notes {
-    opacity: 0.3;
-}
-
-
-/* Estilos misteriosos para regalos */
-.gift-mystery {
-    position: relative;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-    border: 2px solid #e94560;
-    box-shadow: 0 0 20px rgba(233, 69, 96, 0.3);
-}
-
-.mystery-badge {
-    background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%);
-    color: white;
-    border: 2px solid #ffd700;
-    box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
-    z-index: 10;
-    position: relative;
-}
-
-.mystery-container {
-    text-align: center;
-    padding: 30px 20px;
-    color: white;
-    position: relative;
-    z-index: 2;
-}
-
-.mystery-box {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 15px;
-    padding: 25px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.mystery-lock {
-    font-size: 3rem;
-    margin-bottom: 15px;
-    animation: pulse 2s infinite;
-}
-
-.mystery-title {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.4rem;
-    margin-bottom: 10px;
-    background: linear-gradient(45deg, #ffd700, #ff6b6b);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
-}
-
-.mystery-text {
-    font-style: italic;
-    opacity: 0.9;
-    margin-bottom: 15px;
-}
-
-.mystery-hint {
-    font-size: 0.9rem;
-    opacity: 0.7;
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
-    padding-top: 10px;
-}
-
-/* Animación de sacudida para el icono de regalo */
-.shaking-gift {
-    animation: shake 2s ease-in-out infinite;
-    display: inline-block;
-}
-
-@keyframes shake {
-    0%, 100% { transform: rotate(0deg) scale(1); }
-    25% { transform: rotate(-5deg) scale(1.1); }
-    50% { transform: rotate(5deg) scale(1.2); }
-    75% { transform: rotate(-3deg) scale(1.1); }
-}
-
-@keyframes pulse {
-    0%, 100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.1); opacity: 0.8; }
-}
-/* Estilos para elementos de regalo */
-.gift-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    background: linear-gradient(135deg, #ff6b6b, #ffa36b);
-    color: white;
-    margin: 6px 0 10px 0;
-}
-
-.gift-item.blurred {
-    position: relative;
-    overflow: hidden;
-}
-
-.gift-item.blurred .wishlist-product,
-.gift-item.blurred .wishlist-link,
-.gift-item.blurred .wishlist-notes,
-.gift-item.blurred .priority-chip {
-    filter: blur(8px);
-    user-select: none;
-    pointer-events: none;
-}
-
-.gift-hidden-content {
-    text-align: center;
-    padding: 20px 0;
-}
-
-.gift-message {
-    color: #666;
-    font-style: italic;
-    margin-top: 10px;
-}
-
-/* Asegurar que el contenido del regalo oculte el contenido real */
-.gift-item.blurred .wishlist-product:not(.gift-hidden-content h3),
-.gift-item.blurred .wishlist-link,
-.gift-item.blurred .wishlist-notes {
-    opacity: 0.3;
-}
-
-/* Estilos misteriosos para regalos */
-.gift-mystery {
-    position: relative;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-    border: 2px solid #e94560;
-    box-shadow: 0 0 20px rgba(233, 69, 96, 0.3);
 }
 
 .mystery-badge {
@@ -1549,9 +1382,19 @@ select[name="priority"]:active {
     margin: 6px 0 10px 0;
 }
 
+/* Estilos misteriosos para regalos - MÁS COMPACTO */
+.gift-mystery {
+    position: relative;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    border: 2px solid #e94560;
+    box-shadow: 0 0 20px rgba(233, 69, 96, 0.3);
+    min-height: auto; /* Eliminar altura mínima fija */
+    height: auto; /* Permitir que la altura se ajuste al contenido */
+}
+
 .mystery-container {
     text-align: center;
-    padding: 30px 20px;
+    padding: 15px 10px; /* REDUCIDO */
     color: white;
     position: relative;
     z-index: 2;
@@ -1560,21 +1403,21 @@ select[name="priority"]:active {
 .mystery-box {
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
-    border-radius: 15px;
-    padding: 25px;
+    border-radius: 12px; /* REDUCIDO */
+    padding: 15px; /* REDUCIDO */
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .mystery-lock {
-    font-size: 3rem;
-    margin-bottom: 15px;
+    font-size: 2rem; /* REDUCIDO */
+    margin-bottom: 10px; /* REDUCIDO */
     animation: pulse 2s infinite;
 }
 
 .mystery-title {
     font-family: 'Playfair Display', serif;
-    font-size: 1.4rem;
-    margin-bottom: 10px;
+    font-size: 1.1rem; /* REDUCIDO */
+    margin-bottom: 8px; /* REDUCIDO */
     background: linear-gradient(45deg, #ffd700, #ff6b6b);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -1584,14 +1427,15 @@ select[name="priority"]:active {
 .mystery-text {
     font-style: italic;
     opacity: 0.9;
-    margin-bottom: 15px;
+    margin-bottom: 10px; /* REDUCIDO */
+    font-size: 0.9rem; /* REDUCIDO */
 }
 
 .mystery-hint {
-    font-size: 0.9rem;
+    font-size: 0.8rem; /* REDUCIDO */
     opacity: 0.7;
     border-top: 1px solid rgba(255, 255, 255, 0.2);
-    padding-top: 10px;
+    padding-top: 8px; /* REDUCIDO */
 }
 
 /* Efecto de brillo intermitente */
@@ -1625,6 +1469,18 @@ select[name="priority"]:active {
     padding: 15px;
     border-radius: 10px;
     border-left: 4px solid #e94560;
+}
+
+/* Asegurar que todas las tarjetas tengan la misma altura base */
+.wishlist-card {
+    min-height: 280px; /* Altura mínima consistente */
+    height: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.wishlist-card .wishlist-meta {
+    margin-top: auto; /* Empujar el meta hacia abajo */
 }
 
 /* Animaciones */
@@ -1670,6 +1526,48 @@ select[name="priority"]:active {
 .shaking-gift {
     animation: shake 2s ease-in-out infinite;
     display: inline-block;
+}
+
+/* Efecto hover suave para regalos misteriosos */
+.gift-mystery {
+    transition: all 0.3s ease;
+}
+
+.gift-mystery:hover {
+    transform: translateY(-3px) scale(1.01); /* REDUCIDO el efecto */
+    box-shadow: 0 0 25px rgba(233, 69, 96, 0.4);
+}
+
+/* Estilos obsoletos (los puedes eliminar si no los usas) */
+.gift-item.blurred {
+    position: relative;
+    overflow: hidden;
+}
+
+.gift-item.blurred .wishlist-product,
+.gift-item.blurred .wishlist-link,
+.gift-item.blurred .wishlist-notes,
+.gift-item.blurred .priority-chip {
+    filter: blur(8px);
+    user-select: none;
+    pointer-events: none;
+}
+
+.gift-hidden-content {
+    text-align: center;
+    padding: 20px 0;
+}
+
+.gift-message {
+    color: #666;
+    font-style: italic;
+    margin-top: 10px;
+}
+
+.gift-item.blurred .wishlist-product:not(.gift-hidden-content h3),
+.gift-item.blurred .wishlist-link,
+.gift-item.blurred .wishlist-notes {
+    opacity: 0.3;
 }
     </style>
 </head>
@@ -1975,8 +1873,25 @@ select[name="priority"]:active {
   </div>
   {% endif %}
 
-  {% if is_gift and gift_for != session.username %}
-  <!-- MISTERIO: Contenido completamente oculto -->
+  {% if is_gift and gift_for == session.username %}
+  <!-- El usuario actual es el DESTINATARIO del regalo - mostrar contenido normal -->
+  {% set pri = (priority or 'media') %}
+  <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
+    <i class="fas fa-flag"></i> {{ pri|capitalize }}
+  </div>
+
+  <h3 class="wishlist-product">{{ product_name }}</h3>
+  {% if product_link %}
+  <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+    <i class="fas fa-link"></i> Ver producto
+  </a>
+  {% endif %}
+  {% if notes %}
+  <p class="wishlist-notes">{{ notes }}</p>
+  {% endif %}
+
+  {% elif is_gift and gift_for != session.username %}
+  <!-- El usuario actual NO es el destinatario - mostrar misterio -->
   <div class="mystery-container">
     <div class="mystery-box">
       <div class="mystery-lock">🔒</div>
@@ -1989,7 +1904,7 @@ select[name="priority"]:active {
     </div>
   </div>
   {% else %}
-  <!-- Contenido normal visible -->
+  <!-- No es un regalo - contenido normal -->
   {% set pri = (priority or 'media') %}
   <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
     <i class="fas fa-flag"></i> {{ pri|capitalize }}
@@ -2028,10 +1943,12 @@ select[name="priority"]:active {
         <i class="fas fa-check"></i>
       </button>
     </form>
+    {% if not (is_gift and gift_for != session.username) %}
     <button class="icon-btn" title="Editar"
       onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}', {{ 'true' if is_gift else 'false' }}, '{{ gift_for }}')">
       <i class="fas fa-edit"></i>
     </button>
+    {% endif %}
     {% endif %}
     {% if created_by == session.username %}
     <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
@@ -2066,8 +1983,25 @@ select[name="priority"]:active {
   </div>
   {% endif %}
 
-  {% if is_gift and gift_for != session.username %}
-  <!-- MISTERIO: Contenido completamente oculto -->
+  {% if is_gift and gift_for == session.username %}
+  <!-- El usuario actual es el DESTINATARIO del regalo - mostrar contenido normal -->
+  {% set pri = (priority or 'media') %}
+  <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
+    <i class="fas fa-flag"></i> {{ pri|capitalize }}
+  </div>
+
+  <h3 class="wishlist-product">{{ product_name }}</h3>
+  {% if product_link %}
+  <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+    <i class="fas fa-link"></i> Ver producto
+  </a>
+  {% endif %}
+  {% if notes %}
+  <p class="wishlist-notes">{{ notes }}</p>
+  {% endif %}
+
+  {% elif is_gift and gift_for != session.username %}
+  <!-- El usuario actual NO es el destinatario - mostrar misterio -->
   <div class="mystery-container">
     <div class="mystery-box">
       <div class="mystery-lock">🔒</div>
@@ -2080,7 +2014,7 @@ select[name="priority"]:active {
     </div>
   </div>
   {% else %}
-  <!-- Contenido normal visible -->
+  <!-- No es un regalo - contenido normal -->
   {% set pri = (priority or 'media') %}
   <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
     <i class="fas fa-flag"></i> {{ pri|capitalize }}

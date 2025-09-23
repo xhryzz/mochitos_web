@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify
 import psycopg2
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import random
 import os
 from werkzeug.utils import secure_filename
@@ -144,7 +144,6 @@ def init_db():
                 )
             ''')
 
-            
             # Tabla de preguntas diarias
             c.execute('''
                 CREATE TABLE IF NOT EXISTS daily_questions (
@@ -209,7 +208,6 @@ def init_db():
                 )
             ''')
 
-            
             # Tabla para la lista de deseos
             c.execute('''
                 CREATE TABLE IF NOT EXISTS wishlist (
@@ -389,6 +387,80 @@ def get_travel_photos(travel_id):
     finally:
         conn.close()
 
+# -----------------------------
+#  Cálculo de rachas (NEW)
+# -----------------------------
+def compute_streaks():
+    """
+    Calcula:
+      - current_streak: racha actual de días consecutivos (hasta hoy si hoy está completo,
+                        o hasta el último día completo si hoy no lo está).
+      - best_streak: mejor racha histórica.
+    Un día cuenta como 'completo' si existen respuestas de 'mochito' y 'mochita'
+    para la pregunta de ese día.
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # Traemos preguntas y cuántos usuarios distintos (de los 2) respondieron
+            c.execute("""
+                SELECT dq.id, dq.date, COUNT(DISTINCT a.username) AS cnt
+                FROM daily_questions dq
+                LEFT JOIN answers a 
+                  ON a.question_id = dq.id
+                 AND a.username IN ('mochito','mochita')
+                GROUP BY dq.id, dq.date
+                ORDER BY dq.date ASC
+            """)
+            rows = c.fetchall()
+    finally:
+        conn.close()
+
+    if not rows:
+        return 0, 0
+
+    # Conjuntos de fechas
+    def parse_d(dtxt): 
+        return datetime.strptime(dtxt, "%Y-%m-%d").date()
+
+    question_dates = set(parse_d(r[1]) for r in rows)
+    complete_dates = [parse_d(r[1]) for r in rows if r[2] >= 2]
+    complete_dates_set = set(complete_dates)
+
+    if not complete_dates:
+        return 0, 0
+
+    # Mejor racha histórica
+    complete_dates_sorted = sorted(complete_dates)
+    best_streak = 1
+    run = 1
+    for i in range(1, len(complete_dates_sorted)):
+        if complete_dates_sorted[i] == complete_dates_sorted[i-1] + timedelta(days=1):
+            run += 1
+        else:
+            run = 1
+        if run > best_streak:
+            best_streak = run
+
+    # Racha actual: desde el último día completo más reciente hacia atrás sin huecos
+    today = date.today()
+    latest_complete = None
+    for d in sorted(complete_dates_set, reverse=True):
+        if d <= today:
+            latest_complete = d
+            break
+
+    if latest_complete is None:
+        return 0, best_streak
+
+    current_streak = 1
+    d = latest_complete - timedelta(days=1)
+    while d in complete_dates_set:
+        current_streak += 1
+        d -= timedelta(days=1)
+
+    return current_streak, best_streak
+
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -490,8 +562,6 @@ def index():
                         conn.commit()
                     return redirect('/')
 
-
-
                 if 'product_name' in request.form:
                     product_name = request.form['product_name'].strip()
                     product_link = request.form.get('product_link', '').strip()
@@ -505,7 +575,7 @@ def index():
                         conn.commit()
                     return redirect('/')
 
-                       # --- Respuestas ---
+            # --- Respuestas ---
             c.execute("SELECT username, answer FROM answers WHERE question_id=%s", (question_id,))
             answers = c.fetchall()
 
@@ -543,6 +613,9 @@ def index():
     finally:
         conn.close()
 
+    # --- Rachas (NEW) ---
+    current_streak, best_streak = compute_streaks()
+
     return render_template('index.html',
                            question=question_text,
                            show_answers=show_answers,
@@ -558,10 +631,11 @@ def index():
                            username=user,
                            banner_file=banner_file,
                            profile_pictures=profile_pictures,
-                           login_error=None)
-
-
-
+                           login_error=None,
+                           # --- NUEVOS CONTEXT VARS ---
+                           current_streak=current_streak,
+                           best_streak=best_streak
+                           )
 
 # Eliminar viaje
 @app.route('/delete_travel', methods=['POST'])
@@ -885,7 +959,6 @@ def get_image(image_id):
     try:
         with conn.cursor() as c:
             # Determinar de qué tabla obtener la imagen
-            # Esto es un ejemplo, necesitarías modificar según tus necesidades
             c.execute("SELECT image_data, mime_type FROM profile_pictures WHERE id=%s", (image_id,))
             row = c.fetchone()
             if row:
@@ -900,4 +973,3 @@ def get_image(image_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
-

@@ -42,6 +42,32 @@
             position: relative;
             overflow-x: hidden;
         }
+
+        /* Estilos globales, EXCLUYENDO el modal de wishlist */
+body input,
+body button,
+body textarea,
+body select {
+    font-family: 'Montserrat', sans-serif;
+    border-radius: 50px;
+    border: none;
+    padding: 15px 25px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+/* Quitar los globales dentro del modal */
+#editWishlistModal input,
+#editWishlistModal button,
+#editWishlistModal textarea,
+#editWishlistModal select {
+    all: unset;                /* 🔑 elimina todos los estilos heredados */
+    font-family: inherit;      /* vuelve a heredar de body */
+    display: block;            /* se comporta como input normal */
+    width: 100%;               /* ancho completo */
+    box-sizing: border-box;    /* padding + border dentro del width */
+}
+
         
         body::before {
             content: "";

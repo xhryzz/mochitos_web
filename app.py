@@ -484,7 +484,8 @@ def get_travel_photos(travel_id):
             photos = []
             for row in c.fetchall():
                 photo_id, image_data, mime_type, uploaded_by = row
-                # Convertir a base64 para mostrar en HTML
+                if image_data is None:
+                    continue
                 photos.append({
                     'id': photo_id,
                     'data_url': f"data:{mime_type};base64,{b64encode(image_data).decode('utf-8')}",

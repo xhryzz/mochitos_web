@@ -1526,15 +1526,19 @@
             {% for id, destination, description, travel_date, is_visited, created_by in travels if is_visited %}
             <div class="travel-card visited">
                 <div class="travel-cover">
-                    {% if travel_photos_dict[id] %}
-                        <img src="{{ travel_photos_dict[id][0]['data_url'] }}" alt="{{ destination }}">
-                    {% else %}
-                        <div class="empty-album">
-                            <i class="fas fa-map-marker-alt"></i>
-                        </div>
-                    {% endif %}
-                    <div class="travel-status status-visited">Visitado</div>
-                </div>
+    {% if travel_photos_dict[id] %}
+        <div class="travel-photos">
+            {% for photo in travel_photos_dict[id] %}
+                <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-album">
+            <i class="fas fa-map-marker-alt"></i>
+        </div>
+    {% endif %}
+    <div class="travel-status status-visited">Visitado</div>
+</div>
                 <div class="travel-info">
                     <h3 class="travel-destination">{{ destination }}</h3>
                     {% if travel_date %}
@@ -1564,13 +1568,14 @@
                                 <i class="fas fa-heart"></i>
                             </button>
                         </form>
-                        <form method="POST" enctype="multipart/form-data" class="travel-photo-form">
-                            <input type="hidden" name="travel_id" value="{{ id }}">
-                            <label for="travel-photo-{{ id }}" class="icon-btn" title="Añadir foto">
-                                <i class="fas fa-camera"></i>
-                            </label>
-                            <input id="travel-photo-{{ id }}" type="file" name="travel_photo" accept="image/*" style="display: none;" onchange="this.form.submit()">
-                        </form>
+                        <form method="POST" class="travel-photo-form">
+    <input type="hidden" name="travel_id" value="{{ id }}">
+    <input type="url" name="travel_photo_url" placeholder="Pega enlace de la foto" required style="width:70%; margin-right:10px; padding:8px;">
+    <button type="submit" class="icon-btn" title="Añadir foto">
+        <i class="fas fa-plus"></i>
+    </button>
+</form>
+
                         <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
                             <input type="hidden" name="travel_id" value="{{ id }}">
                             <button type="submit" class="icon-btn" title="Eliminar viaje">
@@ -1592,12 +1597,16 @@
             <div class="travel-card wishlist">
                 <div class="travel-cover">
                     {% if travel_photos_dict[id] %}
-                        <img src="{{ travel_photos_dict[id][0]['data_url'] }}" alt="{{ destination }}">
-                    {% else %}
-                        <div class="empty-album">
-                            <i class="fas fa-heart"></i>
-                        </div>
-                    {% endif %}
+    <div class="travel-photos">
+        {% for photo in travel_photos_dict[id] %}
+            <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-album">
+        <i class="fas fa-map-marker-alt"></i>
+    </div>
+{% endif %}
                     <div class="travel-status status-wishlist">Deseado</div>
                 </div>
                 <div class="travel-info">
@@ -1626,13 +1635,14 @@
                                 <i class="fas fa-check"></i>
                             </button>
                         </form>
-                        <form method="POST" enctype="multipart/form-data" class="travel-photo-form">
-                            <input type="hidden" name="travel_id" value="{{ id }}">
-                            <label for="travel-photo-{{ id }}" class="icon-btn" title="Añadir foto">
-                                <i class="fas fa-camera"></i>
-                            </label>
-                            <input id="travel-photo-{{ id }}" type="file" name="travel_photo" accept="image/*" style="display: none;" onchange="this.form.submit()">
-                        </form>
+                        <form method="POST" class="travel-photo-form">
+    <input type="hidden" name="travel_id" value="{{ id }}">
+    <input type="url" name="travel_photo_url" placeholder="Pega enlace de la foto" required style="width:70%; margin-right:10px; padding:8px;">
+    <button type="submit" class="icon-btn" title="Añadir foto">
+        <i class="fas fa-plus"></i>
+    </button>
+</form>
+
                         <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
                             <input type="hidden" name="travel_id" value="{{ id }}">
                             <button type="submit" class="icon-btn" title="Eliminar viaje">

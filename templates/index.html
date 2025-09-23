@@ -1285,6 +1285,72 @@
 }
 
 
+
+
+/* Estilos para el select de prioridad */
+select[name="priority"] {
+    background: #f8f8f8;
+    border: 2px solid #eee;
+    width: 100%;
+    margin-bottom: 15px;
+    padding: 15px 25px;
+    border-radius: 50px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    color: var(--dark-text);
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23e84393' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 20px center;
+    background-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+select[name="priority"]:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 4px rgba(162, 155, 254, 0.3);
+    background-color: white;
+}
+
+select[name="priority"]:hover {
+    border-color: #ddd;
+    background-color: #f0f0f0;
+}
+
+/* Estilos para las opciones del select */
+select[name="priority"] option {
+    padding: 10px 15px;
+    background: white;
+    color: var(--dark-text);
+    font-family: 'Montserrat', sans-serif;
+}
+
+/* Colores para las opciones específicas */
+select[name="priority"] option[value="alta"] {
+    color: #ff6b6b;
+    font-weight: 600;
+}
+
+select[name="priority"] option[value="media"] {
+    color: #feca57;
+    font-weight: 600;
+}
+
+select[name="priority"] option[value="baja"] {
+    color: #48dbfb;
+    font-weight: 600;
+}
+
+/* Estilos para cuando el select está abierto (solo funciona en algunos navegadores) */
+select[name="priority"]:active {
+    background-color: white;
+}
+
+
     </style>
 </head>
 <body>

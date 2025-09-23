@@ -1351,224 +1351,6 @@ select[name="priority"]:active {
 }
 
 
-/* Estilos para elementos de regalo */
-.gift-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    background: linear-gradient(135deg, #ff6b6b, #ffa36b);
-    color: white;
-    margin: 6px 0 10px 0;
-}
-
-.mystery-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%);
-    color: white;
-    border: 2px solid #ffd700;
-    box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
-    z-index: 10;
-    position: relative;
-    margin: 6px 0 10px 0;
-}
-
-/* Estilos misteriosos para regalos - MÁS COMPACTO */
-.gift-mystery {
-    position: relative;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-    border: 2px solid #e94560;
-    box-shadow: 0 0 20px rgba(233, 69, 96, 0.3);
-    min-height: auto; /* Eliminar altura mínima fija */
-    height: auto; /* Permitir que la altura se ajuste al contenido */
-}
-
-.mystery-container {
-    text-align: center;
-    padding: 15px 10px; /* REDUCIDO */
-    color: white;
-    position: relative;
-    z-index: 2;
-}
-
-.mystery-box {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 12px; /* REDUCIDO */
-    padding: 15px; /* REDUCIDO */
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.mystery-lock {
-    font-size: 2rem; /* REDUCIDO */
-    margin-bottom: 10px; /* REDUCIDO */
-    animation: pulse 2s infinite;
-}
-
-.mystery-title {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.1rem; /* REDUCIDO */
-    margin-bottom: 8px; /* REDUCIDO */
-    background: linear-gradient(45deg, #ffd700, #ff6b6b);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
-}
-
-.mystery-text {
-    font-style: italic;
-    opacity: 0.9;
-    margin-bottom: 10px; /* REDUCIDO */
-    font-size: 0.9rem; /* REDUCIDO */
-}
-
-.mystery-hint {
-    font-size: 0.8rem; /* REDUCIDO */
-    opacity: 0.7;
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
-    padding-top: 8px; /* REDUCIDO */
-}
-
-/* Efecto de brillo intermitente */
-.gift-mystery::before {
-    content: "";
-    position: absolute;
-    top: -2px;
-    left: -2px;
-    right: -2px;
-    bottom: -2px;
-    background: linear-gradient(45deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
-    background-size: 400%;
-    border-radius: 20px;
-    z-index: -1;
-    animation: glowing 20s linear infinite;
-    opacity: 0.3;
-    filter: blur(2px);
-}
-
-/* Ocultar completamente el contenido normal en regalos misteriosos */
-.gift-mystery .priority-chip,
-.gift-mystery .wishlist-product,
-.gift-mystery .wishlist-link,
-.gift-mystery .wishlist-notes {
-    display: none !important;
-}
-
-/* Estilo para el formulario de regalo */
-.gift-option {
-    background: #f8f9fa;
-    padding: 15px;
-    border-radius: 10px;
-    border-left: 4px solid #e94560;
-}
-
-/* Asegurar que todas las tarjetas tengan la misma altura base */
-.wishlist-card {
-    min-height: 280px; /* Altura mínima consistente */
-    height: auto;
-    display: flex;
-    flex-direction: column;
-}
-
-.wishlist-card .wishlist-meta {
-    margin-top: auto; /* Empujar el meta hacia abajo */
-}
-
-/* Animaciones */
-@keyframes shake {
-    0%, 100% { 
-        transform: rotate(0deg) scale(1); 
-    }
-    25% { 
-        transform: rotate(-5deg) scale(1.1); 
-    }
-    50% { 
-        transform: rotate(5deg) scale(1.2); 
-    }
-    75% { 
-        transform: rotate(-3deg) scale(1.1); 
-    }
-}
-
-@keyframes pulse {
-    0%, 100% { 
-        transform: scale(1); 
-        opacity: 1; 
-    }
-    50% { 
-        transform: scale(1.1); 
-        opacity: 0.8; 
-    }
-}
-
-@keyframes glowing {
-    0% { 
-        background-position: 0 0; 
-    }
-    50% { 
-        background-position: 400% 0; 
-    }
-    100% { 
-        background-position: 0 0;
-    }
-}
-
-/* Animación de sacudida para el icono de regalo */
-.shaking-gift {
-    animation: shake 2s ease-in-out infinite;
-    display: inline-block;
-}
-
-/* Efecto hover suave para regalos misteriosos */
-.gift-mystery {
-    transition: all 0.3s ease;
-}
-
-.gift-mystery:hover {
-    transform: translateY(-3px) scale(1.01); /* REDUCIDO el efecto */
-    box-shadow: 0 0 25px rgba(233, 69, 96, 0.4);
-}
-
-/* Estilos obsoletos (los puedes eliminar si no los usas) */
-.gift-item.blurred {
-    position: relative;
-    overflow: hidden;
-}
-
-.gift-item.blurred .wishlist-product,
-.gift-item.blurred .wishlist-link,
-.gift-item.blurred .wishlist-notes,
-.gift-item.blurred .priority-chip {
-    filter: blur(8px);
-    user-select: none;
-    pointer-events: none;
-}
-
-.gift-hidden-content {
-    text-align: center;
-    padding: 20px 0;
-}
-
-.gift-message {
-    color: #666;
-    font-style: italic;
-    margin-top: 10px;
-}
-
-.gift-item.blurred .wishlist-product:not(.gift-hidden-content h3),
-.gift-item.blurred .wishlist-link,
-.gift-item.blurred .wishlist-notes {
-    opacity: 0.3;
-}
     </style>
 </head>
 <body>
@@ -1587,27 +1369,11 @@ select[name="priority"]:active {
                 <input type="hidden" name="item_id" id="editItemId">
                 <input type="text" name="product_name" id="editProductName" placeholder="Nombre del producto" required>
                 <input type="url" name="product_link" id="editProductLink" placeholder="Enlace (opcional)">
-                
-                <div class="gift-option" style="margin-bottom: 15px;">
-                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                        <input type="checkbox" id="editIsGift" name="is_gift" style="width: auto; margin: 0;">
-                        <span>🎁 Marcar como regalo sorpresa</span>
-                    </label>
-                    
-                    <div id="editGiftForContainer" style="display: none; margin-top: 10px; background: #fff3cd; padding: 10px; border-radius: 8px; border-left: 4px solid #ffc107;">
-                        <label for="editGiftFor" style="font-weight: bold;">Este regalo es para:</label>
-                        <select name="gift_for" id="editGiftFor" style="margin-left: 10px; padding: 5px; border-radius: 5px;">
-                            <option value="mochito">Christian (mochito)</option>
-                            <option value="mochita">Clara (mochita)</option>
-                        </select>
-                    </div>
-                </div>
-                
                 <select name="priority" id="editPriority" required>
-                    <option value="alta">Prioridad: Alta 🔴</option>
-                    <option value="media">Prioridad: Media 🟡</option>
-                    <option value="baja">Prioridad: Baja 🟢</option>
-                </select>
+  <option value="alta">Prioridad: Alta 🔴</option>
+  <option value="media">Prioridad: Media 🟡</option>
+  <option value="baja">Prioridad: Baja 🟢</option>
+</select>
 
                 <textarea name="notes" id="editNotes" placeholder="Notas (opcional)" rows="3"></textarea>
                 <button type="submit"><i class="fas fa-save"></i> Guardar cambios</button>
@@ -1845,6 +1611,8 @@ select[name="priority"]:active {
     {% endif %}
 </div>
 
+
+
 <!-- Sección de Lista de Deseos -->
 <div class="section animate-in delay-3">
     <h3>Nuestra Lista de Deseos</h3>
@@ -1858,23 +1626,10 @@ select[name="priority"]:active {
     
     <div class="wishlist-content active" id="wanted-tab">
         <div class="wishlist-grid">
-           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift, gift_for in wishlist_items if not is_purchased %}
-<div class="wishlist-card {% if is_gift and gift_for != session.username %}gift-mystery{% endif %}">
+           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority in wishlist_items if not is_purchased %}
+<div class="wishlist-card">
   <div class="wishlist-status status-wanted">Deseado</div>
 
-  {% if is_gift %}
-  <div class="gift-badge mystery-badge">
-    <i class="fas fa-gift shaking-gift"></i> 
-    {% if gift_for == session.username %}
-      💝 Regalo para TI
-    {% else %}
-      🎁 Regalo para {{ 'Christian' if gift_for == 'mochito' else 'Clara' }}
-    {% endif %}
-  </div>
-  {% endif %}
-
-  {% if is_gift and gift_for == session.username %}
-  <!-- El usuario actual es el DESTINATARIO del regalo - mostrar contenido normal -->
   {% set pri = (priority or 'media') %}
   <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
     <i class="fas fa-flag"></i> {{ pri|capitalize }}
@@ -1889,38 +1644,6 @@ select[name="priority"]:active {
   {% if notes %}
   <p class="wishlist-notes">{{ notes }}</p>
   {% endif %}
-
-  {% elif is_gift and gift_for != session.username %}
-  <!-- El usuario actual NO es el destinatario - mostrar misterio -->
-  <div class="mystery-container">
-    <div class="mystery-box">
-      <div class="mystery-lock">🔒</div>
-      <h3 class="mystery-title">¡REGALO SORPRESA!</h3>
-      <p class="mystery-text">Algo especial te espera...</p>
-      <div class="mystery-hint">
-        <i class="fas fa-user-secret"></i>
-        Creado por {{ 'Christian' if created_by == 'mochito' else 'Clara' }}
-      </div>
-    </div>
-  </div>
-  {% else %}
-  <!-- No es un regalo - contenido normal -->
-  {% set pri = (priority or 'media') %}
-  <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
-    <i class="fas fa-flag"></i> {{ pri|capitalize }}
-  </div>
-
-  <h3 class="wishlist-product">{{ product_name }}</h3>
-  {% if product_link %}
-  <a href="{{ product_link }}" target="_blank" class="wishlist-link">
-    <i class="fas fa-link"></i> Ver producto
-  </a>
-  {% endif %}
-  {% if notes %}
-  <p class="wishlist-notes">{{ notes }}</p>
-  {% endif %}
-  {% endif %}
-
   <div class="wishlist-meta">
     <span>
       <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
@@ -1936,55 +1659,37 @@ select[name="priority"]:active {
   </div>
 
   <div class="wishlist-actions">
-    {% if not (is_gift and gift_for != session.username) or created_by == session.username %}
     <form method="POST" action="/toggle_wishlist_status">
       <input type="hidden" name="item_id" value="{{ id }}">
       <button type="submit" class="icon-btn" title="Marcar como comprado">
         <i class="fas fa-check"></i>
       </button>
     </form>
-    {% if not (is_gift and gift_for != session.username) %}
     <button class="icon-btn" title="Editar"
-      onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}', {{ 'true' if is_gift else 'false' }}, '{{ gift_for }}')">
+      onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}')">
       <i class="fas fa-edit"></i>
     </button>
-    {% endif %}
-    {% endif %}
-    {% if created_by == session.username %}
     <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
       <input type="hidden" name="item_id" value="{{ id }}">
       <button type="submit" class="icon-btn" title="Eliminar">
         <i class="fas fa-trash"></i>
       </button>
     </form>
-    {% endif %}
   </div>
 </div>
 {% else %}
 <p>No hay productos en tu lista de deseos. ¡Añade el primero!</p>
 {% endfor %}
+
         </div>
     </div>
     
     <div class="wishlist-content" id="purchased-tab">
         <div class="wishlist-grid">
-           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift, gift_for in wishlist_items if is_purchased %}
-<div class="wishlist-card purchased {% if is_gift and gift_for != session.username %}gift-mystery{% endif %}">
+           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority in wishlist_items if is_purchased %}
+<div class="wishlist-card purchased">
   <div class="wishlist-status status-purchased">Comprado</div>
 
-  {% if is_gift %}
-  <div class="gift-badge mystery-badge">
-    <i class="fas fa-gift shaking-gift"></i> 
-    {% if gift_for == session.username %}
-      💝 Regalo para TI
-    {% else %}
-      🎁 Regalo para {{ 'Christian' if gift_for == 'mochito' else 'Clara' }}
-    {% endif %}
-  </div>
-  {% endif %}
-
-  {% if is_gift and gift_for == session.username %}
-  <!-- El usuario actual es el DESTINATARIO del regalo - mostrar contenido normal -->
   {% set pri = (priority or 'media') %}
   <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
     <i class="fas fa-flag"></i> {{ pri|capitalize }}
@@ -1999,38 +1704,6 @@ select[name="priority"]:active {
   {% if notes %}
   <p class="wishlist-notes">{{ notes }}</p>
   {% endif %}
-
-  {% elif is_gift and gift_for != session.username %}
-  <!-- El usuario actual NO es el destinatario - mostrar misterio -->
-  <div class="mystery-container">
-    <div class="mystery-box">
-      <div class="mystery-lock">🔒</div>
-      <h3 class="mystery-title">¡REGALO COMPRADO!</h3>
-      <p class="mystery-text">La sorpresa está asegurada...</p>
-      <div class="mystery-hint">
-        <i class="fas fa-user-secret"></i>
-        Creado por {{ 'Christian' if created_by == 'mochito' else 'Clara' }}
-      </div>
-    </div>
-  </div>
-  {% else %}
-  <!-- No es un regalo - contenido normal -->
-  {% set pri = (priority or 'media') %}
-  <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
-    <i class="fas fa-flag"></i> {{ pri|capitalize }}
-  </div>
-
-  <h3 class="wishlist-product">{{ product_name }}</h3>
-  {% if product_link %}
-  <a href="{{ product_link }}" target="_blank" class="wishlist-link">
-    <i class="fas fa-link"></i> Ver producto
-  </a>
-  {% endif %}
-  {% if notes %}
-  <p class="wishlist-notes">{{ notes }}</p>
-  {% endif %}
-  {% endif %}
-
   <div class="wishlist-meta">
     <span>
       <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
@@ -2046,17 +1719,14 @@ select[name="priority"]:active {
   </div>
 
   <div class="wishlist-actions">
-    {% if not (is_gift and gift_for != session.username) or created_by == session.username %}
     <form method="POST" action="/toggle_wishlist_status">
       <input type="hidden" name="item_id" value="{{ id }}">
       <button type="submit" class="icon-btn" title="Marcar como no comprado">
         <i class="fas fa-undo"></i>
       </button>
     </form>
-    {% endif %}
-    {% if created_by == session.username %}
     <button class="icon-btn" title="Editar"
-      onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}', {{ 'true' if is_gift else 'false' }}, '{{ gift_for }}')">
+      onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}')">
       <i class="fas fa-edit"></i>
     </button>
     <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
@@ -2065,12 +1735,12 @@ select[name="priority"]:active {
         <i class="fas fa-trash"></i>
       </button>
     </form>
-    {% endif %}
   </div>
 </div>
 {% else %}
 <p>No hay productos comprados todavía.</p>
 {% endfor %}
+
         </div>
     </div>
     
@@ -2081,30 +1751,11 @@ select[name="priority"]:active {
                 <input type="text" name="product_name" placeholder="Nombre del producto" required>
                 <input type="url" name="product_link" placeholder="Enlace (opcional)">
                 <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
-                
-                <div class="gift-option" style="margin-bottom: 15px;">
-                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                        <input type="checkbox" id="is_gift" name="is_gift" style="width: auto; margin: 0;">
-                        <span>🎁 Marcar como regalo sorpresa</span>
-                    </label>
-                    
-                    <div id="gift_for_container" style="display: none; margin-top: 10px; background: #fff3cd; padding: 10px; border-radius: 8px; border-left: 4px solid #ffc107;">
-                        <label for="gift_for" style="font-weight: bold;">Este regalo es para:</label>
-                        <select name="gift_for" id="gift_for" style="margin-left: 10px; padding: 5px; border-radius: 5px;">
-                            <option value="mochito">Christian (mochito)</option>
-                            <option value="mochita">Clara (mochita)</option>
-                        </select>
-                        <p style="margin: 5px 0 0 0; font-size: 0.8em; color: #856404;">
-                            <i class="fas fa-info-circle"></i> La otra persona no podrá ver qué es hasta después
-                        </p>
-                    </div>
-                </div>
-                
                 <select name="priority" required style="margin-bottom:15px;">
-                    <option value="alta">Prioridad: Alta 🔴</option>
-                    <option value="media" selected>Prioridad: Media 🟡</option>
-                    <option value="baja">Prioridad: Baja 🟢</option>
-                </select>
+  <option value="alta">Prioridad: Alta 🔴</option>
+  <option value="media" selected>Prioridad: Media 🟡</option>
+  <option value="baja">Prioridad: Baja 🟢</option>
+</select>
 
                 <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
             </form>
@@ -2664,67 +2315,7 @@ document.addEventListener('keydown', (e) => {
 
 
 
-// Manejar la visibilidad del selector de regalo con efecto suave
-document.getElementById('is_gift').addEventListener('change', function() {
-    const giftForContainer = document.getElementById('gift_for_container');
-    if (this.checked) {
-        giftForContainer.style.display = 'block';
-        giftForContainer.style.animation = 'fadeIn 0.5s ease-in';
-    } else {
-        giftForContainer.style.animation = 'fadeOut 0.3s ease-out';
-        setTimeout(() => {
-            giftForContainer.style.display = 'none';
-        }, 300);
-    }
-});
 
-// Añadir animaciones CSS para transiciones suaves
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(-10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes fadeOut {
-        from { opacity: 1; transform: translateY(0); }
-        to { opacity: 0; transform: translateY(-10px); }
-    }
-    
-    /* Efecto hover para los regalos misteriosos */
-    .gift-mystery {
-        transition: all 0.3s ease;
-    }
-    
-    .gift-mystery:hover {
-        transform: translateY(-5px) scale(1.02);
-        box-shadow: 0 0 30px rgba(233, 69, 96, 0.5);
-    }
-`;
-document.head.appendChild(style);
-
-// Actualizar la función openEditModal para incluir los parámetros de regalo
-function openEditModal(id, name, link, notes, priority, isGift, giftFor) {
-    document.getElementById('editItemId').value = id;
-    document.getElementById('editProductName').value = name;
-    document.getElementById('editProductLink').value = link;
-    document.getElementById('editNotes').value = notes;
-    document.getElementById('editPriority').value = priority || 'media';
-    
-    // Manejar campos de regalo en el modal de edición
-    const isGiftCheckbox = document.getElementById('editIsGift');
-    const giftForContainer = document.getElementById('editGiftForContainer');
-    const giftForSelect = document.getElementById('editGiftFor');
-    
-    if (isGiftCheckbox) {
-        isGiftCheckbox.checked = isGift === 'true';
-        giftForContainer.style.display = isGift === 'true' ? 'block' : 'none';
-        if (giftForSelect && giftFor) {
-            giftForSelect.value = giftFor;
-        }
-    }
-    
-    document.getElementById('editWishlistModal').style.display = 'block';
-}
 
 
 </script>

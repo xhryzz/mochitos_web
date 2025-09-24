@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session, send_file, jsonify
+from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash
 import psycopg2
 from datetime import datetime, date, timedelta
 import random
@@ -8,6 +8,7 @@ import urllib.parse as urlparse
 from contextlib import closing
 import io
 from base64 import b64encode
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
@@ -307,9 +308,6 @@ def init_db():
             except Exception as e:
                 print(f"ALTER wishlist is_gift: {e}")
 
-
-
-
 init_db()
 
 def get_today_question():
@@ -500,6 +498,7 @@ def compute_streaks():
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
+    # --- Si NO hay sesión (login) ---
     if 'username' not in session:
         if request.method == 'POST':
             username = request.form['username']
@@ -507,14 +506,17 @@ def index():
             conn = get_db_connection()
             try:
                 with conn.cursor() as c:
-                    c.execute("SELECT * FROM users WHERE username=%s AND password=%s", (username, password))
-                    user = c.fetchone()
-                    if user:
-                        session['username'] = username
-                        return redirect('/')
-                    else:
-                        error = "Usuario o contraseña incorrecta"
-                        return render_template('index.html', login_error=error)
+                    # Traer el password almacenado (puede ser texto antiguo o hash)
+                    c.execute("SELECT password FROM users WHERE username=%s", (username,))
+                    row = c.fetchone()
+                    if row:
+                        stored = row[0] or ""
+                        ok = (stored == password) or check_password_hash(stored, password)
+                        if ok:
+                            session['username'] = username
+                            return redirect('/')
+                    error = "Usuario o contraseña incorrecta"
+                    return render_template('index.html', login_error=error)
             finally:
                 conn.close()
         
@@ -530,6 +532,41 @@ def index():
         with conn.cursor() as c:
             # --- Procesar formularios (PRG) ---
             if request.method == 'POST':
+                # 1) Cambiar contraseña
+                if 'change_password' in request.form:
+                    current = request.form.get('current_password', '')
+                    new = request.form.get('new_password', '')
+                    confirm = request.form.get('confirm_password', '')
+
+                    # Validaciones
+                    if not new or not confirm or new != confirm:
+                        flash("Las contraseñas nuevas no coinciden.", "error")
+                        return redirect('/')
+                    if len(new) < 4:
+                        flash("La contraseña nueva debe tener al menos 4 caracteres.", "error")
+                        return redirect('/')
+
+                    # Obtener almacenada y validar actual
+                    c.execute("SELECT password FROM users WHERE username=%s", (user,))
+                    row = c.fetchone()
+                    if not row:
+                        flash("Usuario no encontrado.", "error")
+                        return redirect('/')
+
+                    stored = row[0] or ""
+                    valid_current = (stored == current) or check_password_hash(stored, current)
+                    if not valid_current:
+                        flash("La contraseña actual no es correcta.", "error")
+                        return redirect('/')
+
+                    # Guardar nueva con hash
+                    new_hash = generate_password_hash(new)
+                    c.execute("UPDATE users SET password=%s WHERE username=%s", (new_hash, user))
+                    conn.commit()
+                    flash("Contraseña actualizada ✅", "success")
+                    return redirect('/')
+
+                # 2) Actualizar foto de perfil
                 if 'update_profile' in request.form and 'profile_picture' in request.files:
                     file = request.files['profile_picture']
                     if file and file.filename:
@@ -546,6 +583,7 @@ def index():
                         conn.commit()
                     return redirect('/')
 
+                # 3) Responder pregunta
                 if 'answer' in request.form:
                     answer = request.form['answer'].strip()
                     c.execute("SELECT 1 FROM answers WHERE question_id=%s AND username=%s", (question_id, user))
@@ -555,12 +593,14 @@ def index():
                         conn.commit()
                     return redirect('/')
 
+                # 4) Fecha de encuentro
                 if 'meeting_date' in request.form:
                     meeting_date = request.form['meeting_date']
                     c.execute("INSERT INTO meeting (meeting_date) VALUES (%s)", (meeting_date,))
                     conn.commit()
                     return redirect('/')
 
+                # 5) Banner
                 if 'banner' in request.files:
                     file = request.files['banner']
                     if file and file.filename:
@@ -572,6 +612,7 @@ def index():
                         conn.commit()
                     return redirect('/')
 
+                # 6) Añadir viaje
                 if 'travel_destination' in request.form:
                     destination = request.form['travel_destination'].strip()
                     description = request.form.get('travel_description', '').strip()
@@ -586,6 +627,7 @@ def index():
                         conn.commit()
                     return redirect('/')
 
+                # 7) Añadir foto de viaje por URL
                 if 'travel_photo_url' in request.form:
                     travel_id = request.form.get('travel_id')
                     image_url = request.form['travel_photo_url'].strip()
@@ -598,6 +640,7 @@ def index():
                         conn.commit()
                     return redirect('/')
 
+                # 8) Añadir a wishlist
                 if 'product_name' in request.form:
                     product_name = request.form['product_name'].strip()
                     product_link = request.form.get('product_link', '').strip()
@@ -619,8 +662,6 @@ def index():
                         ))
                         conn.commit()
                     return redirect('/')
-
-
 
             # --- Respuestas ---
             c.execute("SELECT username, answer FROM answers WHERE question_id=%s", (question_id,))
@@ -647,7 +688,6 @@ def index():
             travel_photos_dict = {tid: get_travel_photos(tid) for tid, *_ in travels}
 
             # --- Wishlist ---
-                        # --- Wishlist ---
             c.execute("""
                 SELECT id, product_name, product_link, notes, created_by, created_at, is_purchased, 
                        COALESCE(priority, 'media') AS priority,
@@ -663,8 +703,6 @@ def index():
                     created_at DESC
             """)
             wishlist_items = c.fetchall()
-
-
 
             banner_file = get_banner()
             profile_pictures = get_profile_pictures()
@@ -834,8 +872,6 @@ def edit_wishlist_item():
     finally:
         if 'conn' in locals():
             conn.close()
-
-
 
 # Marcar elemento como comprado/no comprado
 @app.route('/toggle_wishlist_status', methods=['POST'])

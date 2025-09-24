@@ -1,1360 +1,782 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Christian y Clara 💖 - Horarios</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --primary-color: #e84393;
-            --secondary-color: #fd79a8;
-            --accent-color: #a29bfe;
-            --light-pink: #ffe8f3;
-            --dark-text: #2d3436;
-            --light-text: #ffffff;
-            --card-bg: rgba(255, 255, 255, 0.95);
-            --shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
-            --gradient: linear-gradient(135deg, #e84393 0%, #fd79a8 50%, #a29bfe 100%);
-            --visited-color: #00b894;
-            --wishlist-color: #fd79a8;
-            --purchased-color: #b2bec3;
-            --mochito-color: #6c5ce7;
-            --mochita-color: #fd79a8;
-        }
-        
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        
-        body {
-            font-family: 'Montserrat', sans-serif;
-            background: linear-gradient(135deg, #ffe8f3 0%, #dfe6e9 100%);
-            color: var(--dark-text);
-            line-height: 1.6;
-            margin: 0;
-            padding: 15px;
-            min-height: 100vh;
-            position: relative;
-            overflow-x: hidden;
-        }
-        
-        body::before {
-            content: "";
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 100%;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%23e84393' fill-opacity='0.05' d='M0,224L48,213.3C96,203,192,181,288,160C384,139,480,117,576,122.7C672,128,768,160,864,170.7C960,181,1056,171,1152,165.3C1248,160,1344,160,1392,160L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
-            background-size: cover;
-            z-index: -1;
-        }
-        
-        .container {
-            max-width: 100%;
-            margin: 0 auto;
-            background: var(--card-bg);
-            border-radius: 20px;
-            box-shadow: var(--shadow);
-            overflow: hidden;
-            margin-top: 20px;
-            margin-bottom: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.5);
-        }
-        
-        header {
-            background: var(--gradient);
-            color: white;
-            padding: 20px 15px;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        header::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 6px;
-            background: var(--gradient);
-        }
-        
-        h1 {
-            font-family: 'Dancing Script', cursive;
-            font-size: 2.5rem;
-            margin-bottom: 12px;
-            text-shadow: 0 3px 6px rgba(0,0,0,0.2);
-        }
-        
-        .user-selector {
-            display: flex;
-            justify-content: center;
-            margin: 15px 0;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        
-        .user-btn {
-            padding: 10px 15px;
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            border-radius: 50px;
-            color: white;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(5px);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            font-size: 0.9rem;
-        }
-        
-        .user-btn.active {
-            background: white;
-        }
-        
-        .user-btn[data-user="mochito"].active {
-            color: var(--mochito-color);
-        }
-        
-        .user-btn[data-user="mochita"].active {
-            color: var(--mochita-color);
-        }
-        
-        .user-btn[data-user="both"].active {
-            color: var(--primary-color);
-        }
-        
-        .user-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
-        }
-        
-        .calendar-container {
-            padding: 15px;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-            border-radius: 10px;
-            overflow: hidden;
-            min-width: 700px;
-        }
-        
-        th, td {
-            border: 1px solid #e0e0e0;
-            padding: 8px;
-            text-align: center;
-            height: 50px;
-            font-size: 0.85rem;
-        }
-        
-        th {
-            background-color: #f8f8f8;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-        
-        .hour-cell {
-            background-color: #f0f0f0;
-            font-weight: 600;
-            width: 80px;
-            position: relative;
-        }
-        
-        .delete-time-btn {
-            position: absolute;
-            top: 2px;
-            right: 2px;
-            background: transparent;
-            border: none;
-            color: #ff7675;
-            cursor: pointer;
-            font-size: 10px;
-            opacity: 0.7;
-            transition: all 0.2s ease;
-            padding: 2px;
-        }
-        
-        .delete-time-btn:hover {
-            opacity: 1;
-            transform: scale(1.2);
-            color: #e74c3c;
-        }
-        
-        .schedule-cell {
-            position: relative;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        
-        .schedule-cell:hover {
-            background-color: #f9f9f9;
-        }
-        
-        .schedule-cell.editable:hover {
-            background-color: #f0f8ff;
-        }
-        
-        .activity {
-            font-size: 0.75rem;
-            padding: 5px;
-            border-radius: 5px;
-            color: white;
-            text-align: center;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin: 2px 0;
-        }
-        
-        .controls {
-            padding: 20px 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            background: #f9f9f9;
-            border-top: 1px solid #eee;
-        }
-        
-        .view-selector {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        
-        .view-btn {
-            padding: 8px 15px;
-            background: #eee;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-        
-        .view-btn.active {
-            color: white;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-        }
-        
-        .view-btn[data-view="mochito"].active {
-            background: var(--mochito-color);
-        }
-        
-        .view-btn[data-view="mochita"].active {
-            background: var(--mochita-color);
-        }
-        
-        .view-btn[data-view="week"].active {
-            background: var(--primary-color);
-        }
-        
-        .view-btn:hover {
-            transform: translateY(-2px);
-        }
-        
-        .save-btn {
-            padding: 12px 20px;
-            background: var(--gradient);
-            color: white;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 10px rgba(232, 67, 147, 0.4);
-            position: relative;
-            overflow: hidden;
-            align-self: center;
-            width: 100%;
-            max-width: 300px;
-        }
-        
-        .save-btn::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 0%;
-            height: 100%;
-            background: linear-gradient(to right, var(--secondary-color), var(--primary-color));
-            transition: all 0.5s ease;
-            z-index: -1;
-        }
-        
-        .save-btn:hover::before {
-            width: 100%;
-        }
-        
-        .save-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(232, 67, 147, 0.5);
-        }
-        
-        .add-time-btn {
-            padding: 10px 15px;
-            background: var(--accent-color);
-            color: white;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 10px rgba(162, 155, 254, 0.3);
-            font-size: 0.9rem;
-            white-space: nowrap;
-        }
-        
-        .add-time-btn:hover {
-            background: #7c6cf9;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(162, 155, 254, 0.4);
-        }
-        
-        .back-btn {
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            background: white;
-            color: var(--primary-color);
-            text-decoration: none;
-            padding: 10px 15px;
-            border-radius: 50px;
-            font-weight: 600;
-            box-shadow: var(--shadow);
-            z-index: 1000;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.9rem;
-        }
-        
-        .back-btn:hover {
-            background: var(--primary-color);
-            color: white;
-            transform: translateY(-2px);
-        }
-        
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(5px);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            animation: fadeIn 0.3s ease;
-            padding: 15px;
-        }
-        
-        .modal-content {
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            width: 100%;
-            max-width: 500px;
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
-            animation: slideIn 0.3s ease;
-            position: relative;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-        
-        @keyframes slideIn {
-            from { transform: translateY(-30px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        
-        .modal h3 {
-            margin-bottom: 15px;
-            color: var(--primary-color);
-            text-align: center;
-            font-family: 'Playfair Display', serif;
-            font-size: 1.6rem;
-            padding-bottom: 10px;
-            border-bottom: 2px solid var(--secondary-color);
-            display: inline-block;
-        }
-        
-        .form-group {
-            margin-bottom: 15px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 6px;
-            font-weight: 600;
-            color: var(--dark-text);
-            font-size: 0.9rem;
-        }
-        
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 10px 15px;
-            border: 2px solid #eee;
-            border-radius: 10px;
-            font-family: 'Montserrat', sans-serif;
-            background: #f8f8f8;
-            transition: all 0.3s ease;
-            font-size: 0.9rem;
-        }
-        
-        .form-group input:focus {
-            outline: none;
-            border-color: var(--accent-color);
-            box-shadow: 0 0 0 3px rgba(162, 155, 254, 0.3);
-        }
-        
-        .time-input-container {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        
-        .time-input {
-            flex: 1;
-        }
-        
-        .form-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        
-        .cancel-btn {
-            padding: 10px 15px;
-            background: #eee;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            font-size: 0.9rem;
-        }
-        
-        .cancel-btn:hover {
-            background: #ddd;
-            transform: translateY(-2px);
-        }
-        
-        .confirm-btn {
-            padding: 10px 15px;
-            background: var(--gradient);
-            color: white;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 10px rgba(232, 67, 147, 0.3);
-            font-size: 0.9rem;
-        }
-        
-        .confirm-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(232, 67, 147, 0.4);
-        }
-        
-        .delete-btn {
-            padding: 10px 15px;
-            background: #ff7675;
-            color: white;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            font-size: 0.9rem;
-            order: -1;
-        }
-        
-        .delete-btn:hover {
-            background: #e74c3c;
-            transform: translateY(-2px);
-        }
-        
-        .color-options {
-            display: flex;
-            gap: 10px;
-            margin-top: 8px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        
-        .color-option {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 2px solid transparent;
-            transition: all 0.2s ease;
-        }
-        
-        .color-option.selected {
-            border-color: #333;
-            transform: scale(1.1);
-        }
-        
-        .color-option:hover {
-            transform: scale(1.15);
-        }
-        
-        .custom-time-container {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            margin: 15px 0;
-            padding: 15px;
-            background: #f9f9f9;
-            border-radius: 12px;
-            gap: 10px;
-        }
-        
-        .custom-time-input {
-            padding: 10px 12px;
-            border: 2px solid #eee;
-            border-radius: 10px;
-            width: 80px;
-            text-align: center;
-            background: white;
-            transition: all 0.3s ease;
-            font-size: 0.9rem;
-        }
-        
-        .custom-time-input:focus {
-            outline: none;
-            border-color: var(--accent-color);
-            box-shadow: 0 0 0 3px rgba(162, 155, 254, 0.2);
-        }
-        
-        .floating-hearts {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: -1;
-        }
-        
-        .heart {
-            position: absolute;
-            color: rgba(232, 67, 147, 0.2);
-            font-size: 16px;
-            animation: float 8s ease-in-out infinite;
-        }
-        
-        @keyframes float {
-            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
-        }
-        
-        .time-inputs-container {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        
-        .time-label {
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-        
-        /* Media queries para responsive */
-        @media (min-width: 768px) {
-            .container {
-                max-width: 95%;
-                margin-top: 30px;
-                margin-bottom: 30px;
-            }
-            
-            header {
-                padding: 25px 20px;
-            }
-            
-            h1 {
-                font-size: 3rem;
-            }
-            
-            .user-btn {
-                padding: 12px 20px;
-                font-size: 1rem;
-            }
-            
-            .calendar-container {
-                padding: 20px;
-            }
-            
-            th, td {
-                padding: 10px;
-                font-size: 0.9rem;
-                height: 60px;
-            }
-            
-            .hour-cell {
-                width: 90px;
-            }
-            
-            .activity {
-                font-size: 0.8rem;
-                padding: 6px;
-            }
-            
-            .controls {
-                padding: 25px 20px;
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: center;
-            }
-            
-            .view-selector {
-                justify-content: flex-start;
-            }
-            
-            .save-btn {
-                width: auto;
-                align-self: auto;
-            }
-            
-            .custom-time-container {
-                flex-direction: row;
-                padding: 20px;
-            }
-            
-            .form-actions {
-                flex-direction: row;
-                justify-content: flex-end;
-            }
-            
-            .delete-btn {
-                order: 0;
-                margin-right: auto;
-            }
-            
-            .back-btn {
-                top: 20px;
-                left: 20px;
-                padding: 12px 20px;
-                font-size: 1rem;
-            }
-        }
-        
-        @media (min-width: 1024px) {
-            .container {
-                max-width: 1600px;
-            }
-            
-            header {
-                padding: 30px;
-            }
-            
-            h1 {
-                font-size: 3.5rem;
-            }
-            
-            .user-btn {
-                padding: 12px 25px;
-            }
-            
-            .calendar-container {
-                padding: 25px;
-            }
-            
-            th, td {
-                padding: 12px;
-            }
-            
-            .hour-cell {
-                width: 100px;
-            }
-            
-            .activity {
-                font-size: 0.85rem;
-            }
-            
-            .controls {
-                padding: 25px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            h1 {
-                font-size: 2rem;
-            }
-            
-            .user-btn {
-                padding: 8px 12px;
-                font-size: 0.8rem;
-            }
-            
-            th, td {
-                padding: 6px;
-                font-size: 0.75rem;
-                height: 45px;
-            }
-            
-            .hour-cell {
-                width: 70px;
-                font-size: 0.75rem;
-            }
-            
-            .activity {
-                font-size: 0.7rem;
-                padding: 4px;
-            }
-            
-            .back-btn {
-                top: 10px;
-                left: 10px;
-                padding: 8px 12px;
-                font-size: 0.8rem;
-            }
-            
-            .modal-content {
-                padding: 15px;
-            }
-            
-            .modal h3 {
-                font-size: 1.4rem;
-            }
-            
-            .color-option {
-                width: 25px;
-                height: 25px;
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Christian y Clara 💖 - Horarios</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+
+  <style>
+    :root{
+      --primary-color:#e84393; --secondary-color:#fd79a8; --accent-color:#a29bfe;
+      --mochito:#6c5ce7; --mochita:#fd79a8; --card-bg:#fff; --shadow:0 15px 30px rgba(0,0,0,.08);
+      --text:#2d3436; --gradient:linear-gradient(135deg,#e84393, #fd79a8 50%, #a29bfe);
+    }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{
+      font-family:'Montserrat',sans-serif; background:linear-gradient(135deg,#ffe8f3,#dfe6e9);
+      color:var(--text); min-height:100vh; padding:16px;
+    }
+    .container{
+      background:var(--card-bg); border-radius:20px; box-shadow:var(--shadow);
+      overflow:hidden; max-width:1600px; margin:24px auto;
+      border:1px solid rgba(255,255,255,.6);
+    }
+    header{
+      background:var(--gradient); color:#fff; text-align:center; padding:22px 16px; position:relative;
+    }
+    header h1{ font-family:'Dancing Script',cursive; font-size:42px; text-shadow:0 3px 6px rgba(0,0,0,.2); }
+    .user-selector{ display:flex; gap:10px; justify-content:center; margin-top:10px; flex-wrap:wrap; }
+    .user-btn{
+      padding:10px 14px; border:none; border-radius:999px; background:rgba(255,255,255,.2);
+      color:#fff; font-weight:700; cursor:pointer; backdrop-filter:blur(4px);
+      border:2px solid rgba(255,255,255,.35); transition:.25s;
+    }
+    .user-btn:hover{ transform:translateY(-2px); background:rgba(255,255,255,.3); }
+    .user-btn.active{ background:#fff; color:var(--primary-color); }
+    .calendar-container{ padding:18px; overflow:auto; }
+    table{ width:100%; min-width:760px; border-collapse:collapse; table-layout:fixed; }
+    th,td{ border:1px solid #eee; text-align:center; padding:8px; }
+    th{ background:#fafafa; position:sticky; top:0; z-index:1; font-weight:700; }
+    .hour-cell{ width:90px; background:#f0f0f0; font-weight:700; position:relative; }
+    .delete-time-btn{
+      position:absolute; top:2px; right:2px; border:none; background:transparent; color:#ff6b6b;
+      cursor:pointer; font-size:12px; opacity:.7;
+    }
+    .delete-time-btn:hover{ opacity:1; transform:scale(1.1); }
+    .schedule-cell{ position:relative; min-height:50px; }
+    .schedule-cell.editable{ cursor:pointer; }
+    .activity{
+      font-size:.78rem; font-weight:600; color:#fff; padding:6px 8px; border-radius:8px;
+      margin:3px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,.08);
+    }
+    .activity[draggable="true"]{ cursor:grab; }
+    .activity.dragging{ opacity:.6; transform:scale(.98); }
+
+    /* Conflictos y drop targets */
+    .schedule-cell.conflict{ outline:2px solid #e74c3c; outline-offset:-2px; }
+    .schedule-cell.drop-target{ background:#f0fff7; }
+
+    .controls{
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
+      padding:14px 16px; background:#fafafa; border-top:1px solid #eee;
+    }
+    .view-selector{ display:flex; gap:10px; flex-wrap:wrap; }
+    .view-btn{
+      padding:8px 14px; border:none; border-radius:999px; background:#eee; font-weight:700; cursor:pointer; transition:.25s;
+    }
+    .view-btn:hover{ transform:translateY(-2px); }
+    .view-btn.active{ color:#fff; background:var(--primary-color); }
+    .add-time-btn, .save-btn{
+      padding:10px 16px; border:none; border-radius:999px; font-weight:700; cursor:pointer; transition:.3s;
+      box-shadow:0 6px 14px rgba(0,0,0,.08);
+    }
+    .add-time-btn{ background:var(--accent-color); color:#fff; }
+    .add-time-btn:hover{ filter:brightness(1.05); transform:translateY(-2px); }
+    .save-btn{ background:var(--gradient); color:#fff; }
+    .save-btn:hover{ filter:brightness(1.05); transform:translateY(-2px); }
+
+    .custom-time{
+      display:flex; gap:10px; align-items:center; padding:12px 16px; justify-content:center; flex-wrap:wrap;
+    }
+    .custom-time label{ font-weight:700; }
+    .custom-time input{
+      width:80px; text-align:center; padding:10px 12px; border-radius:10px; border:2px solid #eee; background:#fff;
+      font-weight:700;
+    }
+
+    /* Modal base */
+    .modal{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:1000; align-items:center; justify-content:center; padding:16px; }
+    .modal-content{ background:#fff; border-radius:16px; width:100%; max-width:520px; padding:20px; position:relative; max-height:90vh; overflow:auto; box-shadow:0 24px 60px rgba(0,0,0,.35); }
+    .modal h3{ text-align:center; color:var(--primary-color); margin-bottom:12px; font-family:'Dancing Script',cursive; font-size:32px; }
+
+    .form-group{ margin-bottom:12px; }
+    .form-group label{ display:block; margin-bottom:6px; font-weight:700; }
+    .form-group input[type="text"],
+    .form-group input[type="number"],
+    .form-group select{
+      width:100%; border:2px solid #eee; border-radius:10px; padding:10px 12px; background:#fafafa; font-weight:600;
+    }
+    .time-row{ display:flex; gap:8px; align-items:center; justify-content:center; }
+    .chips{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+    .chip{ padding:6px 10px; border-radius:999px; border:2px solid #eee; background:#f8f8f8; font-weight:700; cursor:pointer; }
+    .color-options{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+    .color-option{ width:28px; height:28px; border-radius:50%; border:2px solid transparent; cursor:pointer; }
+    .color-option.selected{ border-color:#222; transform:scale(1.05); }
+
+    .form-actions{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:16px; }
+    .btn{ padding:10px 14px; border:none; border-radius:999px; font-weight:700; cursor:pointer; }
+    .btn-cancel{ background:#eee; }
+    .btn-delete{ background:#ff7675; color:#fff; margin-right:auto; }
+    .btn-primary{ background:var(--gradient); color:#fff; }
+
+    /* Modal huecos comunes */
+    .common-slots-modal .modal-content{ max-width:680px; }
+    .common-slots-list{ display:grid; gap:8px; margin-top:8px; }
+    .common-slot{ padding:10px 12px; border-radius:12px; border:1px solid #eee; background:#fafafa; font-weight:700; }
+
+    /* Back btn */
+    .back-btn{
+      position:fixed; top:14px; left:14px; background:#fff; color:var(--primary-color);
+      padding:10px 14px; border-radius:999px; text-decoration:none; font-weight:700; box-shadow:var(--shadow); z-index:1200;
+    }
+    .back-btn:hover{ background:var(--primary-color); color:#fff; }
+
+    @media (max-width:640px){
+      header h1{ font-size:34px; }
+      .hour-cell{ width:72px; }
+      .activity{ font-size:.72rem; }
+    }
+  </style>
 </head>
 <body>
-    <div class="floating-hearts">
-        <div class="heart" style="left: 5%; animation-delay: 0s;">❤</div>
-        <div class="heart" style="left: 15%; animation-delay: 2s;">❤</div>
-        <div class="heart" style="left: 25%; animation-delay: 4s;">❤</div>
-        <div class="heart" style="left: 35%; animation-delay: 6s;">❤</div>
-        <div class="heart" style="left: 45%; animation-delay: 8s;">❤</div>
-        <div class="heart" style="left: 55%; animation-delay: 10s;">❤</div>
-        <div class="heart" style="left: 65%; animation-delay: 12s;">❤</div>
-        <div class="heart" style="left: 75%; animation-delay: 14s;">❤</div>
-        <div class="heart" style="left: 85%; animation-delay: 16s;">❤</div>
-        <div class="heart" style="left: 95%; animation-delay: 18s;">❤</div>
+  <a class="back-btn" href="/"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+
+  <div class="container">
+    <header>
+      <h1>Horarios</h1>
+      <div class="user-selector">
+        <button class="user-btn active" data-user="both">Ver Ambos</button>
+        <button class="user-btn" data-user="mochito">Solo Mochito</button>
+        <button class="user-btn" data-user="mochita">Solo Mochita</button>
+      </div>
+    </header>
+
+    <div class="custom-time">
+      <label>Hora personalizada:</label>
+      <input type="number" id="custom-hour" min="0" max="23" placeholder="Hora" value="8"/>
+      <span>:</span>
+      <input type="number" id="custom-minute" min="0" max="59" placeholder="Min" value="0"/>
+      <button class="add-time-btn" id="add-time-btn"><i class="fa-solid fa-plus"></i> Agregar</button>
     </div>
 
-    <!-- Botón para volver al inicio -->
-    <a href="/" class="back-btn">
-        <i class="fas fa-arrow-left"></i> Volver
-    </a>
-
-    <div class="container">
-        <header>
-            <h1>Nuestros Horarios</h1>
-            <div class="user-selector">
-                <button class="user-btn active" data-user="both">Ver Ambos</button>
-                <button class="user-btn" data-user="mochito">Solo Mochito</button>
-                <button class="user-btn" data-user="mochita">Solo Mochita</button>
-            </div>
-        </header>
-        
-        <div class="custom-time-container">
-            <span class="time-label">Hora personalizada:</span>
-            <div class="time-inputs-container">
-                <input type="number" id="custom-hour" class="custom-time-input" min="0" max="23" placeholder="Hora" value="8">
-                <span>:</span>
-                <input type="number" id="custom-minute" class="custom-time-input" min="0" max="59" placeholder="Min" value="0">
-                <button class="add-time-btn" id="add-time-btn"><i class="fas fa-plus"></i> Agregar</button>
-            </div>
-        </div>
-        
-        <div class="calendar-container">
-            <table id="schedule-table">
-                <thead>
-                    <tr>
-                        <th class="hour-cell">HORAS</th>
-                        <th>LUNES</th>
-                        <th>MARTES</th>
-                        <th>MIÉRCOLES</th>
-                        <th>JUEVES</th>
-                        <th>VIERNES</th>
-                        <th>SÁBADO</th>
-                        <th>DOMINGO</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Las filas se generarán con JavaScript -->
-                </tbody>
-            </table>
-        </div>
-        
-        <div class="controls">
-            <div class="view-selector">
-                <button class="view-btn active" data-view="week">Vista Semanal</button>
-                <button class="view-btn" data-view="mochito">Solo Mochito</button>
-                <button class="view-btn" data-view="mochita">Solo Mochita</button>
-            </div>
-            <button class="save-btn" id="save-btn"><i class="fas fa-save"></i> Guardar Cambios</button>
-        </div>
+    <div class="calendar-container">
+      <table id="schedule-table">
+        <thead>
+        <tr>
+          <th class="hour-cell">HORAS</th>
+          <th>LUNES</th>
+          <th>MARTES</th>
+          <th>MIÉRCOLES</th>
+          <th>JUEVES</th>
+          <th>VIERNES</th>
+          <th>SÁBADO</th>
+          <th>DOMINGO</th>
+        </tr>
+        </thead>
+        <tbody><!-- filas generadas por JS --></tbody>
+      </table>
     </div>
-    
-    <div class="modal" id="event-modal">
-        <div class="modal-content">
-            <h3>Editar Actividad</h3>
-            <div class="form-group">
-                <label for="activity-day">Día:</label>
-                <input type="text" id="activity-day" readonly>
-            </div>
-            <div class="form-group">
-                <label for="activity-time">Hora:</label>
-                <div class="time-input-container">
-                    <div class="time-input">
-                        <input type="number" id="activity-hour" min="0" max="23" placeholder="Hora" class="custom-time-input">
-                    </div>
-                    <span>:</span>
-                    <div class="time-input">
-                        <input type="number" id="activity-minute" min="0" max="59" placeholder="Min" class="custom-time-input">
-                    </div>
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="activity-text">Actividad:</label>
-                <input type="text" id="activity-text" placeholder="Describe tu actividad">
-            </div>
-            <div class="form-group">
-                <label>Color:</label>
-                <div class="color-options">
-  <!-- Rosas / Morados (existentes + nuevos) -->
-  <div class="color-option selected" style="background-color:#e84393;" data-color="#e84393"></div>
-  <div class="color-option" style="background-color:#fd79a8;" data-color="#fd79a8"></div>
-  <div class="color-option" style="background-color:#a29bfe;" data-color="#a29bfe"></div>
-  <div class="color-option" style="background-color:#6c5ce7;" data-color="#6c5ce7"></div>
-  <div class="color-option" style="background-color:#b388ff;" data-color="#b388ff"></div>
-  <div class="color-option" style="background-color:#9b59b6;" data-color="#9b59b6"></div>
-  <div class="color-option" style="background-color:#8e44ad;" data-color="#8e44ad"></div>
-  <div class="color-option" style="background-color:#ff6b81;" data-color="#ff6b81"></div>
 
-  <!-- Rojos -->
-  <div class="color-option" style="background-color:#ff4757;" data-color="#ff4757"></div>
-  <div class="color-option" style="background-color:#e74c3c;" data-color="#e74c3c"></div>
-  <div class="color-option" style="background-color:#c0392b;" data-color="#c0392b"></div>
+    <div class="controls">
+      <div class="view-selector">
+        <button class="view-btn active" data-view="week">Vista Semanal</button>
+        <button class="view-btn" data-view="mochito">Solo Mochito</button>
+        <button class="view-btn" data-view="mochita">Solo Mochita</button>
+      </div>
 
-  <!-- Naranjas -->
-  <div class="color-option" style="background-color:#ffa502;" data-color="#ffa502"></div>
-  <div class="color-option" style="background-color:#e67e22;" data-color="#e67e22"></div>
-  <div class="color-option" style="background-color:#d35400;" data-color="#d35400"></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button class="add-time-btn" id="btn-common-slots">
+          <i class="fa-solid fa-magnifying-glass"></i> Huecos comunes
+        </button>
 
-  <!-- Amarillos -->
-  <div class="color-option" style="background-color:#fdcb6e;" data-color="#fdcb6e"></div>
-  <div class="color-option" style="background-color:#f1c40f;" data-color="#f1c40f"></div>
-  <div class="color-option" style="background-color:#f39c12;" data-color="#f39c12"></div>
+        <button class="add-time-btn" id="btn-export">
+          <i class="fa-solid fa-file-export"></i> Exportar
+        </button>
 
-  <!-- Verdes -->
-  <div class="color-option" style="background-color:#00b894;" data-color="#00b894"></div>
-  <div class="color-option" style="background-color:#2ecc71;" data-color="#2ecc71"></div>
-  <div class="color-option" style="background-color:#27ae60;" data-color="#27ae60"></div>
-  <div class="color-option" style="background-color:#1abc9c;" data-color="#1abc9c"></div>
-  <div class="color-option" style="background-color:#16a085;" data-color="#16a085"></div>
-
-  <!-- Azules -->
-  <div class="color-option" style="background-color:#0984e3;" data-color="#0984e3"></div>
-  <div class="color-option" style="background-color:#3498db;" data-color="#3498db"></div>
-  <div class="color-option" style="background-color:#2980b9;" data-color="#2980b9"></div>
-  <div class="color-option" style="background-color:#74b9ff;" data-color="#74b9ff"></div>
-  <div class="color-option" style="background-color:#00cec9;" data-color="#00cec9"></div>
-
-  <!-- Teal / Cian -->
-  <div class="color-option" style="background-color:#48dbfb;" data-color="#48dbfb"></div>
-  <div class="color-option" style="background-color:#10ac84;" data-color="#10ac84"></div>
-
-  <!-- Marrones -->
-  <div class="color-option" style="background-color:#a0522d;" data-color="#a0522d"></div>
-  <div class="color-option" style="background-color:#8d6e63;" data-color="#8d6e63"></div>
-  <div class="color-option" style="background-color:#6d4c41;" data-color="#6d4c41"></div>
-
-  <!-- Grises / Neutros -->
-  <div class="color-option" style="background-color:#b2bec3;" data-color="#b2bec3"></div>
-  <div class="color-option" style="background-color:#95a5a6;" data-color="#95a5a6"></div>
-  <div class="color-option" style="background-color:#7f8c8d;" data-color="#7f8c8d"></div>
-  <div class="color-option" style="background-color:#2d3436;" data-color="#2d3436"></div>
-  <div class="color-option" style="background-color:#000000;" data-color="#000000"></div>
-
-  <!-- Arcoíris pastel extra -->
-  <div class="color-option" style="background-color:#ff9ff3;" data-color="#ff9ff3"></div>
-  <div class="color-option" style="background-color:#feca57;" data-color="#feca57"></div>
-  <div class="color-option" style="background-color:#1dd1a1;" data-color="#1dd1a1"></div>
-  <div class="color-option" style="background-color:#54a0ff;" data-color="#54a0ff"></div>
-  <div class="color-option" style="background-color:#5f27cd;" data-color="#5f27cd"></div>
-</div>
-
-            </div>
-            <div class="form-actions">
-                <button class="delete-btn" id="delete-btn">Eliminar</button>
-                <button class="cancel-btn" id="cancel-btn">Cancelar</button>
-                <button class="confirm-btn" id="confirm-btn">Guardar</button>
-            </div>
-        </div>
+        <label for="import-file" class="add-time-btn" style="cursor:pointer;">
+          <i class="fa-solid fa-file-import"></i> Importar
+        </label>
+        <input type="file" id="import-file" accept="application/json" style="display:none;">
+        <button class="save-btn" id="save-btn"><i class="fa-solid fa-save"></i> Guardar Cambios</button>
+      </div>
     </div>
+  </div>
+
+  <!-- Modal editar -->
+  <div class="modal" id="event-modal">
+    <div class="modal-content">
+      <h3>Editar Actividad</h3>
+
+      <div class="form-group">
+        <label for="activity-day">Día</label>
+        <input type="text" id="activity-day" readonly>
+      </div>
+
+      <div class="form-group">
+        <label>Hora</label>
+        <div class="time-row">
+          <input type="number" id="activity-hour" min="0" max="23" placeholder="Hora" style="width:90px;">
+          <span>:</span>
+          <input type="number" id="activity-minute" min="0" max="59" placeholder="Min" style="width:90px;">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="activity-text">Actividad</label>
+        <input type="text" id="activity-text" placeholder="Describe tu actividad">
+      </div>
+
+      <div class="form-group">
+        <label>Color</label>
+        <div class="color-options" id="color-options">
+          <div class="color-option selected" style="background:#e84393" data-color="#e84393"></div>
+          <div class="color-option" style="background:#fd79a8" data-color="#fd79a8"></div>
+          <div class="color-option" style="background:#a29bfe" data-color="#a29bfe"></div>
+          <div class="color-option" style="background:#6c5ce7" data-color="#6c5ce7"></div>
+          <div class="color-option" style="background:#00b894" data-color="#00b894"></div>
+          <div class="color-option" style="background:#0984e3" data-color="#0984e3"></div>
+          <div class="color-option" style="background:#ffa502" data-color="#ffa502"></div>
+          <div class="color-option" style="background:#ff7675" data-color="#ff7675"></div>
+          <div class="color-option" style="background:#2d3436" data-color="#2d3436"></div>
+        </div>
+      </div>
+
+      <!-- Aplicar a varios días -->
+      <div class="form-group">
+        <label>Aplicar también a:</label>
+        <div class="chips" id="apply-days">
+          <label class="chip"><input type="checkbox" class="apply-day" value="LUNES"> L</label>
+          <label class="chip"><input type="checkbox" class="apply-day" value="MARTES"> M</label>
+          <label class="chip"><input type="checkbox" class="apply-day" value="MIÉRCOLES"> X</label>
+          <label class="chip"><input type="checkbox" class="apply-day" value="JUEVES"> J</label>
+          <label class="chip"><input type="checkbox" class="apply-day" value="VIERNES"> V</label>
+          <label class="chip"><input type="checkbox" class="apply-day" value="SÁBADO"> S</label>
+          <label class="chip"><input type="checkbox" class="apply-day" value="DOMINGO"> D</label>
+        </div>
+      </div>
+
+      <div class="form-group" style="text-align:center;">
+        <label><input type="checkbox" id="repeat-weekly"> Repetir cada semana (visual)</label>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-delete" id="delete-btn">Eliminar</button>
+        <button class="btn btn-cancel" id="cancel-btn">Cancelar</button>
+        <button class="btn btn-primary" id="confirm-btn">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal huecos comunes -->
+  <div class="modal common-slots-modal" id="common-slots-modal">
+    <div class="modal-content">
+      <h3>Huecos comunes</h3>
+
+      <div class="form-group" style="text-align:center;">
+        <label>Duración mínima:
+          <select id="min-duration">
+            <option value="30">30 min</option>
+            <option value="60" selected>60 min</option>
+            <option value="90">90 min</option>
+            <option value="120">120 min</option>
+          </select>
+        </label>
+        <button class="add-time-btn" id="refresh-common"><i class="fa-solid fa-rotate"></i> Recalcular</button>
+      </div>
+
+      <div id="common-slots-list" class="common-slots-list"></div>
+
+      <div class="form-actions">
+        <button class="btn btn-cancel" id="close-common">Cerrar</button>
+      </div>
+    </div>
+  </div>
 
 <script>
   // ========================
-  // Variables globales
+  // Estado y helpers
   // ========================
-  let currentUser = 'both';
-  let currentView  = 'week';
+  const DAYS = ['LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO','DOMINGO'];
+
+  let currentUser = 'both';   // both | mochito | mochita (para editar)
+  let currentView = 'week';   // week | mochito | mochita (para ver)
+  let schedules   = { mochito:{}, mochita:{} }; // { user: { DAY: { HH:MM: {activity,color} } } }
+  let customTimes = { mochito:[], mochita:[] }; // visibilidad de filas
   let selectedCell = null;
-  let selectedColor = '#e84393';
   let originalTime = null;
+  let selectedColor = '#e84393';
 
-  // Estructura de horarios y horas visibles
-  let schedules = { mochito: {}, mochita: {} };
-  let customTimes = { mochito: [], mochita: [] };
+  const fallbackDefaultTimes = ["8:00","9:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"];
 
-  // Horas por defecto si la base está vacía
-  const fallbackDefaultTimes = ["8:00","9:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00","23:00"];
-  const DAYS = ['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'];
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
 
-  // ========================
-  // Helpers de horas
-  // ========================
-  function compareTimeStrings(a, b) {
-    const [ah, am] = a.split(':').map(Number);
-    const [bh, bm] = b.split(':').map(Number);
-    if (ah !== bh) return ah - bh;
-    return am - bm;
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function fmt(h,m){ return `${parseInt(h||0)}:${pad2(parseInt(m||0))}`; }
+  function parseHM(s){ const [h,m='0']=s.split(':'); return {h:+h||0, m:+m||0}; }
+
+  function cmpTime(a,b){
+    const A=parseHM(a), B=parseHM(b);
+    if(A.h!==B.h) return A.h-B.h;
+    return A.m-B.m;
   }
+  function uniqSorted(arr){ return Array.from(new Set(arr)).sort(cmpTime); }
 
-  function uniqueSortedTimes(arr) {
-    return Array.from(new Set(arr)).sort(compareTimeStrings);
-  }
-
-  function extractTimesFromSchedules(userKey) {
-    const s = schedules[userKey] || {};
+  function timesFromUser(userKey){
+    const obj = schedules[userKey] || {};
     const set = new Set();
-    Object.values(s).forEach(timesObj => {
-      if (timesObj && typeof timesObj === 'object') {
-        Object.keys(timesObj).forEach(t => set.add(t));
-      }
+    Object.values(obj).forEach(dayObj=>{
+      if(dayObj) Object.keys(dayObj).forEach(t=> set.add(t));
     });
-    return Array.from(set).sort(compareTimeStrings);
+    return Array.from(set);
   }
 
-  // Formatear hora a formato HH:MM
-  function formatTime(hours, minutes) {
-    const h = Number.isFinite(parseInt(hours)) ? parseInt(hours) : 0;
-    const m = Number.isFinite(parseInt(minutes)) ? parseInt(minutes) : 0;
-    return `${h}:${m.toString().padStart(2, '0')}`;
-  }
-
-  // Parsear hora desde formato HH:MM
-  function parseTime(timeStr) {
-    const parts = timeStr.split(':');
-    return {
-      hour: parseInt(parts[0]) || 0,
-      minute: parseInt(parts[1]) || 0
-    };
+  // Deduce tamaño de slot en minutos (si es irregular, devuelve 60)
+  function guessSlotMinutes(allTimes){
+    if(allTimes.length<2) return 60;
+    const diffs = [];
+    for(let i=1;i<allTimes.length;i++){
+      const a=parseHM(allTimes[i-1]), b=parseHM(allTimes[i]);
+      diffs.push((b.h-a.h)*60 + (b.m-a.m));
+    }
+    diffs.sort((x,y)=>x-y);
+    const mid = diffs[Math.floor(diffs.length/2)] || 60;
+    if(!isFinite(mid) || mid<=0 || mid>240) return 60;
+    return mid;
   }
 
   // ========================
-  // Cargar desde el servidor (FORMA CORRECTA)
+  // Carga / guardado
   // ========================
-  async function loadSchedules() {
-    try {
-      const res = await fetch('/api/schedules', { headers: { 'Accept': 'application/json' } });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+  async function loadSchedules(){
+    try{
+      const res = await fetch('/api/schedules',{headers:{'Accept':'application/json'}});
+      if(!res.ok) throw new Error('HTTP '+res.status);
       const data = await res.json();
-
-      // Tu backend devuelve { schedules: {...}, customTimes: {...} }
-      const srvSchedules   = data && data.schedules   ? data.schedules   : { mochito:{}, mochita:{} };
-      const srvCustomTimes = data && data.customTimes ? data.customTimes : { mochito:[],  mochita:[] };
-
-      schedules = {
-        mochito: srvSchedules.mochito || {},
-        mochita: srvSchedules.mochita || {}
-      };
-
-      // Construir horas visibles con lo de la BD + fallback para que siempre haya filas
-      const timesMochitoFromDB = uniqueSortedTimes([
-        ...(srvCustomTimes.mochito || []),
-        ...extractTimesFromSchedules('mochito')
-      ]);
-      const timesMochitaFromDB = uniqueSortedTimes([
-        ...(srvCustomTimes.mochita || []),
-        ...extractTimesFromSchedules('mochita')
-      ]);
-
-      customTimes.mochito = timesMochitoFromDB.length ? timesMochitoFromDB : [...fallbackDefaultTimes];
-      customTimes.mochita = timesMochitaFromDB.length ? timesMochitaFromDB : [...fallbackDefaultTimes];
-
-    } catch (e) {
-      console.error('Error cargando horarios del servidor:', e);
-      // Fallback local para no dejar la tabla vacía
+      schedules = { mochito:data.schedules?.mochito||{}, mochita:data.schedules?.mochita||{} };
+      const tM = data.customTimes?.mochito || [];
+      const tC = data.customTimes?.mochita || [];
+      const mixM = uniqSorted([...tM, ...timesFromUser('mochito')]);
+      const mixC = uniqSorted([...tC, ...timesFromUser('mochita')]);
+      customTimes.mochito = mixM.length? mixM : [...fallbackDefaultTimes];
+      customTimes.mochita = mixC.length? mixC : [...fallbackDefaultTimes];
+    }catch(e){
+      console.error(e);
       schedules = { mochito:{}, mochita:{} };
       customTimes.mochito = [...fallbackDefaultTimes];
       customTimes.mochita = [...fallbackDefaultTimes];
     }
-
-    generateScheduleTable();
+    renderTable();
   }
 
-  // ========================
-  // Guardar en el servidor (RUTA CORRECTA)
-  // ========================
-  async function saveSchedules() {
-    const btn = document.getElementById('save-btn');
-    const original = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-
-    try {
-      // Tu backend guarda en POST /api/schedules/save con {schedules, customTimes}
+  async function saveSchedules(){
+    const btn = $('#save-btn');
+    const old = btn.innerHTML; btn.disabled=true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+    try{
       const payload = { schedules, customTimes };
-      const res = await fetch('/api/schedules/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      const res = await fetch('/api/schedules/save',{
+        method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'},
         body: JSON.stringify(payload)
       });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
       const j = await res.json();
-      if (!j.ok) throw new Error('Respuesta inválida');
-      alert('Horarios guardados correctamente');
-    } catch (e) {
-      console.error('Error al guardar en servidor:', e);
-      alert('No se pudo guardar. Inténtalo de nuevo.');
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = original;
+      if(!res.ok || !j.ok) throw new Error('Save error');
+      alert('Horarios guardados ✅');
+    }catch(e){
+      alert('No se pudo guardar. Intenta de nuevo.');
+    }finally{
+      btn.disabled=false; btn.innerHTML = old;
     }
   }
 
   // ========================
-  // UI: generar tabla
+  // Render tabla + conflictos + DnD
   // ========================
-  function generateScheduleTable() {
-    const tableBody = document.querySelector('#schedule-table tbody');
-    tableBody.innerHTML = '';
-
-    // Determinar qué horas mostrar según la vista
-    let timesToShow = [];
-    if (currentView === 'week') {
-      const allTimes = uniqueSortedTimes([
-        ...customTimes.mochito,
-        ...customTimes.mochita,
-        ...extractTimesFromSchedules('mochito'),
-        ...extractTimesFromSchedules('mochita'),
-      ]);
-      timesToShow = allTimes;
-    } else {
-      const base = currentView === 'mochito' ? 'mochito' : 'mochita';
-      const fromDB = extractTimesFromSchedules(base);
-      timesToShow = uniqueSortedTimes([
-        ...customTimes[base],
-        ...fromDB
+  function visibleTimes(){
+    if(currentView==='week'){
+      return uniqSorted([
+        ...customTimes.mochito, ...customTimes.mochita,
+        ...timesFromUser('mochito'), ...timesFromUser('mochita')
       ]);
     }
+    const key = currentView==='mochito'?'mochito':'mochita';
+    return uniqSorted([...customTimes[key], ...timesFromUser(key)]);
+  }
 
-    timesToShow.forEach(timeFormatted => {
-      const row = document.createElement('tr');
+  function renderTable(){
+    const tbody = $('#schedule-table tbody'); tbody.innerHTML='';
+    const times = visibleTimes();
 
-      // Celda de hora
-      const hourCell = document.createElement('td');
-      hourCell.className = 'hour-cell';
-      hourCell.textContent = timeFormatted;
+    times.forEach(t=>{
+      const tr = document.createElement('tr');
 
-      // Botón eliminar hora (solo en vista de usuario específico)
-      if (currentView !== 'week') {
-        const deleteButton = document.createElement('button');
-        deleteButton.className = 'delete-time-btn';
-        deleteButton.innerHTML = '<i class="fas fa-times"></i>';
-        deleteButton.title = `Eliminar esta hora de ${currentView}`;
-        deleteButton.addEventListener('click', (e) => {
-          e.stopPropagation();
-          deleteTime(timeFormatted, currentView);
+      const th = document.createElement('td');
+      th.className='hour-cell'; th.textContent=t;
+
+      if(currentView!=='week'){
+        const del = document.createElement('button');
+        del.className='delete-time-btn'; del.title = 'Eliminar hora';
+        del.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        del.addEventListener('click', (ev)=>{
+          ev.stopPropagation();
+          deleteTime(t, currentView);
         });
-        hourCell.appendChild(deleteButton);
+        th.appendChild(del);
       }
 
-      row.appendChild(hourCell);
+      tr.appendChild(th);
 
-      // Celdas de días
-      DAYS.forEach(day => {
-        const cell = document.createElement('td');
-        cell.className = 'schedule-cell';
-        cell.dataset.time = timeFormatted;
-        cell.dataset.day = day;
-
-        // Editable solo si hemos elegido un usuario específico
-        if (currentUser !== 'both') {
-          cell.classList.add('editable');
-        }
+      DAYS.forEach(day=>{
+        const td = document.createElement('td');
+        td.className='schedule-cell';
+        td.dataset.time = t; td.dataset.day = day;
 
         // Mostrar actividades según vista
-        if (currentView === 'week' || currentView === 'mochito') {
-          const mochitoActivity = schedules.mochito[day] && schedules.mochito[day][timeFormatted];
-          if (mochitoActivity) {
-            const activityDiv = document.createElement('div');
-            activityDiv.className = 'activity';
-            activityDiv.textContent = 'M: ' + mochitoActivity.activity;
-            activityDiv.style.backgroundColor = mochitoActivity.color || '#6c5ce7';
-            cell.appendChild(activityDiv);
-          }
+        if(currentView==='week' || currentView==='mochito'){
+          const a = schedules.mochito?.[day]?.[t];
+          if(a) td.appendChild(makeActivityBadge('M: '+a.activity, a.color, 'mochito', day, t));
+        }
+        if(currentView==='week' || currentView==='mochita'){
+          const a = schedules.mochita?.[day]?.[t];
+          if(a) td.appendChild(makeActivityBadge('C: '+a.activity, a.color, 'mochita', day, t));
         }
 
-        if (currentView === 'week' || currentView === 'mochita') {
-          const mochitaActivity = schedules.mochita[day] && schedules.mochita[day][timeFormatted];
-          if (mochitaActivity) {
-            const activityDiv = document.createElement('div');
-            activityDiv.className = 'activity';
-            activityDiv.textContent = 'C: ' + mochitaActivity.activity;
-            activityDiv.style.backgroundColor = mochitaActivity.color || '#fd79a8';
-            cell.appendChild(activityDiv);
-          }
+        // Editable si no estamos en "both"
+        if(currentUser!=='both') td.classList.add('editable');
+        if(td.classList.contains('editable')){
+          td.addEventListener('click',(e)=>{
+            // Evitar que el click sobre un drag comience modal:
+            if(e.target.classList.contains('activity')) return;
+            openEditModal(td);
+          });
         }
 
-        // Abrir modal al hacer clic (si es editable)
-        if (cell.classList.contains('editable')) {
-          cell.addEventListener('click', () => openEditModal(cell));
-        }
-
-        row.appendChild(cell);
+        tr.appendChild(td);
       });
 
-      tableBody.appendChild(row);
+      tbody.appendChild(tr);
+    });
+
+    // Marcar conflictos
+    markConflicts();
+    // Activar DnD
+    enableDragAndDrop();
+  }
+
+  function makeActivityBadge(text, color, owner, day, time){
+    const d = document.createElement('div');
+    d.className='activity'; d.textContent=text; d.style.background=color||'#888';
+    // Drag solo cuando editamos a un usuario específico y pertenece a ese usuario:
+    if(currentUser===owner){
+      d.setAttribute('draggable','true');
+      d.dataset.owner = owner;
+      d.dataset.day = day;
+      d.dataset.time= time;
+    }
+    return d;
+  }
+
+  function markConflicts(){
+    $$('#schedule-table tbody .schedule-cell').forEach(td=>{
+      const day = td.dataset.day, time = td.dataset.time;
+      const m = !!(schedules.mochito?.[day]?.[time]);
+      const c = !!(schedules.mochita?.[day]?.[time]);
+      td.classList.toggle('conflict', m && c);
+    });
+  }
+
+  function enableDragAndDrop(){
+    // Solo si se edita a un usuario específico
+    if(currentUser==='both') return;
+
+    let dragging = null;
+
+    $$('#schedule-table .activity[draggable="true"]').forEach(el=>{
+      el.addEventListener('dragstart',(e)=>{
+        dragging = el; el.classList.add('dragging');
+        e.dataTransfer.effectAllowed='move';
+      });
+      el.addEventListener('dragend',()=>{
+        if(dragging){ dragging.classList.remove('dragging'); dragging=null; }
+        $$('.schedule-cell.drop-target').forEach(c=> c.classList.remove('drop-target'));
+      });
+    });
+
+    $$('#schedule-table .schedule-cell').forEach(cell=>{
+      cell.addEventListener('dragover',(e)=>{
+        if(!dragging) return;
+        e.preventDefault();
+        cell.classList.add('drop-target');
+      });
+      cell.addEventListener('dragleave',()=> cell.classList.remove('drop-target'));
+      cell.addEventListener('drop',()=>{
+        if(!dragging) return;
+        const owner = dragging.dataset.owner; // 'mochito' o 'mochita'
+        if(owner!==currentUser) return; // seguridad
+
+        const fromDay  = dragging.dataset.day;
+        const fromTime = dragging.dataset.time;
+        const toDay    = cell.dataset.day;
+        const toTime   = cell.dataset.time;
+
+        // Mover en estructura
+        const obj = schedules[owner]?.[fromDay]?.[fromTime];
+        if(!obj) return;
+
+        // Si destino existe, lo sobrescribimos:
+        if(!schedules[owner][toDay]) schedules[owner][toDay]={};
+        schedules[owner][toDay][toTime] = {...obj};
+
+        // Borrar origen
+        delete schedules[owner][fromDay][fromTime];
+
+        renderTable();
+      });
     });
   }
 
   // ========================
-  // Gestión de horas custom
+  // CRUD de horas y actividades
   // ========================
-  function addCustomTime() {
-    const hourInput = document.getElementById('custom-hour');
-    const minuteInput = document.getElementById('custom-minute');
-
-    const hour = parseInt(hourInput.value) || 0;
-    const minute = parseInt(minuteInput.value) || 0;
-
-    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-      alert('Por favor, introduce una hora válida (0-23) y minutos válidos (0-59)');
-      return;
-    }
-
-    const timeFormatted = formatTime(hour, minute);
-
-    // Determinar a qué usuario agregar la hora (si está "ambos", la añadimos a mochito)
-    const targetUser = currentUser === 'both' ? 'mochito' : currentUser;
-
-    if (!customTimes[targetUser].includes(timeFormatted)) {
-      customTimes[targetUser].push(timeFormatted);
-      customTimes[targetUser] = uniqueSortedTimes(customTimes[targetUser]);
-      generateScheduleTable();
-    }
-
-    hourInput.value = '';
-    minuteInput.value = '';
+  function deleteTime(time, userView){
+    if(!confirm(`¿Eliminar la hora ${time} de ${userView}?`)) return;
+    const key = userView==='mochito' ? 'mochito' : 'mochita';
+    // quitar de custom
+    customTimes[key] = customTimes[key].filter(t=> t!==time);
+    // borrar todas las actividades a esa hora
+    DAYS.forEach(d=>{
+      if(schedules[key]?.[d]?.[time]) delete schedules[key][d][time];
+    });
+    renderTable();
   }
 
-  function deleteTime(timeToDelete, user) {
-    if (confirm(`¿Estás seguro de que quieres eliminar la hora ${timeToDelete} de ${user}?`)) {
-      // Quitar la hora de la lista visual
-      customTimes[user] = customTimes[user].filter(t => t !== timeToDelete);
+  function openEditModal(cell){
+    selectedCell = cell;
+    originalTime = cell.dataset.time;
+    $('#activity-day').value = cell.dataset.day;
 
-      // Eliminar todas las actividades de esa hora para el usuario
-      DAYS.forEach(day => {
-        if (schedules[user][day] && schedules[user][day][timeToDelete]) {
-          delete schedules[user][day][timeToDelete];
+    const {h,m} = parseHM(originalTime);
+    $('#activity-hour').value = h;
+    $('#activity-minute').value = m;
+
+    const key = (currentUser==='mochito')?'mochito':'mochita';
+    const exist = schedules[key]?.[cell.dataset.day]?.[originalTime];
+
+    $('#activity-text').value = exist?.activity || '';
+    selectedColor = exist?.color || '#e84393';
+    // Colores
+    $$('#color-options .color-option').forEach(opt=>{
+      opt.classList.toggle('selected', opt.dataset.color===selectedColor);
+    });
+    // Limpiar checks días adicionales
+    $$('#apply-days .apply-day').forEach(c=> c.checked=false);
+    $('#repeat-weekly').checked=false;
+
+    $('#event-modal').style.display='flex';
+  }
+
+  function closeEditModal(){ $('#event-modal').style.display='none'; }
+
+  function saveActivity(){
+    const day = $('#activity-day').value;
+    const h = $('#activity-hour').value, m = $('#activity-minute').value;
+    const newTime = fmt(h,m);
+    const text = $('#activity-text').value.trim();
+    const key = (currentUser==='mochito')?'mochito':'mochita';
+
+    if(!customTimes[key].includes(newTime)){
+      customTimes[key].push(newTime);
+      customTimes[key] = uniqSorted(customTimes[key]);
+    }
+    if(!schedules[key][day]) schedules[key][day]={};
+
+    // Si no hay texto => borrar
+    if(!text){
+      if(schedules[key][day]?.[originalTime]) delete schedules[key][day][originalTime];
+    }else{
+      // mover si cambió la hora
+      if(originalTime!==newTime && schedules[key][day]?.[originalTime]){
+        delete schedules[key][day][originalTime];
+      }
+      schedules[key][day][newTime] = { activity:text + ( $('#repeat-weekly').checked ? ' ⟲' : '' ), color:selectedColor };
+    }
+
+    // Aplicar a otros días si se marcó
+    const alsoDays = $$('#apply-days .apply-day:checked').map(c=> c.value).filter(d=> d!==day);
+    alsoDays.forEach(d=>{
+      if(!schedules[key][d]) schedules[key][d]={};
+      schedules[key][d][newTime] = { activity:text + ( $('#repeat-weekly').checked ? ' ⟲' : '' ), color:selectedColor };
+    });
+
+    closeEditModal();
+    renderTable();
+  }
+
+  function deleteActivity(){
+    const day = $('#activity-day').value;
+    const key = (currentUser==='mochito')?'mochito':'mochita';
+    if(schedules[key]?.[day]?.[originalTime]){
+      delete schedules[key][day][originalTime];
+    }
+    closeEditModal();
+    renderTable();
+  }
+
+  // ========================
+  // Huecos comunes
+  // ========================
+  function openCommonModal(){
+    $('#common-slots-modal').style.display='flex';
+    computeCommonSlots();
+  }
+  function closeCommonModal(){ $('#common-slots-modal').style.display='none'; }
+
+  function computeCommonSlots(){
+    const list = $('#common-slots-list'); list.innerHTML='';
+    const times = visibleTimes();
+    if(!times.length){ list.innerHTML='<div class="common-slot">No hay horas configuradas.</div>'; return; }
+
+    const slotMin = guessSlotMinutes(times);
+    const minDur  = parseInt($('#min-duration').value,10) || 60;
+    const needN   = Math.max(1, Math.round(minDur/slotMin));
+
+    DAYS.forEach(day=>{
+      // ocupado por alguno
+      const busy = new Set();
+      times.forEach(t=>{
+        if( (schedules.mochito?.[day]?.[t]) || (schedules.mochita?.[day]?.[t]) ){
+          busy.add(t);
         }
       });
-
-      generateScheduleTable();
-    }
-  }
-
-  // ========================
-  // Modal de edición
-  // ========================
-  function openEditModal(cell) {
-    selectedCell = cell;
-    const modal = document.getElementById('event-modal');
-    const time = cell.dataset.time;
-    const day  = cell.dataset.day;
-    originalTime = time;
-
-    const { hour, minute } = parseTime(time);
-    document.getElementById('activity-day').value   = day;
-    document.getElementById('activity-hour').value  = hour;
-    document.getElementById('activity-minute').value = minute;
-
-    const currentUserKey = (currentUser === 'mochito') ? 'mochito' : 'mochita';
-    const existingActivity = schedules[currentUserKey][day] && schedules[currentUserKey][day][time];
-
-    if (existingActivity) {
-      document.getElementById('activity-text').value = existingActivity.activity || '';
-      selectedColor = existingActivity.color || '#e84393';
-      document.querySelectorAll('.color-option').forEach(opt => {
-        opt.classList.toggle('selected', opt.dataset.color === selectedColor);
-      });
-    } else {
-      document.getElementById('activity-text').value = '';
-      selectedColor = '#e84393';
-      const options = document.querySelectorAll('.color-option');
-      options.forEach((opt, idx) => opt.classList.toggle('selected', idx === 0));
-    }
-
-    modal.style.display = 'flex';
-  }
-
-  function saveActivity() {
-    const day = document.getElementById('activity-day').value;
-    const hour = document.getElementById('activity-hour').value;
-    const minute = document.getElementById('activity-minute').value;
-    const activity = document.getElementById('activity-text').value.trim();
-    const currentUserKey = (currentUser === 'mochito') ? 'mochito' : 'mochita';
-
-    if (!hour && hour !== 0) {
-      alert('Por favor, introduce una hora válida');
-      return;
-    }
-
-    const newTime = formatTime(hour, minute);
-
-    // Añadir fila de hora si no existe en el listado visual
-    if (!customTimes[currentUserKey].includes(newTime)) {
-      customTimes[currentUserKey].push(newTime);
-      customTimes[currentUserKey] = uniqueSortedTimes(customTimes[currentUserKey]);
-    }
-
-    if (!schedules[currentUserKey][day]) {
-      schedules[currentUserKey][day] = {};
-    }
-
-    if (!activity) {
-      // Sin texto => borrar actividad en esa hora
-      if (schedules[currentUserKey][day][originalTime]) {
-        delete schedules[currentUserKey][day][originalTime];
-      }
-    } else {
-      // Si cambió la hora, borrar la entrada anterior
-      if (originalTime !== newTime && schedules[currentUserKey][day][originalTime]) {
-        delete schedules[currentUserKey][day][originalTime];
-      }
-      // Guardar/actualizar
-      schedules[currentUserKey][day][newTime] = {
-        activity: activity,
-        color: selectedColor
+      // encontrar rachas libres
+      let run = [];
+      const flush = ()=>{
+        if(run.length>=needN){
+          const first = run[0], last = run[run.length-1];
+          const item = document.createElement('div');
+          item.className='common-slot';
+          item.textContent = `${day}: ${first} — ${last}`;
+          list.appendChild(item);
+        }
+        run=[];
       };
+      times.forEach(t=>{
+        if(!busy.has(t)){ run.push(t); } else { flush(); }
+      });
+      flush();
+    });
+
+    if(!list.children.length){
+      list.innerHTML = '<div class="common-slot">No encontramos huecos con esa duración. Prueba bajando la duración mínima.</div>';
     }
-
-    document.getElementById('event-modal').style.display = 'none';
-    generateScheduleTable();
-  }
-
-  function deleteActivity() {
-    const day = document.getElementById('activity-day').value;
-    const currentUserKey = (currentUser === 'mochito') ? 'mochito' : 'mochita';
-
-    if (schedules[currentUserKey][day] && schedules[currentUserKey][day][originalTime]) {
-      delete schedules[currentUserKey][day][originalTime];
-    }
-
-    document.getElementById('event-modal').style.display = 'none';
-    generateScheduleTable();
   }
 
   // ========================
-  // Inicialización
+  // Exportar / Importar
   // ========================
-  document.addEventListener('DOMContentLoaded', () => {
-    // Cargar horarios desde Postgres
+  function exportJSON(){
+    const data = { schedules, customTimes };
+    const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'horarios_mochitos.json';
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(a.href);
+    a.remove();
+  }
+
+  function importJSON(file){
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      try{
+        const obj = JSON.parse(e.target.result);
+        if(!obj || typeof obj!=='object') throw new Error('Bad JSON');
+        schedules = obj.schedules || { mochito:{}, mochita:{} };
+        customTimes = obj.customTimes || { mochito:[], mochita:[] };
+        renderTable();
+        alert('Importado correctamente ✅ (no olvides Guardar Cambios)');
+      }catch(err){
+        alert('Archivo inválido.');
+      }
+    };
+    reader.readAsText(file,'utf-8');
+  }
+
+  // ========================
+  // Listeners UI
+  // ========================
+  document.addEventListener('DOMContentLoaded', ()=>{
     loadSchedules();
 
-    // Selector “Ver Ambos / Solo Mochito / Solo Mochita”
-    document.querySelectorAll('.user-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.user-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentUser = btn.dataset.user;
+    // Toggler usuario para editar
+    $$('.user-btn').forEach(b=>{
+      b.addEventListener('click',()=>{
+        $$('.user-btn').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+        currentUser = b.dataset.user; // both | mochito | mochita
 
-        if (currentUser !== 'both') {
-          document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-          document.querySelector(`.view-btn[data-view="${currentUser}"]`).classList.add('active');
-          currentView = currentUser;
-        } else {
-          document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-          document.querySelector(`.view-btn[data-view="week"]`).classList.add('active');
-          currentView = 'week';
+        // sincroniza vista
+        $$('.view-btn').forEach(x=>x.classList.remove('active'));
+        if(currentUser==='both'){
+          currentView='week';
+          $('.view-btn[data-view="week"]').classList.add('active');
+        }else{
+          currentView=currentUser;
+          $(`.view-btn[data-view="${currentView}"]`).classList.add('active');
         }
-
-        generateScheduleTable();
+        renderTable();
       });
     });
 
-    // Selector de vista
-    document.querySelectorAll('.view-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentView = btn.dataset.view;
-        generateScheduleTable();
+    // Toggler de vista
+    $$('.view-btn').forEach(b=>{
+      b.addEventListener('click',()=>{
+        $$('.view-btn').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+        currentView = b.dataset.view; // week | mochito | mochita
+        renderTable();
       });
     });
 
-    // Colores del modal
-    document.querySelectorAll('.color-option').forEach(option => {
-      option.addEventListener('click', () => {
-        document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
-        option.classList.add('selected');
-        selectedColor = option.dataset.color;
+    // Color picker del modal
+    $$('#color-options .color-option').forEach(opt=>{
+      opt.addEventListener('click',()=>{
+        $$('#color-options .color-option').forEach(o=>o.classList.remove('selected'));
+        opt.classList.add('selected'); selectedColor = opt.dataset.color;
       });
     });
 
-    // Añadir hora personalizada
-    document.getElementById('add-time-btn').addEventListener('click', addCustomTime);
-
-    // Botones del modal
-    document.getElementById('cancel-btn').addEventListener('click', () => {
-      document.getElementById('event-modal').style.display = 'none';
-    });
-    document.getElementById('confirm-btn').addEventListener('click', saveActivity);
-    document.getElementById('delete-btn').addEventListener('click', deleteActivity);
-
-    // Guardar en servidor
-    document.getElementById('save-btn').addEventListener('click', saveSchedules);
-
-    // Cerrar modal al hacer clic fuera
-    document.getElementById('event-modal').addEventListener('click', (e) => {
-      if (e.target === document.getElementById('event-modal')) {
-        document.getElementById('event-modal').style.display = 'none';
+    // Añadir hora
+    $('#add-time-btn').addEventListener('click',()=>{
+      const h = parseInt($('#custom-hour').value,10); const m = parseInt($('#custom-minute').value,10);
+      if(isNaN(h)||h<0||h>23 || isNaN(m)||m<0||m>59){ alert('Hora inválida'); return; }
+      let target = currentUser==='both' ? 'mochito' : currentUser;
+      const time = fmt(h,m);
+      if(!customTimes[target].includes(time)){
+        customTimes[target].push(time);
+        customTimes[target] = uniqSorted(customTimes[target]);
+        renderTable();
       }
+      $('#custom-hour').value=''; $('#custom-minute').value='';
+    });
+
+    // Modal Editar
+    $('#cancel-btn').addEventListener('click', closeEditModal);
+    $('#confirm-btn').addEventListener('click', saveActivity);
+    $('#delete-btn').addEventListener('click', deleteActivity);
+    $('#event-modal').addEventListener('click', (e)=>{ if(e.target.id==='event-modal') closeEditModal(); });
+
+    // Guardar
+    $('#save-btn').addEventListener('click', saveSchedules);
+
+    // Huecos comunes
+    $('#btn-common-slots').addEventListener('click', openCommonModal);
+    $('#close-common').addEventListener('click', closeCommonModal);
+    $('#refresh-common').addEventListener('click', computeCommonSlots);
+    $('#common-slots-modal').addEventListener('click',(e)=>{ if(e.target.id==='common-slots-modal') closeCommonModal(); });
+
+    // Export / Import
+    $('#btn-export').addEventListener('click', exportJSON);
+    $('#import-file').addEventListener('change',(e)=>{
+      const f = e.target.files?.[0]; if(f) importJSON(f);
+      e.target.value=''; // reset
     });
   });
 </script>
-
-
 </body>
 </html>

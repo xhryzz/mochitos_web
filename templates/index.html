@@ -1712,12 +1712,12 @@ select[name="priority"]:active {
     </form>
 
     <button class="icon-btn" title="Editar"
-      onclick="openEditModal({{ id }}, '{{ product_name|replace(\"'\", \"&#39;\")|replace('\"', '&quot;') }}', '{{ product_link|replace(\"'\", \"&#39;\")|replace('\"', '&quot;') }}', `{{ (notes or '')|replace('`','\\`') }}`, '{{ pri }}', {{ 'true' if is_gift else 'false' }})">
+      onclick='openEditModal({{ id }}, {{ product_name|tojson }}, {{ product_link|tojson }}, {{ (notes or "")|tojson }}, {{ pri|tojson }}, {{ is_gift|tojson }})'>
       <i class="fas fa-edit"></i>
     </button>
 
     {% if created_by == username %}
-    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm("¿Estás seguro de que quieres eliminar este producto?");">
       <input type="hidden" name="item_id" value="{{ id }}">
       <button type="submit" class="icon-btn" title="Eliminar">
         <i class="fas fa-trash"></i>
@@ -1794,12 +1794,12 @@ select[name="priority"]:active {
     </form>
 
     <button class="icon-btn" title="Editar"
-      onclick="openEditModal({{ id }}, '{{ product_name|replace(\"'\", \"&#39;\")|replace('\"', '&quot;') }}', '{{ product_link|replace(\"'\", \"&#39;\")|replace('\"', '&quot;') }}', `{{ (notes or '')|replace('`','\\`') }}`, '{{ pri }}', {{ 'true' if is_gift else 'false' }})">
+      onclick='openEditModal({{ id }}, {{ product_name|tojson }}, {{ product_link|tojson }}, {{ (notes or "")|tojson }}, {{ pri|tojson }}, {{ is_gift|tojson }})'>
       <i class="fas fa-edit"></i>
     </button>
 
     {% if created_by == username %}
-    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm("¿Estás seguro de que quieres eliminar este producto?");">
       <input type="hidden" name="item_id" value="{{ id }}">
       <button type="submit" class="icon-btn" title="Eliminar">
         <i class="fas fa-trash"></i>
@@ -1841,6 +1841,7 @@ select[name="priority"]:active {
 </div>
 
 </div>
+
 
 <!-- Sección de Viajes -->
 <div class="section animate-in delay-4">

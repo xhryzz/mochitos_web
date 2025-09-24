@@ -103,9 +103,6 @@
     .time-row{ display:flex; gap:8px; align-items:center; justify-content:center; }
     .chips{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
     .chip{ padding:6px 10px; border-radius:999px; border:2px solid #eee; background:#f8f8f8; font-weight:700; cursor:pointer; }
-    .color-options{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
-    .color-option{ width:28px; height:28px; border-radius:50%; border:2px solid transparent; cursor:pointer; }
-    .color-option.selected{ border-color:#222; transform:scale(1.05); }
 
     .form-actions{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:16px; }
     .btn{ padding:10px 14px; border:none; border-radius:999px; font-weight:700; cursor:pointer; }
@@ -118,6 +115,22 @@
     .common-slots-list{ display:grid; gap:8px; margin-top:8px; }
     .common-slot{ padding:10px 12px; border-radius:12px; border:1px solid #eee; background:#fafafa; font-weight:700; }
 
+    /* Menú contextual */
+    .context-menu{
+      position:fixed; top:0; left:0; z-index:1500; display:none;
+      background:#fff; border:1px solid #e6e6e6; border-radius:10px; box-shadow:0 16px 40px rgba(0,0,0,.18);
+      min-width:220px; overflow:hidden;
+    }
+    .context-menu .cm-header{
+      padding:10px 12px; font-weight:800; background:#fafafa; border-bottom:1px solid #eee; font-size:.9rem;
+    }
+    .context-menu button{
+      display:flex; align-items:center; gap:10px; width:100%; text-align:left; border:none; background:#fff; cursor:pointer;
+      padding:10px 12px; font-weight:700;
+    }
+    .context-menu button:hover{ background:#f7f7f7; }
+    .context-menu .cm-sep{ height:1px; background:#eee; margin:4px 0; }
+
     /* Back btn */
     .back-btn{
       position:fixed; top:14px; left:14px; background:#fff; color:var(--primary-color);
@@ -129,6 +142,7 @@
       header h1{ font-size:34px; }
       .hour-cell{ width:72px; }
       .activity{ font-size:.72rem; }
+      .context-menu{ min-width:200px; }
     }
   </style>
 </head>
@@ -220,19 +234,10 @@
         <input type="text" id="activity-text" placeholder="Describe tu actividad">
       </div>
 
-      <div class="form-group">
-        <label>Color</label>
-        <div class="color-options" id="color-options">
-          <div class="color-option selected" style="background:#e84393" data-color="#e84393"></div>
-          <div class="color-option" style="background:#fd79a8" data-color="#fd79a8"></div>
-          <div class="color-option" style="background:#a29bfe" data-color="#a29bfe"></div>
-          <div class="color-option" style="background:#6c5ce7" data-color="#6c5ce7"></div>
-          <div class="color-option" style="background:#00b894" data-color="#00b894"></div>
-          <div class="color-option" style="background:#0984e3" data-color="#0984e3"></div>
-          <div class="color-option" style="background:#ffa502" data-color="#ffa502"></div>
-          <div class="color-option" style="background:#ff7675" data-color="#ff7675"></div>
-          <div class="color-option" style="background:#2d3436" data-color="#2d3436"></div>
-        </div>
+      <!-- PALETA: color libre -->
+      <div class="form-group" style="text-align:center;">
+        <label for="activity-color" style="display:block; margin-bottom:6px; font-weight:700;">Color</label>
+        <input type="color" id="activity-color" value="#e84393" style="width:64px; height:38px; padding:0; border:none; background:transparent; cursor:pointer;"/>
       </div>
 
       <!-- Aplicar a varios días -->
@@ -285,6 +290,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Menú contextual -->
+  <div id="context-menu" class="context-menu" role="menu" aria-hidden="true"></div>
 
 <script>
   // ========================
@@ -439,11 +447,16 @@
         if(currentUser!=='both') td.classList.add('editable');
         if(td.classList.contains('editable')){
           td.addEventListener('click',(e)=>{
-            // Evitar que el click sobre un drag comience modal:
             if(e.target.classList.contains('activity')) return;
-            openEditModal(td);
+            openEditModal(td); // usa currentUser
           });
         }
+
+        // Menú contextual (clic derecho)
+        td.addEventListener('contextmenu', (e)=>{
+          e.preventDefault();
+          openContextMenu(e.clientX, e.clientY, td);
+        });
 
         tr.appendChild(td);
       });
@@ -460,7 +473,6 @@
   function makeActivityBadge(text, color, owner, day, time){
     const d = document.createElement('div');
     d.className='activity'; d.textContent=text; d.style.background=color||'#888';
-    // Drag solo cuando editamos a un usuario específico y pertenece a ese usuario:
     if(currentUser===owner){
       d.setAttribute('draggable','true');
       d.dataset.owner = owner;
@@ -480,7 +492,6 @@
   }
 
   function enableDragAndDrop(){
-    // Solo si se edita a un usuario específico
     if(currentUser==='both') return;
 
     let dragging = null;
@@ -505,23 +516,19 @@
       cell.addEventListener('dragleave',()=> cell.classList.remove('drop-target'));
       cell.addEventListener('drop',()=>{
         if(!dragging) return;
-        const owner = dragging.dataset.owner; // 'mochito' o 'mochita'
-        if(owner!==currentUser) return; // seguridad
+        const owner = dragging.dataset.owner;
+        if(owner!==currentUser) return;
 
         const fromDay  = dragging.dataset.day;
         const fromTime = dragging.dataset.time;
         const toDay    = cell.dataset.day;
         const toTime   = cell.dataset.time;
 
-        // Mover en estructura
         const obj = schedules[owner]?.[fromDay]?.[fromTime];
         if(!obj) return;
 
-        // Si destino existe, lo sobrescribimos:
         if(!schedules[owner][toDay]) schedules[owner][toDay]={};
         schedules[owner][toDay][toTime] = {...obj};
-
-        // Borrar origen
         delete schedules[owner][fromDay][fromTime];
 
         renderTable();
@@ -535,16 +542,15 @@
   function deleteTime(time, userView){
     if(!confirm(`¿Eliminar la hora ${time} de ${userView}?`)) return;
     const key = userView==='mochito' ? 'mochito' : 'mochita';
-    // quitar de custom
     customTimes[key] = customTimes[key].filter(t=> t!==time);
-    // borrar todas las actividades a esa hora
     DAYS.forEach(d=>{
       if(schedules[key]?.[d]?.[time]) delete schedules[key][d][time];
     });
     renderTable();
   }
 
-  function openEditModal(cell){
+  // openEditModal con override opcional de usuario
+  function openEditModal(cell, userOverride){
     selectedCell = cell;
     originalTime = cell.dataset.time;
     $('#activity-day').value = cell.dataset.day;
@@ -553,20 +559,31 @@
     $('#activity-hour').value = h;
     $('#activity-minute').value = m;
 
-    const key = (currentUser==='mochito')?'mochito':'mochita';
-    const exist = schedules[key]?.[cell.dataset.day]?.[originalTime];
+    const key = userOverride || (currentUser==='mochito' ? 'mochito' : (currentUser==='mochita' ? 'mochita' : 'mochito'));
+    const existing = schedules[key]?.[cell.dataset.day]?.[originalTime];
 
-    $('#activity-text').value = exist?.activity || '';
-    selectedColor = exist?.color || '#e84393';
-    // Colores
-    $$('#color-options .color-option').forEach(opt=>{
-      opt.classList.toggle('selected', opt.dataset.color===selectedColor);
-    });
-    // Limpiar checks días adicionales
-    $$('#apply-days .apply-day').forEach(c=> c.checked=false);
+    $('#activity-text').value = existing?.activity || '';
+    selectedColor = existing?.color || '#e84393';
+    $('#activity-color').value = toColorInputValue(selectedColor);
+
     $('#repeat-weekly').checked=false;
+    $$('#apply-days .apply-day').forEach(c=> c.checked=false);
+
+    // Guardamos un flag en el modal para saber con qué user estamos editando
+    $('#event-modal').dataset.user = key;
 
     $('#event-modal').style.display='flex';
+    closeContextMenu();
+  }
+
+  function toColorInputValue(c){
+    // admite formatos #RGB/#RRGGBB; si no, por defecto
+    if(/^#[0-9a-fA-F]{3}$/.test(c)){
+      const r=c[1], g=c[2], b=c[3];
+      return `#${r}${r}${g}${g}${b}${b}`;
+    }
+    if(/^#[0-9a-fA-F]{6}$/.test(c)) return c.toLowerCase();
+    return '#e84393';
   }
 
   function closeEditModal(){ $('#event-modal').style.display='none'; }
@@ -576,7 +593,9 @@
     const h = $('#activity-hour').value, m = $('#activity-minute').value;
     const newTime = fmt(h,m);
     const text = $('#activity-text').value.trim();
-    const key = (currentUser==='mochito')?'mochito':'mochita';
+    const key = $('#event-modal').dataset.user || (currentUser==='mochito'?'mochito':'mochita');
+
+    selectedColor = $('#activity-color').value || '#e84393';
 
     if(!customTimes[key].includes(newTime)){
       customTimes[key].push(newTime);
@@ -584,18 +603,15 @@
     }
     if(!schedules[key][day]) schedules[key][day]={};
 
-    // Si no hay texto => borrar
     if(!text){
       if(schedules[key][day]?.[originalTime]) delete schedules[key][day][originalTime];
     }else{
-      // mover si cambió la hora
       if(originalTime!==newTime && schedules[key][day]?.[originalTime]){
         delete schedules[key][day][originalTime];
       }
       schedules[key][day][newTime] = { activity:text + ( $('#repeat-weekly').checked ? ' ⟲' : '' ), color:selectedColor };
     }
 
-    // Aplicar a otros días si se marcó
     const alsoDays = $$('#apply-days .apply-day:checked').map(c=> c.value).filter(d=> d!==day);
     alsoDays.forEach(d=>{
       if(!schedules[key][d]) schedules[key][d]={};
@@ -606,9 +622,16 @@
     renderTable();
   }
 
+  function deleteActivityFor(userKey, day, time){
+    if(schedules[userKey]?.[day]?.[time]){
+      delete schedules[userKey][day][time];
+      renderTable();
+    }
+  }
+
   function deleteActivity(){
     const day = $('#activity-day').value;
-    const key = (currentUser==='mochito')?'mochito':'mochita';
+    const key = $('#event-modal').dataset.user || (currentUser==='mochito'?'mochito':'mochita');
     if(schedules[key]?.[day]?.[originalTime]){
       delete schedules[key][day][originalTime];
     }
@@ -622,6 +645,7 @@
   function openCommonModal(){
     $('#common-slots-modal').style.display='flex';
     computeCommonSlots();
+    closeContextMenu();
   }
   function closeCommonModal(){ $('#common-slots-modal').style.display='none'; }
 
@@ -635,14 +659,12 @@
     const needN   = Math.max(1, Math.round(minDur/slotMin));
 
     DAYS.forEach(day=>{
-      // ocupado por alguno
       const busy = new Set();
       times.forEach(t=>{
         if( (schedules.mochito?.[day]?.[t]) || (schedules.mochita?.[day]?.[t]) ){
           busy.add(t);
         }
       });
-      // encontrar rachas libres
       let run = [];
       const flush = ()=>{
         if(run.length>=needN){
@@ -698,6 +720,73 @@
   }
 
   // ========================
+  // Menú contextual (clic derecho)
+  // ========================
+  const ctx = $('#context-menu');
+  let ctxCell = null;
+
+  function openContextMenu(x,y,cell){
+    ctxCell = cell;
+    const day  = cell.dataset.day;
+    const time = cell.dataset.time;
+    const hasM = !!(schedules.mochito?.[day]?.[time]);
+    const hasC = !!(schedules.mochita?.[day]?.[time]);
+
+    let html = `<div class="cm-header">${day} · ${time}</div>`;
+
+    const addBtn = (id, icon, text, disabled=false)=>(
+      `<button data-cmd="${id}" ${disabled?'disabled':''} ${disabled?'style="opacity:.5;cursor:not-allowed"':''}>
+         <i class="${icon}"></i> ${text}
+       </button>`
+    );
+
+    if(currentUser==='mochito'){
+      html += addBtn('edit_m','fa-regular fa-pen-to-square','Editar (Mochito)') +
+              addBtn('del_m','fa-regular fa-trash-can','Eliminar (Mochito)', !hasM);
+    }else if(currentUser==='mochita'){
+      html += addBtn('edit_c','fa-regular fa-pen-to-square','Editar (Mochita)') +
+              addBtn('del_c','fa-regular fa-trash-can','Eliminar (Mochita)', !hasC);
+    }else{ // both -> ofrecer opciones para ambos
+      html += addBtn('edit_m','fa-regular fa-pen-to-square','Editar como Mochito') +
+              addBtn('edit_c','fa-regular fa-pen-to-square','Editar como Mochita') +
+              '<div class="cm-sep"></div>' +
+              addBtn('del_m','fa-regular fa-trash-can','Eliminar (Mochito)', !hasM) +
+              addBtn('del_c','fa-regular fa-trash-can','Eliminar (Mochita)', !hasC);
+    }
+
+    ctx.innerHTML = html;
+    ctx.style.display='block';
+    positionContextMenu(x,y);
+
+    // listeners
+    ctx.querySelectorAll('button[data-cmd]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const cmd = btn.dataset.cmd;
+        const d = ctxCell.dataset.day, t = ctxCell.dataset.time;
+        if(cmd==='edit_m') openEditModal(ctxCell, 'mochito');
+        if(cmd==='edit_c') openEditModal(ctxCell, 'mochita');
+        if(cmd==='del_m'){ deleteActivityFor('mochito', d, t); closeContextMenu(); }
+        if(cmd==='del_c'){ deleteActivityFor('mochita', d, t); closeContextMenu(); }
+      });
+    });
+  }
+
+  function positionContextMenu(x,y){
+    const rect = ctx.getBoundingClientRect();
+    const vw = window.innerWidth, vh = window.innerHeight;
+    let left = x, top = y;
+    if(left + rect.width > vw - 8) left = vw - rect.width - 8;
+    if(top  + rect.height > vh - 8) top  = vh - rect.height - 8;
+    ctx.style.left = left + 'px';
+    ctx.style.top  = top  + 'px';
+  }
+
+  function closeContextMenu(){
+    ctx.style.display='none';
+    ctxCell = null;
+  }
+
+  // ========================
   // Listeners UI
   // ========================
   document.addEventListener('DOMContentLoaded', ()=>{
@@ -708,7 +797,7 @@
       b.addEventListener('click',()=>{
         $$('.user-btn').forEach(x=>x.classList.remove('active'));
         b.classList.add('active');
-        currentUser = b.dataset.user; // both | mochito | mochita
+        currentUser = b.dataset.user;
 
         // sincroniza vista
         $$('.view-btn').forEach(x=>x.classList.remove('active'));
@@ -727,19 +816,15 @@
     $$('.view-btn').forEach(b=>{
       b.addEventListener('click',()=>{
         $$('.view-btn').forEach(x=>x.classList.remove('active'));
+        b.addEventListener
         b.classList.add('active');
-        currentView = b.dataset.view; // week | mochito | mochita
+        currentView = b.dataset.view;
         renderTable();
       });
     });
 
-    // Color picker del modal
-    $$('#color-options .color-option').forEach(opt=>{
-      opt.addEventListener('click',()=>{
-        $$('#color-options .color-option').forEach(o=>o.classList.remove('selected'));
-        opt.classList.add('selected'); selectedColor = opt.dataset.color;
-      });
-    });
+    // Paleta color
+    $('#activity-color').addEventListener('input', (e)=>{ selectedColor = e.target.value; });
 
     // Añadir hora
     $('#add-time-btn').addEventListener('click',()=>{
@@ -774,8 +859,17 @@
     $('#btn-export').addEventListener('click', exportJSON);
     $('#import-file').addEventListener('change',(e)=>{
       const f = e.target.files?.[0]; if(f) importJSON(f);
-      e.target.value=''; // reset
+      e.target.value='';
     });
+
+    // Cerrar menú contextual
+    document.addEventListener('click', (e)=>{
+      if(e.target.closest('#context-menu')) return;
+      closeContextMenu();
+    });
+    window.addEventListener('scroll', closeContextMenu, {passive:true});
+    window.addEventListener('resize', closeContextMenu);
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeContextMenu(); });
   });
 </script>
 </body>

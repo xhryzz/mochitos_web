@@ -287,6 +287,15 @@ def init_db():
             except Exception as e:
                 print(f"ALTER wishlist priority: {e}")
 
+                try:
+                c.execute("""
+                    ALTER TABLE wishlist
+                    ADD COLUMN IF NOT EXISTS is_gift BOOLEAN DEFAULT FALSE
+                """)
+                conn.commit()
+            except Exception as e:
+                print(f"ALTER wishlist is_gift: {e}")
+
 
 
 init_db()
@@ -581,18 +590,24 @@ def index():
                     product_name = request.form['product_name'].strip()
                     product_link = request.form.get('product_link', '').strip()
                     notes = request.form.get('wishlist_notes', '').strip()
-                    priority = request.form.get('priority', 'media').strip()  # NUEVO
+                    priority = request.form.get('priority', 'media').strip()
+                    is_gift = bool(request.form.get('is_gift'))  # <-- NUEVO
+
                     if priority not in ('alta', 'media', 'baja'):
                         priority = 'media'
+
                     if product_name:
                         c.execute("""
-                            INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at, is_purchased, priority)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s)
-                        """, (product_name, product_link, notes, user,
+                            INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (
+                            product_name, product_link, notes, user,
                             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            False, priority))
+                            False, priority, is_gift
+                        ))
                         conn.commit()
                     return redirect('/')
+
 
 
             # --- Respuestas ---
@@ -620,9 +635,11 @@ def index():
             travel_photos_dict = {tid: get_travel_photos(tid) for tid, *_ in travels}
 
             # --- Wishlist ---
+                        # --- Wishlist ---
             c.execute("""
                 SELECT id, product_name, product_link, notes, created_by, created_at, is_purchased, 
-                    COALESCE(priority, 'media') AS priority
+                       COALESCE(priority, 'media') AS priority,
+                       COALESCE(is_gift, FALSE) AS is_gift
                 FROM wishlist
                 ORDER BY 
                     is_purchased ASC,
@@ -634,6 +651,7 @@ def index():
                     created_at DESC
             """)
             wishlist_items = c.fetchall()
+
 
 
             banner_file = get_banner()
@@ -775,33 +793,36 @@ def delete_wishlist_item():
 def edit_wishlist_item():
     if 'username' not in session:
         return redirect('/')
-    
+
     try:
         item_id = request.form['item_id']
         product_name = request.form['product_name'].strip()
         product_link = request.form.get('product_link', '').strip()
         notes = request.form.get('notes', '').strip()
-        priority = request.form.get('priority', 'media').strip()  # NUEVO
+        priority = request.form.get('priority', 'media').strip()
+        is_gift = bool(request.form.get('is_gift'))  # <-- NUEVO
+
         if priority not in ('alta', 'media', 'baja'):
             priority = 'media'
-        
+
         if product_name:
             conn = get_db_connection()
             with conn.cursor() as c:
                 c.execute("""
                     UPDATE wishlist 
-                    SET product_name=%s, product_link=%s, notes=%s, priority=%s
+                    SET product_name=%s, product_link=%s, notes=%s, priority=%s, is_gift=%s
                     WHERE id=%s
-                """, (product_name, product_link, notes, priority, item_id))
+                """, (product_name, product_link, notes, priority, is_gift, item_id))
                 conn.commit()
             return redirect('/')
-    
+
     except Exception as e:
         print(f"Error en edit_wishlist_item: {e}")
         return redirect('/')
     finally:
         if 'conn' in locals():
             conn.close()
+
 
 
 # Marcar elemento como comprado/no comprado

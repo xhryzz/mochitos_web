@@ -1350,6 +1350,12 @@ select[name="priority"]:active {
     background-color: white;
 }
 
+.surprise-chip{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 10px; border-radius:999px; font-size:.8rem; font-weight:700;
+  background:#f3e8ff; border:2px solid #c084fc; color:#6b21a8; margin:6px 0 10px 8px;
+}
+.surprise-chip i{ font-size:.9rem; }
 
     </style>
 </head>
@@ -1626,14 +1632,21 @@ select[name="priority"]:active {
     
     <div class="wishlist-content active" id="wanted-tab">
         <div class="wishlist-grid">
-           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority in wishlist_items if not is_purchased %}
+           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_surprise in wishlist_items if not is_purchased %}
+
 <div class="wishlist-card">
   <div class="wishlist-status status-wanted">Deseado</div>
 
   {% set pri = (priority or 'media') %}
-  <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
-    <i class="fas fa-flag"></i> {{ pri|capitalize }}
+<div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
+  <i class="fas fa-flag"></i> {{ pri|capitalize }}
+</div>
+
+{% if is_surprise %}
+  <div class="surprise-chip">
+    <i class="fas fa-gift"></i> Sorpresa
   </div>
+{% endif %}
 
   <h3 class="wishlist-product">{{ product_name }}</h3>
   {% if product_link %}
@@ -1686,7 +1699,7 @@ select[name="priority"]:active {
     
     <div class="wishlist-content" id="purchased-tab">
         <div class="wishlist-grid">
-           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority in wishlist_items if is_purchased %}
+           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_surprise in wishlist_items if is_purchased %}
 <div class="wishlist-card purchased">
   <div class="wishlist-status status-purchased">Comprado</div>
 
@@ -1745,23 +1758,30 @@ select[name="priority"]:active {
     </div>
     
     <div class="wishlist-content" id="add-wishlist-tab">
-        <div class="wishlist-form">
-            <h4>Añadir nuevo producto</h4>
-            <form method="POST">
-                <input type="text" name="product_name" placeholder="Nombre del producto" required>
-                <input type="url" name="product_link" placeholder="Enlace (opcional)">
-                <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
-                <select name="priority" required style="margin-bottom:15px;">
+  <div class="wishlist-form">
+      <h4>Añadir nuevo producto</h4>
+      <form method="POST">
+          <input type="text" name="product_name" placeholder="Nombre del producto" required>
+          <input type="url" name="product_link" placeholder="Enlace (opcional)">
+          <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
+          <select name="priority" required style="margin-bottom:15px;">
   <option value="alta">Prioridad: Alta 🔴</option>
   <option value="media" selected>Prioridad: Media 🟡</option>
   <option value="baja">Prioridad: Baja 🟢</option>
 </select>
 
-                <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
-            </form>
-        </div>
-    </div>
+<!-- NUEVO: marcar como sorpresa (solo la verá quien lo crea) -->
+<label style="display:flex;align-items:center;gap:8px;margin:10px 0 15px;">
+  <input type="checkbox" name="is_surprise">
+  <span>Marcar como sorpresa (solo yo lo veré)</span>
+</label>
+
+<button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
+
+      </form>
+  </div>
 </div>
+
 <!-- Sección de Viajes -->
 <div class="section animate-in delay-4">
     <h3>Nuestros Viajes</h3>

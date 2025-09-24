@@ -1372,71 +1372,7 @@ select[name="priority"]:active {
 .wishlist-card.locked{ filter:none; }
 .wishlist-card.locked .wishlist-actions{ display:none !important; } /* sin acciones para el destinatario */
 
-/* Contenedor */
-#toasts{
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  z-index: 9999;
-  pointer-events: none;
-}
-.toast{
-  pointer-events: auto;
-  min-width: 260px;
-  max-width: 92vw;
-  background: #111827;
-  color: #fff;
-  border-radius: 14px;
-  box-shadow: 0 10px 24px rgba(0,0,0,.25);
-  overflow: hidden;
-  animation: slideIn .25s ease-out;
-}
-.toast.info  { border-left: 6px solid #60a5fa; }
-.toast.success { border-left: 6px solid #34d399; }
-.toast.error { border-left: 6px solid #f87171; }
 
-.toast .toast-content{
-  display:flex; align-items:center; gap:10px;
-  padding: 12px 14px;
-}
-.toast .dot{
-  width:10px; height:10px; border-radius:999px;
-  background:#9ca3af;
-}
-.toast.info .dot{ background:#60a5fa; }
-.toast.success .dot{ background:#34d399; }
-.toast.error .dot{ background:#f87171; }
-.toast .text{ line-height:1.3 }
-.toast .close{
-  margin-left:auto; background:transparent; border:0;
-  color:#fff; font-size:18px; cursor:pointer; opacity:.8;
-}
-.toast .close:hover{ opacity:1 }
-
-.toast .progress{
-  height: 3px;
-  width: 100%;
-  background: rgba(255,255,255,.15);
-  transition: width linear;
-}
-.toast.info .progress{ background: linear-gradient(90deg,#60a5fa,#3b82f6); }
-.toast.success .progress{ background: linear-gradient(90deg,#34d399,#10b981); }
-.toast.error .progress{ background: linear-gradient(90deg,#f87171,#ef4444); }
-
-.toast.closing{
-  animation: fadeOut .25s ease-in forwards;
-}
-
-@keyframes slideIn{
-  from{ transform: translateY(12px); opacity: 0; }
-  to  { transform: translateY(0);   opacity: 1; }
-}
-@keyframes fadeOut{
-  to { transform: translateY(6px); opacity: 0; }
-}
     </style>
 </head>
 
@@ -1450,17 +1386,6 @@ select[name="priority"]:active {
 
 
 <body>
-
-{% with messages = get_flashed_messages(with_categories=true) %}
-<div id="toasts" aria-live="polite" aria-atomic="true"></div>
-{% endwith %}
-
-
-
-
-
-
-
   <!-- Corazones flotantes de fondo -->
   <div class="floating-hearts" id="hearts-container"></div>
 
@@ -2499,46 +2424,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 
-(function () {
-  const msgs = {{ messages|tojson|safe }};
-  const wrap = document.getElementById('toasts');
-  if (!wrap || !Array.isArray(msgs)) return;
 
-  // Crea un toast DOM
-  function makeToast(category, text, idx) {
-    const el = document.createElement('div');
-    el.className = 'toast ' + (category || 'info');
-    el.innerHTML = `
-      <div class="toast-content">
-        <span class="dot"></span>
-        <span class="text">${text}</span>
-        <button class="close" aria-label="Cerrar">&times;</button>
-      </div>
-      <div class="progress"></div>
-    `;
-    // Cerrar manual
-    el.querySelector('.close').addEventListener('click', () => closeToast(el));
-    // Auto-cierre (stagger para que no exploten a la vez)
-    const life = 3500 + (idx * 250);
-    setTimeout(() => closeToast(el), life);
-    // Barra de progreso
-    requestAnimationFrame(() => {
-      el.querySelector('.progress').style.width = '0%';
-    });
-    return el;
-  }
-
-  function closeToast(el) {
-    el.classList.add('closing');
-    el.addEventListener('animationend', () => el.remove(), { once: true });
-  }
-
-  // Pinta toasts
-  msgs.forEach(([cat, txt], i) => {
-    const t = makeToast(cat, txt, i);
-    wrap.appendChild(t);
-  });
-})();
 
 
 

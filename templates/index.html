@@ -1372,14 +1372,99 @@ select[name="priority"]:active {
 .wishlist-card.locked{ filter:none; }
 .wishlist-card.locked .wishlist-actions{ display:none !important; } /* sin acciones para el destinatario */
 
+/* Contenedor */
+#toasts{
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 9999;
+  pointer-events: none;
+}
+.toast{
+  pointer-events: auto;
+  min-width: 260px;
+  max-width: 92vw;
+  background: #111827;
+  color: #fff;
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.25);
+  overflow: hidden;
+  animation: slideIn .25s ease-out;
+}
+.toast.info  { border-left: 6px solid #60a5fa; }
+.toast.success { border-left: 6px solid #34d399; }
+.toast.error { border-left: 6px solid #f87171; }
 
+.toast .toast-content{
+  display:flex; align-items:center; gap:10px;
+  padding: 12px 14px;
+}
+.toast .dot{
+  width:10px; height:10px; border-radius:999px;
+  background:#9ca3af;
+}
+.toast.info .dot{ background:#60a5fa; }
+.toast.success .dot{ background:#34d399; }
+.toast.error .dot{ background:#f87171; }
+.toast .text{ line-height:1.3 }
+.toast .close{
+  margin-left:auto; background:transparent; border:0;
+  color:#fff; font-size:18px; cursor:pointer; opacity:.8;
+}
+.toast .close:hover{ opacity:1 }
+
+.toast .progress{
+  height: 3px;
+  width: 100%;
+  background: rgba(255,255,255,.15);
+  transition: width linear;
+}
+.toast.info .progress{ background: linear-gradient(90deg,#60a5fa,#3b82f6); }
+.toast.success .progress{ background: linear-gradient(90deg,#34d399,#10b981); }
+.toast.error .progress{ background: linear-gradient(90deg,#f87171,#ef4444); }
+
+.toast.closing{
+  animation: fadeOut .25s ease-in forwards;
+}
+
+@keyframes slideIn{
+  from{ transform: translateY(12px); opacity: 0; }
+  to  { transform: translateY(0);   opacity: 1; }
+}
+@keyframes fadeOut{
+  to { transform: translateY(6px); opacity: 0; }
+}
     </style>
 </head>
+
+
+
+
+
+
+
+
+
+
 <body>
-  <!-- Corazones flotantes -->
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+<div id="toasts" aria-live="polite" aria-atomic="true"></div>
+{% endwith %}
+
+
+
+
+
+
+
+  <!-- Corazones flotantes de fondo -->
   <div class="floating-hearts" id="hearts-container"></div>
 
-  <!-- Modal editar wishlist -->
+  <!-- MODAL EDITAR WISHLIST -->
   <div id="editWishlistModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -1397,10 +1482,12 @@ select[name="priority"]:active {
             <option value="baja">Prioridad: Baja 🟢</option>
           </select>
           <textarea name="notes" id="editNotes" placeholder="Notas (opcional)" rows="3"></textarea>
-          <div style="display:flex; align-items:center; gap:10px; margin:6px 0 16px 0;">
+
+          <div style="display:flex; align-items:center; gap:10px; margin: 6px 0 16px 0;">
             <input type="checkbox" id="editIsGift" name="is_gift" style="width:auto;">
             <label for="editIsGift" style="margin:0;">¿Es un regalo? 🎁</label>
           </div>
+
           <button type="submit"><i class="fas fa-save"></i> Guardar cambios</button>
         </form>
       </div>
@@ -1408,26 +1495,7 @@ select[name="priority"]:active {
   </div>
 
   <div class="container">
-  {% if not session.username %}
-    <!-- LOGIN -->
-    <div class="login-container">
-      <div class="login-box animate-in">
-        <h3>Iniciar sesión</h3>
-        {% if login_error %}
-          <div class="error-message">{{ login_error }}</div>
-        {% endif %}
-        <form method="POST">
-          <input type="text" name="username" placeholder="Usuario" required>
-          <input type="password" name="password" placeholder="Contraseña" required>
-          <button type="submit">Entrar <i class="fas fa-arrow-right"></i></button>
-        </form>
-      </div>
-    </div>
-  {% else %}
-
-    <a href="/logout" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
-
-    <!-- Flash messages -->
+    <!-- Mensajes flash (éxito/error) -->
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div style="margin: 10px 0 20px 0;">
@@ -1440,825 +1508,1046 @@ select[name="priority"]:active {
       {% endif %}
     {% endwith %}
 
-    <!-- BANNER -->
-    <div class="section banner animate-in">
-      {% if banner_file %}
-        <img src="{{ banner_file }}" alt="Banner">
-      {% else %}
-        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 450'%3E%3Crect width='1200' height='450' fill='%23ffe8f3'/%3E%3C/svg%3E" alt="Banner por defecto">
-      {% endif %}
-      <div class="banner-overlay">
-        <h1>Christian <span class="heart">❤️</span> Clara</h1>
-        <form method="POST" enctype="multipart/form-data" class="banner-form">
-          <label for="banner-upload" class="custom-file-upload">
-            <i class="fas fa-image"></i> Elegir imagen
-          </label>
-          <input id="banner-upload" type="file" name="banner" accept="image/*" required style="display:none;">
-          <button type="submit"><i class="fas fa-sync-alt"></i> Cambiar banner</button>
+    {% if not session.username %}
+      <!-- LOGIN -->
+      <div class="login-container">
+        <div class="login-box animate-in">
+          <h3>Iniciar sesión</h3>
+          {% if login_error %}
+            <div class="error-message">{{ login_error }}</div>
+          {% endif %}
+          <form method="POST">
+            <input type="text" name="username" placeholder="Usuario" required>
+            <input type="password" name="password" placeholder="Contraseña" required>
+            <button type="submit">Entrar <i class="fas fa-arrow-right"></i></button>
+          </form>
+        </div>
+      </div>
+    {% else %}
+
+      <a href="/logout" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
+
+      <!-- BANNER -->
+      <div class="section banner animate-in">
+        {% if banner_file %}
+          <img src="{{ banner_file }}" alt="Banner">
+        {% else %}
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 450'%3E%3Crect width='1200' height='450' fill='%23ffe8f3'/%3E%3C/svg%3E" alt="Banner por defecto">
+        {% endif %}
+        <div class="banner-overlay">
+          <h1>Christian <span class="heart">❤️</span> Clara</h1>
+          <form method="POST" enctype="multipart/form-data" class="banner-form">
+            <label for="banner-upload" class="custom-file-upload">
+              <i class="fas fa-image"></i> Elegir imagen
+            </label>
+            <input id="banner-upload" type="file" name="banner" accept="image/*" required style="display: none;">
+            <button type="submit"><i class="fas fa-sync-alt"></i> Cambiar banner</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- PERFIL (icono) -->
+      <div class="settings-icon" id="settingsIcon">
+        <i class="fas fa-user-cog"></i>
+      </div>
+
+      <!-- MODAL PERFIL -->
+      <div id="profileModal" class="modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Mi Perfil</h2>
+            <span class="close-modal">&times;</span>
+          </div>
+          <div class="modal-body">
+            <!-- Perfil: avatar + saludo -->
+            <div class="profile-section">
+              {% if profile_pictures[session.username] %}
+                <img src="{{ profile_pictures[session.username] }}" alt="Foto de perfil" class="profile-picture">
+              {% else %}
+                <div class="profile-picture" style="background: var(--gradient); display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; font-weight: bold;">
+                  {{ session.username[0]|upper }}
+                </div>
+              {% endif %}
+              <div>
+                <h4>Hola, {{ session.username }}</h4>
+                <p>Actualiza tu foto o cambia tu contraseña.</p>
+              </div>
+            </div>
+
+            <!-- FORM: Cambiar foto -->
+            <form method="POST" enctype="multipart/form-data" class="profile-form" style="margin-bottom: 20px;">
+              <label for="profile-upload" class="custom-file-upload">
+                <i class="fas fa-user-circle"></i> Elegir foto de perfil
+              </label>
+              <input id="profile-upload" type="file" name="profile_picture" accept="image/*" style="display: none;">
+              <button type="submit" name="update_profile"><i class="fas fa-sync-alt"></i> Actualizar foto</button>
+            </form>
+
+            <hr style="border:none;border-top:1px solid #eee;margin: 10px 0 20px 0;">
+
+            <!-- FORM: Cambiar contraseña -->
+            <form method="POST" class="profile-form">
+              <input type="hidden" name="change_password" value="1">
+
+              <input type="password" name="current_password" placeholder="Contraseña actual" required>
+              <input type="password" name="new_password" placeholder="Nueva contraseña" required>
+              <input type="password" name="confirm_password" placeholder="Repite la nueva contraseña" required>
+
+              <button type="submit">
+                <i class="fas fa-lock"></i> Cambiar contraseña
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contadores -->
+      <div class="section animate-in delay-1">
+        <h3>Nosotros</h3>
+        <div class="counters">
+          <div class="counter-item">
+            <h4>Días juntos</h4>
+            <p>{{ days_together }}</p>
+          </div>
+          {% if days_until_meeting is not none %}
+          <div class="counter-item">
+            <h4>Días hasta vernos</h4>
+            <p>{{ days_until_meeting }}</p>
+          </div>
+          {% endif %}
+        </div>
+        <form method="POST" class="inline-form">
+          <input type="date" name="meeting_date" required>
+          <button type="submit"><i class="fas fa-calendar-alt"></i> Actualizar fecha</button>
         </form>
       </div>
-    </div>
 
-    <!-- PERFIL -->
-    <div class="settings-icon" id="settingsIcon">
-      <i class="fas fa-user-cog"></i>
-    </div>
+      <!-- Mapa de Distancia -->
+      <div class="section animate-in delay-2">
+        <h3>Distancia</h3>
+        <p>Cuánta distancia hay entre nosotros.</p>
 
-    <div id="profileModal" class="modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>Mi Perfil</h2>
-          <span class="close-modal">&times;</span>
-        </div>
-        <div class="modal-body">
-          <div class="profile-section">
-            {% if profile_pictures.get(session.username) %}
-              <img src="{{ profile_pictures.get(session.username) }}" alt="Foto de perfil" class="profile-picture">
-            {% else %}
-              <div class="profile-picture" style="background: var(--gradient); display:flex; align-items:center; justify-content:center; color:white; font-size:2rem; font-weight:bold;">
-                {{ session.username[0]|upper }}
-              </div>
-            {% endif %}
-            <div>
-              <h4>Hola, {{ session.username }}</h4>
-              <p>Actualiza tu foto o cambia tu contraseña.</p>
-            </div>
-          </div>
-
-          <!-- Cambiar foto -->
-          <form method="POST" enctype="multipart/form-data" class="profile-form" style="margin-bottom:20px;">
-            <label for="profile-upload" class="custom-file-upload">
-              <i class="fas fa-user-circle"></i> Elegir foto de perfil
-            </label>
-            <input id="profile-upload" type="file" name="profile_picture" accept="image/*" style="display:none;">
-            <button type="submit" name="update_profile"><i class="fas fa-sync-alt"></i> Actualizar foto</button>
-          </form>
-
-          <hr style="border:none;border-top:1px solid #eee;margin:10px 0 20px 0;">
-
-          <!-- Cambiar contraseña -->
-          <form method="POST" class="profile-form">
-            <input type="hidden" name="change_password" value="1">
-            <input type="password" name="current_password" placeholder="Contraseña actual" required>
-            <input type="password" name="new_password" placeholder="Nueva contraseña" required>
-            <input type="password" name="confirm_password" placeholder="Repite la nueva contraseña" required>
-            <button type="submit"><i class="fas fa-lock"></i> Cambiar contraseña</button>
-          </form>
-        </div>
-      </div>
-    </div>
-
-    <!-- Contadores -->
-    <div class="section animate-in delay-1">
-      <h3>Nosotros</h3>
-      <div class="counters">
-        <div class="counter-item">
-          <h4>Días juntos</h4>
-          <p>{{ days_together }}</p>
-        </div>
-        {% if days_until_meeting is not none %}
-        <div class="counter-item">
-          <h4>Días hasta vernos</h4>
-          <p>{{ days_until_meeting }}</p>
-        </div>
-        {% endif %}
-      </div>
-      <form method="POST" class="inline-form">
-        <input type="date" name="meeting_date" required>
-        <button type="submit"><i class="fas fa-calendar-alt"></i> Actualizar fecha</button>
-      </form>
-    </div>
-
-    <!-- Distancia -->
-    <div class="section animate-in delay-2">
-      <h3>Distancia</h3>
-      <p>Cuánta distancia hay entre nosotros.</p>
-      <div class="distance-map-container">
-        <div id="distanceMap"></div>
-        <div class="distance-info">
-          <h4>Distancia entre nosotros</h4>
-          <div class="distance-value" id="distanceValue">Cargando...</div>
-          <div id="locationInfo">
-            <div class="location-badge">
-              {% if profile_pictures.get('mochito') %}
-                <img src="{{ profile_pictures.get('mochito') }}" alt="Christian">
-              {% else %}
-                <span>C</span>
-              {% endif %}
-              <span id="christianLocation">Algemesí, Valencia</span>
-            </div>
-            <div class="location-badge">
-              {% if profile_pictures.get('mochita') %}
-                <img src="{{ profile_pictures.get('mochita') }}" alt="Clara">
-              {% else %}
-                <span>C</span>
-              {% endif %}
-              <span id="claraLocation">Córdoba</span>
-            </div>
-          </div>
-          <form class="location-form" id="locationForm">
-            <input type="text" id="userLocation" placeholder="Tu ubicación actual" required>
-            <button type="submit"><i class="fas fa-map-marker-alt"></i> Actualizar ubicación</button>
-          </form>
-        </div>
-      </div>
-    </div>
-
-    <!-- Horarios -->
-    <div class="section animate-in delay-2">
-      <h3>Nuestros Horarios</h3>
-      <p>Nuestros horarios y activiades (editables).</p>
-      <a href="/horario">
-        <button style="width:100%;"><i class="fas fa-calendar-alt"></i> Ver Horarios</button>
-      </a>
-    </div>
-
-    <!-- Pregunta del día -->
-    <div class="section animate-in delay-2">
-      <h3>Pregunta del día</h3>
-      <p class="question"><b>{{ question }}</b></p>
-
-      <div class="streak-badges">
-        <div class="streak-badge"><i class="fas fa-fire"></i> Racha actual: {{ current_streak }} día{% if current_streak != 1 %}s{% endif %}</div>
-        <div class="streak-badge best"><i class="fas fa-trophy"></i> Mejor racha: {{ best_streak }} día{% if best_streak != 1 %}s{% endif %}</div>
-      </div>
-
-      {% if show_answers %}
-        <div class="answers">
-          {% for u, a in answers %}
-          <div class="answer-item">
-            <div class="user-avatar">
-              {% if profile_pictures.get(u) %}
-                <img src="{{ profile_pictures.get(u) }}" alt="{{ u }}">
-              {% else %}
-                {{ u[0]|upper }}
-              {% endif %}
-            </div>
-            <div><b>{{ u }}:</b> <span class="answer-text">{{ a }}</span></div>
-          </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        {% if user_answer and not other_answer %}
-          <div class="answers">
-            <div class="answer-item">
-              <div class="user-avatar">
-                {% if profile_pictures.get(username) %}
-                  <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+        <div class="distance-map-container">
+          <div id="distanceMap"></div>
+          <div class="distance-info">
+            <h4>Distancia entre nosotros</h4>
+            <div class="distance-value" id="distanceValue">Cargando...</div>
+            <div id="locationInfo">
+              <div class="location-badge">
+                {% if profile_pictures['mochito'] %}
+                  <img src="{{ profile_pictures['mochito'] }}" alt="Christian">
                 {% else %}
-                  {{ username[0]|upper }}
+                  <span>C</span>
                 {% endif %}
+                <span id="christianLocation">Algemesí, Valencia</span>
               </div>
-              <div><b>Tú:</b> <span class="answer-text">{{ user_answer }}</span></div>
-            </div>
-          </div>
-          <p style="margin-top:10px;">Aún falta la respuesta de <b>{{ other_user }}</b> 🕒</p>
-        {% elif (not user_answer) and other_answer %}
-          <form method="POST" class="inline-form" style="margin-bottom:15px;">
-            <input type="text" name="answer" placeholder="Tu respuesta..." required>
-            <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-          </form>
-          <div class="answers">
-            <div class="answer-item blurred">
-              <div class="user-avatar">
-                {% if profile_pictures.get(other_user) %}
-                  <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+              <div class="location-badge">
+                {% if profile_pictures['mochita'] %}
+                  <img src="{{ profile_pictures['mochita'] }}" alt="Clara">
                 {% else %}
-                  {{ other_user[0]|upper }}
+                  <span>C</span>
                 {% endif %}
-              </div>
-              <div>
-                <b>{{ other_user }}:</b>
-                <span class="answer-text">{{ other_answer }}</span>
-                <div class="blur-hint">Responde para desbloquear</div>
+                <span id="claraLocation">Córdoba</span>
               </div>
             </div>
+
+            <form class="location-form" id="locationForm">
+              <input type="text" id="userLocation" placeholder="Tu ubicación actual" required>
+              <button type="submit"><i class="fas fa-map-marker-alt"></i> Actualizar ubicación</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Horarios -->
+      <div class="section animate-in delay-2">
+        <h3>Nuestros Horarios</h3>
+        <p>Nuestros horarios y activiades (editables).</p>
+        <a href="/horario">
+          <button style="width: 100%;">
+            <i class="fas fa-calendar-alt"></i> Ver Horarios
+          </button>
+        </a>
+      </div>
+
+      <!-- Pregunta diaria -->
+      <div class="section animate-in delay-2">
+        <h3>Pregunta del día</h3>
+        <p class="question"><b>{{ question }}</b></p>
+
+        <div class="streak-badges">
+          <div class="streak-badge">
+            <i class="fas fa-fire"></i>
+            Racha actual: {{ current_streak }} día{% if current_streak != 1 %}s{% endif %}
+          </div>
+          <div class="streak-badge best">
+            <i class="fas fa-trophy"></i>
+            Mejor racha: {{ best_streak }} día{% if best_streak != 1 %}s{% endif %}
+          </div>
+        </div>
+
+        {% if show_answers %}
+          <!-- Ambos respondieron -->
+          <div class="answers">
+            {% for u, a in answers %}
+              <div class="answer-item">
+                <div class="user-avatar">
+                  {% if profile_pictures[u] %}
+                    <img src="{{ profile_pictures[u] }}" alt="{{ u }}">
+                  {% else %}
+                    {{ u[0]|upper }}
+                  {% endif %}
+                </div>
+                <div><b>{{ u }}:</b> <span class="answer-text">{{ a }}</span></div>
+              </div>
+            {% endfor %}
           </div>
         {% else %}
-          <form method="POST" class="inline-form">
-            <input type="text" name="answer" placeholder="Tu respuesta..." required>
-            <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-          </form>
+          {% if user_answer and not other_answer %}
+            <!-- Yo ya contesté -->
+            <div class="answers">
+              <div class="answer-item">
+                <div class="user-avatar">
+                  {% if profile_pictures[username] %}
+                    <img src="{{ profile_pictures[username] }}" alt="{{ username }}">
+                  {% else %}
+                    {{ username[0]|upper }}
+                  {% endif %}
+                </div>
+                <div><b>Tú:</b> <span class="answer-text">{{ user_answer }}</span></div>
+              </div>
+            </div>
+            <p style="margin-top:10px;">Aún falta la respuesta de <b>{{ other_user }}</b> 🕒</p>
+
+          {% elif (not user_answer) and other_answer %}
+            <!-- La otra persona ya contestó, yo no -->
+            <form method="POST" class="inline-form" style="margin-bottom:15px;">
+              <input type="text" name="answer" placeholder="Tu respuesta..." required>
+              <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+            </form>
+
+            <div class="answers">
+              <div class="answer-item blurred">
+                <div class="user-avatar">
+                  {% if profile_pictures[other_user] %}
+                    <img src="{{ profile_pictures[other_user] }}" alt="{{ other_user }}">
+                  {% else %}
+                    {{ other_user[0]|upper }}
+                  {% endif %}
+                </div>
+                <div>
+                  <b>{{ other_user }}:</b>
+                  <span class="answer-text">{{ other_answer }}</span>
+                  <div class="blur-hint">Responde para desbloquear</div>
+                </div>
+              </div>
+            </div>
+
+          {% else %}
+            <!-- Nadie ha contestado -->
+            <form method="POST" class="inline-form">
+              <input type="text" name="answer" placeholder="Tu respuesta..." required>
+              <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+            </form>
+          {% endif %}
         {% endif %}
-      {% endif %}
-    </div>
-
-    <!-- Wishlist -->
-    <div class="section animate-in delay-3">
-      <h3>Nuestra Lista de Deseos</h3>
-      <p>Cosas que nos gustaría tener o regalarnos mutuamente.</p>
-
-      <div class="wishlist-tabs" id="wishlist-tabs-container">
-        <div class="wishlist-tab active" data-tab="wanted">Deseados</div>
-        <div class="wishlist-tab" data-tab="purchased">Comprados</div>
-        <div class="wishlist-tab" data-tab="add-wishlist">Añadir Deseo</div>
       </div>
 
-      <div class="wishlist-content active" id="wanted-tab">
-        <div class="wishlist-grid">
-          {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift in wishlist_items if not is_purchased %}
-          {% set pri = (priority or 'media') %}
-          {% set soy_creador = (created_by == username) %}
-          {% set oculto_para_mi = (is_gift and not soy_creador) %}
+      <!-- Lista de deseos -->
+      <div class="section animate-in delay-3">
+        <h3>Nuestra Lista de Deseos</h3>
+        <p>Cosas que nos gustaría tener o regalarnos mutuamente.</p>
 
-          <div class="wishlist-card {% if oculto_para_mi %}locked{% endif %}">
-            <div class="wishlist-status status-wanted">Deseado</div>
+        <div class="wishlist-tabs" id="wishlist-tabs-container">
+          <div class="wishlist-tab active" data-tab="wanted">Deseados</div>
+          <div class="wishlist-tab" data-tab="purchased">Comprados</div>
+          <div class="wishlist-tab" data-tab="add-wishlist">Añadir Deseo</div>
+        </div>
 
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
-                <i class="fas fa-flag"></i> {{ pri|capitalize }}
-              </div>
-              {% if is_gift %}
-                <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
-              {% endif %}
-            </div>
+        <!-- Deseados -->
+        <div class="wishlist-content active" id="wanted-tab">
+          <div class="wishlist-grid">
+            {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift in wishlist_items if not is_purchased %}
+              {% set pri = (priority or 'media') %}
+              {% set soy_creador = (created_by == username) %}
+              {% set oculto_para_mi = (is_gift and not soy_creador) %}
 
-            {% if oculto_para_mi %}
-              <div class="gift-mask">
-                🎁 <div>¡Esto es un regalo para ti!</div>
-                <small>Los detalles están ocultos para mantener la sorpresa.</small>
-              </div>
-            {% else %}
-              <h3 class="wishlist-product">{{ product_name }}</h3>
-              {% if product_link %}
-                <a href="{{ product_link }}" target="_blank" class="wishlist-link">
-                  <i class="fas fa-link"></i> Ver producto
-                </a>
-              {% endif %}
-              {% if notes %}
-                <p class="wishlist-notes">{{ notes }}</p>
-              {% endif %}
-            {% endif %}
+              <div class="wishlist-card {% if oculto_para_mi %}locked{% endif %}">
+                <div class="wishlist-status status-wanted">Deseado</div>
 
-            <div class="wishlist-meta">
-              <span>
-                <div class="user-avatar" style="width:20px; height:20px; display:inline-block; vertical-align:middle; margin-right:5px;">
-                  {% if profile_pictures.get(created_by) %}
-                    <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
-                  {% else %}
-                    {{ created_by[0]|upper }}
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
+                    <i class="fas fa-flag"></i> {{ pri|capitalize }}
+                  </div>
+                  {% if is_gift %}
+                    <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
                   {% endif %}
                 </div>
-                Creado por {{ created_by }}
-              </span>
-              <span>{{ created_at[:10] }}</span>
-            </div>
 
-            {% if not oculto_para_mi %}
-            <div class="wishlist-actions">
-              <form method="POST" action="/toggle_wishlist_status">
-                <input type="hidden" name="item_id" value="{{ id }}">
-                <button type="submit" class="icon-btn" title="Marcar como comprado">
-                  <i class="fas fa-check"></i>
-                </button>
-              </form>
+                {% if oculto_para_mi %}
+                  <div class="gift-mask">
+                    🎁 <div>¡Esto es un regalo para ti!</div>
+                    <small>Los detalles están ocultos para mantener la sorpresa.</small>
+                  </div>
+                {% else %}
+                  <h3 class="wishlist-product">{{ product_name }}</h3>
+                  {% if product_link %}
+                    <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+                      <i class="fas fa-link"></i> Ver producto
+                    </a>
+                  {% endif %}
+                  {% if notes %}
+                    <p class="wishlist-notes">{{ notes }}</p>
+                  {% endif %}
+                {% endif %}
 
-              <button class="icon-btn" title="Editar"
-                onclick='openEditModal({{ id }}, {{ product_name|tojson }}, {{ product_link|tojson }}, {{ (notes or "")|tojson }}, {{ pri|tojson }}, {{ is_gift|tojson }})'>
-                <i class="fas fa-edit"></i>
-              </button>
+                <div class="wishlist-meta">
+                  <span>
+                    <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                      {% if profile_pictures[created_by] %}
+                        <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                      {% else %}
+                        {{ created_by[0]|upper }}
+                      {% endif %}
+                    </div>
+                    Creado por {{ created_by }}
+                  </span>
+                  <span>{{ created_at[:10] }}</span>
+                </div>
 
-              {% if created_by == username %}
-              <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
-                <input type="hidden" name="item_id" value="{{ id }}">
-                <button type="submit" class="icon-btn" title="Eliminar">
-                  <i class="fas fa-trash"></i>
-                </button>
-              </form>
-              {% endif %}
-            </div>
-            {% endif %}
-          </div>
-          {% else %}
-            <p>No hay productos en tu lista de deseos. ¡Añade el primero!</p>
-          {% endfor %}
-        </div>
-      </div>
+                {% if not oculto_para_mi %}
+                <div class="wishlist-actions">
+                  <form method="POST" action="/toggle_wishlist_status">
+                    <input type="hidden" name="item_id" value="{{ id }}">
+                    <button type="submit" class="icon-btn" title="Marcar como comprado">
+                      <i class="fas fa-check"></i>
+                    </button>
+                  </form>
 
-      <div class="wishlist-content" id="purchased-tab">
-        <div class="wishlist-grid">
-          {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift in wishlist_items if is_purchased %}
-          {% set pri = (priority or 'media') %}
-          {% set soy_creador = (created_by == username) %}
-          {% set oculto_para_mi = (is_gift and not soy_creador) %}
+                  <button class="icon-btn" title="Editar"
+                          onclick='openEditModal({{ id }}, {{ product_name|tojson }}, {{ product_link|tojson }}, {{ (notes or "")|tojson }}, {{ pri|tojson }}, {{ is_gift|tojson }})'>
+                    <i class="fas fa-edit"></i>
+                  </button>
 
-          <div class="wishlist-card purchased {% if oculto_para_mi %}locked{% endif %}">
-            <div class="wishlist-status status-purchased">Comprado</div>
-
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
-                <i class="fas fa-flag"></i> {{ pri|capitalize }}
-              </div>
-              {% if is_gift %}
-                <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
-              {% endif %}
-            </div>
-
-            {% if oculto_para_mi %}
-              <div class="gift-mask">
-                🎁 <div>¡Esto es (o era) un regalo para ti!</div>
-                <small>Detalles ocultos para mantener la sorpresa.</small>
-              </div>
-            {% else %}
-              <h3 class="wishlist-product">{{ product_name }}</h3>
-              {% if product_link %}
-                <a href="{{ product_link }}" target="_blank" class="wishlist-link">
-                  <i class="fas fa-link"></i> Ver producto
-                </a>
-              {% endif %}
-              {% if notes %}
-                <p class="wishlist-notes">{{ notes }}</p>
-              {% endif %}
-            {% endif %}
-
-            <div class="wishlist-meta">
-              <span>
-                <div class="user-avatar" style="width:20px; height:20px; display:inline-block; vertical-align:middle; margin-right:5px;">
-                  {% if profile_pictures.get(created_by) %}
-                    <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
-                  {% else %}
-                    {{ created_by[0]|upper }}
+                  {% if created_by == username %}
+                  <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+                    <input type="hidden" name="item_id" value="{{ id }}">
+                    <button type="submit" class="icon-btn" title="Eliminar">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </form>
                   {% endif %}
                 </div>
-                Creado por {{ created_by }}
-              </span>
-              <span>{{ created_at[:10] }}</span>
-            </div>
-
-            {% if not oculto_para_mi %}
-            <div class="wishlist-actions">
-              <form method="POST" action="/toggle_wishlist_status">
-                <input type="hidden" name="item_id" value="{{ id }}">
-                <button type="submit" class="icon-btn" title="Marcar como no comprado">
-                  <i class="fas fa-undo"></i>
-                </button>
-              </form>
-
-              <button class="icon-btn" title="Editar"
-                onclick='openEditModal({{ id }}, {{ product_name|tojson }}, {{ product_link|tojson }}, {{ (notes or "")|tojson }}, {{ pri|tojson }}, {{ is_gift|tojson }})'>
-                <i class="fas fa-edit"></i>
-              </button>
-
-              {% if created_by == username %}
-              <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm("¿Estás seguro de que quieres eliminar este producto?");">
-                <input type="hidden" name="item_id" value="{{ id }}">
-                <button type="submit" class="icon-btn" title="Eliminar">
-                  <i class="fas fa-trash"></i>
-                </button>
-              </form>
-              {% endif %}
-            </div>
-            {% endif %}
-          </div>
-          {% else %}
-            <p>No hay productos comprados todavía.</p>
-          {% endfor %}
-        </div>
-      </div>
-
-      <div class="wishlist-content" id="add-wishlist-tab">
-        <div class="wishlist-form">
-          <h4>Añadir nuevo producto</h4>
-          <form method="POST">
-            <input type="text" name="product_name" placeholder="Nombre del producto" required>
-            <input type="url" name="product_link" placeholder="Enlace (opcional)">
-            <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
-            <select name="priority" required style="margin-bottom:15px;">
-              <option value="alta">Prioridad: Alta 🔴</option>
-              <option value="media" selected>Prioridad: Media 🟡</option>
-              <option value="baja">Prioridad: Baja 🟢</option>
-            </select>
-            <div style="display:flex; align-items:center; gap:10px; margin:6px 0 16px 0;">
-              <input type="checkbox" id="is_gift" name="is_gift" style="width:auto;">
-              <label for="is_gift" style="margin:0;">¿Es un regalo (ocultar a la otra persona)? 🎁</label>
-            </div>
-            <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
-          </form>
-        </div>
-      </div>
-    </div>
-
-    <!-- Viajes -->
-    <div class="section animate-in delay-4">
-      <h3>Nuestros Viajes</h3>
-      <p>Lugares que hemos visitado y destinos que soñamos conocer juntos.</p>
-
-      <div class="travel-tabs" id="travel-tabs-container">
-        <div class="travel-tab active" data-tab="visited">Lugares Visitados</div>
-        <div class="travel-tab" data-tab="wishlist-travel">Quiero Ir</div>
-        <div class="travel-tab" data-tab="add-travel">Añadir Viaje</div>
-      </div>
-
-      <div class="travel-content active" id="visited-tab">
-        <div class="travels-grid">
-          {% for id, destination, description, travel_date, is_visited, created_by in travels if is_visited %}
-          <div class="travel-card visited">
-            <div class="travel-cover">
-              {% if travel_photos_dict[id] %}
-                <div class="travel-photos">
-                  {% for photo in travel_photos_dict[id] %}
-                    <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
-                  {% endfor %}
-                </div>
-              {% else %}
-                <div class="empty-album" style="display:flex; align-items:center; justify-content:center; height:100%; color:#aaa;">
-                  <i class="fas fa-map-marker-alt"></i>
-                </div>
-              {% endif %}
-              <div class="travel-status status-visited">Visitado</div>
-            </div>
-            <div class="travel-info">
-              <h3 class="travel-destination">{{ destination }}</h3>
-              {% if travel_date %}<p class="travel-date">{{ travel_date }}</p>{% endif %}
-              {% if description %}<p class="travel-description">{{ description }}</p>{% endif %}
-              <div class="travel-meta">
-                <span>{{ travel_photos_dict[id]|length }} fotos</span>
-                <span>
-                  <div class="user-avatar" style="width:20px; height:20px; display:inline-block; vertical-align:middle; margin-right:5px;">
-                    {% if profile_pictures.get(created_by) %}
-                      <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
-                    {% else %}
-                      {{ created_by[0]|upper }}
-                    {% endif %}
-                  </div>
-                  Creado por {{ created_by }}
-                </span>
+                {% endif %}
               </div>
-              <div class="travel-actions">
-                <form method="POST" action="/toggle_travel_status">
-                  <input type="hidden" name="travel_id" value="{{ id }}">
-                  <button type="submit" class="icon-btn" title="Mover a deseados">
-                    <i class="fas fa-heart"></i>
-                  </button>
-                </form>
+            {% else %}
+              <p>No hay productos en tu lista de deseos. ¡Añade el primero!</p>
+            {% endfor %}
+          </div>
+        </div>
 
-                <button type="button" class="icon-btn plus" title="Añadir foto" onclick="togglePhotoMenu('visited-{{ id }}')">
-                  <i class="fas fa-plus"></i>
-                </button>
+        <!-- Comprados -->
+        <div class="wishlist-content" id="purchased-tab">
+          <div class="wishlist-grid">
+            {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift in wishlist_items if is_purchased %}
+              {% set pri = (priority or 'media') %}
+              {% set soy_creador = (created_by == username) %}
+              {% set oculto_para_mi = (is_gift and not soy_creador) %}
 
-                <div class="photo-popover" id="photo-popover-visited-{{ id }}">
-                  <div class="photo-popover-header">
-                    <div class="photo-popover-title">Añadir foto por enlace</div>
-                    <button type="button" class="close-btn" onclick="togglePhotoMenu('visited-{{ id }}')">
-                      <i class="fas fa-times"></i>
+              <div class="wishlist-card purchased {% if oculto_para_mi %}locked{% endif %}">
+                <div class="wishlist-status status-purchased">Comprado</div>
+
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
+                    <i class="fas fa-flag"></i> {{ pri|capitalize }}
+                  </div>
+                  {% if is_gift %}
+                    <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
+                  {% endif %}
+                </div>
+
+                {% if oculto_para_mi %}
+                  <div class="gift-mask">
+                    🎁 <div>¡Esto es (o era) un regalo para ti!</div>
+                    <small>Detalles ocultos para mantener la sorpresa.</small>
+                  </div>
+                {% else %}
+                  <h3 class="wishlist-product">{{ product_name }}</h3>
+                  {% if product_link %}
+                    <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+                      <i class="fas fa-link"></i> Ver producto
+                    </a>
+                  {% endif %}
+                  {% if notes %}
+                    <p class="wishlist-notes">{{ notes }}</p>
+                  {% endif %}
+                {% endif %}
+
+                <div class="wishlist-meta">
+                  <span>
+                    <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                      {% if profile_pictures[created_by] %}
+                        <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                      {% else %}
+                        {{ created_by[0]|upper }}
+                      {% endif %}
+                    </div>
+                    Creado por {{ created_by }}
+                  </span>
+                  <span>{{ created_at[:10] }}</span>
+                </div>
+
+                {% if not oculto_para_mi %}
+                <div class="wishlist-actions">
+                  <form method="POST" action="/toggle_wishlist_status">
+                    <input type="hidden" name="item_id" value="{{ id }}">
+                    <button type="submit" class="icon-btn" title="Marcar como no comprado">
+                      <i class="fas fa-undo"></i>
                     </button>
-                  </div>
-                  <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('visited-{{ id }}')">
-                    <input type="hidden" name="travel_id" value="{{ id }}">
-                    <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
-                    <button type="submit" class="button"><i class="fas fa-check"></i> Guardar</button>
                   </form>
-                  <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
-                </div>
 
-                <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
-                  <input type="hidden" name="travel_id" value="{{ id }}">
-                  <button type="submit" class="icon-btn" title="Eliminar viaje">
-                    <i class="fas fa-trash"></i>
+                  <button class="icon-btn" title="Editar"
+                          onclick='openEditModal({{ id }}, {{ product_name|tojson }}, {{ product_link|tojson }}, {{ (notes or "")|tojson }}, {{ pri|tojson }}, {{ is_gift|tojson }})'>
+                    <i class="fas fa-edit"></i>
                   </button>
-                </form>
-              </div>
-            </div>
-          </div>
-          {% else %}
-            <p>No hay lugares visitados todavía. ¡Añade el primero!</p>
-          {% endfor %}
-        </div>
-      </div>
 
-      <div class="travel-content" id="wishlist-travel-tab">
-        <div class="travels-grid">
-          {% for id, destination, description, travel_date, is_visited, created_by in travels if not is_visited %}
-          <div class="travel-card wishlist">
-            <div class="travel-cover">
-              {% if travel_photos_dict[id] %}
-                <div class="travel-photos">
-                  {% for photo in travel_photos_dict[id] %}
-                    <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
-                  {% endfor %}
-                </div>
-              {% else %}
-                <div class="empty-album" style="display:flex; align-items:center; justify-content:center; height:100%; color:#aaa;">
-                  <i class="fas fa-map-marker-alt"></i>
-                </div>
-              {% endif %}
-              <div class="travel-status status-wishlist">Deseado</div>
-            </div>
-            <div class="travel-info">
-              <h3 class="travel-destination">{{ destination }}</h3>
-              {% if description %}<p class="travel-description">{{ description }}</p>{% endif %}
-              <div class="travel-meta">
-                <span>{{ travel_photos_dict[id]|length }} fotos</span>
-                <span>
-                  <div class="user-avatar" style="width:20px; height:20px; display:inline-block; vertical-align:middle; margin-right:5px;">
-                    {% if profile_pictures.get(created_by) %}
-                      <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
-                    {% else %}
-                      {{ created_by[0]|upper }}
-                    {% endif %}
-                  </div>
-                  Creado por {{ created_by }}
-                </span>
-              </div>
-              <div class="travel-actions">
-                <form method="POST" action="/toggle_travel_status">
-                  <input type="hidden" name="travel_id" value="{{ id }}">
-                  <button type="submit" class="icon-btn" title="Marcar como visitado">
-                    <i class="fas fa-check"></i>
-                  </button>
-                </form>
-
-                <button type="button" class="icon-btn plus" title="Añadir foto" onclick="togglePhotoMenu('wish-{{ id }}')">
-                  <i class="fas fa-plus"></i>
-                </button>
-
-                <div class="photo-popover" id="photo-popover-wish-{{ id }}">
-                  <div class="photo-popover-header">
-                    <div class="photo-popover-title">Añadir foto por enlace</div>
-                    <button type="button" class="close-btn" onclick="togglePhotoMenu('wish-{{ id }}')">
-                      <i class="fas fa-times"></i>
+                  {% if created_by == username %}
+                  <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+                    <input type="hidden" name="item_id" value="{{ id }}">
+                    <button type="submit" class="icon-btn" title="Eliminar">
+                      <i class="fas fa-trash"></i>
                     </button>
-                  </div>
-                  <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('wish-{{ id }}')">
-                    <input type="hidden" name="travel_id" value="{{ id }}">
-                    <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
-                    <button type="submit" class="button"><i class="fas fa-check"></i> Guardar</button>
                   </form>
-                  <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
+                  {% endif %}
                 </div>
-
-                <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
-                  <input type="hidden" name="travel_id" value="{{ id }}">
-                  <button type="submit" class="icon-btn" title="Eliminar viaje">
-                    <i class="fas fa-trash"></i>
-                  </button>
-                </form>
+                {% endif %}
               </div>
-            </div>
+            {% else %}
+              <p>No hay productos comprados todavía.</p>
+            {% endfor %}
           </div>
-          {% else %}
-            <p>No hay destinos en tu lista de deseos. ¡Añade el primero!</p>
-          {% endfor %}
+        </div>
+
+        <!-- Añadir deseo -->
+        <div class="wishlist-content" id="add-wishlist-tab">
+          <div class="wishlist-form">
+            <h4>Añadir nuevo producto</h4>
+            <form method="POST">
+              <input type="text" name="product_name" placeholder="Nombre del producto" required>
+              <input type="url" name="product_link" placeholder="Enlace (opcional)">
+              <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
+
+              <select name="priority" required style="margin-bottom:15px;">
+                <option value="alta">Prioridad: Alta 🔴</option>
+                <option value="media" selected>Prioridad: Media 🟡</option>
+                <option value="baja">Prioridad: Baja 🟢</option>
+              </select>
+
+              <div style="display:flex; align-items:center; gap:10px; margin: 6px 0 16px 0;">
+                <input type="checkbox" id="is_gift" name="is_gift" style="width:auto;">
+                <label for="is_gift" style="margin:0;">¿Es un regalo (ocultar a la otra persona)? 🎁</label>
+              </div>
+
+              <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
+            </form>
+          </div>
         </div>
       </div>
 
-      <div class="travel-content" id="add-travel-tab">
-        <div class="travel-form">
-          <h4>Añadir nuevo viaje</h4>
-          <form method="POST">
-            <input type="text" name="travel_destination" placeholder="Destino" required>
-            <textarea name="travel_description" placeholder="Descripción (opcional)" rows="3"></textarea>
-            <input type="date" name="travel_date">
-            <div style="display:flex; align-items:center; margin-bottom:15px;">
-              <input type="checkbox" id="travel_visited" name="travel_visited" style="width:auto; margin-right:10px;">
-              <label for="travel_visited">¿Ya lo hemos visitado?</label>
-            </div>
-            <button type="submit"><i class="fas fa-plus"></i> Añadir viaje</button>
-          </form>
+      <!-- Viajes -->
+      <div class="section animate-in delay-4">
+        <h3>Nuestros Viajes</h3>
+        <p>Lugares que hemos visitado y destinos que soñamos conocer juntos.</p>
+
+        <div class="travel-tabs" id="travel-tabs-container">
+          <div class="travel-tab active" data-tab="visited">Lugares Visitados</div>
+          <div class="travel-tab" data-tab="wishlist-travel">Quiero Ir</div>
+          <div class="travel-tab" data-tab="add-travel">Añadir Viaje</div>
+        </div>
+
+        <!-- Visitados -->
+        <div class="travel-content active" id="visited-tab">
+          <div class="travels-grid">
+            {% for id, destination, description, travel_date, is_visited, created_by in travels if is_visited %}
+              <div class="travel-card visited">
+                <div class="travel-cover">
+                  {% if travel_photos_dict[id] %}
+                    <div class="travel-photos">
+                      {% for photo in travel_photos_dict[id] %}
+                        <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <div class="empty-album">
+                      <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                  {% endif %}
+                  <div class="travel-status status-visited">Visitado</div>
+                </div>
+                <div class="travel-info">
+                  <h3 class="travel-destination">{{ destination }}</h3>
+                  {% if travel_date %}
+                    <p class="travel-date">{{ travel_date }}</p>
+                  {% endif %}
+                  {% if description %}
+                    <p class="travel-description">{{ description }}</p>
+                  {% endif %}
+                  <div class="travel-meta">
+                    <span>{{ travel_photos_dict[id]|length }} fotos</span>
+                    <span>
+                      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                        {% if profile_pictures[created_by] %}
+                          <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                        {% else %}
+                          {{ created_by[0]|upper }}
+                        {% endif %}
+                      </div>
+                      Creado por {{ created_by }}
+                    </span>
+                  </div>
+
+                  <div class="travel-actions">
+                    <form method="POST" action="/toggle_travel_status">
+                      <input type="hidden" name="travel_id" value="{{ id }}">
+                      <button type="submit" class="icon-btn" title="Mover a deseados">
+                        <i class="fas fa-heart"></i>
+                      </button>
+                    </form>
+
+                    <button type="button" class="icon-btn plus" title="Añadir foto"
+                            onclick="togglePhotoMenu('visited-{{ id }}')">
+                      <i class="fas fa-plus"></i>
+                    </button>
+
+                    <div class="photo-popover" id="photo-popover-visited-{{ id }}">
+                      <div class="photo-popover-header">
+                        <div class="photo-popover-title">Añadir foto por enlace</div>
+                        <button type="button" class="close-btn" onclick="togglePhotoMenu('visited-{{ id }}')">
+                          <i class="fas fa-times"></i>
+                        </button>
+                      </div>
+                      <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('visited-{{ id }}')">
+                        <input type="hidden" name="travel_id" value="{{ id }}">
+                        <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
+                        <button type="submit" class="button">
+                          <i class="fas fa-check"></i> Guardar
+                        </button>
+                      </form>
+                      <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
+                    </div>
+
+                    <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
+                      <input type="hidden" name="travel_id" value="{{ id }}">
+                      <button type="submit" class="icon-btn" title="Eliminar viaje">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </form>
+                  </div>
+
+                </div>
+              </div>
+            {% else %}
+              <p>No hay lugares visitados todavía. ¡Añade el primero!</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Quiero ir -->
+        <div class="travel-content" id="wishlist-travel-tab">
+          <div class="travels-grid">
+            {% for id, destination, description, travel_date, is_visited, created_by in travels if not is_visited %}
+              <div class="travel-card wishlist">
+                <div class="travel-cover">
+                  {% if travel_photos_dict[id] %}
+                    <div class="travel-photos">
+                      {% for photo in travel_photos_dict[id] %}
+                        <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <div class="empty-album">
+                      <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                  {% endif %}
+                  <div class="travel-status status-wishlist">Deseado</div>
+                </div>
+                <div class="travel-info">
+                  <h3 class="travel-destination">{{ destination }}</h3>
+                  {% if description %}
+                    <p class="travel-description">{{ description }}</p>
+                  {% endif %}
+                  <div class="travel-meta">
+                    <span>{{ travel_photos_dict[id]|length }} fotos</span>
+                    <span>
+                      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                        {% if profile_pictures[created_by] %}
+                          <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                        {% else %}
+                          {{ created_by[0]|upper }}
+                        {% endif %}
+                      </div>
+                      Creado por {{ created_by }}
+                    </span>
+                  </div>
+
+                  <div class="travel-actions">
+                    <form method="POST" action="/toggle_travel_status">
+                      <input type="hidden" name="travel_id" value="{{ id }}">
+                      <button type="submit" class="icon-btn" title="Marcar como visitado">
+                        <i class="fas fa-check"></i>
+                      </button>
+                    </form>
+
+                    <button type="button" class="icon-btn plus" title="Añadir foto"
+                            onclick="togglePhotoMenu('wish-{{ id }}')">
+                      <i class="fas fa-plus"></i>
+                    </button>
+
+                    <div class="photo-popover" id="photo-popover-wish-{{ id }}">
+                      <div class="photo-popover-header">
+                        <div class="photo-popover-title">Añadir foto por enlace</div>
+                        <button type="button" class="close-btn" onclick="togglePhotoMenu('wish-{{ id }}')">
+                          <i class="fas fa-times"></i>
+                        </button>
+                      </div>
+                      <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('wish-{{ id }}')">
+                        <input type="hidden" name="travel_id" value="{{ id }}">
+                        <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
+                        <button type="submit" class="button">
+                          <i class="fas fa-check"></i> Guardar
+                        </button>
+                      </form>
+                      <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
+                    </div>
+
+                    <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
+                      <input type="hidden" name="travel_id" value="{{ id }}">
+                      <button type="submit" class="icon-btn" title="Eliminar viaje">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </form>
+                  </div>
+
+                </div>
+              </div>
+            {% else %}
+              <p>No hay destinos en tu lista de deseos. ¡Añade el primero!</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Añadir viaje -->
+        <div class="travel-content" id="add-travel-tab">
+          <div class="travel-form">
+            <h4>Añadir nuevo viaje</h4>
+            <form method="POST">
+              <input type="text" name="travel_destination" placeholder="Destino" required>
+              <textarea name="travel_description" placeholder="Descripción (opcional)" rows="3"></textarea>
+              <input type="date" name="travel_date">
+              <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                <input type="checkbox" id="travel_visited" name="travel_visited" style="width: auto; margin-right: 10px;">
+                <label for="travel_visited">¿Ya lo hemos visitado?</label>
+              </div>
+              <button type="submit"><i class="fas fa-plus"></i> Añadir viaje</button>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
 
-  {% endif %}
+    {% endif %}
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    // Corazones
-    function createHearts(){
-      const container = document.getElementById('hearts-container');
-      const heartCount = 15;
-      for(let i=0;i<heartCount;i++){
-        const heart = document.createElement('div');
-        heart.classList.add('heart');
-        heart.innerHTML = '❤';
-        heart.style.left = Math.random()*100 + 'vw';
-        heart.style.animationDelay = Math.random()*5 + 's';
-        heart.style.fontSize = (Math.random()*15 + 15) + 'px';
-        container.appendChild(heart);
-      }
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // Crear corazones flotantes
+    function createHearts() {
+        const container = document.getElementById('hearts-container');
+        const heartCount = 15;
+        
+        for (let i = 0; i < heartCount; i++) {
+            const heart = document.createElement('div');
+            heart.classList.add('heart');
+            heart.innerHTML = '❤';
+            heart.style.left = Math.random() * 100 + 'vw';
+            heart.style.animationDelay = Math.random() * 5 + 's';
+            heart.style.fontSize = (Math.random() * 15 + 15) + 'px';
+            container.appendChild(heart);
+        }
     }
-
-    // Tabs wishlist
-    document.addEventListener('DOMContentLoaded', function(){
-      createHearts();
-      document.querySelectorAll('#wishlist-tabs-container .wishlist-tab').forEach(tab=>{
-        tab.addEventListener('click', ()=>{
-          document.querySelectorAll('#wishlist-tabs-container .wishlist-tab').forEach(t=>t.classList.remove('active'));
-          document.querySelectorAll('.wishlist-content').forEach(c=>c.classList.remove('active'));
-          tab.classList.add('active');
-          const tabId = tab.getAttribute('data-tab');
-          const el = document.getElementById(`${tabId}-tab`);
-          if(el) el.classList.add('active');
+    
+    // Funcionalidad para las pestañas de lista de deseos
+    document.querySelectorAll('#wishlist-tabs-container .wishlist-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Desactivar todas las pestañas de lista de deseos
+            document.querySelectorAll('#wishlist-tabs-container .wishlist-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.wishlist-content').forEach(c => c.classList.remove('active'));
+            
+            // Activar la pestaña seleccionada
+            tab.classList.add('active');
+            const tabId = tab.getAttribute('data-tab');
+            document.getElementById(`${tabId}-tab`).classList.add('active');
         });
-      });
-
-      document.querySelectorAll('#travel-tabs-container .travel-tab').forEach(tab=>{
-        tab.addEventListener('click', ()=>{
-          document.querySelectorAll('#travel-tabs-container .travel-tab').forEach(t=>t.classList.remove('active'));
-          document.querySelectorAll('.travel-content').forEach(c=>c.classList.remove('active'));
-          tab.classList.add('active');
-          const tabId = tab.getAttribute('data-tab');
-          const el = document.getElementById(`${tabId}-tab`);
-          if(el) el.classList.add('active');
+    });
+    
+    // Funcionalidad para las pestañas de viajes
+    document.querySelectorAll('#travel-tabs-container .travel-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Desactivar todas las pestañas de viajes
+            document.querySelectorAll('#travel-tabs-container .travel-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.travel-content').forEach(c => c.classList.remove('active'));
+            
+            // Activar la pestaña seleccionada
+            tab.classList.add('active');
+            const tabId = tab.getAttribute('data-tab');
+            document.getElementById(`${tabId}-tab`).classList.add('active');
         });
-      });
-
-      // Inputs file: feedback icono
-      document.querySelectorAll('input[type="file"]').forEach(input=>{
-        input.addEventListener('change', function(){
-          const label = this.previousElementSibling;
-          if(this.files.length > 0){
-            if(label && label.querySelector('i')) label.querySelector('i').className = 'fas fa-check';
-          }
+    });
+    
+    // Abrir modal para editar elemento de la lista de deseos
+    function openEditModal(id, name, link, notes, priority, is_gift) {
+  document.getElementById('editItemId').value = id;
+  document.getElementById('editProductName').value = name || '';
+  document.getElementById('editProductLink').value = link || '';
+  document.getElementById('editNotes').value = notes || '';
+  document.getElementById('editPriority').value = priority || 'media';
+  document.getElementById('editIsGift').checked = !!is_gift;
+  document.getElementById('editWishlistModal').style.display = 'block';
+} 
+    // Cerrar modales
+    document.querySelectorAll('.close-modal').forEach(closeBtn => {
+        closeBtn.addEventListener('click', () => {
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.style.display = 'none';
+            });
         });
-      });
     });
-
-    // Modal perfil
-    const settingsIcon = document.getElementById('settingsIcon');
-    if(settingsIcon){
-      settingsIcon.addEventListener('click', ()=>{ document.getElementById('profileModal').style.display = 'block'; });
-    }
-    document.querySelectorAll('.close-modal').forEach(btn=>{
-      btn.addEventListener('click', ()=>{ document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); });
+    
+    // Cerrar modal al hacer clic fuera del contenido
+    window.addEventListener('click', (event) => {
+        document.querySelectorAll('.modal').forEach(modal => {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
     });
-    window.addEventListener('click', (event)=>{
-      document.querySelectorAll('.modal').forEach(modal=>{
-        if(event.target === modal){ modal.style.display='none'; }
-      });
-    });
+    
+    // Mapa de distancia
+    let map, christianMarker, claraMarker, distanceLine;
+    let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" };
+    let claraLocation = { lat: 37.8882, lng: -4.7794, name: "Córdoba" };
 
-    // Edit modal wishlist
-    function openEditModal(id, name, link, notes, priority, is_gift){
-      document.getElementById('editItemId').value = id;
-      document.getElementById('editProductName').value = name || '';
-      document.getElementById('editProductLink').value = link || '';
-      document.getElementById('editNotes').value = notes || '';
-      document.getElementById('editPriority').value = priority || 'media';
-      document.getElementById('editIsGift').checked = !!is_gift;
-      document.getElementById('editWishlistModal').style.display = 'block';
-    }
-    window.openEditModal = openEditModal;
-
-    // Popover fotos viaje
-    function togglePhotoMenu(key){
-      const id = 'photo-popover-' + key;
-      const target = document.getElementById(id);
-      if(!target) return;
-      document.querySelectorAll('.photo-popover.open').forEach(p=>{ if(p.id !== id) p.classList.remove('open'); });
-      target.classList.toggle('open');
-      if(target.classList.contains('open')){
-        const input = target.querySelector('input[type="url"]');
-        if(input){ setTimeout(()=> input.focus(), 120); }
-      }
-    }
-    function closePhotoMenuAfterSubmit(key){
-      const id = 'photo-popover-' + key;
-      const target = document.getElementById(id);
-      if(target) setTimeout(()=> target.classList.remove('open'), 50);
-    }
-    window.togglePhotoMenu = togglePhotoMenu;
-    window.closePhotoMenuAfterSubmit = closePhotoMenuAfterSubmit;
-
-    document.addEventListener('click', (e)=>{
-      const openPop = document.querySelector('.photo-popover.open');
-      if(!openPop) return;
-      const isInsidePopover = openPop.contains(e.target);
-      const isPlusBtn = e.target.closest('.icon-btn.plus');
-      if(!isInsidePopover && !isPlusBtn){ openPop.classList.remove('open'); }
-    });
-    document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape'){ document.querySelectorAll('.photo-popover.open').forEach(p=>p.classList.remove('open')); } });
-
-    // --- Mapa (solo si está la capa HTML presente) ---
-    if(document.getElementById('distanceMap')){
-      let map, christianMarker, claraMarker, distanceLine;
-      let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" };
-      let claraLocation = { lat: 37.8882, lng: -4.7794, name: "Córdoba" };
-
-      function initMap(){
+    function initMap() {
         map = L.map('distanceMap').setView([39.5, -3.0], 6);
+
+        // Capa base de OpenStreetMap
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap contributors'
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
+        // Iconos personalizados usando base64 o fallback SVG
         const christianIcon = L.divIcon({
-          className: 'custom-div-icon',
-          html: `<div style="background-image:url('{{ profile_pictures.get("mochito") or "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"50\" fill=\"%23e84393\"/><text x=\"50\" y=\"60\" font-size=\"40\" text-anchor=\"middle\" fill=\"white\">C</text></svg>" }}'); background-size:cover; width:40px; height:40px; border-radius:50%; border:3px solid white; box-shadow:0 0 10px rgba(0,0,0,0.5);"></div>`,
-          iconSize: [40, 40], iconAnchor: [20, 20]
-        });
-        const claraIcon = L.divIcon({
-          className: 'custom-div-icon',
-          html: `<div style="background-image:url('{{ profile_pictures.get("mochita") or "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"50\" fill=\"%23a29bfe\"/><text x=\"50\" y=\"60\" font-size=\"40\" text-anchor=\"middle\" fill=\"white\">C</text></svg>" }}'); background-size:cover; width:40px; height:40px; border-radius:50%; border:3px solid white; box-shadow:0 0 10px rgba(0,0,0,0.5);"></div>`,
-          iconSize: [40, 40], iconAnchor: [20, 20]
+            className: 'custom-div-icon',
+            html: `<div style="background-image: url('{{ profile_pictures["mochito"] or "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"50\" fill=\"%23e84393\"/><text x=\"50\" y=\"60\" font-size=\"40\" text-anchor=\"middle\" fill=\"white\">C</text></svg>" }}'); background-size: cover; width: 40px; height: 40px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
         });
 
+        const claraIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style="background-image: url('{{ profile_pictures["mochita"] or "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"50\" fill=\"%23a29bfe\"/><text x=\"50\" y=\"60\" font-size=\"40\" text-anchor=\"middle\" fill=\"white\">C</text></svg>" }}'); background-size: cover; width: 40px; height: 40px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
+        });
+
+        // Marcadores
         christianMarker = L.marker([christianLocation.lat, christianLocation.lng], { icon: christianIcon }).addTo(map);
         claraMarker = L.marker([claraLocation.lat, claraLocation.lng], { icon: claraIcon }).addTo(map);
 
         updateDistanceLine();
         updateDistanceInfo();
         loadSavedLocations();
-      }
+    }
 
-      function updateDistanceLine(){
-        if(distanceLine) map.removeLayer(distanceLine);
-        distanceLine = L.polyline([[christianLocation.lat, christianLocation.lng],[claraLocation.lat, claraLocation.lng]], {
-          color:'#e84393', weight:3, dashArray:'10, 10', lineJoin:'round'
+    function updateDistanceLine() {
+        if (distanceLine) map.removeLayer(distanceLine);
+
+        distanceLine = L.polyline([
+            [christianLocation.lat, christianLocation.lng],
+            [claraLocation.lat, claraLocation.lng]
+        ], {
+            color: '#e84393',
+            weight: 3,
+            dashArray: '10, 10',
+            lineJoin: 'round'
         }).addTo(map);
+
         const group = new L.featureGroup([christianMarker, claraMarker]);
         map.fitBounds(group.getBounds().pad(0.2));
-      }
+    }
 
-      function updateDistanceInfo(){
-        const distance = calculateDistance(christianLocation.lat, christianLocation.lng, claraLocation.lat, claraLocation.lng);
+    function updateDistanceInfo() {
+        const distance = calculateDistance(
+            christianLocation.lat, christianLocation.lng,
+            claraLocation.lat, claraLocation.lng
+        );
         document.getElementById('distanceValue').textContent = `${distance.toFixed(1)} km`;
         document.getElementById('christianLocation').textContent = christianLocation.name;
         document.getElementById('claraLocation').textContent = claraLocation.name;
-      }
+    }
 
-      function calculateDistance(lat1, lon1, lat2, lon2){
+    function calculateDistance(lat1, lon1, lat2, lon2) {
         const R = 6371;
         const dLat = deg2rad(lat2 - lat1);
         const dLon = deg2rad(lon2 - lon1);
-        const a = Math.sin(dLat/2)**2 + Math.cos(deg2rad(lat1))*Math.cos(deg2rad(lat2))*Math.sin(dLon/2)**2;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         return R * c;
-      }
-      function deg2rad(deg){ return deg * (Math.PI/180); }
+    }
 
-      async function geocodeAddress(address){
-        try{
-          const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`);
-          const data = await response.json();
-          if(data && data.length > 0){
-            return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), name: data[0].display_name.split(',')[0] };
-          }
-          throw new Error('Ubicación no encontrada');
-        }catch(e){
-          console.error(e);
-          alert('No se pudo encontrar la ubicación. Intenta con una dirección más específica.');
-          return null;
+    function deg2rad(deg) { return deg * (Math.PI/180); }
+
+
+    
+    // Geocodificación: convertir dirección a coordenadas
+    async function geocodeAddress(address) {
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`);
+            const data = await response.json();
+            
+            if (data && data.length > 0) {
+                return {
+                    lat: parseFloat(data[0].lat),
+                    lng: parseFloat(data[0].lon),
+                    name: data[0].display_name.split(',')[0] // Primera parte del nombre
+                };
+            }
+            throw new Error('Ubicación no encontrada');
+        } catch (error) {
+            console.error('Error en geocodificación:', error);
+            alert('No se pudo encontrar la ubicación. Por favor, intenta con una dirección más específica.');
+            return null;
         }
-      }
-
-      function saveLocations(){
-        const locations = { christian: christianLocation, clara: claraLocation };
+    }
+    
+    // Guardar ubicaciones en localStorage
+    function saveLocations() {
+        const locations = {
+            christian: christianLocation,
+            clara: claraLocation
+        };
         localStorage.setItem('coupleLocations', JSON.stringify(locations));
-      }
-      function loadSavedLocations(){
+    }
+    
+    // Cargar ubicaciones desde localStorage
+    function loadSavedLocations() {
         const saved = localStorage.getItem('coupleLocations');
-        if(saved){
-          const locations = JSON.parse(saved);
-          christianLocation = locations.christian || christianLocation;
-          claraLocation = locations.clara || claraLocation;
-          christianMarker.setLatLng([christianLocation.lat, christianLocation.lng]);
-          claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
-          updateDistanceLine();
-          updateDistanceInfo();
+        if (saved) {
+            const locations = JSON.parse(saved);
+            christianLocation = locations.christian || christianLocation;
+            claraLocation = locations.clara || claraLocation;
+            
+            // Actualizar marcadores
+            christianMarker.setLatLng([christianLocation.lat, christianLocation.lng]);
+            claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
+            
+            // Actualizar línea e información
+            updateDistanceLine();
+            updateDistanceInfo();
         }
-      }
-
-      document.addEventListener('DOMContentLoaded', function(){
-        initMap();
-        const form = document.getElementById('locationForm');
-        if(form){
-          form.addEventListener('submit', async function(e){
-            e.preventDefault();
-            const locationInput = document.getElementById('userLocation').value;
-            if(!locationInput) return;
-            const btn = this.querySelector('button');
-            const original = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...';
-            btn.disabled = true;
-            const locationData = await geocodeAddress(locationInput);
-            if(locationData){
-              const currentUser = '{{ session.username }}';
-              if(currentUser === 'mochito'){
+    }
+    
+    // Manejar el formulario de actualización de ubicación
+    document.getElementById('locationForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const locationInput = document.getElementById('userLocation').value;
+        if (!locationInput) return;
+        
+        // Mostrar indicador de carga
+        const submitButton = this.querySelector('button');
+        const originalText = submitButton.innerHTML;
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...';
+        submitButton.disabled = true;
+        
+        // Obtener coordenadas de la dirección
+        const locationData = await geocodeAddress(locationInput);
+        
+        if (locationData) {
+            // Determinar qué usuario está actualizando
+            const currentUser = '{{ session.username }}';
+            if (currentUser === 'mochito') {
                 christianLocation = locationData;
                 christianMarker.setLatLng([christianLocation.lat, christianLocation.lng]);
-              }else if(currentUser === 'mochita'){
+            } else if (currentUser === 'mochita') {
                 claraLocation = locationData;
                 claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
-              }
-              updateDistanceLine();
-              updateDistanceInfo();
-              saveLocations();
-              document.getElementById('userLocation').value = '';
-              alert(`¡Ubicación actualizada! Ahora estás en ${locationData.name}`);
             }
-            btn.innerHTML = original;
-            btn.disabled = false;
-          });
+            
+            // Actualizar línea e información
+            updateDistanceLine();
+            updateDistanceInfo();
+            
+            // Guardar en localStorage
+            saveLocations();
+            
+            // Limpiar campo de entrada
+            document.getElementById('userLocation').value = '';
+            
+            // Mostrar mensaje de éxito
+            alert(`¡Ubicación actualizada correctamente! Ahora estás en ${locationData.name}`);
         }
-      });
-    }
-  </script>
+        
+        // Restaurar botón
+        submitButton.innerHTML = originalText;
+        submitButton.disabled = false;
+    });
+    
+    // Efectos de animación al cargar
+    document.addEventListener('DOMContentLoaded', function() {
+        createHearts();
+        initMap();
+        
+        // Agregar animaciones a los elementos
+        const elements = document.querySelectorAll('.section, .banner');
+        elements.forEach((el, index) => {
+            el.classList.add('animate-in');
+            el.classList.add(`delay-${index % 5}`);
+        });
+        
+        // Configurar los eventos para los inputs de archivo
+        document.querySelectorAll('input[type="file"]').forEach(input => {
+            input.addEventListener('change', function() {
+                const label = this.previousElementSibling;
+                if (this.files.length > 0) {
+                    label.querySelector('i').className = 'fas fa-check';
+                    if (label.querySelector('span')) {
+                        label.querySelector('span').textContent = this.files[0].name;
+                    }
+                }
+            });
+        });
+    });
 
-  <footer class="site-footer">
+    // Abrir modal de perfil al hacer clic en el icono de ajustes
+document.getElementById('settingsIcon').addEventListener('click', () => {
+    document.getElementById('profileModal').style.display = 'block';
+});
+
+// Cerrar modal de perfil
+document.querySelector('#profileModal .close-modal').addEventListener('click', () => {
+    document.getElementById('profileModal').style.display = 'none';
+});
+
+// Cerrar modal al hacer clic fuera del contenido
+window.addEventListener('click', (event) => {
+    const modal = document.getElementById('profileModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+});
+
+
+
+
+
+
+// Abre/cierra un único popover a la vez
+function togglePhotoMenu(key){
+  const id = 'photo-popover-' + key;
+  const target = document.getElementById(id);
+  if(!target) return;
+
+  // Cierra los demás
+  document.querySelectorAll('.photo-popover.open').forEach(p => {
+    if(p.id !== id) p.classList.remove('open');
+  });
+
+  target.classList.toggle('open');
+
+  // focus al input al abrir
+  if(target.classList.contains('open')){
+    const input = target.querySelector('input[type="url"]');
+    if(input){ setTimeout(()=> input.focus(), 120); }
+  }
+}
+
+// Cerrar al enviar (para sensación de “guardado” instantáneo)
+function closePhotoMenuAfterSubmit(key){
+  const id = 'photo-popover-' + key;
+  const target = document.getElementById(id);
+  if(target) setTimeout(()=> target.classList.remove('open'), 50);
+}
+
+// Cerrar al hacer clic fuera
+document.addEventListener('click', (e) => {
+  const openPop = document.querySelector('.photo-popover.open');
+  if(!openPop) return;
+  const isInsidePopover = openPop.contains(e.target);
+  const isPlusBtn = e.target.closest('.icon-btn.plus');
+  if(!isInsidePopover && !isPlusBtn){
+    openPop.classList.remove('open');
+  }
+});
+
+// Cerrar con ESC
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape'){
+    document.querySelectorAll('.photo-popover.open').forEach(p => p.classList.remove('open'));
+  }
+});
+
+
+(function () {
+  const msgs = {{ messages|tojson|safe }};
+  const wrap = document.getElementById('toasts');
+  if (!wrap || !Array.isArray(msgs)) return;
+
+  // Crea un toast DOM
+  function makeToast(category, text, idx) {
+    const el = document.createElement('div');
+    el.className = 'toast ' + (category || 'info');
+    el.innerHTML = `
+      <div class="toast-content">
+        <span class="dot"></span>
+        <span class="text">${text}</span>
+        <button class="close" aria-label="Cerrar">&times;</button>
+      </div>
+      <div class="progress"></div>
+    `;
+    // Cerrar manual
+    el.querySelector('.close').addEventListener('click', () => closeToast(el));
+    // Auto-cierre (stagger para que no exploten a la vez)
+    const life = 3500 + (idx * 250);
+    setTimeout(() => closeToast(el), life);
+    // Barra de progreso
+    requestAnimationFrame(() => {
+      el.querySelector('.progress').style.width = '0%';
+    });
+    return el;
+  }
+
+  function closeToast(el) {
+    el.classList.add('closing');
+    el.addEventListener('animationend', () => el.remove(), { once: true });
+  }
+
+  // Pinta toasts
+  msgs.forEach(([cat, txt], i) => {
+    const t = makeToast(cat, txt, i);
+    wrap.appendChild(t);
+  });
+})();
+
+
+
+</script>
+<footer class="site-footer">
     <p>Esta web ha sido realizada por 
-      <a href="https://www.instagram.com/chriismartinezz/" target="_blank" class="autor-link">Christian Martínez</a> ❤️
+        <a href="https://www.instagram.com/chriismartinezz/" target="_blank" class="autor-link">Christian Martínez</a> ❤️
     </p>
-  </footer>
+</footer>
+
 </body>
 </html>

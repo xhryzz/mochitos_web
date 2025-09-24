@@ -2137,7 +2137,8 @@ select[name="priority"]:active {
 // TOASTS (Flash + helper)
 // =====================
 (function () {
-  const msgs = {{ (flash_messages if 'flash_messages' in globals() else get_flashed_messages(with_categories=true)) | tojson | safe }};
+  // ✅ Usar "is defined" en Jinja, no "globals()"
+  const msgs = {{ (flash_messages if flash_messages is defined else get_flashed_messages(with_categories=true)) | tojson | safe }};
   const wrap = document.getElementById('toasts');
   if (!wrap) return;
 
@@ -2508,9 +2509,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
-
-
 </script>
+
 <footer class="site-footer">
     <p>Esta web ha sido realizada por 
         <a href="https://www.instagram.com/chriismartinezz/" target="_blank" class="autor-link">Christian Martínez</a> ❤️

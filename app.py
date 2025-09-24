@@ -44,7 +44,7 @@ QUESTIONS = [
     # --- DIVERTIDAS ---
     "Si fuéramos un meme, ¿cuál seríamos?",
     "¿Cuál ha sido tu momento más torpe conmigo?",
-    "Si yo fuera un animal, ¿cuál crees que sería?",
+    "Si yo fuera un animal, ¿ cuál crees que sería?",
     "¿Qué emoji me representa mejor?",
     "Si hiciéramos un TikTok juntos, ¿de qué sería?",
     "¿Qué comida dirías que soy en versión plato?",
@@ -257,13 +257,11 @@ def init_db():
                     uploaded_at TEXT
                 )
             ''')
-            
-            # Crear usuarios predeterminados
+
+            # Crear usuarios y ubicaciones predeterminados
             try:
                 c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochito', '1234'))
                 c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochita', '1234'))
-                
-                # Ubicaciones iniciales
                 c.execute("INSERT INTO locations (username, location_name, latitude, longitude, updated_at) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (username) DO NOTHING", 
                          ('mochito', 'Algemesí, Valencia', 39.1925, -0.4353, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 c.execute("INSERT INTO locations (username, location_name, latitude, longitude, updated_at) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (username) DO NOTHING", 
@@ -274,8 +272,7 @@ def init_db():
             else:
                 conn.commit()
 
-                # Asegurar columna 'priority' (alta/media/baja) en wishlist
-            # Asegurar columna 'priority' (alta/media/baja) en wishlist
+            # Asegurar columna 'priority'
             try:
                 c.execute("""
                     ALTER TABLE wishlist
@@ -283,38 +280,40 @@ def init_db():
                     CHECK (priority IN ('alta','media','baja'))
                     DEFAULT 'media'
                 """)
-                conn.commit()  # <-- añade esto
+                conn.commit()
             except Exception as e:
                 print(f"ALTER wishlist priority: {e}")
 
-
+            # Asegurar columna 'is_surprise' (REGALOS SORPRESA)
+            try:
+                c.execute("""
+                    ALTER TABLE wishlist
+                    ADD COLUMN IF NOT EXISTS is_surprise BOOLEAN DEFAULT FALSE
+                """)
+                conn.commit()
+            except Exception as e:
+                print(f"ALTER wishlist is_surprise: {e}")
 
 init_db()
 
 def get_today_question():
     today_str = date.today().isoformat()
     conn = get_db_connection()
-    
     try:
         with conn.cursor() as c:
-            # Revisar si ya existe una pregunta para hoy
             c.execute("SELECT id, question FROM daily_questions WHERE date=%s", (today_str,))
             q = c.fetchone()
             if q:
                 return q
 
-            # Obtener todas las preguntas que ya salieron
             c.execute("SELECT question FROM daily_questions")
             used_questions = [row[0] for row in c.fetchall()]
 
-            # Filtrar las preguntas restantes
             remaining_questions = [q for q in QUESTIONS if q not in used_questions]
 
             if not remaining_questions:
-                # Se acabaron las preguntas
                 return (None, "Ya no hay más preguntas disponibles ❤️")
 
-            # Escoger una pregunta nueva
             question_text = random.choice(remaining_questions)
             c.execute("INSERT INTO daily_questions (question, date) VALUES (%s, %s) RETURNING id", (question_text, today_str))
             question_id = c.fetchone()[0]
@@ -348,7 +347,6 @@ def get_banner():
             row = c.fetchone()
             if row:
                 image_data, mime_type = row
-                # Convertir a base64 para mostrar en HTML
                 return f"data:{mime_type};base64,{b64encode(image_data).decode('utf-8')}"
             return None
     finally:
@@ -379,7 +377,6 @@ def get_profile_pictures():
             pictures = {}
             for row in c.fetchall():
                 username, image_data, mime_type = row
-                # Convertir a base64 para mostrar en HTML
                 pictures[username] = f"data:{mime_type};base64,{b64encode(image_data).decode('utf-8')}"
             return pictures
     finally:
@@ -406,18 +403,9 @@ def get_travel_photos(travel_id):
 #  Cálculo de rachas (NEW)
 # -----------------------------
 def compute_streaks():
-    """
-    Calcula:
-      - current_streak: racha actual de días consecutivos (hasta hoy si hoy está completo,
-                        o hasta el último día completo si hoy no lo está).
-      - best_streak: mejor racha histórica.
-    Un día cuenta como 'completo' si existen respuestas de 'mochito' y 'mochita'
-    para la pregunta de ese día.
-    """
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # Traemos preguntas y cuántos usuarios distintos (de los 2) respondieron
             c.execute("""
                 SELECT dq.id, dq.date, COUNT(DISTINCT a.username) AS cnt
                 FROM daily_questions dq
@@ -434,18 +422,15 @@ def compute_streaks():
     if not rows:
         return 0, 0
 
-    # Conjuntos de fechas
     def parse_d(dtxt): 
         return datetime.strptime(dtxt, "%Y-%m-%d").date()
 
-    question_dates = set(parse_d(r[1]) for r in rows)
     complete_dates = [parse_d(r[1]) for r in rows if r[2] >= 2]
     complete_dates_set = set(complete_dates)
 
     if not complete_dates:
         return 0, 0
 
-    # Mejor racha histórica
     complete_dates_sorted = sorted(complete_dates)
     best_streak = 1
     run = 1
@@ -457,7 +442,6 @@ def compute_streaks():
         if run > best_streak:
             best_streak = run
 
-    # Racha actual: desde el último día completo más reciente hacia atrás sin huecos
     today = date.today()
     latest_complete = None
     for d in sorted(complete_dates_set, reverse=True):
@@ -496,8 +480,6 @@ def index():
                         return render_template('index.html', login_error=error)
             finally:
                 conn.close()
-        
-        # Para usuarios no logueados
         return render_template('index.html', login_error=None, profile_pictures={})
 
     # --- Si el usuario está logueado ---
@@ -577,37 +559,34 @@ def index():
                         conn.commit()
                     return redirect('/')
 
-                if 'product_name' in request.form:
+                # Crear item de wishlist (con prioridad + sorpresa)
+                if 'product_name' in request.form and 'travel_destination' not in request.form:
                     product_name = request.form['product_name'].strip()
                     product_link = request.form.get('product_link', '').strip()
                     notes = request.form.get('wishlist_notes', '').strip()
-                    priority = request.form.get('priority', 'media').strip()  # NUEVO
+                    priority = request.form.get('priority', 'media').strip()
                     if priority not in ('alta', 'media', 'baja'):
                         priority = 'media'
+                    is_surprise = bool(request.form.get('is_surprise'))  # checkbox opcional
                     if product_name:
                         c.execute("""
-                            INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at, is_purchased, priority)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                            INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_surprise)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         """, (product_name, product_link, notes, user,
                             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            False, priority))
+                            False, priority, is_surprise))
                         conn.commit()
                     return redirect('/')
-
 
             # --- Respuestas ---
             c.execute("SELECT username, answer FROM answers WHERE question_id=%s", (question_id,))
             answers = c.fetchall()
 
-            # Quién es la otra persona (somos dos: mochito / mochita)
             other_user = 'mochita' if user == 'mochito' else 'mochito'
 
-            # Diccionario usuario -> respuesta
             answers_dict = {u: a for (u, a) in answers}
             user_answer  = answers_dict.get(user)
             other_answer = answers_dict.get(other_user)
-
-            # Solo mostrar ambas respuestas si ambos contestaron
             show_answers = (user_answer is not None) and (other_answer is not None)
 
             # --- Viajes ---
@@ -619,11 +598,15 @@ def index():
             travels = c.fetchall()
             travel_photos_dict = {tid: get_travel_photos(tid) for tid, *_ in travels}
 
-            # --- Wishlist ---
+            # --- Wishlist (filtrando sorpresas) ---
+            # Solo se devuelven:
+            #   - items NO sorpresa
+            #   - o items sorpresa creados por el usuario actual
             c.execute("""
-                SELECT id, product_name, product_link, notes, created_by, created_at, is_purchased, 
-                    COALESCE(priority, 'media') AS priority
+                SELECT id, product_name, product_link, notes, created_by, created_at, is_purchased,
+                       COALESCE(priority, 'media') AS priority, COALESCE(is_surprise, FALSE) AS is_surprise
                 FROM wishlist
+                WHERE (COALESCE(is_surprise, FALSE) = FALSE) OR (created_by = %s)
                 ORDER BY 
                     is_purchased ASC,
                     CASE COALESCE(priority, 'media')
@@ -632,9 +615,8 @@ def index():
                         ELSE 2
                     END,
                     created_at DESC
-            """)
+            """, (user,))
             wishlist_items = c.fetchall()
-
 
             banner_file = get_banner()
             profile_pictures = get_profile_pictures()
@@ -642,7 +624,6 @@ def index():
     finally:
         conn.close()
 
-    # --- Rachas (NEW) ---
     current_streak, best_streak = compute_streaks()
 
     return render_template('index.html',
@@ -661,7 +642,6 @@ def index():
                            banner_file=banner_file,
                            profile_pictures=profile_pictures,
                            login_error=None,
-                           # --- NUEVOS CONTEXT VARS ---
                            current_streak=current_streak,
                            best_streak=best_streak
                            )
@@ -671,19 +651,14 @@ def index():
 def delete_travel():
     if 'username' not in session:
         return redirect('/')
-    
     try:
         travel_id = request.form['travel_id']
         conn = get_db_connection()
-        
         with conn.cursor() as c:
-            # Eliminar fotos asociadas al viaje
             c.execute("DELETE FROM travel_photos WHERE travel_id=%s", (travel_id,))
             c.execute("DELETE FROM travels WHERE id=%s", (travel_id,))
             conn.commit()
-        
         return redirect('/')
-    
     except Exception as e:
         print(f"Error en delete_travel: {e}")
         return redirect('/')
@@ -696,17 +671,13 @@ def delete_travel():
 def delete_travel_photo():
     if 'username' not in session:
         return redirect('/')
-    
     try:
         photo_id = request.form['photo_id']
         conn = get_db_connection()
-        
         with conn.cursor() as c:
             c.execute("DELETE FROM travel_photos WHERE id=%s", (photo_id,))
             conn.commit()
-        
         return redirect('/')
-    
     except Exception as e:
         print(f"Error en delete_travel_photo: {e}")
         return redirect('/')
@@ -719,20 +690,16 @@ def delete_travel_photo():
 def toggle_travel_status():
     if 'username' not in session:
         return redirect('/')
-    
     try:
         travel_id = request.form['travel_id']
         conn = get_db_connection()
-        
         with conn.cursor() as c:
             c.execute("SELECT is_visited FROM travels WHERE id=%s", (travel_id,))
             current_status = c.fetchone()[0]
             new_status = not current_status
             c.execute("UPDATE travels SET is_visited=%s WHERE id=%s", (new_status, travel_id))
             conn.commit()
-        
         return redirect('/')
-    
     except Exception as e:
         print(f"Error en toggle_travel_status: {e}")
         return redirect('/')
@@ -745,24 +712,17 @@ def toggle_travel_status():
 def delete_wishlist_item():
     if 'username' not in session:
         return redirect('/')
-    
     try:
         item_id = request.form['item_id']
         user = session['username']
-        
         conn = get_db_connection()
-        
         with conn.cursor() as c:
-            # Verificar que el usuario es el creador del item para mayor seguridad
             c.execute("SELECT created_by FROM wishlist WHERE id=%s", (item_id,))
             result = c.fetchone()
-            
             if result and result[0] == user:
                 c.execute("DELETE FROM wishlist WHERE id=%s", (item_id,))
                 conn.commit()
-        
         return redirect('/')
-    
     except Exception as e:
         print(f"Error en delete_wishlist_item: {e}")
         return redirect('/')
@@ -770,32 +730,46 @@ def delete_wishlist_item():
         if 'conn' in locals():
             conn.close()
 
-# Editar elemento de la lista de deseos
+# Editar elemento de la lista de deseos (incluye prioridad y sorpresa)
 @app.route('/edit_wishlist_item', methods=['POST'])
 def edit_wishlist_item():
     if 'username' not in session:
         return redirect('/')
-    
     try:
         item_id = request.form['item_id']
         product_name = request.form['product_name'].strip()
         product_link = request.form.get('product_link', '').strip()
         notes = request.form.get('notes', '').strip()
-        priority = request.form.get('priority', 'media').strip()  # NUEVO
+        priority = request.form.get('priority', 'media').strip()
         if priority not in ('alta', 'media', 'baja'):
             priority = 'media'
-        
-        if product_name:
-            conn = get_db_connection()
-            with conn.cursor() as c:
-                c.execute("""
-                    UPDATE wishlist 
-                    SET product_name=%s, product_link=%s, notes=%s, priority=%s
-                    WHERE id=%s
-                """, (product_name, product_link, notes, priority, item_id))
+        # Si el formulario incluye el checkbox "is_surprise"
+        is_surprise = request.form.get('is_surprise')
+        if is_surprise is not None:
+            is_surprise = bool(is_surprise)  # cualquier valor presente -> True/False si viene "on"
+        conn = get_db_connection()
+        with conn.cursor() as c:
+            # Seguridad: solo el creador puede editar
+            c.execute("SELECT created_by FROM wishlist WHERE id=%s", (item_id,))
+            row = c.fetchone()
+            if not row or row[0] != session['username']:
+                return redirect('/')
+
+            if product_name:
+                if is_surprise is None:
+                    c.execute("""
+                        UPDATE wishlist 
+                        SET product_name=%s, product_link=%s, notes=%s, priority=%s
+                        WHERE id=%s
+                    """, (product_name, product_link, notes, priority, item_id))
+                else:
+                    c.execute("""
+                        UPDATE wishlist 
+                        SET product_name=%s, product_link=%s, notes=%s, priority=%s, is_surprise=%s
+                        WHERE id=%s
+                    """, (product_name, product_link, notes, priority, is_surprise, item_id))
                 conn.commit()
-            return redirect('/')
-    
+        return redirect('/')
     except Exception as e:
         print(f"Error en edit_wishlist_item: {e}")
         return redirect('/')
@@ -803,28 +777,52 @@ def edit_wishlist_item():
         if 'conn' in locals():
             conn.close()
 
-
 # Marcar elemento como comprado/no comprado
 @app.route('/toggle_wishlist_status', methods=['POST'])
 def toggle_wishlist_status():
     if 'username' not in session:
         return redirect('/')
-    
     try:
         item_id = request.form['item_id']
         conn = get_db_connection()
-        
         with conn.cursor() as c:
             c.execute("SELECT is_purchased FROM wishlist WHERE id=%s", (item_id,))
             current_status = c.fetchone()[0]
             new_status = not current_status
             c.execute("UPDATE wishlist SET is_purchased=%s WHERE id=%s", (new_status, item_id))
             conn.commit()
-        
         return redirect('/')
-    
     except Exception as e:
         print(f"Error en toggle_wishlist_status: {e}")
+        return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+# Alternar sorpresa ON/OFF (solo creador)
+@app.route('/toggle_wishlist_surprise', methods=['POST'])
+def toggle_wishlist_surprise():
+    if 'username' not in session:
+        return redirect('/')
+    try:
+        item_id = request.form['item_id']
+        user = session['username']
+        conn = get_db_connection()
+        with conn.cursor() as c:
+            c.execute("SELECT created_by, COALESCE(is_surprise, FALSE) FROM wishlist WHERE id=%s", (item_id,))
+            row = c.fetchone()
+            if not row:
+                return redirect('/')
+            created_by, current_is_surprise = row
+            if created_by != user:
+                # Solo el creador puede ocultar/mostrar su regalo
+                return redirect('/')
+            new_val = not current_is_surprise
+            c.execute("UPDATE wishlist SET is_surprise=%s WHERE id=%s", (new_val, item_id))
+            conn.commit()
+        return redirect('/')
+    except Exception as e:
+        print(f"Error en toggle_wishlist_surprise: {e}")
         return redirect('/')
     finally:
         if 'conn' in locals():
@@ -835,26 +833,27 @@ def toggle_wishlist_status():
 def update_location():
     if 'username' not in session:
         return jsonify({'error': 'No autorizado'}), 401
-    
     try:
         data = request.get_json()
         location_name = data.get('location_name')
         latitude = data.get('latitude')
         longitude = data.get('longitude')
         username = session['username']
-        
         if location_name and latitude and longitude:
             conn = get_db_connection()
-            
             with conn.cursor() as c:
-                c.execute("INSERT INTO locations (username, location_name, latitude, longitude, updated_at) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (username) DO UPDATE SET location_name = EXCLUDED.location_name, latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, updated_at = EXCLUDED.updated_at",
-                         (username, location_name, latitude, longitude, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                c.execute("""
+                    INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (username) DO UPDATE 
+                    SET location_name = EXCLUDED.location_name, 
+                        latitude = EXCLUDED.latitude, 
+                        longitude = EXCLUDED.longitude, 
+                        updated_at = EXCLUDED.updated_at
+                """, (username, location_name, latitude, longitude, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 conn.commit()
-            
             return jsonify({'success': True, 'message': 'Ubicación actualizada correctamente'})
-        
         return jsonify({'error': 'Datos incompletos'}), 400
-    
     except Exception as e:
         print(f"Error en update_location: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
@@ -867,11 +866,9 @@ def update_location():
 def get_locations():
     if 'username' not in session:
         return jsonify({'error': 'No autorizado'}), 401
-    
     try:
         locations = get_user_locations()
         return jsonify(locations)
-    
     except Exception as e:
         print(f"Error en get_locations: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
@@ -886,11 +883,9 @@ def horario():
 def get_schedules():
     if 'username' not in session:
         return jsonify({'error': 'No autorizado'}), 401
-
     try:
         conn = get_db_connection()
         with conn.cursor() as c:
-            # 1) Horarios guardados
             c.execute("SELECT username, day, time, activity, color FROM schedules")
             rows = c.fetchall()
 
@@ -905,7 +900,6 @@ def get_schedules():
                     'color': color
                 }
 
-            # 2) Horas personalizadas
             c.execute("SELECT username, time FROM schedule_times ORDER BY time")
             times_rows = c.fetchall()
             customTimes = {'mochito': [], 'mochita': []}
@@ -917,7 +911,6 @@ def get_schedules():
                 'schedules': schedules,
                 'customTimes': customTimes
             })
-
     except Exception as e:
         print(f"Error en get_schedules: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
@@ -925,22 +918,18 @@ def get_schedules():
         if 'conn' in locals():
             conn.close()
 
-
 @app.route('/api/schedules/save', methods=['POST'])
 def save_schedules():
     if 'username' not in session:
         return jsonify({'error': 'No autorizado'}), 401
-
     try:
         data = request.get_json(force=True)
-
         schedules_payload = data.get('schedules', {})
         custom_times_payload = data.get('customTimes', {})
 
         conn = get_db_connection()
         with conn.cursor() as c:
-            # 1) Guardar horas personalizadas
-            # Estrategia simple: limpiar por usuario y reinsertar
+            # Guardar horas personalizadas
             for user, times in (custom_times_payload or {}).items():
                 c.execute("DELETE FROM schedule_times WHERE username=%s", (user,))
                 for hhmm in times:
@@ -950,9 +939,8 @@ def save_schedules():
                         ON CONFLICT (username, time) DO NOTHING
                     """, (user, hhmm))
 
-            # 2) Guardar actividades (reemplazo completo)
+            # Reemplazo completo de schedules
             c.execute("DELETE FROM schedules")
-
             for user in ['mochito', 'mochita']:
                 user_days = (schedules_payload or {}).get(user, {})
                 for day, times in (user_days or {}).items():
@@ -966,10 +954,8 @@ def save_schedules():
                                 ON CONFLICT (username, day, time)
                                 DO UPDATE SET activity=EXCLUDED.activity, color=EXCLUDED.color
                             """, (user, day, hhmm, activity, color))
-
             conn.commit()
             return jsonify({'ok': True})
-
     except Exception as e:
         print(f"Error en save_schedules: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
@@ -977,22 +963,17 @@ def save_schedules():
         if 'conn' in locals():
             conn.close()
 
-
 @app.route('/logout')
 def logout():
     session.pop('username', None)
     return redirect('/')
 
-# Ruta para servir imágenes (ya no es necesaria ya que usamos data URLs)
-# Pero la mantenemos por si acaso hay referencias en el código
+# Ruta para servir imágenes (si hiciera falta)
 @app.route('/image/<int:image_id>')
 def get_image(image_id):
-    # Esta función podría usarse si necesitas servir imágenes individualmente
-    # en lugar de usar data URLs
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # Determinar de qué tabla obtener la imagen
             c.execute("SELECT image_data, mime_type FROM profile_pictures WHERE id=%s", (image_id,))
             row = c.fetchone()
             if row:

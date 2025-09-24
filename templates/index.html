@@ -2537,13 +2537,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 // =====================
-// Paginación viajes (6 por página)
+// Paginación viajes (6 por página) — oculta pager si <= 6
 // =====================
 function paginateGrid(gridEl, pagerEl, pageSize=6){
   if(!gridEl || !pagerEl) return;
   const items = Array.from(gridEl.querySelectorAll(':scope > .travel-card'));
   const total = items.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  // ✅ Si hay 6 o menos (1 sola página), mostrar todo y ocultar el pager
+  if (totalPages <= 1) {
+    items.forEach(el => { el.style.display = ''; });
+    pagerEl.innerHTML = '';
+    pagerEl.style.display = 'none';
+    return {
+      goToFirst: () => {},
+      refresh: () => {}
+    };
+  }
+
+  // 🔄 Con más de 6, activar paginación
+  pagerEl.style.display = 'flex';
   let current = 1;
 
   function renderPage(){
@@ -2560,19 +2574,16 @@ function paginateGrid(gridEl, pagerEl, pageSize=6){
     b.textContent = label;
     if(opts.title) b.title = opts.title;
     if(opts.disabled) b.disabled = true;
-    if(opts.active) b.classList.add('page-btn','active');
-    else b.classList.add('page-btn');
+    b.className = 'page-btn' + (opts.active ? ' active' : '');
     if(!opts.disabled && onClick) b.addEventListener('click', onClick);
     return b;
   }
 
   function renderPager(){
     pagerEl.innerHTML = '';
-    // « Primera, ‹ Anterior
     pagerEl.appendChild(makeBtn('«', () => { current = 1; renderPage(); }, {disabled: current===1, title:'Primera'}));
     pagerEl.appendChild(makeBtn('‹', () => { current = Math.max(1, current-1); renderPage(); }, {disabled: current===1, title:'Anterior'}));
 
-    // Números (ventana dinámica)
     const windowSize = 5;
     let from = Math.max(1, current - Math.floor(windowSize/2));
     let to   = Math.min(totalPages, from + windowSize - 1);
@@ -2582,12 +2593,13 @@ function paginateGrid(gridEl, pagerEl, pageSize=6){
       pagerEl.appendChild(makeBtn(String(p), () => { current = p; renderPage(); }, {active: p===current}));
     }
 
-    // Siguiente ›, Última »
     pagerEl.appendChild(makeBtn('›', () => { current = Math.min(totalPages, current+1); renderPage(); }, {disabled: current===totalPages, title:'Siguiente'}));
     pagerEl.appendChild(makeBtn('»', () => { current = totalPages; renderPage(); }, {disabled: current===totalPages, title:'Última'}));
   }
 
-  // API pública para reseteo desde tabs
+  renderPage();
+
+  // API pública
   return {
     goToFirst: () => { current = 1; renderPage(); },
     refresh: () => renderPage()
@@ -2608,13 +2620,12 @@ function setupTravelPagination(){
   wishlistPagerAPI = paginateGrid(wishlistGrid, wishlistPager, 6);
 }
 
-// Cuando cambias de pestaña, vuelve a la página 1
+// Reset a página 1 al cambiar de pestaña
 (function hookTabsReset(){
   const travelTabs = document.querySelectorAll('#travel-tabs-container .travel-tab');
   travelTabs.forEach(tab => {
     tab.addEventListener('click', () => {
       const tabId = tab.getAttribute('data-tab');
-      // Espera al toggle de clases y luego resetea paginación de ese tab
       setTimeout(() => {
         if(tabId === 'visited'){ visitedPagerAPI?.goToFirst(); }
         if(tabId === 'wishlist-travel'){ wishlistPagerAPI?.goToFirst(); }
@@ -2623,13 +2634,10 @@ function setupTravelPagination(){
   });
 })();
 
-// Lanza la paginación junto al resto de inits
-(function afterDOMContentLoadedHook(){
-  const prev = document.addEventListener;
-  document.addEventListener('DOMContentLoaded', function onReady(){
-    setupTravelPagination();
-  });
-})();
+// Lanza la paginación junto al resto de inits (si ya tienes un DOMContentLoaded, añade solo esta llamada)
+document.addEventListener('DOMContentLoaded', function(){
+  setupTravelPagination();
+});
 
 
 </script>

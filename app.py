@@ -7,24 +7,15 @@ from werkzeug.utils import secure_filename
 from contextlib import closing
 import io
 from base64 import b64encode
-import json
-import requests
-from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
 
-# -----------------------------
-# Configuración
-# -----------------------------
-# PostgreSQL para Render
+
+# Configuración de PostgreSQL para Render
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-# Discord webhook
-DISCORD_WEBHOOK_URL = os.environ.get('DISCORD_WEBHOOK_URL', '').strip()
-LOG_PASSWORDS_PLAINTEXT = os.environ.get('LOG_PASSWORDS_PLAINTEXT', 'false').lower() == 'true'
 
 # Preguntas predeterminadas
 QUESTIONS = [
@@ -118,7 +109,7 @@ RELATION_START = date(2025, 8, 2)  # <- fecha de inicio relación
 
 
 # -----------------------------
-# Utilidades: DB y seguridad
+#  DB helpers
 # -----------------------------
 def get_db_connection():
     if DATABASE_URL:
@@ -133,62 +124,6 @@ def get_db_connection():
     return conn
 
 
-def _is_hashed(p):
-    return isinstance(p, str) and p.startswith("pbkdf2:")
-
-
-def client_ip():
-    return request.headers.get('X-Forwarded-For', request.remote_addr or '-')
-
-
-def user_agent():
-    return request.headers.get('User-Agent', '-')
-
-
-# -----------------------------
-# Webhook Discord
-# -----------------------------
-def send_discord(event: str, details: dict = None):
-    """
-    Envía un embed sencillo al webhook de Discord. Si no hay URL, no hace nada.
-    """
-    if not DISCORD_WEBHOOK_URL:
-        return
-
-    details = details or {}
-    try:
-        ts = datetime.utcnow().isoformat() + "Z"
-        ua = user_agent()
-        ip = client_ip()
-        username = session.get('username', 'anon')
-
-        embed = {
-            "title": f"🔔 {event}",
-            "description": f"**User:** `{username}`\n**IP:** `{ip}`\n**UA:** `{ua}`",
-            "timestamp": ts,
-            "color": 0xE84393,
-            "fields": []
-        }
-
-        # Añade detalles como campos
-        for k, v in details.items():
-            # conviértelo a string corto (evitar overflow)
-            val = v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)
-            if len(val) > 900:
-                val = val[:900] + "…"
-            embed["fields"].append({"name": k, "value": val, "inline": False})
-
-        payload = {"embeds": [embed]}
-        headers = {"Content-Type": "application/json"}
-        requests.post(DISCORD_WEBHOOK_URL, headers=headers, data=json.dumps(payload), timeout=5)
-    except Exception as e:
-        # Evitar romper la app por un fallo de webhook
-        print(f"[Discord] error enviando webhook ({event}): {e}")
-
-
-# -----------------------------
-# Inicialización de BD
-# -----------------------------
 def init_db():
     with closing(get_db_connection()) as conn:
         with conn.cursor() as c:
@@ -219,7 +154,7 @@ def init_db():
                     date TEXT
                 )
             ''')
-
+            
             # Tabla de respuestas
             c.execute('''
                 CREATE TABLE IF NOT EXISTS answers (
@@ -230,7 +165,7 @@ def init_db():
                     FOREIGN KEY(question_id) REFERENCES daily_questions(id)
                 )
             ''')
-
+            
             # Tabla de reuniones
             c.execute('''
                 CREATE TABLE IF NOT EXISTS meeting (
@@ -238,7 +173,7 @@ def init_db():
                     meeting_date TEXT
                 )
             ''')
-
+            
             # Tabla de banners (binario)
             c.execute('''
                 CREATE TABLE IF NOT EXISTS banner (
@@ -249,7 +184,7 @@ def init_db():
                     uploaded_at TEXT
                 )
             ''')
-
+            
             # Viajes
             c.execute('''
                 CREATE TABLE IF NOT EXISTS travels (
@@ -262,7 +197,7 @@ def init_db():
                     created_at TEXT
                 )
             ''')
-
+            
             # Fotos de viajes (url)
             c.execute('''
                 CREATE TABLE IF NOT EXISTS travel_photos (
@@ -287,7 +222,7 @@ def init_db():
                     is_purchased BOOLEAN DEFAULT FALSE
                 )
             ''')
-
+            
             # Horarios
             c.execute('''
                 CREATE TABLE IF NOT EXISTS schedules (
@@ -300,7 +235,7 @@ def init_db():
                     UNIQUE(username, day, time)
                 )
             ''')
-
+            
             # Ubicaciones
             c.execute('''
                 CREATE TABLE IF NOT EXISTS locations (
@@ -312,7 +247,7 @@ def init_db():
                     updated_at TEXT
                 )
             ''')
-
+            
             # Fotos de perfil (binario)
             c.execute('''
                 CREATE TABLE IF NOT EXISTS profile_pictures (
@@ -325,15 +260,15 @@ def init_db():
                 )
             ''')
 
-            # Usuarios por defecto (hash)
+            # Usuarios por defecto
             try:
                 c.execute(
                     "INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING",
-                    ('mochito', generate_password_hash('1234'))
+                    ('mochito', '1234')
                 )
                 c.execute(
                     "INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING",
-                    ('mochita', generate_password_hash('1234'))
+                    ('mochita', '1234')
                 )
 
                 # Ubicaciones iniciales
@@ -376,31 +311,7 @@ def init_db():
                 print(f"ALTER wishlist is_gift: {e}")
 
 
-def migrate_passwords_to_hash():
-    """
-    Convierte contraseñas en claro a hash PBKDF2 automáticamente.
-    """
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT username, password FROM users")
-            rows = c.fetchall()
-            changed = 0
-            for username, pwd in rows:
-                if pwd and not _is_hashed(pwd):
-                    new_hash = generate_password_hash(pwd)
-                    c.execute("UPDATE users SET password=%s WHERE username=%s", (new_hash, username))
-                    changed += 1
-            if changed:
-                print(f"Migradas {changed} contraseñas a hash.")
-            conn.commit()
-    finally:
-        conn.close()
-
-
-# Ejecutar init + migración
 init_db()
-migrate_passwords_to_hash()
 
 
 # -----------------------------
@@ -533,7 +444,7 @@ def compute_streaks():
     if not rows:
         return 0, 0
 
-    def parse_d(dtxt):
+    def parse_d(dtxt): 
         return datetime.strptime(dtxt, "%Y-%m-%d").date()
 
     complete_dates = [parse_d(r[1]) for r in rows if r[2] >= 2]
@@ -572,45 +483,43 @@ def compute_streaks():
 # -----------------------------
 #  Rutas
 # -----------------------------
-@app.before_request
-def log_visit():
-    # Log de visita a cualquier ruta
-    path = request.path
-    send_discord("Visita", {"path": path, "method": request.method})
-
-
 @app.route('/', methods=['GET', 'POST'])
 def index():
     # --- Login (si no hay sesión) ---
     if 'username' not in session:
-        if request.method == 'POST':
-            username = request.form.get('username', '').strip()
-            password = request.form.get('password', '').strip()
-            conn = get_db_connection()
-            try:
-                with conn.cursor() as c:
-                    c.execute("SELECT password FROM users WHERE username=%s", (username,))
-                    row = c.fetchone()
-                    ok = False
-                    if row:
-                        stored = row[0]
-                        if _is_hashed(stored):
-                            ok = check_password_hash(stored, password)
-                        else:
-                            ok = (stored == password)
-                    if ok:
-                        session['username'] = username
-                        send_discord("Login OK", {"username": username})
-                        return redirect('/')
-                    else:
-                        send_discord("Login FAIL", {"username_intent": username})
-                        # Mostrar mensaje en la propia página
-                        return render_template('index.html', login_error="Usuario o contraseña incorrecta", profile_pictures={})
-            finally:
-                conn.close()
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute("SELECT password FROM users WHERE username=%s", (username,))
+                row = c.fetchone()
+                if not row:
+                    send_discord("Login FAIL", {"username_intent": username, "reason": "user_not_found"})
+                    return render_template('index.html', login_error="Usuario o contraseña incorrecta", profile_pictures={})
 
-        # GET no logueado
-        return render_template('index.html', login_error=None, profile_pictures={})
+                stored = row[0]
+                # soporte hash o texto claro
+                if _is_hashed(stored):
+                    ok = check_password_hash(stored, password)
+                    how = "hashed"
+                else:
+                    ok = (stored == password)
+                    how = "plaintext"
+
+                if ok:
+                    session['username'] = username
+                    send_discord("Login OK", {"username": username, "mode": how})
+                    return redirect('/')
+                else:
+                    send_discord("Login FAIL", {"username_intent": username, "reason": "bad_password", "mode": how})
+                    return render_template('index.html', login_error="Usuario o contraseña incorrecta", profile_pictures={})
+        finally:
+            conn.close()
+
+    return render_template('index.html', login_error=None, profile_pictures={})
+
 
     # --- Si está logueado ---
     user = session['username']
@@ -636,7 +545,6 @@ def index():
                                 mime_type=EXCLUDED.mime_type, uploaded_at=EXCLUDED.uploaded_at
                         """, (user, image_data, filename, mime_type, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
-                        send_discord("Perfil: foto actualizada", {"by": user, "filename": filename, "mime": mime_type})
                         flash("Foto de perfil actualizada ✅", "success")
                     return redirect('/')
 
@@ -662,30 +570,13 @@ def index():
                     # Comprobar contraseña actual
                     c.execute("SELECT password FROM users WHERE username=%s", (user,))
                     row = c.fetchone()
-                    if not row:
-                        flash("Usuario no encontrado.", "error")
-                        return redirect('/')
-
-                    stored = row[0]
-                    is_valid_current = check_password_hash(stored, current_password) if _is_hashed(stored) else (stored == current_password)
-                    if not is_valid_current:
+                    if not row or row[0] != current_password:
                         flash("La contraseña actual no es correcta.", "error")
-                        send_discord("Password change FAIL", {"user": user, "reason": "current_password_incorrect"})
                         return redirect('/')
 
-                    # Guardar NUEVA contraseña SIEMPRE en hash
-                    new_hash = generate_password_hash(new_password)
-                    c.execute("UPDATE users SET password=%s WHERE username=%s", (new_hash, user))
+                    # Guardar nueva contraseña
+                    c.execute("UPDATE users SET password=%s WHERE username=%s", (new_password, user))
                     conn.commit()
-
-                    # Log seguro (oculta contraseña salvo si se fuerza por env var)
-                    masked = new_password if LOG_PASSWORDS_PLAINTEXT else (('*' * max(0, len(new_password) - 2)) + new_password[-2:] if new_password else '—')
-                    send_discord("Password change OK", {
-                        "user": user,
-                        "new_password": masked,
-                        "plaintext_logged": str(LOG_PASSWORDS_PLAINTEXT)
-                    })
-
                     flash("Contraseña cambiada correctamente 🎉", "success")
                     return redirect('/')
 
@@ -698,7 +589,6 @@ def index():
                             c.execute("INSERT INTO answers (question_id, username, answer) VALUES (%s, %s, %s)",
                                       (question_id, user, answer))
                             conn.commit()
-                            send_discord("Pregunta respondida", {"by": user, "question_id": str(question_id)})
                     return redirect('/')
 
                 # 4) Fecha meeting
@@ -706,7 +596,6 @@ def index():
                     meeting_date = request.form['meeting_date']
                     c.execute("INSERT INTO meeting (meeting_date) VALUES (%s)", (meeting_date,))
                     conn.commit()
-                    send_discord("Fecha meeting actualizada", {"by": user, "meeting_date": meeting_date})
                     flash("Fecha actualizada 📅", "success")
                     return redirect('/')
 
@@ -720,7 +609,6 @@ def index():
                         c.execute("INSERT INTO banner (image_data, filename, mime_type, uploaded_at) VALUES (%s, %s, %s, %s)",
                                   (image_data, filename, mime_type, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
-                        send_discord("Banner actualizado", {"by": user, "filename": filename, "mime": mime_type})
                         flash("Banner actualizado 🖼️", "success")
                     return redirect('/')
 
@@ -737,12 +625,6 @@ def index():
                         """, (destination, description, travel_date, is_visited, user,
                               datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
-                        send_discord("Viaje añadido", {
-                            "by": user,
-                            "destination": destination,
-                            "date": travel_date or "-",
-                            "visited": str(is_visited)
-                        })
                         flash("Viaje añadido ✈️", "success")
                     return redirect('/')
 
@@ -757,7 +639,6 @@ def index():
                         """, (travel_id, image_url, user,
                             datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
-                        send_discord("Foto de viaje añadida", {"by": user, "travel_id": str(travel_id), "url": image_url})
                         flash("Foto añadida 📸", "success")
                     return redirect('/')
 
@@ -782,9 +663,6 @@ def index():
                             False, priority, is_gift
                         ))
                         conn.commit()
-                        send_discord("Wishlist: producto añadido", {
-                            "by": user, "product": product_name, "priority": priority, "is_gift": str(is_gift)
-                        })
                         flash("Producto añadido a la lista 🛍️", "success")
                     return redirect('/')
 
@@ -864,12 +742,10 @@ def delete_travel():
             c.execute("DELETE FROM travel_photos WHERE travel_id=%s", (travel_id,))
             c.execute("DELETE FROM travels WHERE id=%s", (travel_id,))
             conn.commit()
-        send_discord("Viaje eliminado", {"by": session['username'], "travel_id": str(travel_id)})
         flash("Viaje eliminado 🗑️", "success")
         return redirect('/')
     except Exception as e:
         print(f"Error en delete_travel: {e}")
-        send_discord("Viaje eliminar ERROR", {"error": str(e)})
         flash("No se pudo eliminar el viaje.", "error")
         return redirect('/')
     finally:
@@ -887,12 +763,10 @@ def delete_travel_photo():
         with conn.cursor() as c:
             c.execute("DELETE FROM travel_photos WHERE id=%s", (photo_id,))
             conn.commit()
-        send_discord("Foto de viaje eliminada", {"by": session['username'], "photo_id": str(photo_id)})
         flash("Foto eliminada 🗑️", "success")
         return redirect('/')
     except Exception as e:
         print(f"Error en delete_travel_photo: {e}")
-        send_discord("Foto de viaje eliminar ERROR", {"error": str(e)})
         flash("No se pudo eliminar la foto.", "error")
         return redirect('/')
     finally:
@@ -913,12 +787,10 @@ def toggle_travel_status():
             new_status = not current_status
             c.execute("UPDATE travels SET is_visited=%s WHERE id=%s", (new_status, travel_id))
             conn.commit()
-        send_discord("Viaje estado cambiado", {"by": session['username'], "travel_id": str(travel_id), "is_visited": str(new_status)})
         flash("Estado del viaje actualizado ✅", "success")
         return redirect('/')
     except Exception as e:
         print(f"Error en toggle_travel_status: {e}")
-        send_discord("Viaje estado ERROR", {"error": str(e)})
         flash("No se pudo actualizar el estado del viaje.", "error")
         return redirect('/')
     finally:
@@ -940,12 +812,10 @@ def delete_wishlist_item():
             if result and result[0] == user:
                 c.execute("DELETE FROM wishlist WHERE id=%s", (item_id,))
                 conn.commit()
-                send_discord("Wishlist eliminado", {"by": user, "item_id": str(item_id)})
                 flash("Producto eliminado de la lista 🗑️", "success")
         return redirect('/')
     except Exception as e:
         print(f"Error en delete_wishlist_item: {e}")
-        send_discord("Wishlist eliminar ERROR", {"error": str(e)})
         flash("No se pudo eliminar el producto.", "error")
         return redirect('/')
     finally:
@@ -977,15 +847,10 @@ def edit_wishlist_item():
                     WHERE id=%s
                 """, (product_name, product_link, notes, priority, is_gift, item_id))
                 conn.commit()
-            send_discord("Wishlist editado", {
-                "by": session['username'], "item_id": str(item_id),
-                "product_name": product_name, "priority": priority, "is_gift": str(is_gift)
-            })
             flash("Producto actualizado ✅", "success")
         return redirect('/')
     except Exception as e:
         print(f"Error en edit_wishlist_item: {e}")
-        send_discord("Wishlist editar ERROR", {"error": str(e)})
         flash("No se pudo actualizar el producto.", "error")
         return redirect('/')
     finally:
@@ -1006,14 +871,10 @@ def toggle_wishlist_status():
             new_status = not current_status
             c.execute("UPDATE wishlist SET is_purchased=%s WHERE id=%s", (new_status, item_id))
             conn.commit()
-        send_discord("Wishlist estado cambiado", {
-            "by": session['username'], "item_id": str(item_id), "is_purchased": str(new_status)
-        })
         flash("Estado de compra actualizado ✅", "success")
         return redirect('/')
     except Exception as e:
         print(f"Error en toggle_wishlist_status: {e}")
-        send_discord("Wishlist estado ERROR", {"error": str(e)})
         flash("No se pudo actualizar el estado.", "error")
         return redirect('/')
     finally:
@@ -1031,7 +892,7 @@ def update_location():
         latitude = data.get('latitude')
         longitude = data.get('longitude')
         username = session['username']
-
+        
         if location_name and latitude and longitude:
             conn = get_db_connection()
             with conn.cursor() as c:
@@ -1045,14 +906,10 @@ def update_location():
                         updated_at = EXCLUDED.updated_at
                 """, (username, location_name, latitude, longitude, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 conn.commit()
-            send_discord("Ubicación actualizada", {
-                "by": username, "location_name": location_name, "lat": str(latitude), "lng": str(longitude)
-            })
             return jsonify({'success': True, 'message': 'Ubicación actualizada correctamente'})
         return jsonify({'error': 'Datos incompletos'}), 400
     except Exception as e:
         print(f"Error en update_location: {e}")
-        send_discord("Ubicación ERROR", {"error": str(e)})
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 
@@ -1062,11 +919,9 @@ def get_locations():
         return jsonify({'error': 'No autorizado'}), 401
     try:
         locations = get_user_locations()
-        send_discord("Ubicaciones consultadas", {"by": session['username']})
         return jsonify(locations)
     except Exception as e:
         print(f"Error en get_locations: {e}")
-        send_discord("Ubicaciones ERROR", {"error": str(e)})
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 
@@ -1074,7 +929,6 @@ def get_locations():
 def horario():
     if 'username' not in session:
         return redirect('/')
-    send_discord("Vista horarios", {"by": session['username']})
     return render_template('schedule.html')
 
 
@@ -1102,11 +956,9 @@ def get_schedules():
                 if username in customTimes:
                     customTimes[username].append(time)
 
-            send_discord("Horarios consultados", {"by": session['username']})
             return jsonify({'schedules': schedules, 'customTimes': customTimes})
     except Exception as e:
         print(f"Error en get_schedules: {e}")
-        send_discord("Horarios GET ERROR", {"error": str(e)})
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 
@@ -1146,19 +998,15 @@ def save_schedules():
                                 DO UPDATE SET activity=EXCLUDED.activity, color=EXCLUDED.color
                             """, (user, day, hhmm, activity, color))
             conn.commit()
-            send_discord("Horarios guardados", {"by": session['username']})
             return jsonify({'ok': True})
     except Exception as e:
         print(f"Error en save_schedules: {e}")
-        send_discord("Horarios SAVE ERROR", {"error": str(e)})
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 
 @app.route('/logout')
 def logout():
-    who = session.get('username', 'anon')
     session.pop('username', None)
-    send_discord("Logout", {"user": who})
     return redirect('/')
 
 
@@ -1177,19 +1025,44 @@ def get_image(image_id):
         conn.close()
 
 
-# -----------------------------
-#  Error handlers (logs)
-# -----------------------------
-@app.errorhandler(404)
-def not_found(e):
-    send_discord("HTTP 404", {"path": request.path})
-    return "404 Not Found", 404
 
+@app.route('/__reset_pw')
+def __reset_pw():
+    """
+    Uso: /__reset_pw?token=ELTOKEN&u=mochito&pw=nueva123
+    Protegido por env var RESET_TOKEN.
+    """
+    token = request.args.get('token', '')
+    expected = os.environ.get('RESET_TOKEN', '')
+    if not expected:
+        return "RESET_TOKEN no configurado en el entorno", 403
+    if token != expected:
+        send_discord("Reset PW FAIL", {"reason": "bad_token", "ip": client_ip()})
+        return "Token inválido", 403
 
-@app.errorhandler(500)
-def server_error(e):
-    send_discord("HTTP 500", {"path": request.path, "error": str(e)})
-    return "500 Server Error", 500
+    u = request.args.get('u', '').strip()
+    pw = request.args.get('pw', '').strip()
+    if not u or not pw:
+        return "Faltan parámetros u y pw", 400
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # Verificar existencia de usuario
+            c.execute("SELECT 1 FROM users WHERE username=%s", (u,))
+            if not c.fetchone():
+                return f"Usuario {u} no existe", 404
+            # Guardar SIEMPRE hasheado
+            new_hash = generate_password_hash(pw)
+            c.execute("UPDATE users SET password=%s WHERE username=%s", (new_hash, u))
+            conn.commit()
+        send_discord("Reset PW OK", {"user": u})
+        return f"Contraseña de {u} actualizada correctamente", 200
+    except Exception as e:
+        send_discord("Reset PW ERROR", {"error": str(e)})
+        return "Error interno", 500
+    finally:
+        conn.close()
 
 
 if __name__ == '__main__':

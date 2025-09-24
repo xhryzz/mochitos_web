@@ -1480,6 +1480,39 @@ select[name="priority"]:active {
 
 
 
+/* === Sticky footer full-width (overrides) === */
+html, body { height: 100%; }
+body{
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* el contenido empuja al footer hacia abajo */
+.container{ flex: 1 0 auto; }
+
+/* footer a todo lo ancho y sin esquinas redondeadas */
+.site-footer{
+  flex-shrink: 0;
+  width: 100%;
+  margin-top: auto;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* (Opcional) Forzar full-bleed si algún padre limita el ancho:
+.site-footer{
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  width: 100vw;
+}
+*/
+
+        
+
     </style>
 </head>
 
@@ -2783,3 +2816,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </body>
 </html>
+

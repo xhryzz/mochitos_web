@@ -303,6 +303,185 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .animate-in { animation: fadeIn .6s ease forwards; }
         .delay-1 { animation-delay: .2s; } .delay-2 { animation-delay: .4s; } .delay-3 { animation-delay: .6s; } .delay-4 { animation-delay: .8s; }
+
+        /* ================================
+   BANNER — versión bonita ✨
+   ================================ */
+.section.banner{
+  position: relative;
+  height: clamp(360px, 55vh, 640px);
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow: 0 30px 60px rgba(232,67,147,.18);
+  isolate: isolate; /* separa los pseudo-elementos */
+}
+
+/* Foto con Ken Burns (zoom + leve paneo) */
+.section.banner img{
+  width: 100%; height: 100%; object-fit: cover;
+  filter: saturate(1.08) contrast(1.05);
+  transform-origin: center;
+  animation: kenburns 18s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes kenburns{
+  0%   { transform: scale(1.05) translate3d(0,-1%,0); }
+  100% { transform: scale(1.14) translate3d(0,1%,0);  }
+}
+
+/* Viñeteado suave + degradado superior para leer mejor */
+.section.banner::before{
+  content:"";
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(80% 60% at 50% 30%, rgba(0,0,0,0) 0%, rgba(0,0,0,.22) 100%),
+    linear-gradient(to top, rgba(0,0,0,.50) 0%, rgba(0,0,0,0) 40%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Onda decorativa en la base del banner */
+.section.banner::after{
+  content:"";
+  position:absolute; left:0; right:0; bottom:-1px; height:110px;
+  background:
+    url("data:image/svg+xml,%3Csvg width='1440' height='110' viewBox='0 0 1440 110' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,50 C200,120 420,0 720,70 C1020,140 1240,40 1440,90 L1440,110 L0,110 Z' fill='%23ffffff' fill-opacity='0.92'/%3E%3C/svg%3E")
+    center/cover no-repeat;
+  filter: drop-shadow(0 -6px 20px rgba(0,0,0,.08));
+  z-index: 2;
+  pointer-events:none;
+}
+
+/* Capa de contenido del banner */
+.banner-overlay{
+  position: absolute; inset: 0;
+  display: grid;
+  align-content: end;
+  justify-items: center;
+  padding: clamp(16px, 3.5vw, 32px);
+  padding-bottom: clamp(22px, 5.5vw, 48px);
+  z-index: 3;
+  /* quitamos el gradiente anterior porque ya lo aporta ::before */
+  background: transparent;
+}
+
+/* Título con degradado + contorno + tarjeta de vidrio detrás */
+.banner-overlay h1{
+  position: relative;
+  margin: 0 0 12px 0;
+  font-family: 'Dancing Script', cursive;
+  font-size: clamp(2.2rem, 7vw, 5rem);
+  line-height: 1.05;
+  letter-spacing: 1.5px;
+
+  /* degradado dentro del texto */
+  background: linear-gradient(135deg, #fff 0%, #ffe8f3 40%, #ffd1ea 70%, #ffffff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+
+  /* contorno sutil para recorte sobre fondos claros */
+  -webkit-text-stroke: 1px rgba(255,255,255,.45);
+  text-shadow:
+    0 2px 14px rgba(0,0,0,.35),
+    0 8px 30px rgba(232,67,147,.35);
+}
+
+/* “Tarjeta glass” detrás del título */
+.banner-overlay h1::before{
+  content:"";
+  position: absolute; inset: -8px -18px;
+  background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.08));
+  border: 1px solid rgba(255,255,255,.35);
+  border-radius: 18px;
+  backdrop-filter: blur(10px);
+  z-index: -1;
+  box-shadow:
+    0 10px 30px rgba(0,0,0,.15),
+    inset 0 1px 0 rgba(255,255,255,.25);
+}
+
+/* Línea/acento bajo el título (sin texto extra) */
+.banner-overlay h1::after{
+  content:"";
+  display:block; height: 4px; width: 120px;
+  margin: 10px auto 0 auto;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+  box-shadow: 0 6px 20px rgba(162,155,254,.45);
+}
+
+/* Controles dentro del banner: pill de vidrio */
+.banner-form{
+  display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+  background: rgba(255,255,255,.16);
+  border: 1px solid rgba(255,255,255,.35);
+  backdrop-filter: blur(10px);
+  padding: 8px;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.15);
+}
+
+/* Botón de “Elegir imagen”: compacto y con icono centrado */
+.banner-form .custom-file-upload{
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.9);
+  border: 1px solid rgba(255,255,255,.65);
+  color: var(--primary-color);
+  font-weight: 700;
+  transition: transform .15s ease, box-shadow .2s ease;
+}
+.banner-form .custom-file-upload:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(232,67,147,.25);
+}
+
+/* Botón “Cambiar banner”: degradado más premium */
+.banner-form button{
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  background: linear-gradient(135deg, #ff6aa2, #a29bfe);
+  border: 1px solid rgba(255,255,255,.35);
+  box-shadow:
+    0 8px 22px rgba(232,67,147,.35),
+    inset 0 1px 0 rgba(255,255,255,.35);
+}
+.banner-form button:hover{
+  transform: translateY(-2px);
+}
+
+/* Indicador de scroll (flecha) */
+.section.banner .scroll-hint{
+  position:absolute; left:50%; bottom:14px; transform: translateX(-50%);
+  width: 14px; height: 22px; border-radius: 8px;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.6);
+  opacity: .9;
+}
+.section.banner .scroll-hint::before{
+  content:"";
+  position:absolute; left:50%; top:4px; transform: translateX(-50%);
+  width: 4px; height: 6px; border-radius: 999px;
+  background: rgba(255,255,255,.9);
+  animation: floatDot 1.8s ease-in-out infinite;
+}
+@keyframes floatDot{
+  0%{ transform: translate(-50%,0); opacity:.95; }
+  100%{ transform: translate(-50%,10px); opacity:.2; }
+}
+
+/* Responsivo fino para móviles */
+@media (max-width: 768px){
+  .banner-overlay h1{ font-size: clamp(2rem, 8vw, 3rem); }
+  .banner-overlay h1::before{ inset: -6px -12px; border-radius: 16px; }
+  .banner-form{ gap: 8px; padding: 6px; }
+  .banner-form .custom-file-upload{ padding: 8px 14px; }
+  .banner-form button{ padding: 8px 14px; }
+}
+
     </style>
 </head>
 
@@ -371,6 +550,8 @@
           <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 450'%3E%3Crect width='1200' height='450' fill='%23ffe8f3'/%3E%3C/svg%3E" alt="Banner por defecto">
         {% endif %}
         <div class="banner-overlay">
+          <div class="scroll-hint" aria-hidden="true"></div>
+
           <h1>Christian <span class="heart">❤️</span> Clara</h1>
           <form method="POST" enctype="multipart/form-data" class="banner-form">
             <label for="banner-upload" class="custom-file-upload">

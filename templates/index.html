@@ -1439,6 +1439,26 @@ select[name="priority"]:active {
   to { transform: translateY(6px); opacity: 0; }
 }
 
+
+
+/* Paginación viajes */
+.pager{
+  display:flex; gap:8px; justify-content:center; align-items:center;
+  margin-top:16px; flex-wrap:wrap;
+}
+.pager button{
+  border:none; border-radius:10px; padding:8px 12px; cursor:pointer;
+  background:#fff; box-shadow:0 6px 16px rgba(0,0,0,.08);
+  font-weight:700; color:#444; transition:.2s;
+}
+.pager button:hover{ transform: translateY(-2px); }
+.pager button[disabled]{ opacity:.45; cursor:not-allowed; transform:none; }
+.pager .page-btn.active{
+  background: var(--gradient); color:#fff;
+  box-shadow:0 8px 20px rgba(232,67,147,.35);
+}
+
+
     </style>
 </head>
 
@@ -1943,6 +1963,8 @@ select[name="priority"]:active {
         <!-- Visitados -->
         <div class="travel-content active" id="visited-tab">
           <div class="travels-grid">
+            <div class="pager" id="wishlist-pager"></div>
+            <div class="pager" id="visited-pager"></div>
             {% for id, destination, description, travel_date, is_visited, created_by in travels if is_visited %}
               <div class="travel-card visited">
                 <div class="travel-cover">
@@ -2509,6 +2531,107 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
+
+
+
+
+
+// =====================
+// Paginación viajes (6 por página)
+// =====================
+function paginateGrid(gridEl, pagerEl, pageSize=6){
+  if(!gridEl || !pagerEl) return;
+  const items = Array.from(gridEl.querySelectorAll(':scope > .travel-card'));
+  const total = items.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  let current = 1;
+
+  function renderPage(){
+    const start = (current - 1) * pageSize;
+    const end   = start + pageSize;
+    items.forEach((el, i) => {
+      el.style.display = (i >= start && i < end) ? '' : 'none';
+    });
+    renderPager();
+  }
+
+  function makeBtn(label, onClick, opts={}){
+    const b = document.createElement('button');
+    b.textContent = label;
+    if(opts.title) b.title = opts.title;
+    if(opts.disabled) b.disabled = true;
+    if(opts.active) b.classList.add('page-btn','active');
+    else b.classList.add('page-btn');
+    if(!opts.disabled && onClick) b.addEventListener('click', onClick);
+    return b;
+  }
+
+  function renderPager(){
+    pagerEl.innerHTML = '';
+    // « Primera, ‹ Anterior
+    pagerEl.appendChild(makeBtn('«', () => { current = 1; renderPage(); }, {disabled: current===1, title:'Primera'}));
+    pagerEl.appendChild(makeBtn('‹', () => { current = Math.max(1, current-1); renderPage(); }, {disabled: current===1, title:'Anterior'}));
+
+    // Números (ventana dinámica)
+    const windowSize = 5;
+    let from = Math.max(1, current - Math.floor(windowSize/2));
+    let to   = Math.min(totalPages, from + windowSize - 1);
+    from = Math.max(1, to - windowSize + 1);
+
+    for(let p = from; p <= to; p++){
+      pagerEl.appendChild(makeBtn(String(p), () => { current = p; renderPage(); }, {active: p===current}));
+    }
+
+    // Siguiente ›, Última »
+    pagerEl.appendChild(makeBtn('›', () => { current = Math.min(totalPages, current+1); renderPage(); }, {disabled: current===totalPages, title:'Siguiente'}));
+    pagerEl.appendChild(makeBtn('»', () => { current = totalPages; renderPage(); }, {disabled: current===totalPages, title:'Última'}));
+  }
+
+  // API pública para reseteo desde tabs
+  return {
+    goToFirst: () => { current = 1; renderPage(); },
+    refresh: () => renderPage()
+  };
+}
+
+// Instancia paginadores al cargar
+let visitedPagerAPI = null;
+let wishlistPagerAPI = null;
+
+function setupTravelPagination(){
+  const visitedGrid = document.querySelector('#visited-tab .travels-grid');
+  const visitedPager = document.getElementById('visited-pager');
+  const wishlistGrid = document.querySelector('#wishlist-travel-tab .travels-grid');
+  const wishlistPager = document.getElementById('wishlist-pager');
+
+  visitedPagerAPI = paginateGrid(visitedGrid, visitedPager, 6);
+  wishlistPagerAPI = paginateGrid(wishlistGrid, wishlistPager, 6);
+}
+
+// Cuando cambias de pestaña, vuelve a la página 1
+(function hookTabsReset(){
+  const travelTabs = document.querySelectorAll('#travel-tabs-container .travel-tab');
+  travelTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const tabId = tab.getAttribute('data-tab');
+      // Espera al toggle de clases y luego resetea paginación de ese tab
+      setTimeout(() => {
+        if(tabId === 'visited'){ visitedPagerAPI?.goToFirst(); }
+        if(tabId === 'wishlist-travel'){ wishlistPagerAPI?.goToFirst(); }
+      }, 0);
+    });
+  });
+})();
+
+// Lanza la paginación junto al resto de inits
+(function afterDOMContentLoadedHook(){
+  const prev = document.addEventListener;
+  document.addEventListener('DOMContentLoaded', function onReady(){
+    setupTravelPagination();
+  });
+})();
+
+
 </script>
 
 <footer class="site-footer">

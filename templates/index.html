@@ -1373,6 +1373,72 @@ select[name="priority"]:active {
 .wishlist-card.locked .wishlist-actions{ display:none !important; } /* sin acciones para el destinatario */
 
 
+/* Contenedor */
+#toasts{
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 9999;
+  pointer-events: none;
+}
+.toast{
+  pointer-events: auto;
+  min-width: 260px;
+  max-width: 92vw;
+  background: #111827;
+  color: #fff;
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.25);
+  overflow: hidden;
+  animation: slideIn .25s ease-out;
+}
+.toast.info  { border-left: 6px solid #60a5fa; }
+.toast.success { border-left: 6px solid #34d399; }
+.toast.error { border-left: 6px solid #f87171; }
+
+.toast .toast-content{
+  display:flex; align-items:center; gap:10px;
+  padding: 12px 14px;
+}
+.toast .dot{
+  width:10px; height:10px; border-radius:999px;
+  background:#9ca3af;
+}
+.toast.info .dot{ background:#60a5fa; }
+.toast.success .dot{ background:#34d399; }
+.toast.error .dot{ background:#f87171; }
+.toast .text{ line-height:1.3 }
+.toast .close{
+  margin-left:auto; background:transparent; border:0;
+  color:#fff; font-size:18px; cursor:pointer; opacity:.8;
+}
+.toast .close:hover{ opacity:1 }
+
+.toast .progress{
+  height: 3px;
+  width: 100%;
+  background: rgba(255,255,255,.15);
+  transition: width linear;
+}
+.toast.info .progress{ background: linear-gradient(90deg,#60a5fa,#3b82f6); }
+.toast.success .progress{ background: linear-gradient(90deg,#34d399,#10b981); }
+.toast.error .progress{ background: linear-gradient(90deg,#f87171,#ef4444); }
+
+.toast.closing{
+  animation: fadeOut .25s ease-in forwards;
+}
+
+@keyframes slideIn{
+  from{ transform: translateY(12px); opacity: 0; }
+  to  { transform: translateY(0);   opacity: 1; }
+}
+@keyframes fadeOut{
+  to { transform: translateY(6px); opacity: 0; }
+}
+
     </style>
 </head>
 
@@ -1384,8 +1450,12 @@ select[name="priority"]:active {
 
 
 
-
 <body>
+  {% set flash_messages = get_flashed_messages(with_categories=true) %}
+
+  <!-- Zona toasts -->
+  <div id="toasts" aria-live="polite" aria-atomic="true"></div>
+
   <!-- Corazones flotantes de fondo -->
   <div class="floating-hearts" id="hearts-container"></div>
 
@@ -1420,27 +1490,11 @@ select[name="priority"]:active {
   </div>
 
   <div class="container">
-    <!-- Mensajes flash (éxito/error) -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div style="margin: 10px 0 20px 0;">
-          {% for category, message in messages %}
-            <div class="error-message" style="{% if category == 'success' %}background:#eaffea;border-left-color:#2ecc71;color:#2c7a2c;{% endif %}">
-              {{ message }}
-            </div>
-          {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
-
     {% if not session.username %}
       <!-- LOGIN -->
       <div class="login-container">
         <div class="login-box animate-in">
           <h3>Iniciar sesión</h3>
-          {% if login_error %}
-            <div class="error-message">{{ login_error }}</div>
-          {% endif %}
           <form method="POST">
             <input type="text" name="username" placeholder="Usuario" required>
             <input type="password" name="password" placeholder="Contraseña" required>
@@ -1448,6 +1502,7 @@ select[name="priority"]:active {
           </form>
         </div>
       </div>
+
     {% else %}
 
       <a href="/logout" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
@@ -1486,8 +1541,8 @@ select[name="priority"]:active {
           <div class="modal-body">
             <!-- Perfil: avatar + saludo -->
             <div class="profile-section">
-              {% if profile_pictures[session.username] %}
-                <img src="{{ profile_pictures[session.username] }}" alt="Foto de perfil" class="profile-picture">
+              {% if profile_pictures.get(session.username) %}
+                <img src="{{ profile_pictures.get(session.username) }}" alt="Foto de perfil" class="profile-picture">
               {% else %}
                 <div class="profile-picture" style="background: var(--gradient); display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; font-weight: bold;">
                   {{ session.username[0]|upper }}
@@ -1513,11 +1568,9 @@ select[name="priority"]:active {
             <!-- FORM: Cambiar contraseña -->
             <form method="POST" class="profile-form">
               <input type="hidden" name="change_password" value="1">
-
               <input type="password" name="current_password" placeholder="Contraseña actual" required>
               <input type="password" name="new_password" placeholder="Nueva contraseña" required>
               <input type="password" name="confirm_password" placeholder="Repite la nueva contraseña" required>
-
               <button type="submit">
                 <i class="fas fa-lock"></i> Cambiar contraseña
               </button>
@@ -1559,16 +1612,16 @@ select[name="priority"]:active {
             <div class="distance-value" id="distanceValue">Cargando...</div>
             <div id="locationInfo">
               <div class="location-badge">
-                {% if profile_pictures['mochito'] %}
-                  <img src="{{ profile_pictures['mochito'] }}" alt="Christian">
+                {% if profile_pictures.get('mochito') %}
+                  <img src="{{ profile_pictures.get('mochito') }}" alt="Christian">
                 {% else %}
                   <span>C</span>
                 {% endif %}
                 <span id="christianLocation">Algemesí, Valencia</span>
               </div>
               <div class="location-badge">
-                {% if profile_pictures['mochita'] %}
-                  <img src="{{ profile_pictures['mochita'] }}" alt="Clara">
+                {% if profile_pictures.get('mochita') %}
+                  <img src="{{ profile_pictures.get('mochita') }}" alt="Clara">
                 {% else %}
                   <span>C</span>
                 {% endif %}
@@ -1612,13 +1665,12 @@ select[name="priority"]:active {
         </div>
 
         {% if show_answers %}
-          <!-- Ambos respondieron -->
           <div class="answers">
             {% for u, a in answers %}
               <div class="answer-item">
                 <div class="user-avatar">
-                  {% if profile_pictures[u] %}
-                    <img src="{{ profile_pictures[u] }}" alt="{{ u }}">
+                  {% if profile_pictures.get(u) %}
+                    <img src="{{ profile_pictures.get(u) }}" alt="{{ u }}">
                   {% else %}
                     {{ u[0]|upper }}
                   {% endif %}
@@ -1627,14 +1679,14 @@ select[name="priority"]:active {
               </div>
             {% endfor %}
           </div>
+
         {% else %}
           {% if user_answer and not other_answer %}
-            <!-- Yo ya contesté -->
             <div class="answers">
               <div class="answer-item">
                 <div class="user-avatar">
-                  {% if profile_pictures[username] %}
-                    <img src="{{ profile_pictures[username] }}" alt="{{ username }}">
+                  {% if profile_pictures.get(username) %}
+                    <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
                   {% else %}
                     {{ username[0]|upper }}
                   {% endif %}
@@ -1645,7 +1697,6 @@ select[name="priority"]:active {
             <p style="margin-top:10px;">Aún falta la respuesta de <b>{{ other_user }}</b> 🕒</p>
 
           {% elif (not user_answer) and other_answer %}
-            <!-- La otra persona ya contestó, yo no -->
             <form method="POST" class="inline-form" style="margin-bottom:15px;">
               <input type="text" name="answer" placeholder="Tu respuesta..." required>
               <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
@@ -1654,8 +1705,8 @@ select[name="priority"]:active {
             <div class="answers">
               <div class="answer-item blurred">
                 <div class="user-avatar">
-                  {% if profile_pictures[other_user] %}
-                    <img src="{{ profile_pictures[other_user] }}" alt="{{ other_user }}">
+                  {% if profile_pictures.get(other_user) %}
+                    <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
                   {% else %}
                     {{ other_user[0]|upper }}
                   {% endif %}
@@ -1669,7 +1720,6 @@ select[name="priority"]:active {
             </div>
 
           {% else %}
-            <!-- Nadie ha contestado -->
             <form method="POST" class="inline-form">
               <input type="text" name="answer" placeholder="Tu respuesta..." required>
               <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
@@ -1729,8 +1779,8 @@ select[name="priority"]:active {
                 <div class="wishlist-meta">
                   <span>
                     <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                      {% if profile_pictures[created_by] %}
-                        <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                      {% if profile_pictures.get(created_by) %}
+                        <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
                       {% else %}
                         {{ created_by[0]|upper }}
                       {% endif %}
@@ -1811,8 +1861,8 @@ select[name="priority"]:active {
                 <div class="wishlist-meta">
                   <span>
                     <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                      {% if profile_pictures[created_by] %}
-                        <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                      {% if profile_pictures.get(created_by) %}
+                        <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
                       {% else %}
                         {{ created_by[0]|upper }}
                       {% endif %}
@@ -1921,8 +1971,8 @@ select[name="priority"]:active {
                     <span>{{ travel_photos_dict[id]|length }} fotos</span>
                     <span>
                       <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                        {% if profile_pictures[created_by] %}
-                          <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                        {% if profile_pictures.get(created_by) %}
+                          <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
                         {% else %}
                           {{ created_by[0]|upper }}
                         {% endif %}
@@ -2005,8 +2055,8 @@ select[name="priority"]:active {
                     <span>{{ travel_photos_dict[id]|length }} fotos</span>
                     <span>
                       <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                        {% if profile_pictures[created_by] %}
-                          <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+                        {% if profile_pictures.get(created_by) %}
+                          <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
                         {% else %}
                           {{ created_by[0]|upper }}
                         {% endif %}
@@ -2077,308 +2127,150 @@ select[name="priority"]:active {
             </form>
           </div>
         </div>
-      </div>
 
-    {% endif %}
+      {% endif %}
   </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // Crear corazones flotantes
-    function createHearts() {
-        const container = document.getElementById('hearts-container');
-        const heartCount = 15;
-        
-        for (let i = 0; i < heartCount; i++) {
-            const heart = document.createElement('div');
-            heart.classList.add('heart');
-            heart.innerHTML = '❤';
-            heart.style.left = Math.random() * 100 + 'vw';
-            heart.style.animationDelay = Math.random() * 5 + 's';
-            heart.style.fontSize = (Math.random() * 15 + 15) + 'px';
-            container.appendChild(heart);
-        }
-    }
-    
-    // Funcionalidad para las pestañas de lista de deseos
-    document.querySelectorAll('#wishlist-tabs-container .wishlist-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            // Desactivar todas las pestañas de lista de deseos
-            document.querySelectorAll('#wishlist-tabs-container .wishlist-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.wishlist-content').forEach(c => c.classList.remove('active'));
-            
-            // Activar la pestaña seleccionada
-            tab.classList.add('active');
-            const tabId = tab.getAttribute('data-tab');
-            document.getElementById(`${tabId}-tab`).classList.add('active');
-        });
+// =====================
+// TOASTS (Flash + helper)
+// =====================
+(function () {
+  const msgs = {{ (flash_messages if 'flash_messages' in globals() else get_flashed_messages(with_categories=true)) | tojson | safe }};
+  const wrap = document.getElementById('toasts');
+  if (!wrap) return;
+
+  function closeToast(el){
+    el.classList.add('closing');
+    el.addEventListener('animationend', ()=> el.remove(), { once:true });
+  }
+
+  // Exponer helper global para usarlo desde cualquier sitio
+  window.showToast = function(category, text){
+    const el = document.createElement('div');
+    el.className = 'toast ' + (category || 'info');
+    el.innerHTML = `
+      <div class="toast-content">
+        <span class="dot"></span>
+        <span class="text">${text}</span>
+        <button class="close" aria-label="Cerrar">&times;</button>
+      </div>
+      <div class="progress"></div>
+    `;
+    el.querySelector('.close').addEventListener('click', () => closeToast(el));
+    // Autocierre
+    const life = 3500;
+    setTimeout(() => closeToast(el), life);
+    // Barra de progreso
+    requestAnimationFrame(() => { el.querySelector('.progress').style.width = '0%'; });
+    wrap.appendChild(el);
+  };
+
+  // Pintar flasheados del servidor (escalonados)
+  if (Array.isArray(msgs)) {
+    msgs.forEach(([cat, txt], i) => {
+      setTimeout(()=> window.showToast(cat, txt), i * 150);
     });
-    
-    // Funcionalidad para las pestañas de viajes
-    document.querySelectorAll('#travel-tabs-container .travel-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            // Desactivar todas las pestañas de viajes
-            document.querySelectorAll('#travel-tabs-container .travel-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.travel-content').forEach(c => c.classList.remove('active'));
-            
-            // Activar la pestaña seleccionada
-            tab.classList.add('active');
-            const tabId = tab.getAttribute('data-tab');
-            document.getElementById(`${tabId}-tab`).classList.add('active');
-        });
+  }
+})();
+
+
+// =====================
+// Corazones de fondo
+// =====================
+function createHearts() {
+  const container = document.getElementById('hearts-container');
+  if (!container) return;
+  const heartCount = 15;
+  for (let i = 0; i < heartCount; i++) {
+    const heart = document.createElement('div');
+    heart.classList.add('heart');
+    heart.innerHTML = '❤';
+    heart.style.left = Math.random() * 100 + 'vw';
+    heart.style.animationDelay = Math.random() * 5 + 's';
+    heart.style.fontSize = (Math.random() * 15 + 15) + 'px';
+    container.appendChild(heart);
+  }
+}
+
+
+// =====================
+// Tabs: Wishlist & Viajes
+// =====================
+function setupTabs() {
+  // Wishlist
+  document.querySelectorAll('#wishlist-tabs-container .wishlist-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('#wishlist-tabs-container .wishlist-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.wishlist-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      const tabId = tab.getAttribute('data-tab');
+      const target = document.getElementById(`${tabId}-tab`);
+      if (target) target.classList.add('active');
     });
-    
-    // Abrir modal para editar elemento de la lista de deseos
-    function openEditModal(id, name, link, notes, priority, is_gift) {
-  document.getElementById('editItemId').value = id;
-  document.getElementById('editProductName').value = name || '';
-  document.getElementById('editProductLink').value = link || '';
-  document.getElementById('editNotes').value = notes || '';
-  document.getElementById('editPriority').value = priority || 'media';
-  document.getElementById('editIsGift').checked = !!is_gift;
-  document.getElementById('editWishlistModal').style.display = 'block';
-} 
-    // Cerrar modales
-    document.querySelectorAll('.close-modal').forEach(closeBtn => {
-        closeBtn.addEventListener('click', () => {
-            document.querySelectorAll('.modal').forEach(modal => {
-                modal.style.display = 'none';
-            });
-        });
+  });
+
+  // Travel
+  document.querySelectorAll('#travel-tabs-container .travel-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('#travel-tabs-container .travel-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.travel-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      const tabId = tab.getAttribute('data-tab');
+      const target = document.getElementById(`${tabId}-tab`);
+      if (target) target.classList.add('active');
     });
-    
-    // Cerrar modal al hacer clic fuera del contenido
-    window.addEventListener('click', (event) => {
-        document.querySelectorAll('.modal').forEach(modal => {
-            if (event.target === modal) {
-                modal.style.display = 'none';
-            }
-        });
+  });
+}
+
+
+// =====================
+// Modal genérico (perfil + editor wishlist)
+// =====================
+(function setupModals(){
+  // Cerrar por botón con clase .close-modal
+  document.addEventListener('click', (e) => {
+    if (e.target.matches('.close-modal')) {
+      document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+    }
+  });
+
+  // Cerrar al hacer clic fuera del contenido
+  window.addEventListener('click', (event) => {
+    document.querySelectorAll('.modal').forEach(modal => {
+      if (event.target === modal) modal.style.display = 'none';
     });
-    
-    // Mapa de distancia
-    let map, christianMarker, claraMarker, distanceLine;
-    let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" };
-    let claraLocation = { lat: 37.8882, lng: -4.7794, name: "Córdoba" };
+  });
 
-    function initMap() {
-        map = L.map('distanceMap').setView([39.5, -3.0], 6);
+  // Abrir modal de perfil
+  const settingsIcon = document.getElementById('settingsIcon');
+  const profileModal = document.getElementById('profileModal');
+  if (settingsIcon && profileModal) {
+    settingsIcon.addEventListener('click', () => { profileModal.style.display = 'block'; });
+  }
+})();
 
-        // Capa base de OpenStreetMap
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
+// Exponer openEditModal global (la plantilla lo llama desde atributos onclick)
+window.openEditModal = function(id, name, link, notes, priority, is_gift) {
+  const modal = document.getElementById('editWishlistModal');
+  if (!modal) return;
+  const $ = (sel) => document.getElementById(sel);
 
-        // Iconos personalizados usando base64 o fallback SVG
-        const christianIcon = L.divIcon({
-            className: 'custom-div-icon',
-            html: `<div style="background-image: url('{{ profile_pictures["mochito"] or "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"50\" fill=\"%23e84393\"/><text x=\"50\" y=\"60\" font-size=\"40\" text-anchor=\"middle\" fill=\"white\">C</text></svg>" }}'); background-size: cover; width: 40px; height: 40px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
-            iconSize: [40, 40],
-            iconAnchor: [20, 20]
-        });
+  $('editItemId').value = id;
+  $('editProductName').value = name || '';
+  $('editProductLink').value = link || '';
+  $('editNotes').value = notes || '';
+  $('editPriority').value = priority || 'media';
+  $('editIsGift').checked = !!is_gift;
 
-        const claraIcon = L.divIcon({
-            className: 'custom-div-icon',
-            html: `<div style="background-image: url('{{ profile_pictures["mochita"] or "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"50\" r=\"50\" fill=\"%23a29bfe\"/><text x=\"50\" y=\"60\" font-size=\"40\" text-anchor=\"middle\" fill=\"white\">C</text></svg>" }}'); background-size: cover; width: 40px; height: 40px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
-            iconSize: [40, 40],
-            iconAnchor: [20, 20]
-        });
-
-        // Marcadores
-        christianMarker = L.marker([christianLocation.lat, christianLocation.lng], { icon: christianIcon }).addTo(map);
-        claraMarker = L.marker([claraLocation.lat, claraLocation.lng], { icon: claraIcon }).addTo(map);
-
-        updateDistanceLine();
-        updateDistanceInfo();
-        loadSavedLocations();
-    }
-
-    function updateDistanceLine() {
-        if (distanceLine) map.removeLayer(distanceLine);
-
-        distanceLine = L.polyline([
-            [christianLocation.lat, christianLocation.lng],
-            [claraLocation.lat, claraLocation.lng]
-        ], {
-            color: '#e84393',
-            weight: 3,
-            dashArray: '10, 10',
-            lineJoin: 'round'
-        }).addTo(map);
-
-        const group = new L.featureGroup([christianMarker, claraMarker]);
-        map.fitBounds(group.getBounds().pad(0.2));
-    }
-
-    function updateDistanceInfo() {
-        const distance = calculateDistance(
-            christianLocation.lat, christianLocation.lng,
-            claraLocation.lat, claraLocation.lng
-        );
-        document.getElementById('distanceValue').textContent = `${distance.toFixed(1)} km`;
-        document.getElementById('christianLocation').textContent = christianLocation.name;
-        document.getElementById('claraLocation').textContent = claraLocation.name;
-    }
-
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371;
-        const dLat = deg2rad(lat2 - lat1);
-        const dLon = deg2rad(lon2 - lon1);
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                  Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-                  Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c;
-    }
-
-    function deg2rad(deg) { return deg * (Math.PI/180); }
+  modal.style.display = 'block';
+};
 
 
-    
-    // Geocodificación: convertir dirección a coordenadas
-    async function geocodeAddress(address) {
-        try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`);
-            const data = await response.json();
-            
-            if (data && data.length > 0) {
-                return {
-                    lat: parseFloat(data[0].lat),
-                    lng: parseFloat(data[0].lon),
-                    name: data[0].display_name.split(',')[0] // Primera parte del nombre
-                };
-            }
-            throw new Error('Ubicación no encontrada');
-        } catch (error) {
-            console.error('Error en geocodificación:', error);
-            alert('No se pudo encontrar la ubicación. Por favor, intenta con una dirección más específica.');
-            return null;
-        }
-    }
-    
-    // Guardar ubicaciones en localStorage
-    function saveLocations() {
-        const locations = {
-            christian: christianLocation,
-            clara: claraLocation
-        };
-        localStorage.setItem('coupleLocations', JSON.stringify(locations));
-    }
-    
-    // Cargar ubicaciones desde localStorage
-    function loadSavedLocations() {
-        const saved = localStorage.getItem('coupleLocations');
-        if (saved) {
-            const locations = JSON.parse(saved);
-            christianLocation = locations.christian || christianLocation;
-            claraLocation = locations.clara || claraLocation;
-            
-            // Actualizar marcadores
-            christianMarker.setLatLng([christianLocation.lat, christianLocation.lng]);
-            claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
-            
-            // Actualizar línea e información
-            updateDistanceLine();
-            updateDistanceInfo();
-        }
-    }
-    
-    // Manejar el formulario de actualización de ubicación
-    document.getElementById('locationForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const locationInput = document.getElementById('userLocation').value;
-        if (!locationInput) return;
-        
-        // Mostrar indicador de carga
-        const submitButton = this.querySelector('button');
-        const originalText = submitButton.innerHTML;
-        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...';
-        submitButton.disabled = true;
-        
-        // Obtener coordenadas de la dirección
-        const locationData = await geocodeAddress(locationInput);
-        
-        if (locationData) {
-            // Determinar qué usuario está actualizando
-            const currentUser = '{{ session.username }}';
-            if (currentUser === 'mochito') {
-                christianLocation = locationData;
-                christianMarker.setLatLng([christianLocation.lat, christianLocation.lng]);
-            } else if (currentUser === 'mochita') {
-                claraLocation = locationData;
-                claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
-            }
-            
-            // Actualizar línea e información
-            updateDistanceLine();
-            updateDistanceInfo();
-            
-            // Guardar en localStorage
-            saveLocations();
-            
-            // Limpiar campo de entrada
-            document.getElementById('userLocation').value = '';
-            
-            // Mostrar mensaje de éxito
-            alert(`¡Ubicación actualizada correctamente! Ahora estás en ${locationData.name}`);
-        }
-        
-        // Restaurar botón
-        submitButton.innerHTML = originalText;
-        submitButton.disabled = false;
-    });
-    
-    // Efectos de animación al cargar
-    document.addEventListener('DOMContentLoaded', function() {
-        createHearts();
-        initMap();
-        
-        // Agregar animaciones a los elementos
-        const elements = document.querySelectorAll('.section, .banner');
-        elements.forEach((el, index) => {
-            el.classList.add('animate-in');
-            el.classList.add(`delay-${index % 5}`);
-        });
-        
-        // Configurar los eventos para los inputs de archivo
-        document.querySelectorAll('input[type="file"]').forEach(input => {
-            input.addEventListener('change', function() {
-                const label = this.previousElementSibling;
-                if (this.files.length > 0) {
-                    label.querySelector('i').className = 'fas fa-check';
-                    if (label.querySelector('span')) {
-                        label.querySelector('span').textContent = this.files[0].name;
-                    }
-                }
-            });
-        });
-    });
-
-    // Abrir modal de perfil al hacer clic en el icono de ajustes
-document.getElementById('settingsIcon').addEventListener('click', () => {
-    document.getElementById('profileModal').style.display = 'block';
-});
-
-// Cerrar modal de perfil
-document.querySelector('#profileModal .close-modal').addEventListener('click', () => {
-    document.getElementById('profileModal').style.display = 'none';
-});
-
-// Cerrar modal al hacer clic fuera del contenido
-window.addEventListener('click', (event) => {
-    const modal = document.getElementById('profileModal');
-    if (event.target === modal) {
-        modal.style.display = 'none';
-    }
-});
-
-
-
-
-
-
-// Abre/cierra un único popover a la vez
+// =====================
+// Popover para añadir foto (viajes)
+// =====================
 function togglePhotoMenu(key){
   const id = 'photo-popover-' + key;
   const target = document.getElementById(id);
@@ -2391,21 +2283,22 @@ function togglePhotoMenu(key){
 
   target.classList.toggle('open');
 
-  // focus al input al abrir
+  // Focus al input al abrir
   if(target.classList.contains('open')){
     const input = target.querySelector('input[type="url"]');
     if(input){ setTimeout(()=> input.focus(), 120); }
   }
 }
+window.togglePhotoMenu = togglePhotoMenu;
 
-// Cerrar al enviar (para sensación de “guardado” instantáneo)
 function closePhotoMenuAfterSubmit(key){
   const id = 'photo-popover-' + key;
   const target = document.getElementById(id);
   if(target) setTimeout(()=> target.classList.remove('open'), 50);
 }
+window.closePhotoMenuAfterSubmit = closePhotoMenuAfterSubmit;
 
-// Cerrar al hacer clic fuera
+// Cerrar popover al hacer clic fuera
 document.addEventListener('click', (e) => {
   const openPop = document.querySelector('.photo-popover.open');
   if(!openPop) return;
@@ -2416,7 +2309,7 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// Cerrar con ESC
+// Cerrar popover con ESC
 document.addEventListener('keydown', (e) => {
   if(e.key === 'Escape'){
     document.querySelectorAll('.photo-popover.open').forEach(p => p.classList.remove('open'));
@@ -2424,8 +2317,197 @@ document.addEventListener('keydown', (e) => {
 });
 
 
+// =====================
+// MAPA (Leaflet) + Distancia + Geocoding
+// =====================
+let map, christianMarker, claraMarker, distanceLine;
+let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" };
+let claraLocation     = { lat: 37.8882, lng: -4.7794, name: "Córdoba" };
+
+function initMap() {
+  const mapEl = document.getElementById('distanceMap');
+  if (!mapEl || typeof L === 'undefined') return;
+
+  map = L.map('distanceMap').setView([39.5, -3.0], 6);
+
+  // Capa base
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+
+  // Avatares seguros desde servidor / fallback SVG
+  const christianAvatar = {{ (profile_pictures.get('mochito') or 
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23e84393"/><text x="50" y="60" font-size="40" text-anchor="middle" fill="white">C</text></svg>') | tojson }};
+  const claraAvatar = {{ (profile_pictures.get('mochita') or 
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23a29bfe"/><text x="50" y="60" font-size="40" text-anchor="middle" fill="white">C</text></svg>') | tojson }};
+
+  const christianIcon = L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div style="background-image:url(${christianAvatar});background-size:cover;width:40px;height:40px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(0,0,0,.5);"></div>`,
+    iconSize: [40, 40], iconAnchor: [20, 20]
+  });
+  const claraIcon = L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div style="background-image:url(${claraAvatar});background-size:cover;width:40px;height:40px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(0,0,0,.5);"></div>`,
+    iconSize: [40, 40], iconAnchor: [20, 20]
+  });
+
+  christianMarker = L.marker([christianLocation.lat, christianLocation.lng], { icon: christianIcon }).addTo(map);
+  claraMarker     = L.marker([claraLocation.lat, claraLocation.lng], { icon: claraIcon }).addTo(map);
+
+  updateDistanceLine();
+  updateDistanceInfo();
+  loadSavedLocations();
+}
+
+function updateDistanceLine() {
+  if (!map || !christianMarker || !claraMarker) return;
+  if (distanceLine) map.removeLayer(distanceLine);
+
+  distanceLine = L.polyline(
+    [[christianLocation.lat, christianLocation.lng], [claraLocation.lat, claraLocation.lng]],
+    { color: '#e84393', weight: 3, dashArray: '10, 10', lineJoin: 'round' }
+  ).addTo(map);
+
+  const group = new L.featureGroup([christianMarker, claraMarker]);
+  map.fitBounds(group.getBounds().pad(0.2));
+}
+
+function updateDistanceInfo() {
+  const el = document.getElementById('distanceValue');
+  if (!el) return;
+  const distance = calculateDistance(
+    christianLocation.lat, christianLocation.lng,
+    claraLocation.lat, claraLocation.lng
+  );
+  el.textContent = `${distance.toFixed(1)} km`;
+
+  const ch = document.getElementById('christianLocation');
+  const cl = document.getElementById('claraLocation');
+  if (ch) ch.textContent = christianLocation.name;
+  if (cl) cl.textContent = claraLocation.name;
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+function deg2rad(deg){ return deg * (Math.PI/180); }
+
+// Geocodificación
+async function geocodeAddress(address) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
+    const response = await fetch(url, { headers: { 'Accept-Language': 'es' } });
+    const data = await response.json();
+    if (Array.isArray(data) && data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon),
+        name: (data[0].display_name || '').split(',')[0] || address
+      };
+    }
+    throw new Error('Ubicación no encontrada');
+  } catch (error) {
+    console.error('Error en geocodificación:', error);
+    window.showToast?.('error', 'No se pudo encontrar la ubicación. Intenta con una dirección más específica.');
+    return null;
+  }
+}
+
+// Persistencia local
+function saveLocations() {
+  try {
+    const locations = { christian: christianLocation, clara: claraLocation };
+    localStorage.setItem('coupleLocations', JSON.stringify(locations));
+  } catch { /* nada */ }
+}
+function loadSavedLocations() {
+  try {
+    const saved = localStorage.getItem('coupleLocations');
+    if (!saved) return;
+    const locations = JSON.parse(saved);
+    christianLocation = locations.christian || christianLocation;
+    claraLocation     = locations.clara     || claraLocation;
+
+    if (christianMarker) christianMarker.setLatLng([christianLocation.lat, christianLocation.lng]);
+    if (claraMarker) claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
+
+    updateDistanceLine();
+    updateDistanceInfo();
+  } catch { /* nada */ }
+}
+
+// Formulario: actualizar ubicación
+function setupLocationForm() {
+  const form = document.getElementById('locationForm');
+  if (!form) return;
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const input = document.getElementById('userLocation');
+    if (!input || !input.value.trim()) return;
+
+    const btn = form.querySelector('button');
+    const original = btn ? btn.innerHTML : '';
+    if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...'; btn.disabled = true; }
+
+    const locationData = await geocodeAddress(input.value.trim());
+
+    if (locationData) {
+      const currentUser = {{ (session.username or '') | tojson }};
+      if (currentUser === 'mochito') {
+        christianLocation = locationData;
+        if (christianMarker) christianMarker.setLatLng([locationData.lat, locationData.lng]);
+      } else if (currentUser === 'mochita') {
+        claraLocation = locationData;
+        if (claraMarker) claraMarker.setLatLng([locationData.lat, locationData.lng]);
+      }
+      updateDistanceLine();
+      updateDistanceInfo();
+      saveLocations();
+      input.value = '';
+      window.showToast?.('success', `¡Ubicación actualizada! Ahora estás en ${locationData.name}`);
+    }
+
+    if (btn) { btn.innerHTML = original; btn.disabled = false; }
+  });
+}
 
 
+// =====================
+// DOMContentLoaded
+// =====================
+document.addEventListener('DOMContentLoaded', function() {
+  createHearts();
+  setupTabs();
+  initMap();
+  setupLocationForm();
+
+  // Animaciones entrada para secciones
+  document.querySelectorAll('.section, .banner').forEach((el, index) => {
+    el.classList.add('animate-in');
+    el.classList.add(`delay-${index % 5}`);
+  });
+
+  // Feedback visual en inputs de archivo
+  document.querySelectorAll('input[type="file"]').forEach(input => {
+    input.addEventListener('change', function() {
+      const label = this.previousElementSibling;
+      if (label && this.files.length > 0) {
+        const icon = label.querySelector('i');
+        if (icon) icon.className = 'fas fa-check';
+        const span = label.querySelector('span');
+        if (span) span.textContent = this.files[0].name;
+      }
+    });
+  });
+});
 
 
 </script>

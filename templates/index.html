@@ -1350,44 +1350,6 @@ select[name="priority"]:active {
     background-color: white;
 }
 
-.surprise-chip{
-  display:inline-flex; align-items:center; gap:6px;
-  padding:6px 10px; border-radius:999px; font-size:.8rem; font-weight:700;
-  background:#f3e8ff; border:2px solid #c084fc; color:#6b21a8; margin:6px 0 10px 8px;
-}
-.surprise-chip i{ font-size:.9rem; }
-
-
-/* Teaser para regalos sorpresa (ocultos al otro) */
-.secret-box{
-  background:#faf7ff; border:2px dashed #c084fc; color:#6b21a8;
-  border-radius:14px; padding:12px 14px; margin:8px 0 10px;
-  display:flex; align-items:center; gap:10px; font-weight:600;
-}
-.secret-box i{ font-size:1rem; }
-
-/* Skeleton lines (líneas “ocultas”) */
-.skeleton-line{
-  height:12px; border-radius:8px; background:#eee; margin:8px 0; width:100%;
-  position:relative; overflow:hidden;
-}
-.skeleton-line.short{ width:60%; }
-.skeleton-line.medium{ width:80%; }
-.skeleton-line::before{
-  content:""; position:absolute; inset:0;
-  background:linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent);
-  transform:translateX(-100%); animation: shine 1.4s linear infinite;
-}
-@keyframes shine{ 100%{ transform:translateX(100%); } }
-
-/* Chip “Sorpresa” solo para el autor */
-.surprise-chip{
-  display:inline-flex; align-items:center; gap:6px;
-  padding:6px 10px; border-radius:999px; font-size:.8rem; font-weight:700;
-  background:#f3e8ff; border:2px solid #c084fc; color:#6b21a8; margin:6px 0 10px 8px;
-}
-.surprise-chip i{ font-size:.9rem; }
-
 
     </style>
 </head>
@@ -1649,6 +1611,8 @@ select[name="priority"]:active {
     {% endif %}
 </div>
 
+
+
 <!-- Sección de Lista de Deseos -->
 <div class="section animate-in delay-3">
     <h3>Nuestra Lista de Deseos</h3>
@@ -1662,180 +1626,121 @@ select[name="priority"]:active {
     
     <div class="wishlist-content active" id="wanted-tab">
         <div class="wishlist-grid">
-           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_surprise in wishlist_items if not is_purchased %}
-           {% set is_mine = (created_by == session.username) %}
-           {% set pri = (priority or 'media') %}
-           
+           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority in wishlist_items if not is_purchased %}
 <div class="wishlist-card">
   <div class="wishlist-status status-wanted">Deseado</div>
 
+  {% set pri = (priority or 'media') %}
   <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
     <i class="fas fa-flag"></i> {{ pri|capitalize }}
   </div>
 
-  {% if is_surprise and is_mine %}
-    <div class="surprise-chip"><i class="fas fa-gift"></i> Sorpresa</div>
+  <h3 class="wishlist-product">{{ product_name }}</h3>
+  {% if product_link %}
+  <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+    <i class="fas fa-link"></i> Ver producto
+  </a>
   {% endif %}
+  {% if notes %}
+  <p class="wishlist-notes">{{ notes }}</p>
+  {% endif %}
+  <div class="wishlist-meta">
+    <span>
+      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+        {% if profile_pictures[created_by] %}
+          <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+        {% else %}
+          {{ created_by[0]|upper }}
+        {% endif %}
+      </div>
+      Creado por {{ created_by }}
+    </span>
+    <span>{{ created_at[:10] }}</span>
+  </div>
 
-  {% if is_surprise and not is_mine %}
-    <!-- TEASER oculto -->
-    <h3 class="wishlist-product">🎁 Regalo sorpresa</h3>
-    <div class="secret-box">
-      <i class="fas fa-eye-slash"></i> Hay un regalo preparado para ti. Los detalles están ocultos para no arruinar la sorpresa.
-    </div>
-    <div class="skeleton-line"></div>
-    <div class="skeleton-line medium"></div>
-    <div class="skeleton-line short"></div>
-
-    <div class="wishlist-meta">
-      <span>
-        <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-          {% if profile_pictures[created_by] %}
-            <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
-          {% else %}{{ created_by[0]|upper }}{% endif %}
-        </div>
-        Creado por {{ created_by }}
-      </span>
-      <span>{{ created_at[:10] }}</span>
-    </div>
-
-  {% else %}
-    <!-- VISTA NORMAL -->
-    <h3 class="wishlist-product">{{ product_name }}</h3>
-    {% if product_link %}
-    <a href="{{ product_link }}" target="_blank" class="wishlist-link">
-      <i class="fas fa-link"></i> Ver producto
-    </a>
-    {% endif %}
-    {% if notes %}
-    <p class="wishlist-notes">{{ notes }}</p>
-    {% endif %}
-    <div class="wishlist-meta">
-      <span>
-        <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-          {% if profile_pictures[created_by] %}
-            <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
-          {% else %}{{ created_by[0]|upper }}{% endif %}
-        </div>
-        Creado por {{ created_by }}
-      </span>
-      <span>{{ created_at[:10] }}</span>
-    </div>
-
-    <div class="wishlist-actions">
-      <form method="POST" action="/toggle_wishlist_status">
-        <input type="hidden" name="item_id" value="{{ id }}">
-        <button type="submit" class="icon-btn" title="Marcar como comprado">
-          <i class="fas fa-check"></i>
-        </button>
-      </form>
-
-      {% if is_mine %}
-      <button class="icon-btn" title="Editar"
-        onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}')">
-        <i class="fas fa-edit"></i>
+  <div class="wishlist-actions">
+    <form method="POST" action="/toggle_wishlist_status">
+      <input type="hidden" name="item_id" value="{{ id }}">
+      <button type="submit" class="icon-btn" title="Marcar como comprado">
+        <i class="fas fa-check"></i>
       </button>
-      <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
-        <input type="hidden" name="item_id" value="{{ id }}">
-        <button type="submit" class="icon-btn" title="Eliminar">
-          <i class="fas fa-trash"></i>
-        </button>
-      </form>
-      {% endif %}
-    </div>
-  {% endif %}
+    </form>
+    <button class="icon-btn" title="Editar"
+      onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}')">
+      <i class="fas fa-edit"></i>
+    </button>
+    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+      <input type="hidden" name="item_id" value="{{ id }}">
+      <button type="submit" class="icon-btn" title="Eliminar">
+        <i class="fas fa-trash"></i>
+      </button>
+    </form>
+  </div>
 </div>
 {% else %}
 <p>No hay productos en tu lista de deseos. ¡Añade el primero!</p>
 {% endfor %}
+
         </div>
     </div>
     
     <div class="wishlist-content" id="purchased-tab">
         <div class="wishlist-grid">
-           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_surprise in wishlist_items if is_purchased %}
-           {% set is_mine = (created_by == session.username) %}
-           {% set pri = (priority or 'media') %}
-           
+           {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority in wishlist_items if is_purchased %}
 <div class="wishlist-card purchased">
   <div class="wishlist-status status-purchased">Comprado</div>
 
+  {% set pri = (priority or 'media') %}
   <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
     <i class="fas fa-flag"></i> {{ pri|capitalize }}
   </div>
 
-  {% if is_surprise and is_mine %}
-    <div class="surprise-chip"><i class="fas fa-gift"></i> Sorpresa</div>
+  <h3 class="wishlist-product">{{ product_name }}</h3>
+  {% if product_link %}
+  <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+    <i class="fas fa-link"></i> Ver producto
+  </a>
   {% endif %}
+  {% if notes %}
+  <p class="wishlist-notes">{{ notes }}</p>
+  {% endif %}
+  <div class="wishlist-meta">
+    <span>
+      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+        {% if profile_pictures[created_by] %}
+          <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
+        {% else %}
+          {{ created_by[0]|upper }}
+        {% endif %}
+      </div>
+      Creado por {{ created_by }}
+    </span>
+    <span>{{ created_at[:10] }}</span>
+  </div>
 
-  {% if is_surprise and not is_mine %}
-    <h3 class="wishlist-product">🎁 Regalo sorpresa</h3>
-    <div class="secret-box">
-      <i class="fas fa-eye-slash"></i> Hubo un regalo sorpresa para ti. Los detalles se mantienen privados.
-    </div>
-    <div class="skeleton-line"></div>
-    <div class="skeleton-line medium"></div>
-
-    <div class="wishlist-meta">
-      <span>
-        <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-          {% if profile_pictures[created_by] %}
-            <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
-          {% else %}{{ created_by[0]|upper }}{% endif %}
-        </div>
-        Creado por {{ created_by }}
-      </span>
-      <span>{{ created_at[:10] }}</span>
-    </div>
-
-  {% else %}
-    <h3 class="wishlist-product">{{ product_name }}</h3>
-    {% if product_link %}
-    <a href="{{ product_link }}" target="_blank" class="wishlist-link">
-      <i class="fas fa-link"></i> Ver producto
-    </a>
-    {% endif %}
-    {% if notes %}
-    <p class="wishlist-notes">{{ notes }}</p>
-    {% endif %}
-    <div class="wishlist-meta">
-      <span>
-        <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-          {% if profile_pictures[created_by] %}
-            <img src="{{ profile_pictures[created_by] }}" alt="{{ created_by }}">
-          {% else %}{{ created_by[0]|upper }}{% endif %}
-        </div>
-        Creado por {{ created_by }}
-      </span>
-      <span>{{ created_at[:10] }}</span>
-    </div>
-
-    <div class="wishlist-actions">
-      <form method="POST" action="/toggle_wishlist_status">
-        <input type="hidden" name="item_id" value="{{ id }}">
-        <button type="submit" class="icon-btn" title="Marcar como no comprado">
-          <i class="fas fa-undo"></i>
-        </button>
-      </form>
-
-      {% if is_mine %}
-      <button class="icon-btn" title="Editar"
-        onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}')">
-        <i class="fas fa-edit"></i>
+  <div class="wishlist-actions">
+    <form method="POST" action="/toggle_wishlist_status">
+      <input type="hidden" name="item_id" value="{{ id }}">
+      <button type="submit" class="icon-btn" title="Marcar como no comprado">
+        <i class="fas fa-undo"></i>
       </button>
-      <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
-        <input type="hidden" name="item_id" value="{{ id }}">
-        <button type="submit" class="icon-btn" title="Eliminar">
-          <i class="fas fa-trash"></i>
-        </button>
-      </form>
-      {% endif %}
-    </div>
-  {% endif %}
+    </form>
+    <button class="icon-btn" title="Editar"
+      onclick="openEditModal({{ id }}, '{{ product_name }}', '{{ product_link }}', `{{ notes }}`, '{{ pri }}')">
+      <i class="fas fa-edit"></i>
+    </button>
+    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+      <input type="hidden" name="item_id" value="{{ id }}">
+      <button type="submit" class="icon-btn" title="Eliminar">
+        <i class="fas fa-trash"></i>
+      </button>
+    </form>
+  </div>
 </div>
 {% else %}
 <p>No hay productos comprados todavía.</p>
 {% endfor %}
+
         </div>
     </div>
     
@@ -1847,21 +1752,16 @@ select[name="priority"]:active {
                 <input type="url" name="product_link" placeholder="Enlace (opcional)">
                 <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
                 <select name="priority" required style="margin-bottom:15px;">
-                    <option value="alta">Prioridad: Alta 🔴</option>
-                    <option value="media" selected>Prioridad: Media 🟡</option>
-                    <option value="baja">Prioridad: Baja 🟢</option>
-                </select>
-                <label style="display:flex;align-items:center;gap:8px;margin:10px 0 15px;">
-                    <input type="checkbox" name="is_surprise">
-                    <span>Marcar como sorpresa (lo verá oculto {{ 'mochita' if session.username=='mochito' else 'mochito' }})</span>
-                </label>
+  <option value="alta">Prioridad: Alta 🔴</option>
+  <option value="media" selected>Prioridad: Media 🟡</option>
+  <option value="baja">Prioridad: Baja 🟢</option>
+</select>
+
                 <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
             </form>
         </div>
     </div>
 </div>
-
-
 <!-- Sección de Viajes -->
 <div class="section animate-in delay-4">
     <h3>Nuestros Viajes</h3>

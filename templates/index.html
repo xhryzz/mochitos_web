@@ -1961,177 +1961,185 @@ select[name="priority"]:active {
         </div>
 
         <!-- Visitados -->
-        <div class="travel-content active" id="visited-tab">
-          <div class="travels-grid">
-            <div class="pager" id="wishlist-pager"></div>
-            <div class="pager" id="visited-pager"></div>
-            {% for id, destination, description, travel_date, is_visited, created_by in travels if is_visited %}
-              <div class="travel-card visited">
-                <div class="travel-cover">
-                  {% if travel_photos_dict[id] %}
-                    <div class="travel-photos">
-                      {% for photo in travel_photos_dict[id] %}
-                        <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
-                      {% endfor %}
-                    </div>
-                  {% else %}
-                    <div class="empty-album">
-                      <i class="fas fa-map-marker-alt"></i>
-                    </div>
-                  {% endif %}
-                  <div class="travel-status status-visited">Visitado</div>
-                </div>
-                <div class="travel-info">
-                  <h3 class="travel-destination">{{ destination }}</h3>
-                  {% if travel_date %}
-                    <p class="travel-date">{{ travel_date }}</p>
-                  {% endif %}
-                  {% if description %}
-                    <p class="travel-description">{{ description }}</p>
-                  {% endif %}
-                  <div class="travel-meta">
-                    <span>{{ travel_photos_dict[id]|length }} fotos</span>
-                    <span>
-                      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                        {% if profile_pictures.get(created_by) %}
-                          <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
-                        {% else %}
-                          {{ created_by[0]|upper }}
-                        {% endif %}
-                      </div>
-                      Creado por {{ created_by }}
-                    </span>
-                  </div>
+<div class="travel-content active" id="visited-tab">
+  <div class="travels-grid">
+    {% for id, destination, description, travel_date, is_visited, created_by in travels if is_visited %}
+      <div class="travel-card visited">
+        <div class="travel-cover">
+          {% if travel_photos_dict[id] %}
+            <div class="travel-photos">
+              {% for photo in travel_photos_dict[id] %}
+                <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="empty-album">
+              <i class="fas fa-map-marker-alt"></i>
+            </div>
+          {% endif %}
+          <div class="travel-status status-visited">Visitado</div>
+        </div>
 
-                  <div class="travel-actions">
-                    <form method="POST" action="/toggle_travel_status">
-                      <input type="hidden" name="travel_id" value="{{ id }}">
-                      <button type="submit" class="icon-btn" title="Mover a deseados">
-                        <i class="fas fa-heart"></i>
-                      </button>
-                    </form>
+        <div class="travel-info">
+          <h3 class="travel-destination">{{ destination }}</h3>
+          {% if travel_date %}
+            <p class="travel-date">{{ travel_date }}</p>
+          {% endif %}
+          {% if description %}
+            <p class="travel-description">{{ description }}</p>
+          {% endif %}
 
-                    <button type="button" class="icon-btn plus" title="Añadir foto"
-                            onclick="togglePhotoMenu('visited-{{ id }}')">
-                      <i class="fas fa-plus"></i>
-                    </button>
-
-                    <div class="photo-popover" id="photo-popover-visited-{{ id }}">
-                      <div class="photo-popover-header">
-                        <div class="photo-popover-title">Añadir foto por enlace</div>
-                        <button type="button" class="close-btn" onclick="togglePhotoMenu('visited-{{ id }}')">
-                          <i class="fas fa-times"></i>
-                        </button>
-                      </div>
-                      <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('visited-{{ id }}')">
-                        <input type="hidden" name="travel_id" value="{{ id }}">
-                        <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
-                        <button type="submit" class="button">
-                          <i class="fas fa-check"></i> Guardar
-                        </button>
-                      </form>
-                      <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
-                    </div>
-
-                    <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
-                      <input type="hidden" name="travel_id" value="{{ id }}">
-                      <button type="submit" class="icon-btn" title="Eliminar viaje">
-                        <i class="fas fa-trash"></i>
-                      </button>
-                    </form>
-                  </div>
-
-                </div>
+          <div class="travel-meta">
+            <span>{{ travel_photos_dict[id]|length }} fotos</span>
+            <span>
+              <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                {% if profile_pictures.get(created_by) %}
+                  <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
+                {% else %}
+                  {{ created_by[0]|upper }}
+                {% endif %}
               </div>
-            {% else %}
-              <p>No hay lugares visitados todavía. ¡Añade el primero!</p>
-            {% endfor %}
+              Creado por {{ created_by }}
+            </span>
+          </div>
+
+          <div class="travel-actions">
+            <form method="POST" action="/toggle_travel_status">
+              <input type="hidden" name="travel_id" value="{{ id }}">
+              <button type="submit" class="icon-btn" title="Mover a deseados">
+                <i class="fas fa-heart"></i>
+              </button>
+            </form>
+
+            <button type="button" class="icon-btn plus" title="Añadir foto"
+                    onclick="togglePhotoMenu('visited-{{ id }}')">
+              <i class="fas fa-plus"></i>
+            </button>
+
+            <div class="photo-popover" id="photo-popover-visited-{{ id }}">
+              <div class="photo-popover-header">
+                <div class="photo-popover-title">Añadir foto por enlace</div>
+                <button type="button" class="close-btn" onclick="togglePhotoMenu('visited-{{ id }}')">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+              <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('visited-{{ id }}')">
+                <input type="hidden" name="travel_id" value="{{ id }}">
+                <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
+                <button type="submit" class="button">
+                  <i class="fas fa-check"></i> Guardar
+                </button>
+              </form>
+              <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
+            </div>
+
+            <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
+              <input type="hidden" name="travel_id" value="{{ id }}">
+              <button type="submit" class="icon-btn" title="Eliminar viaje">
+                <i class="fas fa-trash"></i>
+              </button>
+            </form>
           </div>
         </div>
+      </div>
+    {% else %}
+      <p>No hay lugares visitados todavía. ¡Añade el primero!</p>
+    {% endfor %}
+  </div>
+
+  <!-- ✅ Pager de visitados, fuera del grid -->
+  <div class="pager" id="visited-pager"></div>
+</div>
+
 
         <!-- Quiero ir -->
-        <div class="travel-content" id="wishlist-travel-tab">
-          <div class="travels-grid">
-            {% for id, destination, description, travel_date, is_visited, created_by in travels if not is_visited %}
-              <div class="travel-card wishlist">
-                <div class="travel-cover">
-                  {% if travel_photos_dict[id] %}
-                    <div class="travel-photos">
-                      {% for photo in travel_photos_dict[id] %}
-                        <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
-                      {% endfor %}
-                    </div>
-                  {% else %}
-                    <div class="empty-album">
-                      <i class="fas fa-map-marker-alt"></i>
-                    </div>
-                  {% endif %}
-                  <div class="travel-status status-wishlist">Deseado</div>
-                </div>
-                <div class="travel-info">
-                  <h3 class="travel-destination">{{ destination }}</h3>
-                  {% if description %}
-                    <p class="travel-description">{{ description }}</p>
-                  {% endif %}
-                  <div class="travel-meta">
-                    <span>{{ travel_photos_dict[id]|length }} fotos</span>
-                    <span>
-                      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                        {% if profile_pictures.get(created_by) %}
-                          <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
-                        {% else %}
-                          {{ created_by[0]|upper }}
-                        {% endif %}
-                      </div>
-                      Creado por {{ created_by }}
-                    </span>
-                  </div>
+<div class="travel-content" id="wishlist-travel-tab">
+  <div class="travels-grid">
+    {% for id, destination, description, travel_date, is_visited, created_by in travels if not is_visited %}
+      <div class="travel-card wishlist">
+        <div class="travel-cover">
+          {% if travel_photos_dict[id] %}
+            <div class="travel-photos">
+              {% for photo in travel_photos_dict[id] %}
+                <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="empty-album">
+              <i class="fas fa-map-marker-alt"></i>
+            </div>
+          {% endif %}
+          <div class="travel-status status-wishlist">Deseado</div>
+        </div>
 
-                  <div class="travel-actions">
-                    <form method="POST" action="/toggle_travel_status">
-                      <input type="hidden" name="travel_id" value="{{ id }}">
-                      <button type="submit" class="icon-btn" title="Marcar como visitado">
-                        <i class="fas fa-check"></i>
-                      </button>
-                    </form>
+        <div class="travel-info">
+          <h3 class="travel-destination">{{ destination }}</h3>
+          {% if description %}
+            <p class="travel-description">{{ description }}</p>
+          {% endif %}
 
-                    <button type="button" class="icon-btn plus" title="Añadir foto"
-                            onclick="togglePhotoMenu('wish-{{ id }}')">
-                      <i class="fas fa-plus"></i>
-                    </button>
-
-                    <div class="photo-popover" id="photo-popover-wish-{{ id }}">
-                      <div class="photo-popover-header">
-                        <div class="photo-popover-title">Añadir foto por enlace</div>
-                        <button type="button" class="close-btn" onclick="togglePhotoMenu('wish-{{ id }}')">
-                          <i class="fas fa-times"></i>
-                        </button>
-                      </div>
-                      <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('wish-{{ id }}')">
-                        <input type="hidden" name="travel_id" value="{{ id }}">
-                        <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
-                        <button type="submit" class="button">
-                          <i class="fas fa-check"></i> Guardar
-                        </button>
-                      </form>
-                      <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
-                    </div>
-
-                    <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
-                      <input type="hidden" name="travel_id" value="{{ id }}">
-                      <button type="submit" class="icon-btn" title="Eliminar viaje">
-                        <i class="fas fa-trash"></i>
-                      </button>
-                    </form>
-                  </div>
-
-                </div>
+          <div class="travel-meta">
+            <span>{{ travel_photos_dict[id]|length }} fotos</span>
+            <span>
+              <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                {% if profile_pictures.get(created_by) %}
+                  <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
+                {% else %}
+                  {{ created_by[0]|upper }}
+                {% endif %}
               </div>
-            {% else %}
-              <p>No hay destinos en tu lista de deseos. ¡Añade el primero!</p>
-            {% endfor %}
+              Creado por {{ created_by }}
+            </span>
+          </div>
+
+          <div class="travel-actions">
+            <form method="POST" action="/toggle_travel_status">
+              <input type="hidden" name="travel_id" value="{{ id }}">
+              <button type="submit" class="icon-btn" title="Marcar como visitado">
+                <i class="fas fa-check"></i>
+              </button>
+            </form>
+
+            <button type="button" class="icon-btn plus" title="Añadir foto"
+                    onclick="togglePhotoMenu('wish-{{ id }}')">
+              <i class="fas fa-plus"></i>
+            </button>
+
+            <div class="photo-popover" id="photo-popover-wish-{{ id }}">
+              <div class="photo-popover-header">
+                <div class="photo-popover-title">Añadir foto por enlace</div>
+                <button type="button" class="close-btn" onclick="togglePhotoMenu('wish-{{ id }}')">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+              <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('wish-{{ id }}')">
+                <input type="hidden" name="travel_id" value="{{ id }}">
+                <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
+                <button type="submit" class="button">
+                  <i class="fas fa-check"></i> Guardar
+                </button>
+              </form>
+              <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
+            </div>
+
+            <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
+              <input type="hidden" name="travel_id" value="{{ id }}">
+              <button type="submit" class="icon-btn" title="Eliminar viaje">
+                <i class="fas fa-trash"></i>
+              </button>
+            </form>
           </div>
         </div>
+      </div>
+    {% else %}
+      <p>No hay destinos en tu lista de deseos. ¡Añade el primero!</p>
+    {% endfor %}
+  </div>
+
+  <!-- ✅ Pager de wishlist, fuera del grid -->
+  <div class="pager" id="wishlist-pager"></div>
+</div>
+
 
         <!-- Añadir viaje -->
         <div class="travel-content" id="add-travel-tab">

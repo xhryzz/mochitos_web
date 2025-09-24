@@ -121,7 +121,6 @@ def get_db_connection():
         )
     return conn
 
-# Inicializar DB
 def init_db():
     with closing(get_db_connection()) as conn:
         with conn.cursor() as c:
@@ -257,24 +256,35 @@ def init_db():
                     uploaded_at TEXT
                 )
             ''')
-            
+
             # Crear usuarios predeterminados
             try:
-                c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochito', '1234'))
-                c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochita', '1234'))
-                
+                c.execute(
+                    "INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING",
+                    ('mochito', '1234')
+                )
+                c.execute(
+                    "INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING",
+                    ('mochita', '1234')
+                )
+
                 # Ubicaciones iniciales
-                c.execute("INSERT INTO locations (username, location_name, latitude, longitude, updated_at) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (username) DO NOTHING", 
-                         ('mochito', 'Algemesí, Valencia', 39.1925, -0.4353, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                c.execute("INSERT INTO locations (username, location_name, latitude, longitude, updated_at) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (username) DO NOTHING", 
-                         ('mochita', 'Córdoba', 37.8882, -4.7794, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                c.execute("""
+                    INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (username) DO NOTHING
+                """, ('mochito', 'Algemesí, Valencia', 39.1925, -0.4353, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                c.execute("""
+                    INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (username) DO NOTHING
+                """, ('mochita', 'Córdoba', 37.8882, -4.7794, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
             except Exception as e:
                 print(f"Error al crear usuarios predeterminados: {e}")
                 conn.rollback()
             else:
                 conn.commit()
 
-                # Asegurar columna 'priority' (alta/media/baja) en wishlist
             # Asegurar columna 'priority' (alta/media/baja) en wishlist
             try:
                 c.execute("""
@@ -283,11 +293,12 @@ def init_db():
                     CHECK (priority IN ('alta','media','baja'))
                     DEFAULT 'media'
                 """)
-                conn.commit()  # <-- añade esto
+                conn.commit()
             except Exception as e:
                 print(f"ALTER wishlist priority: {e}")
 
-                try:
+            # Asegurar columna 'is_gift' en wishlist
+            try:
                 c.execute("""
                     ALTER TABLE wishlist
                     ADD COLUMN IF NOT EXISTS is_gift BOOLEAN DEFAULT FALSE
@@ -295,6 +306,7 @@ def init_db():
                 conn.commit()
             except Exception as e:
                 print(f"ALTER wishlist is_gift: {e}")
+
 
 
 

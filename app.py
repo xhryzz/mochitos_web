@@ -13,8 +13,6 @@ import requests, json
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
 
-
-
 # --- Helpers para logs y contraseñas ---
 # --- Helpers de logging a Discord (embeds sin máscaras) ---
 DISCORD_WEBHOOK = os.environ.get('DISCORD_WEBHOOK', '')  # configura en Render
@@ -73,9 +71,6 @@ def send_discord(event: str, payload: dict | None = None):
         requests.post(DISCORD_WEBHOOK, json=body, timeout=6)
     except Exception as e:
         print(f"[discord] error enviando webhook: {e}")
-
-
-
 
 # Configuración de PostgreSQL para Render
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -172,6 +167,8 @@ QUESTIONS = [
 
 RELATION_START = date(2025, 8, 2)  # <- fecha de inicio relación
 
+# ----- INTIMIDAD (config) -----
+INTIM_PIN = os.environ.get('INTIM_PIN', '6969')  # cámbialo en Render si quieres
 
 # -----------------------------
 #  DB helpers
@@ -187,7 +184,6 @@ def get_db_connection():
             password="password"
         )
     return conn
-
 
 def init_db():
     with closing(get_db_connection()) as conn:
@@ -325,6 +321,17 @@ def init_db():
                 )
             ''')
 
+            # INTIMIDAD: eventos
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS intimacy_events (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT NOT NULL,
+                    ts TEXT NOT NULL,          -- timestamp "YYYY-MM-DD HH:MM:SS"
+                    place TEXT,
+                    notes TEXT
+                )
+            ''')
+
             # Usuarios por defecto
             try:
                 c.execute(
@@ -375,9 +382,7 @@ def init_db():
             except Exception as e:
                 print(f"ALTER wishlist is_gift: {e}")
 
-
 init_db()
-
 
 # -----------------------------
 #  Helpers de datos
@@ -410,10 +415,8 @@ def get_today_question():
     finally:
         conn.close()
 
-
 def days_together():
     return (date.today() - RELATION_START).days
-
 
 def days_until_meeting():
     conn = get_db_connection()
@@ -429,7 +432,6 @@ def days_until_meeting():
     finally:
         conn.close()
 
-
 def get_banner():
     conn = get_db_connection()
     try:
@@ -442,7 +444,6 @@ def get_banner():
             return None
     finally:
         conn.close()
-
 
 def get_user_locations():
     conn = get_db_connection()
@@ -457,7 +458,6 @@ def get_user_locations():
     finally:
         conn.close()
 
-
 def get_profile_pictures():
     conn = get_db_connection()
     try:
@@ -470,7 +470,6 @@ def get_profile_pictures():
             return pictures
     finally:
         conn.close()
-
 
 def get_travel_photos(travel_id):
     conn = get_db_connection()
@@ -487,7 +486,6 @@ def get_travel_photos(travel_id):
             return photos
     finally:
         conn.close()
-
 
 def compute_streaks():
     conn = get_db_connection()
@@ -544,6 +542,70 @@ def compute_streaks():
 
     return current_streak, best_streak
 
+# ---------- INTIMIDAD: helpers ----------
+def _parse_dt(dt_txt: str) -> datetime | None:
+    try:
+        return datetime.strptime(dt_txt, "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return None
+
+def get_intim_stats(username: str):
+    """Stats de intimidad:
+       today_count, month_total, year_total, days_since_last, last_dt, streak_days
+    """
+    today = date.today()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT ts FROM intimacy_events WHERE username=%s", (username,))
+            rows = c.fetchall()
+    finally:
+        conn.close()
+
+    dts = []
+    for (ts_txt,) in rows:
+        dt = _parse_dt(ts_txt)
+        if dt:
+            dts.append(dt)
+
+    if not dts:
+        return {
+            'today_count': 0,
+            'month_total': 0,
+            'year_total': 0,
+            'days_since_last': None,
+            'last_dt': None,
+            'streak_days': 0
+        }
+
+    # Totales
+    today_count = sum(1 for dt in dts if dt.date() == today)
+    month_total = sum(1 for dt in dts if (dt.year == today.year and dt.month == today.month))
+    year_total  = sum(1 for dt in dts if dt.year == today.year)
+
+    # Última vez
+    last_dt = max(dts)
+    days_since_last = (today - last_dt.date()).days
+
+    # Racha (días consecutivos con evento) — si hoy no hay, racha=0
+    if today_count == 0:
+        streak_days = 0
+    else:
+        dates_with = {dt.date() for dt in dts}
+        streak_days = 0
+        cur = today
+        while cur in dates_with:
+            streak_days += 1
+            cur = cur - timedelta(days=1)
+
+    return {
+        'today_count': today_count,
+        'month_total': month_total,
+        'year_total': year_total,
+        'days_since_last': days_since_last,
+        'last_dt': last_dt,
+        'streak_days': streak_days
+    }
 
 # -----------------------------
 #  Rutas
@@ -748,6 +810,42 @@ def index():
                         send_discord("Wishlist added", {"user": user, "name": product_name, "priority": priority, "is_gift": is_gift})
                     return redirect('/')
 
+                # --- INTIMIDAD: desbloquear por PIN ---
+                if 'intim_unlock_pin' in request.form:
+                    pin_try = request.form.get('intim_pin', '').strip()
+                    if pin_try == INTIM_PIN:
+                        session['intim_unlocked'] = True
+                        flash("Módulo Intimidad desbloqueado ✅", "success")
+                        send_discord("Intimidad unlock OK", {"user": user})
+                    else:
+                        session.pop('intim_unlocked', None)
+                        flash("PIN incorrecto ❌", "error")
+                        send_discord("Intimidad unlock FAIL", {"user": user})
+                    return redirect('/')
+
+                # --- INTIMIDAD: volver a bloquear ---
+                if 'intim_lock' in request.form:
+                    session.pop('intim_unlocked', None)
+                    flash("Módulo Intimidad ocultado 🔒", "info")
+                    return redirect('/')
+
+                # --- INTIMIDAD: registrar momento (contador) ---
+                if 'intim_register' in request.form:
+                    if not session.get('intim_unlocked'):
+                        flash("Debes desbloquear con PIN para registrar.", "error")
+                        return redirect('/')
+                    place = request.form.get('intim_place', '').strip()
+                    notes = request.form.get('intim_notes', '').strip()
+                    now_txt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    c.execute("""
+                        INSERT INTO intimacy_events (username, ts, place, notes)
+                        VALUES (%s, %s, %s, %s)
+                    """, (user, now_txt, place or None, notes or None))
+                    conn.commit()
+                    flash("Momento registrado ❤️", "success")
+                    send_discord("Intimidad registered", {"user": user, "place": place, "notes": notes})
+                    return redirect('/')
+
             # --- Consultas para render ---
             c.execute("SELECT username, answer FROM answers WHERE question_id=%s", (question_id,))
             answers = c.fetchall()
@@ -791,6 +889,8 @@ def index():
         conn.close()
 
     current_streak, best_streak = compute_streaks()
+    intim_stats = get_intim_stats(user)
+    intim_unlocked = bool(session.get('intim_unlocked'))
 
     return render_template('index.html',
                            question=question_text,
@@ -809,10 +909,10 @@ def index():
                            profile_pictures=profile_pictures,
                            login_error=None,
                            current_streak=current_streak,
-                           best_streak=best_streak
+                           best_streak=best_streak,
+                           intim_stats=intim_stats,
+                           intim_unlocked=intim_unlocked
                            )
-
-
 
 @app.route('/delete_travel', methods=['POST'])
 def delete_travel():
@@ -835,7 +935,6 @@ def delete_travel():
         if 'conn' in locals():
             conn.close()
 
-
 @app.route('/delete_travel_photo', methods=['POST'])
 def delete_travel_photo():
     if 'username' not in session:
@@ -855,7 +954,6 @@ def delete_travel_photo():
     finally:
         if 'conn' in locals():
             conn.close()
-
 
 @app.route('/toggle_travel_status', methods=['POST'])
 def toggle_travel_status():
@@ -880,7 +978,6 @@ def toggle_travel_status():
         if 'conn' in locals():
             conn.close()
 
-
 @app.route('/delete_wishlist_item', methods=['POST'])
 def delete_wishlist_item():
     if 'username' not in session:
@@ -904,7 +1001,6 @@ def delete_wishlist_item():
     finally:
         if 'conn' in locals():
             conn.close()
-
 
 @app.route('/edit_wishlist_item', methods=['POST'])
 def edit_wishlist_item():
@@ -940,7 +1036,6 @@ def edit_wishlist_item():
         if 'conn' in locals():
             conn.close()
 
-
 @app.route('/toggle_wishlist_status', methods=['POST'])
 def toggle_wishlist_status():
     if 'username' not in session:
@@ -963,7 +1058,6 @@ def toggle_wishlist_status():
     finally:
         if 'conn' in locals():
             conn.close()
-
 
 @app.route('/update_location', methods=['POST'])
 def update_location():
@@ -995,7 +1089,6 @@ def update_location():
         print(f"Error en update_location: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
 
-
 @app.route('/get_locations', methods=['GET'])
 def get_locations():
     if 'username' not in session:
@@ -1007,13 +1100,11 @@ def get_locations():
         print(f"Error en get_locations: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
 
-
 @app.route('/horario')
 def horario():
     if 'username' not in session:
         return redirect('/')
     return render_template('schedule.html')
-
 
 @app.route('/api/schedules', methods=['GET'])
 def get_schedules():
@@ -1043,7 +1134,6 @@ def get_schedules():
     except Exception as e:
         print(f"Error en get_schedules: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
-
 
 @app.route('/api/schedules/save', methods=['POST'])
 def save_schedules():
@@ -1086,12 +1176,10 @@ def save_schedules():
         print(f"Error en save_schedules: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
 
-
 @app.route('/logout')
 def logout():
     session.pop('username', None)
     return redirect('/')
-
 
 @app.route('/image/<int:image_id>')
 def get_image(image_id):
@@ -1106,8 +1194,6 @@ def get_image(image_id):
             return "Imagen no encontrada", 404
     finally:
         conn.close()
-
-
 
 @app.route('/__reset_pw')
 def __reset_pw():
@@ -1146,7 +1232,6 @@ def __reset_pw():
         return "Error interno", 500
     finally:
         conn.close()
-
 
 if __name__ == '__main__':
     app.run(debug=True)

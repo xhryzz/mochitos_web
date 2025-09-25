@@ -13,6 +13,10 @@ import requests, json
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
 
+# ========= CONFIG INTIMIDAD =========
+INTIM_PIN = os.getenv("INTIM_PIN", "1234")  # <--- CAMBIA EL PIN AQUÍ O POR ENV
+# ====================================
+
 # --- Helpers para logs y contraseñas ---
 # --- Helpers de logging a Discord (embeds sin máscaras) ---
 DISCORD_WEBHOOK = os.environ.get('DISCORD_WEBHOOK', '')  # configura en Render
@@ -60,7 +64,7 @@ def send_discord(event: str, payload: dict | None = None):
         if payload:
             raw = json.dumps(payload, ensure_ascii=False, indent=2)
             chunks = [raw[i:i+1000] for i in range(0, len(raw), 1000)]
-            for i, ch in enumerate(chunks[:3]):  # máx 3 campos para no pasarnos
+            for i, ch in enumerate(chunks[:3]):  # máx 3 campos
                 embed["fields"].append({
                     "name": "Datos" + (f" ({i+1})" if i else ""),
                     "value": f"```json\n{ch}\n```",
@@ -100,7 +104,6 @@ QUESTIONS = [
     "¿Qué parte de tu rutina mejora cuando estoy contigo?",
     "¿Qué regalo te gustaría recibir de mí algún día?",
     "¿Qué frase de amor nunca te cansas de escuchar?",
-
     # --- DIVERTIDAS ---
     "Si fuéramos un meme, ¿cuál seríamos?",
     "¿Cuál ha sido tu momento más torpe conmigo?",
@@ -122,7 +125,6 @@ QUESTIONS = [
     "Si fuéramos un postre, ¿cuál seríamos?",
     "¿Qué palabra inventada usamos solo nosotros?",
     "¿Qué escena nuestra podría ser un blooper de película?",
-
     # --- CALIENTES 🔥 ---
     "¿Qué parte de mi cuerpo te gusta más?",
     "¿Qué fantasía secreta te atreverías a contarme?",
@@ -166,9 +168,6 @@ QUESTIONS = [
 ]
 
 RELATION_START = date(2025, 8, 2)  # <- fecha de inicio relación
-
-# ----- INTIMIDAD (config) -----
-INTIM_PIN = os.environ.get('INTIM_PIN', '6969')  # cámbialo en Render si quieres
 
 # -----------------------------
 #  DB helpers
@@ -321,14 +320,14 @@ def init_db():
                 )
             ''')
 
-            # INTIMIDAD: eventos
+            # ========= INTIMIDAD: tabla =========
             c.execute('''
-                CREATE TABLE IF NOT EXISTS intimacy_events (
+                CREATE TABLE IF NOT EXISTS intimacy_moments (
                     id SERIAL PRIMARY KEY,
-                    username TEXT NOT NULL,
-                    ts TEXT NOT NULL,          -- timestamp "YYYY-MM-DD HH:MM:SS"
+                    at TIMESTAMP NOT NULL,
                     place TEXT,
-                    notes TEXT
+                    notes TEXT,
+                    created_by TEXT NOT NULL
                 )
             ''')
 
@@ -542,69 +541,74 @@ def compute_streaks():
 
     return current_streak, best_streak
 
-# ---------- INTIMIDAD: helpers ----------
-def _parse_dt(dt_txt: str) -> datetime | None:
-    try:
-        return datetime.strptime(dt_txt, "%Y-%m-%d %H:%M:%S")
-    except Exception:
-        return None
-
-def get_intim_stats(username: str):
-    """Stats de intimidad:
-       today_count, month_total, year_total, days_since_last, last_dt, streak_days
-    """
+# --------------- INTIMIDAD: helpers ---------------
+def _intim_stats(conn):
+    """ Devuelve métricas y listado (para API). """
     today = date.today()
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT ts FROM intimacy_events WHERE username=%s", (username,))
-            rows = c.fetchall()
-    finally:
-        conn.close()
+    y_start = date(today.year, 1, 1)
+    m_start = date(today.year, today.month, 1)
 
-    dts = []
-    for (ts_txt,) in rows:
-        dt = _parse_dt(ts_txt)
-        if dt:
-            dts.append(dt)
+    with conn.cursor() as c:
+        # Conteos
+        c.execute("SELECT COUNT(*) FROM intimacy_moments WHERE at >= %s", (m_start,))
+        month_count = c.fetchone()[0]
+        c.execute("SELECT COUNT(*) FROM intimacy_moments WHERE at >= %s", (y_start,))
+        year_count = c.fetchone()[0]
 
-    if not dts:
-        return {
-            'today_count': 0,
-            'month_total': 0,
-            'year_total': 0,
-            'days_since_last': None,
-            'last_dt': None,
-            'streak_days': 0
-        }
+        # Última vez
+        c.execute("SELECT at FROM intimacy_moments ORDER BY at DESC LIMIT 1")
+        row = c.fetchone()
+        last_days_ago = None
+        last_at_iso = None
+        if row:
+            last_at = row[0].date()
+            last_at_iso = row[0].isoformat(sep=' ')
+            last_days_ago = (today - last_at).days
 
-    # Totales
-    today_count = sum(1 for dt in dts if dt.date() == today)
-    month_total = sum(1 for dt in dts if (dt.year == today.year and dt.month == today.month))
-    year_total  = sum(1 for dt in dts if dt.year == today.year)
+        # Racha de días CON intimidad (días consecutivos con >=1 momento)
+        c.execute("""
+          SELECT DATE(at) AS d, COUNT(*)
+          FROM intimacy_moments
+          GROUP BY DATE(at)
+          ORDER BY d DESC
+        """)
+        by_day = [r[0] for r in c.fetchall()]  # fechas con al menos 1
+        set_days = set(by_day)
 
-    # Última vez
-    last_dt = max(dts)
-    days_since_last = (today - last_dt.date()).days
-
-    # Racha (días consecutivos con evento) — si hoy no hay, racha=0
-    if today_count == 0:
-        streak_days = 0
-    else:
-        dates_with = {dt.date() for dt in dts}
-        streak_days = 0
+        streak_on = 0
         cur = today
-        while cur in dates_with:
-            streak_days += 1
-            cur = cur - timedelta(days=1)
+        while cur in set_days:
+            streak_on += 1
+            cur -= timedelta(days=1)
 
+        # Días SIN desde la última vez (si hubo)
+        streak_off = last_days_ago if last_days_ago is not None else None
+
+        # Lista (últimos 100)
+        c.execute("""
+            SELECT id, at, COALESCE(place,''), COALESCE(notes,''), created_by
+            FROM intimacy_moments
+            ORDER BY at DESC
+            LIMIT 100
+        """)
+        rows = c.fetchall()
+        items = []
+        for rid, at_ts, place, notes, created_by in rows:
+            items.append({
+                "id": rid,
+                "at": at_ts.isoformat(sep=' '),
+                "place": place,
+                "notes": notes,
+                "created_by": created_by
+            })
     return {
-        'today_count': today_count,
-        'month_total': month_total,
-        'year_total': year_total,
-        'days_since_last': days_since_last,
-        'last_dt': last_dt,
-        'streak_days': streak_days
+        "month_count": month_count,
+        "year_count": year_count,
+        "last_days_ago": last_days_ago,
+        "last_at": last_at_iso,
+        "streak_on": streak_on,
+        "streak_off": streak_off,
+        "items": items
     }
 
 # -----------------------------
@@ -677,7 +681,7 @@ def index():
                         send_discord("Profile picture updated", {"user": user, "filename": filename})
                     return redirect('/')
 
-                # 2) Cambio de contraseña (ahora verifica hash/clear y guarda SIEMPRE hash)
+                # 2) Cambio de contraseña
                 if 'change_password' in request.form:
                     current_password = request.form.get('current_password', '').strip()
                     new_password = request.form.get('new_password', '').strip()
@@ -810,42 +814,6 @@ def index():
                         send_discord("Wishlist added", {"user": user, "name": product_name, "priority": priority, "is_gift": is_gift})
                     return redirect('/')
 
-                # --- INTIMIDAD: desbloquear por PIN ---
-                if 'intim_unlock_pin' in request.form:
-                    pin_try = request.form.get('intim_pin', '').strip()
-                    if pin_try == INTIM_PIN:
-                        session['intim_unlocked'] = True
-                        flash("Módulo Intimidad desbloqueado ✅", "success")
-                        send_discord("Intimidad unlock OK", {"user": user})
-                    else:
-                        session.pop('intim_unlocked', None)
-                        flash("PIN incorrecto ❌", "error")
-                        send_discord("Intimidad unlock FAIL", {"user": user})
-                    return redirect('/')
-
-                # --- INTIMIDAD: volver a bloquear ---
-                if 'intim_lock' in request.form:
-                    session.pop('intim_unlocked', None)
-                    flash("Módulo Intimidad ocultado 🔒", "info")
-                    return redirect('/')
-
-                # --- INTIMIDAD: registrar momento (contador) ---
-                if 'intim_register' in request.form:
-                    if not session.get('intim_unlocked'):
-                        flash("Debes desbloquear con PIN para registrar.", "error")
-                        return redirect('/')
-                    place = request.form.get('intim_place', '').strip()
-                    notes = request.form.get('intim_notes', '').strip()
-                    now_txt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    c.execute("""
-                        INSERT INTO intimacy_events (username, ts, place, notes)
-                        VALUES (%s, %s, %s, %s)
-                    """, (user, now_txt, place or None, notes or None))
-                    conn.commit()
-                    flash("Momento registrado ❤️", "success")
-                    send_discord("Intimidad registered", {"user": user, "place": place, "notes": notes})
-                    return redirect('/')
-
             # --- Consultas para render ---
             c.execute("SELECT username, answer FROM answers WHERE question_id=%s", (question_id,))
             answers = c.fetchall()
@@ -889,8 +857,6 @@ def index():
         conn.close()
 
     current_streak, best_streak = compute_streaks()
-    intim_stats = get_intim_stats(user)
-    intim_unlocked = bool(session.get('intim_unlocked'))
 
     return render_template('index.html',
                            question=question_text,
@@ -909,9 +875,7 @@ def index():
                            profile_pictures=profile_pictures,
                            login_error=None,
                            current_streak=current_streak,
-                           best_streak=best_streak,
-                           intim_stats=intim_stats,
-                           intim_unlocked=intim_unlocked
+                           best_streak=best_streak
                            )
 
 @app.route('/delete_travel', methods=['POST'])
@@ -1232,6 +1196,148 @@ def __reset_pw():
         return "Error interno", 500
     finally:
         conn.close()
+
+# ============== INTIMIDAD: API ==============
+
+@app.route('/api/intimidad/unlock', methods=['POST'])
+def intim_unlock():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "No autorizado"}), 401
+    pin = (request.json or {}).get("pin", "")
+    if pin == INTIM_PIN:
+        session['intim_unlocked'] = True
+        send_discord("Intimidad UNLOCK", {"user": session['username']})
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "PIN incorrecto"}), 403
+
+@app.route('/api/intimidad/lock', methods=['POST'])
+def intim_lock():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "No autorizado"}), 401
+    session.pop('intim_unlocked', None)
+    send_discord("Intimidad LOCK", {"user": session['username']})
+    return jsonify({"ok": True})
+
+@app.route('/api/intimidad/list', methods=['GET'])
+def intim_list():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "No autorizado"}), 401
+    if not session.get('intim_unlocked'):
+        return jsonify({"ok": False, "error": "Bloqueado por PIN"}), 403
+    conn = get_db_connection()
+    try:
+        return jsonify({"ok": True, **_intim_stats(conn)})
+    except Exception as e:
+        print("intim_list error:", e)
+        return jsonify({"ok": False, "error": "Error interno"}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/intimidad/quick_add', methods=['POST'])
+def intim_quick_add():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "No autorizado"}), 401
+    if not session.get('intim_unlocked'):
+        return jsonify({"ok": False, "error": "Bloqueado por PIN"}), 403
+    user = session['username']
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+              INSERT INTO intimacy_moments (at, place, notes, created_by)
+              VALUES (%s, %s, %s, %s)
+            """, (datetime.now(), None, None, user))
+            conn.commit()
+        send_discord("Intimidad ADD (quick)", {"by": user})
+        return jsonify({"ok": True})
+    except Exception as e:
+        print("intim_quick_add error:", e)
+        return jsonify({"ok": False, "error": "Error interno"}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/intimidad/save', methods=['POST'])
+def intim_save():
+    """
+    Crea o actualiza un momento:
+    - Si trae id => update
+    - Si no trae id => create
+    Campos: id?, at (iso o 'YYYY-MM-DD HH:MM'), place, notes
+    """
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "No autorizado"}), 401
+    if not session.get('intim_unlocked'):
+        return jsonify({"ok": False, "error": "Bloqueado por PIN"}), 403
+
+    data = request.json or {}
+    rid = data.get("id")
+    at_str = (data.get("at") or "").strip()
+    place = (data.get("place") or "").strip() or None
+    notes = (data.get("notes") or "").strip() or None
+    user = session['username']
+
+    # Parse at
+    when = None
+    if at_str:
+        try:
+            # Admite "YYYY-MM-DD HH:MM" o ISO
+            when = datetime.fromisoformat(at_str.replace('T', ' ').strip())
+        except Exception:
+            try:
+                when = datetime.strptime(at_str, "%Y-%m-%d %H:%M")
+            except Exception:
+                return jsonify({"ok": False, "error": "Fecha/hora inválida"}), 400
+    else:
+        when = datetime.now()
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            if rid:
+                c.execute("""
+                    UPDATE intimacy_moments
+                       SET at=%s, place=%s, notes=%s
+                     WHERE id=%s
+                """, (when, place, notes, rid))
+                send_discord("Intimidad UPDATE", {"id": rid, "by": user})
+            else:
+                c.execute("""
+                    INSERT INTO intimacy_moments (at, place, notes, created_by)
+                    VALUES (%s, %s, %s, %s)
+                """, (when, place, notes, user))
+                send_discord("Intimidad CREATE", {"by": user})
+            conn.commit()
+        return jsonify({"ok": True})
+    except Exception as e:
+        print("intim_save error:", e)
+        return jsonify({"ok": False, "error": "Error interno"}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/intimidad/delete', methods=['POST'])
+def intim_delete():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "No autorizado"}), 401
+    if not session.get('intim_unlocked'):
+        return jsonify({"ok": False, "error": "Bloqueado por PIN"}), 403
+    data = request.json or {}
+    rid = data.get("id")
+    if not rid:
+        return jsonify({"ok": False, "error": "Falta id"}), 400
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("DELETE FROM intimacy_moments WHERE id=%s", (rid,))
+            conn.commit()
+        send_discord("Intimidad DELETE", {"id": rid, "by": session['username']})
+        return jsonify({"ok": True})
+    except Exception as e:
+        print("intim_delete error:", e)
+        return jsonify({"ok": False, "error": "Error interno"}), 500
+    finally:
+        conn.close()
+
+# ============ FIN INTIMIDAD ============
 
 if __name__ == '__main__':
     app.run(debug=True)

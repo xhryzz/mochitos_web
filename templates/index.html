@@ -75,7 +75,7 @@
 
         /* Contadores */
         .counters { display: flex; flex-wrap: wrap; gap: 25px; margin-bottom: 25px; }
-        .counter-item { flex: 1; min-width: 220px; text-align: center; padding: 25px; background: var(--gradient); border-radius: 18px; color: white; box-shadow: 0 8px 20px rgba(0,0,0,.1); position: relative; overflow: hidden; }
+        .counter-item { flex: 1; min-width: 220px; text-align: center; padding: 25px; background: var(--gradient); border-radius: 18px; color: white; box-shadow: var(--shadow); position: relative; overflow: hidden; }
         .counter-item::before { content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: rgba(255,255,255,.1); transform: rotate(45deg); transition: all .5s ease; }
         .counter-item:hover::before { transform: rotate(45deg) translate(20px, 20px); }
         .counter-item h4 { font-size: 1.1rem; margin-bottom: 15px; font-weight: 500; }
@@ -127,7 +127,7 @@
         .wishlist-content { display: none; }
         .wishlist-content.active { display: block; }
         .wishlist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; margin-top: 20px; }
-        .wishlist-card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 25px rgba(0,0,0,.08); transition: all .3s ease; position: relative; }
+        .wishlist-card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08); transition: all .3s ease; position: relative; }
         .wishlist-card.purchased { opacity: 0.7; border-left: 5px solid var(--purchased-color); }
         .wishlist-card:not(.purchased) { border-left: 5px solid var(--wishlist-color); }
         .wishlist-card:hover { transform: translateY(-8px); box-shadow: 0 15px 35px rgba(0,0,0,.12); }
@@ -482,6 +482,18 @@
   .banner-form button{ padding: 8px 14px; }
 }
 
+/* ===== Intimidad (discreto) ===== */
+.intim-pin-wrap{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.intim-pin-wrap input[type="password"]{ max-width:200px; }
+.intim-stats{ display:grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-top:10px; }
+.intim-card{ background:#fff; border-radius:14px; padding:14px; box-shadow:0 6px 16px rgba(0,0,0,.07); border-left:5px solid var(--accent-color); }
+.intim-actions{ display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap; }
+.intim-actions input[type="text"], .intim-actions textarea{ border-radius:12px; }
+.intim-kpis{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+.intim-kpis .kpi{ flex:1; min-width:170px; background:var(--gradient); color:#fff; border-radius:14px; padding:14px; text-align:center; box-shadow:0 8px 22px rgba(232,67,147,.15); }
+.intim-kpis .kpi h4{ font-size:.95rem; margin:0 0 6px 0; font-weight:600; opacity:.9; }
+.intim-kpis .kpi p{ font-size:1.6rem; margin:0; font-weight:800; }
+
     </style>
 </head>
 
@@ -634,6 +646,72 @@
           <input type="date" name="meeting_date" required>
           <button type="submit"><i class="fas fa-calendar-alt"></i> Actualizar fecha</button>
         </form>
+      </div>
+
+      <!-- INTIMIDAD (discreto) -->
+      <div class="section animate-in">
+        <h3>Intimidad <small style="font-size:.9rem; opacity:.7;">(privado)</small></h3>
+        {% if not intim_unlocked %}
+          <p>Este módulo está oculto. Introduce el PIN para verlo.</p>
+          <form method="POST" class="intim-pin-wrap">
+            <input type="password" name="intim_pin" placeholder="PIN" required>
+            <button type="submit" name="intim_unlock_pin">
+              <i class="fas fa-lock-open"></i> Desbloquear
+            </button>
+          </form>
+        {% else %}
+          <!-- Acciones -->
+          <form method="POST" class="intim-actions">
+            <button type="submit" name="intim_register" title="Registrar momento (suma 1 a hoy)">
+              <i class="fas fa-heart"></i> Registrar momento
+            </button>
+            <input type="text" name="intim_place" placeholder="Lugar (opcional)" style="flex:1; min-width:200px;">
+            <textarea name="intim_notes" placeholder="Notas privadas (opcional)" rows="1" style="flex:2; min-width:220px;"></textarea>
+            <button type="submit" name="intim_lock" style="margin-left:auto; background:#fff; color:#e84393;">
+              <i class="fas fa-eye-slash"></i> Ocultar
+            </button>
+          </form>
+
+          <!-- KPIs rápidos -->
+          <div class="intim-kpis">
+            <div class="kpi">
+              <h4>Hoy</h4>
+              <p>{{ intim_stats.today_count }}</p>
+            </div>
+            <div class="kpi">
+              <h4>Este mes</h4>
+              <p>{{ intim_stats.month_total }}</p>
+            </div>
+            <div class="kpi">
+              <h4>Este año</h4>
+              <p>{{ intim_stats.year_total }}</p>
+            </div>
+          </div>
+
+          <!-- Detalle: última vez + rachas -->
+          <div class="intim-stats">
+            <div class="intim-card">
+              <b>Última vez</b><br>
+              {% if intim_stats.last_dt %}
+                {{ intim_stats.last_dt.strftime("%Y-%m-%d %H:%M") }} (hace {{ intim_stats.days_since_last }} día{% if intim_stats.days_since_last != 1 %}s{% endif %})
+              {% else %}
+                Aún no hay registros.
+              {% endif %}
+            </div>
+            <div class="intim-card">
+              <b>Racha actual (días seguidos con intimidad)</b><br>
+              {{ intim_stats.streak_days }} día{% if intim_stats.streak_days != 1 %}s{% endif %}
+            </div>
+            <div class="intim-card">
+              <b>Días sin</b><br>
+              {% if intim_stats.days_since_last is not none %}
+                {{ intim_stats.days_since_last }} día{% if intim_stats.days_since_last != 1 %}s{% endif %}
+              {% else %}
+                —
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
       </div>
 
       <!-- Mapa de Distancia -->

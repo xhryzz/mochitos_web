@@ -549,7 +549,7 @@ def _parse_dt(dt_txt: str) -> datetime | None:
     except Exception:
         return None
 
-ddef get_intim_stats(username: str):
+def get_intim_stats(username: str):
     """Stats de intimidad COMPARTIDOS:
        today_count, month_total, year_total, days_since_last, last_dt, streak_days
     """

@@ -549,15 +549,16 @@ def _parse_dt(dt_txt: str) -> datetime | None:
     except Exception:
         return None
 
-def get_intim_stats(username: str):
-    """Stats de intimidad:
+ddef get_intim_stats(username: str):
+    """Stats de intimidad COMPARTIDOS:
        today_count, month_total, year_total, days_since_last, last_dt, streak_days
     """
     today = date.today()
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            c.execute("SELECT ts FROM intimacy_events WHERE username=%s", (username,))
+            # CAMBIO CLAVE: Tomar eventos de ambos usuarios, no solo del actual
+            c.execute("SELECT ts FROM intimacy_events WHERE username IN ('mochito', 'mochita')")  # ← AQUÍ EL CAMBIO
             rows = c.fetchall()
     finally:
         conn.close()
@@ -591,6 +592,7 @@ def get_intim_stats(username: str):
     if today_count == 0:
         streak_days = 0
     else:
+        # Racha COMPARTIDA (días consecutivos con al menos un evento de cualquiera de los dos)
         dates_with = {dt.date() for dt in dts}
         streak_days = 0
         cur = today

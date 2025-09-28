@@ -494,6 +494,26 @@
 .intim-kpis .kpi h4{ font-size:.95rem; margin:0 0 6px 0; font-weight:600; opacity:.9; }
 .intim-kpis .kpi p{ font-size:1.6rem; margin:0; font-weight:800; }
 
+
+/* Estilos para eventos de intimidad */
+.intim-event-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.intim-event-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,.12);
+}
+
+.event-actions {
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.intim-event-card:hover .event-actions {
+  opacity: 1;
+}
+
     </style>
 </head>
 
@@ -579,6 +599,32 @@
       <div class="settings-icon" id="settingsIcon">
         <i class="fas fa-user-cog"></i>
       </div>
+
+        <!-- MODAL EDITAR EVENTO INTIMIDAD -->
+  <div id="editIntimModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Editar momento</h2>
+        <span class="close-modal">&times;</span>
+      </div>
+      <div class="modal-body">
+        <form method="POST" action="/edit_intim_event" id="editIntimForm">
+          <input type="hidden" name="event_id" id="editEventId">
+          
+          <input type="text" name="intim_place_edit" id="editIntimPlace" 
+                 placeholder="Lugar (opcional)" style="margin-bottom: 15px;">
+          
+          <textarea name="intim_notes_edit" id="editIntimNotes" 
+                    placeholder="Notas privadas (opcional)" 
+                    rows="4" style="margin-bottom: 15px;"></textarea>
+          
+          <button type="submit">
+            <i class="fas fa-save"></i> Guardar cambios
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
 
       <!-- MODAL PERFIL -->
       <div id="profileModal" class="modal">
@@ -686,6 +732,75 @@
               <h4>Este año</h4>
               <p>{{ intim_stats.year_total }}</p>
             </div>
+          </div>
+
+
+                    <!-- Lista de eventos -->
+          <div class="intim-events" style="margin-top: 20px;">
+            <h4 style="color: var(--primary-color); margin-bottom: 15px;">Historial de momentos</h4>
+            {% if intim_events %}
+              <div class="events-list" style="display: flex; flex-direction: column; gap: 12px;">
+                {% for event in intim_events %}
+                  <div class="intim-event-card" style="background: #fff; border-radius: 12px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,.08); border-left: 4px solid var(--accent-color);">
+                    <div style="display: flex; justify-content: between; align-items: flex-start; gap: 12px;">
+                      <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                          <div class="user-avatar" style="width: 32px; height: 32px;">
+                            {% if profile_pictures.get(event.username) %}
+                              <img src="{{ profile_pictures.get(event.username) }}" alt="{{ event.username }}">
+                            {% else %}
+                              {{ event.username[0]|upper }}
+                            {% endif %}
+                          </div>
+                          <strong style="color: var(--primary-color);">{{ event.username }}</strong>
+                          <small style="color: #888; margin-left: auto;">
+                            {{ event.ts[:16] }}
+                          </small>
+                        </div>
+                        
+                        {% if event.place %}
+                        <div style="margin-bottom: 6px;">
+                          <strong>Lugar:</strong> {{ event.place }}
+                        </div>
+                        {% endif %}
+                        
+                        {% if event.notes %}
+                        <div style="background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 8px;">
+                          <strong>Notas:</strong> 
+                          <span style="white-space: pre-wrap;">{{ event.notes }}</span>
+                        </div>
+                        {% endif %}
+                      </div>
+                      
+                      {% if event.username == username %}
+                      <div class="event-actions" style="display: flex; gap: 6px;">
+                        <!-- Botón Editar -->
+                        <button type="button" class="icon-btn" 
+                                onclick="openEditIntimModal({{ event.id|tojson }}, {{ event.place|tojson }}, {{ event.notes|tojson }})"
+                                title="Editar evento">
+                          <i class="fas fa-edit"></i>
+                        </button>
+                        
+                        <!-- Botón Eliminar -->
+                        <form method="POST" action="/delete_intim_event" 
+                              onsubmit="return confirm('¿Estás seguro de que quieres eliminar este evento?');"
+                              style="display: inline;">
+                          <input type="hidden" name="event_id" value="{{ event.id }}">
+                          <button type="submit" class="icon-btn" title="Eliminar evento">
+                            <i class="fas fa-trash"></i>
+                          </button>
+                        </form>
+                      </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p style="text-align: center; color: #888; padding: 20px;">
+                Aún no hay eventos registrados.
+              </p>
+            {% endif %}
           </div>
 
           <!-- Detalle: última vez + rachas -->
@@ -1767,6 +1882,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
+
+
+// Función para abrir modal de edición de evento de intimidad
+window.openEditIntimModal = function(eventId, place, notes) {
+  const modal = document.getElementById('editIntimModal');
+  if (!modal) return;
+  
+  document.getElementById('editEventId').value = eventId;
+  document.getElementById('editIntimPlace').value = place || '';
+  document.getElementById('editIntimNotes').value = notes || '';
+  
+  modal.style.display = 'block';
+};
 </script>
 
 <footer class="site-footer">

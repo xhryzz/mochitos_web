@@ -553,7 +553,7 @@ def get_intim_stats(username: str):
     """Stats de intimidad COMPARTIDOS:
        today_count, month_total, year_total, days_since_last, last_dt, streak_days
     """
-     current_streak, best_streak = compute_streaks()
+    current_streak, best_streak = compute_streaks()
     intim_stats = get_intim_stats(user)
     intim_unlocked = bool(session.get('intim_unlocked'))
     

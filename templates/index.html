@@ -775,16 +775,11 @@
                       {% if event.username == username %}
                       <div class="event-actions" style="display: flex; gap: 6px;">
                         <!-- Botón Editar -->
-                        <!-- Botón Editar (SIN onclick inline) -->
-<button type="button"
-class="icon-btn btn-edit-intim"
-data-event-id="{{ event.id }}"
-data-place="{{ (event.place or '')|e }}"
-data-notes="{{ (event.notes or '')|e }}"
-title="Editar evento">
-<i class="fas fa-edit"></i>
-</button>
-
+                        <button type="button" class="icon-btn" 
+                                onclick="openEditIntimModal({{ event.id|tojson }}, {{ event.place|tojson }}, {{ event.notes|tojson }})"
+                                title="Editar evento">
+                          <i class="fas fa-edit"></i>
+                        </button>
                         
                         <!-- Botón Eliminar -->
                         <form method="POST" action="/delete_intim_event" 
@@ -1869,7 +1864,6 @@ document.addEventListener('DOMContentLoaded', function() {
   setupLocationForm();
   setupUseMyLocation(); // <-- activa el botón de ubicación real
   setupTravelPagination();
-  setupEditIntimButtons();
   setupTravelSearch('visited-tab', 'visited-search', visitedPagerAPI);
   setupTravelSearch('wishlist-travel-tab', 'wishlist-search', wishlistPagerAPI);
 
@@ -1895,10 +1889,12 @@ window.openEditIntimModal = function(eventId, place, notes) {
   const modal = document.getElementById('editIntimModal');
   if (!modal) return;
 
+  // Asegura que siempre hay inputs
   const idEl    = document.getElementById('editEventId');
   const placeEl = document.getElementById('editIntimPlace');
   const notesEl = document.getElementById('editIntimNotes');
 
+  // Normaliza valores
   const safeId    = (eventId ?? '').toString();
   const safePlace = (place ?? '');
   const safeNotes = (notes ?? '');
@@ -1907,31 +1903,14 @@ window.openEditIntimModal = function(eventId, place, notes) {
   placeEl.value = safePlace;
   notesEl.value = safeNotes;
 
+  // Mini validación visual por si el id no llegara
   if (!safeId) {
-    window.showToast?.('error','No se pudo cargar el ID del evento.');
+    alert('No se pudo cargar el ID del evento. Recarga la página e inténtalo de nuevo.');
     return;
   }
+
   modal.style.display = 'block';
 };
-
-
-// Listener sin inline JS para los botones de editar intimidad
-function setupEditIntimButtons(){
-  document.querySelectorAll('.btn-edit-intim').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id    = btn.dataset.eventId || '';
-      const place = btn.dataset.place || '';
-      const notes = btn.dataset.notes || '';
-      if (typeof window.openEditIntimModal === 'function') {
-        window.openEditIntimModal(id, place, notes);
-      } else {
-        console.error('openEditIntimModal no está definida');
-        window.showToast?.('error', 'No se pudo abrir el editor.');
-      }
-    });
-  });
-}
-
 </script>
 
 <footer class="site-footer">

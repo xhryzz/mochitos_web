@@ -1235,6 +1235,7 @@ def get_image(image_id):
 def edit_intim_event():
     # Requiere login y módulo desbloqueado
     if 'username' not in session:
+        flash("Sesión no iniciada.", "error")
         return redirect('/')
     if not session.get('intim_unlocked'):
         flash("Debes desbloquear con PIN para editar.", "error")
@@ -1245,23 +1246,34 @@ def edit_intim_event():
     place = (request.form.get('intim_place_edit') or '').strip()
     notes = (request.form.get('intim_notes_edit') or '').strip()
 
-    if not event_id:
-        flash("Falta el ID del evento.", "error")
+    # Log de depuración
+    send_discord("Intimidad EDIT intent", {
+        "by": user,
+        "form": {
+            "event_id": event_id,
+            "place": place,
+            "notes_len": len(notes)
+        }
+    })
+
+    if not event_id.isdigit():
+        flash("ID de evento inválido o vacío.", "error")
         return redirect('/')
 
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # Solo permite editar si el evento es suyo
             c.execute("SELECT username FROM intimacy_events WHERE id=%s", (event_id,))
             row = c.fetchone()
             if not row:
                 flash("Evento no encontrado.", "error")
+                send_discord("Intimidad EDIT fail", {"by": user, "reason": "not_found", "event_id": event_id})
                 return redirect('/')
 
             owner = row[0]
             if owner != user:
                 flash("Solo puede editar el creador del evento.", "error")
+                send_discord("Intimidad EDIT fail", {"by": user, "reason": "not_owner", "owner": owner, "event_id": event_id})
                 return redirect('/')
 
             c.execute("""
@@ -1273,14 +1285,16 @@ def edit_intim_event():
             conn.commit()
 
         flash("Momento actualizado ✅", "success")
-        send_discord("Intimidad edit", {"event_id": event_id, "by": user, "place": place, "notes": notes})
+        send_discord("Intimidad EDIT ok", {"by": user, "event_id": event_id})
         return redirect('/')
     except Exception as e:
         print(f"[edit_intim_event] {e}")
-        flash("No se pudo actualizar el momento.", "error")
+        flash("No se pudo actualizar el momento. Revisa los datos.", "error")
+        send_discord("Intimidad EDIT error", {"by": user, "event_id": event_id, "error": str(e)})
         return redirect('/')
     finally:
         conn.close()
+
 
 
 @app.route('/delete_intim_event', methods=['POST'])
@@ -1310,9 +1324,17 @@ def delete_intim_event():
                 return redirect('/')
 
             owner = row[0]
-            if owner != user:
-                flash("Solo puede borrar el creador del evento.", "error")
+            # if owner != user:
+        #     flash("Solo puede editar el creador del evento.", "error")
+        #     return redirect('/')
+        # → permitir a ambos usuarios
+            if owner not in ('mochito','mochita'):
+                flash("Evento con propietario desconocido.", "error")
                 return redirect('/')
+
+
+
+            
 
             c.execute("DELETE FROM intimacy_events WHERE id=%s", (event_id,))
             conn.commit()

@@ -557,8 +557,8 @@ def get_intim_stats(username: str):
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # CAMBIO CLAVE: Tomar eventos de ambos usuarios, no solo del actual
-            c.execute("SELECT ts FROM intimacy_events WHERE username IN ('mochito', 'mochita')")  # ← AQUÍ EL CAMBIO
+            # COMPARTIDO entre ambos usuarios
+            c.execute("SELECT ts FROM intimacy_events WHERE username IN ('mochito', 'mochita')")
             rows = c.fetchall()
     finally:
         conn.close()
@@ -592,7 +592,7 @@ def get_intim_stats(username: str):
     if today_count == 0:
         streak_days = 0
     else:
-        # Racha COMPARTIDA (días consecutivos con al menos un evento de cualquiera de los dos)
+        # Racha COMPARTIDA (días consecutivos con al menos un evento)
         dates_with = {dt.date() for dt in dts}
         streak_days = 0
         cur = today
@@ -608,6 +608,34 @@ def get_intim_stats(username: str):
         'last_dt': last_dt,
         'streak_days': streak_days
     }
+
+def get_intim_events(limit: int = 200):
+    """
+    Devuelve eventos compartidos (mochito + mochita) más recientes primero.
+    Formato: lista de dicts con id, username, ts, place, notes.
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT id, username, ts, place, notes
+                FROM intimacy_events
+                WHERE username IN ('mochito','mochita')
+                ORDER BY ts DESC
+                LIMIT %s
+            """, (limit,))
+            rows = c.fetchall()
+            return [
+                {
+                    'id': r[0],
+                    'username': r[1],
+                    'ts': r[2],
+                    'place': r[3] or '',
+                    'notes': r[4] or ''
+                } for r in rows
+            ]
+    finally:
+        conn.close()
 
 # -----------------------------
 #  Rutas
@@ -679,7 +707,7 @@ def index():
                         send_discord("Profile picture updated", {"user": user, "filename": filename})
                     return redirect('/')
 
-                # 2) Cambio de contraseña (ahora verifica hash/clear y guarda SIEMPRE hash)
+                # 2) Cambio de contraseña
                 if 'change_password' in request.form:
                     current_password = request.form.get('current_password', '').strip()
                     new_password = request.form.get('new_password', '').strip()
@@ -894,6 +922,9 @@ def index():
     intim_stats = get_intim_stats(user)
     intim_unlocked = bool(session.get('intim_unlocked'))
 
+    # Historial de eventos (privado): solo si PIN desbloqueado
+    intim_events = get_intim_events(200) if intim_unlocked else []
+
     return render_template('index.html',
                            question=question_text,
                            show_answers=show_answers,
@@ -913,7 +944,8 @@ def index():
                            current_streak=current_streak,
                            best_streak=best_streak,
                            intim_stats=intim_stats,
-                           intim_unlocked=intim_unlocked
+                           intim_unlocked=intim_unlocked,
+                           intim_events=intim_events
                            )
 
 @app.route('/delete_travel', methods=['POST'])
@@ -1197,6 +1229,105 @@ def get_image(image_id):
     finally:
         conn.close()
 
+# ---------- INTIMIDAD: Editar/Borrar ----------
+
+@app.route('/edit_intim_event', methods=['POST'])
+def edit_intim_event():
+    # Requiere login y módulo desbloqueado
+    if 'username' not in session:
+        return redirect('/')
+    if not session.get('intim_unlocked'):
+        flash("Debes desbloquear con PIN para editar.", "error")
+        return redirect('/')
+
+    user = session['username']
+    event_id = (request.form.get('event_id') or '').strip()
+    place = (request.form.get('intim_place_edit') or '').strip()
+    notes = (request.form.get('intim_notes_edit') or '').strip()
+
+    if not event_id:
+        flash("Falta el ID del evento.", "error")
+        return redirect('/')
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # Solo permite editar si el evento es suyo
+            c.execute("SELECT username FROM intimacy_events WHERE id=%s", (event_id,))
+            row = c.fetchone()
+            if not row:
+                flash("Evento no encontrado.", "error")
+                return redirect('/')
+
+            owner = row[0]
+            if owner != user:
+                flash("Solo puede editar el creador del evento.", "error")
+                return redirect('/')
+
+            c.execute("""
+                UPDATE intimacy_events
+                   SET place = %s,
+                       notes = %s
+                 WHERE id = %s
+            """, (place or None, notes or None, event_id))
+            conn.commit()
+
+        flash("Momento actualizado ✅", "success")
+        send_discord("Intimidad edit", {"event_id": event_id, "by": user, "place": place, "notes": notes})
+        return redirect('/')
+    except Exception as e:
+        print(f"[edit_intim_event] {e}")
+        flash("No se pudo actualizar el momento.", "error")
+        return redirect('/')
+    finally:
+        conn.close()
+
+
+@app.route('/delete_intim_event', methods=['POST'])
+def delete_intim_event():
+    # Requiere login y módulo desbloqueado
+    if 'username' not in session:
+        return redirect('/')
+    if not session.get('intim_unlocked'):
+        flash("Debes desbloquear con PIN para borrar.", "error")
+        return redirect('/')
+
+    user = session['username']
+    event_id = (request.form.get('event_id') or '').strip()
+
+    if not event_id:
+        flash("Falta el ID del evento.", "error")
+        return redirect('/')
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # Solo permite borrar si el evento es suyo
+            c.execute("SELECT username FROM intimacy_events WHERE id=%s", (event_id,))
+            row = c.fetchone()
+            if not row:
+                flash("Evento no encontrado.", "error")
+                return redirect('/')
+
+            owner = row[0]
+            if owner != user:
+                flash("Solo puede borrar el creador del evento.", "error")
+                return redirect('/')
+
+            c.execute("DELETE FROM intimacy_events WHERE id=%s", (event_id,))
+            conn.commit()
+
+        flash("Momento eliminado 🗑️", "success")
+        send_discord("Intimidad delete", {"event_id": event_id, "by": user})
+        return redirect('/')
+    except Exception as e:
+        print(f"[delete_intim_event] {e}")
+        flash("No se pudo eliminar el momento.", "error")
+        return redirect('/')
+    finally:
+        conn.close()
+
+# ---------- Reset PW protegido ----------
 @app.route('/__reset_pw')
 def __reset_pw():
     """

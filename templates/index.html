@@ -1888,11 +1888,27 @@ document.addEventListener('DOMContentLoaded', function() {
 window.openEditIntimModal = function(eventId, place, notes) {
   const modal = document.getElementById('editIntimModal');
   if (!modal) return;
-  
-  document.getElementById('editEventId').value = eventId;
-  document.getElementById('editIntimPlace').value = place || '';
-  document.getElementById('editIntimNotes').value = notes || '';
-  
+
+  // Asegura que siempre hay inputs
+  const idEl    = document.getElementById('editEventId');
+  const placeEl = document.getElementById('editIntimPlace');
+  const notesEl = document.getElementById('editIntimNotes');
+
+  // Normaliza valores
+  const safeId    = (eventId ?? '').toString();
+  const safePlace = (place ?? '');
+  const safeNotes = (notes ?? '');
+
+  idEl.value    = safeId;
+  placeEl.value = safePlace;
+  notesEl.value = safeNotes;
+
+  // Mini validación visual por si el id no llegara
+  if (!safeId) {
+    alert('No se pudo cargar el ID del evento. Recarga la página e inténtalo de nuevo.');
+    return;
+  }
+
   modal.style.display = 'block';
 };
 </script>

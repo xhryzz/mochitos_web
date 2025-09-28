@@ -884,6 +884,19 @@ def index():
             """)
             wishlist_items = c.fetchall()
 
+            # Eventos de intimidad
+            intim_unlocked = bool(session.get('intim_unlocked'))
+            if intim_unlocked:
+                c.execute("""
+                    SELECT id, username, ts, place, notes 
+                    FROM intimacy_events 
+                    WHERE username IN ('mochito', 'mochita')
+                    ORDER BY ts DESC
+                """)
+                intim_events = c.fetchall()
+            else:
+                intim_events = []
+
             banner_file = get_banner()
             profile_pictures = get_profile_pictures()
 
@@ -892,7 +905,6 @@ def index():
 
     current_streak, best_streak = compute_streaks()
     intim_stats = get_intim_stats(user)
-    intim_unlocked = bool(session.get('intim_unlocked'))
 
     return render_template('index.html',
                            question=question_text,
@@ -913,7 +925,8 @@ def index():
                            current_streak=current_streak,
                            best_streak=best_streak,
                            intim_stats=intim_stats,
-                           intim_unlocked=intim_unlocked
+                           intim_unlocked=intim_unlocked,
+                           intim_events=intim_events
                            )
 
 @app.route('/delete_travel', methods=['POST'])
@@ -1056,6 +1069,70 @@ def toggle_wishlist_status():
     except Exception as e:
         print(f"Error en toggle_wishlist_status: {e}")
         flash("No se pudo actualizar el estado.", "error")
+        return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/edit_intim_event', methods=['POST'])
+def edit_intim_event():
+    if 'username' not in session:
+        return redirect('/')
+    try:
+        event_id = request.form['event_id']
+        place = request.form.get('intim_place_edit', '').strip()
+        notes = request.form.get('intim_notes_edit', '').strip()
+        user = session['username']
+        
+        conn = get_db_connection()
+        with conn.cursor() as c:
+            # Verificar que el usuario es el propietario del evento
+            c.execute("SELECT username FROM intimacy_events WHERE id=%s", (event_id,))
+            result = c.fetchone()
+            if result and result[0] == user:
+                c.execute("""
+                    UPDATE intimacy_events 
+                    SET place=%s, notes=%s 
+                    WHERE id=%s
+                """, (place or None, notes or None, event_id))
+                conn.commit()
+                flash("Momento actualizado ✅", "success")
+                send_discord("Intimidad event edited", {"user": user, "event_id": event_id})
+            else:
+                flash("No tienes permisos para editar este evento.", "error")
+        return redirect('/')
+    except Exception as e:
+        print(f"Error en edit_intim_event: {e}")
+        flash("No se pudo actualizar el momento.", "error")
+        return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/delete_intim_event', methods=['POST'])
+def delete_intim_event():
+    if 'username' not in session:
+        return redirect('/')
+    try:
+        event_id = request.form['event_id']
+        user = session['username']
+        
+        conn = get_db_connection()
+        with conn.cursor() as c:
+            # Verificar que el usuario es el propietario del evento
+            c.execute("SELECT username FROM intimacy_events WHERE id=%s", (event_id,))
+            result = c.fetchone()
+            if result and result[0] == user:
+                c.execute("DELETE FROM intimacy_events WHERE id=%s", (event_id,))
+                conn.commit()
+                flash("Momento eliminado 🗑️", "success")
+                send_discord("Intimidad event deleted", {"user": user, "event_id": event_id})
+            else:
+                flash("No tienes permisos para eliminar este evento.", "error")
+        return redirect('/')
+    except Exception as e:
+        print(f"Error en delete_intim_event: {e}")
+        flash("No se pudo eliminar el momento.", "error")
         return redirect('/')
     finally:
         if 'conn' in locals():

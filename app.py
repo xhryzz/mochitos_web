@@ -893,9 +893,6 @@ def index():
     current_streak, best_streak = compute_streaks()
     intim_stats = get_intim_stats(user)
     intim_unlocked = bool(session.get('intim_unlocked'))
-    
-    # NUEVA LÍNEA: Obtener todos los eventos de intimidad
-    intim_events = get_intim_events() if intim_unlocked else []
 
     return render_template('index.html',
                            question=question_text,
@@ -915,8 +912,8 @@ def index():
                            login_error=None,
                            current_streak=current_streak,
                            best_streak=best_streak,
-                           intim_unlocked=intim_unlocked,
-                           intim_events=intim_events  # ← NUEVO PARÁMETRO
+                           intim_stats=intim_stats,
+                           intim_unlocked=intim_unlocked
                            )
 
 @app.route('/delete_travel', methods=['POST'])
@@ -1238,111 +1235,5 @@ def __reset_pw():
     finally:
         conn.close()
 
-
-
-
-
-# --- INTIMIDAD: Obtener todos los eventos ---
-def get_intim_events():
-    """Obtiene todos los eventos de intimidad con detalles completos"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-                SELECT id, username, ts, place, notes 
-                FROM intimacy_events 
-                ORDER BY ts DESC
-            """)
-            events = []
-            for row in c.fetchall():
-                id, username, ts, place, notes = row
-                events.append({
-                    'id': id,
-                    'username': username,
-                    'ts': ts,
-                    'place': place,
-                    'notes': notes
-                })
-            return events
-    finally:
-        conn.close()
-
-# --- INTIMIDAD: Editar evento ---
-@app.route('/edit_intim_event', methods=['POST'])
-def edit_intim_event():
-    if 'username' not in session or not session.get('intim_unlocked'):
-        return redirect('/')
-    
-    try:
-        event_id = request.form['event_id']
-        place = request.form.get('intim_place_edit', '').strip()
-        notes = request.form.get('intim_notes_edit', '').strip()
-        
-        conn = get_db_connection()
-        with conn.cursor() as c:
-            # Verificar que el usuario es el creador del evento
-            c.execute("SELECT username FROM intimacy_events WHERE id=%s", (event_id,))
-            result = c.fetchone()
-            if not result or result[0] != session['username']:
-                flash("Solo puedes editar tus propios eventos.", "error")
-                return redirect('/')
-            
-            # Actualizar el evento
-            c.execute("""
-                UPDATE intimacy_events 
-                SET place=%s, notes=%s 
-                WHERE id=%s
-            """, (place or None, notes or None, event_id))
-            conn.commit()
-        
-        flash("Evento actualizado ✅", "success")
-        send_discord("Intimidad event edited", {"user": session['username'], "event_id": event_id})
-        return redirect('/')
-        
-    except Exception as e:
-        print(f"Error en edit_intim_event: {e}")
-        flash("No se pudo actualizar el evento.", "error")
-        return redirect('/')
-    finally:
-        if 'conn' in locals():
-            conn.close()
-
-# --- INTIMIDAD: Eliminar evento ---
-@app.route('/delete_intim_event', methods=['POST'])
-def delete_intim_event():
-    if 'username' not in session or not session.get('intim_unlocked'):
-        return redirect('/')
-    
-    try:
-        event_id = request.form['event_id']
-        
-        conn = get_db_connection()
-        with conn.cursor() as c:
-            # Verificar que el usuario es el creador del evento
-            c.execute("SELECT username FROM intimacy_events WHERE id=%s", (event_id,))
-            result = c.fetchone()
-            if not result or result[0] != session['username']:
-                flash("Solo puedes eliminar tus propios eventos.", "error")
-                return redirect('/')
-            
-            # Eliminar el evento
-            c.execute("DELETE FROM intimacy_events WHERE id=%s", (event_id,))
-            conn.commit()
-        
-        flash("Evento eliminado 🗑️", "success")
-        send_discord("Intimidad event deleted", {"user": session['username'], "event_id": event_id})
-        return redirect('/')
-        
-    except Exception as e:
-        print(f"Error en delete_intim_event: {e}")
-        flash("No se pudo eliminar el evento.", "error")
-        return redirect('/')
-    finally:
-        if 'conn' in locals():
-            conn.close()
-
-            
-
 if __name__ == '__main__':
     app.run(debug=True)
-

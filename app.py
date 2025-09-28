@@ -553,12 +553,6 @@ def get_intim_stats(username: str):
     """Stats de intimidad COMPARTIDOS:
        today_count, month_total, year_total, days_since_last, last_dt, streak_days
     """
-    current_streak, best_streak = compute_streaks()
-    intim_stats = get_intim_stats(user)
-    intim_unlocked = bool(session.get('intim_unlocked'))
-    
-    # NUEVA LÍNEA: Obtener todos los eventos de intimidad
-    intim_events = get_intim_events() if intim_unlocked else []
     today = date.today()
     conn = get_db_connection()
     try:
@@ -899,6 +893,9 @@ def index():
     current_streak, best_streak = compute_streaks()
     intim_stats = get_intim_stats(user)
     intim_unlocked = bool(session.get('intim_unlocked'))
+    
+    # NUEVA LÍNEA: Obtener todos los eventos de intimidad
+    intim_events = get_intim_events() if intim_unlocked else []
 
     return render_template('index.html',
                            question=question_text,

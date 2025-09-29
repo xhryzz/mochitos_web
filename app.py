@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash
 import psycopg2
 from datetime import datetime, date, timedelta
+from zoneinfo import ZoneInfo
 import random
 import os
 from werkzeug.utils import secure_filename
@@ -12,6 +13,17 @@ import requests, json
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
+
+# ---------- Zona horaria: Europe/Madrid ----------
+TZ_ES = ZoneInfo("Europe/Madrid")
+
+def now_es() -> datetime:
+    """Datetime timezone-aware en Europe/Madrid."""
+    return datetime.now(TZ_ES)
+
+def today_es() -> date:
+    """Date en Europe/Madrid (cambia a 00:00 hora de España)."""
+    return now_es().date()
 
 # --- Helpers para logs y contraseñas ---
 # --- Helpers de logging a Discord (embeds sin máscaras) ---
@@ -42,6 +54,7 @@ def send_discord(event: str, payload: dict | None = None):
         embed = {
             "title": event,
             "color": 0xE84393,
+            # Logs en UTC están bien para correlación
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "fields": []
         }
@@ -348,12 +361,12 @@ def init_db():
                     INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
                     VALUES (%s, %s, %s, %s, %s)
                     ON CONFLICT (username) DO NOTHING
-                """, ('mochito', 'Algemesí, Valencia', 39.1925, -0.4353, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                """, ('mochito', 'Algemesí, Valencia', 39.1925, -0.4353, now_es().strftime("%Y-%m-%d %H:%M:%S")))
                 c.execute("""
                     INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
                     VALUES (%s, %s, %s, %s, %s)
                     ON CONFLICT (username) DO NOTHING
-                """, ('mochita', 'Córdoba', 37.8882, -4.7794, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                """, ('mochita', 'Córdoba', 37.8882, -4.7794, now_es().strftime("%Y-%m-%d %H:%M:%S")))
             except Exception as e:
                 print(f"Error al crear usuarios predeterminados: {e}")
                 conn.rollback()
@@ -388,7 +401,7 @@ init_db()
 #  Helpers de datos
 # -----------------------------
 def get_today_question():
-    today_str = date.today().isoformat()
+    today_str = today_es().isoformat()
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
@@ -416,7 +429,7 @@ def get_today_question():
         conn.close()
 
 def days_together():
-    return (date.today() - RELATION_START).days
+    return (today_es() - RELATION_START).days
 
 def days_until_meeting():
     conn = get_db_connection()
@@ -426,7 +439,7 @@ def days_until_meeting():
             row = c.fetchone()
             if row:
                 meeting_date = datetime.strptime(row[0], "%Y-%m-%d").date()
-                delta = (meeting_date - date.today()).days
+                delta = (meeting_date - today_es()).days
                 return max(delta, 0)
             return None
     finally:
@@ -525,7 +538,7 @@ def compute_streaks():
         if run > best_streak:
             best_streak = run
 
-    today = date.today()
+    today = today_es()
     latest_complete = None
     for d in sorted(set(complete_dates), reverse=True):
         if d <= today:
@@ -553,7 +566,7 @@ def get_intim_stats(username: str):
     """Stats de intimidad COMPARTIDOS:
        today_count, month_total, year_total, days_since_last, last_dt, streak_days
     """
-    today = date.today()
+    today = today_es()
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
@@ -701,7 +714,7 @@ def index():
                             ON CONFLICT (username) DO UPDATE
                             SET image_data=EXCLUDED.image_data, filename=EXCLUDED.filename,
                                 mime_type=EXCLUDED.mime_type, uploaded_at=EXCLUDED.uploaded_at
-                        """, (user, image_data, filename, mime_type, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        """, (user, image_data, filename, mime_type, now_es().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
                         flash("Foto de perfil actualizada ✅", "success")
                         send_discord("Profile picture updated", {"user": user, "filename": filename})
@@ -780,7 +793,7 @@ def index():
                         filename = secure_filename(file.filename)
                         mime_type = file.mimetype
                         c.execute("INSERT INTO banner (image_data, filename, mime_type, uploaded_at) VALUES (%s, %s, %s, %s)",
-                                  (image_data, filename, mime_type, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                                  (image_data, filename, mime_type, now_es().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
                         flash("Banner actualizado 🖼️", "success")
                         send_discord("Banner updated", {"user": user, "filename": filename})
@@ -797,7 +810,7 @@ def index():
                             INSERT INTO travels (destination, description, travel_date, is_visited, created_by, created_at)
                             VALUES (%s, %s, %s, %s, %s, %s)
                         """, (destination, description, travel_date, is_visited, user,
-                              datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                              now_es().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
                         flash("Viaje añadido ✈️", "success")
                         send_discord("Travel added", {"user": user, "dest": destination, "visited": is_visited})
@@ -811,7 +824,7 @@ def index():
                         c.execute("""
                             INSERT INTO travel_photos (travel_id, image_url, uploaded_by, uploaded_at)
                             VALUES (%s, %s, %s, %s)
-                        """, (travel_id, image_url, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        """, (travel_id, image_url, user, now_es().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
                         flash("Foto añadida 📸", "success")
                         send_discord("Travel photo added", {"user": user, "travel_id": travel_id})
@@ -833,7 +846,7 @@ def index():
                             INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift)
                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         """, (product_name, product_link, notes, user,
-                              datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                              now_es().strftime("%Y-%m-%d %H:%M:%S"),
                               False, priority, is_gift))
                         conn.commit()
                         flash("Producto añadido a la lista 🛍️", "success")
@@ -866,7 +879,7 @@ def index():
                         return redirect('/')
                     place = request.form.get('intim_place', '').strip()
                     notes = request.form.get('intim_notes', '').strip()
-                    now_txt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    now_txt = now_es().strftime("%Y-%m-%d %H:%M:%S")
                     c.execute("""
                         INSERT INTO intimacy_events (username, ts, place, notes)
                         VALUES (%s, %s, %s, %s)
@@ -1115,7 +1128,7 @@ def update_location():
                         latitude = EXCLUDED.latitude, 
                         longitude = EXCLUDED.longitude, 
                         updated_at = EXCLUDED.updated_at
-                """, (username, location_name, latitude, longitude, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                """, (username, location_name, latitude, longitude, now_es().strftime("%Y-%m-%d %H:%M:%S")))
                 conn.commit()
             return jsonify({'success': True, 'message': 'Ubicación actualizada correctamente'})
         return jsonify({'error': 'Datos incompletos'}), 400
@@ -1325,16 +1338,12 @@ def delete_intim_event():
 
             owner = row[0]
             # if owner != user:
-        #     flash("Solo puede editar el creador del evento.", "error")
-        #     return redirect('/')
-        # → permitir a ambos usuarios
+            #     flash("Solo puede editar el creador del evento.", "error")
+            #     return redirect('/')
+            # → permitir a ambos usuarios
             if owner not in ('mochito','mochita'):
                 flash("Evento con propietario desconocido.", "error")
                 return redirect('/')
-
-
-
-            
 
             c.execute("DELETE FROM intimacy_events WHERE id=%s", (event_id,))
             conn.commit()

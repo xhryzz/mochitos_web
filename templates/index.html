@@ -514,6 +514,30 @@
   opacity: 1;
 }
 
+/* Contador "Pregunta del día" */
+.dq-countdown{ margin-top: 10px; margin-bottom: 10px; }
+.dq-countdown-card{
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  background: #ffffff; border: 1px solid rgba(0,0,0,.05);
+  border-left: 6px solid var(--accent-color);
+  border-radius: 14px; padding: 12px 16px; box-shadow: 0 6px 18px rgba(0,0,0,.06);
+}
+.dq-countdown-title{
+  display:flex; align-items:center; gap:8px;
+  font-weight: 700; color: var(--primary-color);
+}
+.dq-countdown-time{
+  font-variant-numeric: tabular-nums; font-weight: 800; letter-spacing: .5px;
+  font-size: 1.6rem; color: var(--dark-text);
+  background: #f7f7fb; border: 1px solid #eeeeff; padding: 6px 12px; border-radius: 10px;
+}
+.dq-countdown-note{ color:#7f8c8d; font-size:.9rem; margin-left:auto; }
+@media (max-width: 600px){
+  .dq-countdown-card{ gap:10px; }
+  .dq-countdown-note{ width:100%; margin-left:0; }
+}
+
+
     </style>
 </head>
 
@@ -887,6 +911,17 @@
       <!-- Pregunta diaria -->
       <div class="section animate-in delay-2">
         <h3>Pregunta del día</h3>
+        <div class="dq-countdown">
+          <div class="dq-countdown-card">
+            <div class="dq-countdown-title">
+              <i class="fas fa-clock" aria-hidden="true"></i>
+              Próximo cambio de pregunta
+            </div>
+            <div class="dq-countdown-time" id="dqTimer" aria-live="polite">--:--:--</div>
+            <div class="dq-countdown-note">Cambia a las 00:00 (hora España)</div>
+          </div>
+        </div>
+        
         <p class="question"><b>{{ question }}</b></p>
 
         <div class="streak-badges">
@@ -1864,6 +1899,7 @@ document.addEventListener('DOMContentLoaded', function() {
   setupLocationForm();
   setupUseMyLocation(); // <-- activa el botón de ubicación real
   setupTravelPagination();
+  startDailyQuestionCountdown();
   setupTravelSearch('visited-tab', 'visited-search', visitedPagerAPI);
   setupTravelSearch('wishlist-travel-tab', 'wishlist-search', wishlistPagerAPI);
 
@@ -1911,6 +1947,55 @@ window.openEditIntimModal = function(eventId, place, notes) {
 
   modal.style.display = 'block';
 };
+
+(function(){
+  const TZ = 'Europe/Madrid';
+
+  // Hora "ahora" en la zona horaria dada (mantiene coherencia incluso con cambios DST)
+  function nowInTz(tz){
+    // Truco: convertimos a string en esa TZ y lo volvemos a Date;
+    // así los componentes reflejan el reloj de la TZ.
+    return new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
+  }
+
+  // Milisegundos hasta la próxima medianoche en esa TZ
+  function msUntilNextMidnightTz(tz){
+    const now = nowInTz(tz);
+    const next = new Date(now);
+    // 24:00 del "hoy" de la TZ => próxima medianoche de esa TZ
+    next.setHours(24, 0, 0, 0);
+    return next - now;
+  }
+
+  function formatHMS(ms){
+    if (ms < 0) ms = 0;
+    const totalSec = Math.floor(ms / 1000);
+    const h = String(Math.floor(totalSec / 3600)).padStart(2,'0');
+    const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2,'0');
+    const s = String(totalSec % 60).padStart(2,'0');
+    return `${h}:${m}:${s}`;
+  }
+
+  window.startDailyQuestionCountdown = function(){
+    const el = document.getElementById('dqTimer');
+    if (!el) return;
+
+    function tick(){
+      const ms = msUntilNextMidnightTz(TZ);
+      // Si llegó la medianoche en España, refresca para cargar la nueva pregunta
+      if (ms <= 0){
+        el.textContent = '00:00:00';
+        // Pequeño delay para evitar bucles
+        setTimeout(()=> location.reload(), 800);
+        return;
+      }
+      el.textContent = formatHMS(ms);
+    }
+
+    tick(); // primer pintado inmediato
+    setInterval(tick, 1000);
+  };
+})();
 </script>
 
 <footer class="site-footer">

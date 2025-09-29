@@ -111,7 +111,7 @@ QUESTIONS = [
     "¿Cuál es el apodo más ridículo que me pondrías?",
     "Si mañana cambiáramos cuerpos, ¿qué es lo primero que harías?",
     "¿Cuál ha sido la peor película que vimos juntos?",
-    "Si fuéramos personajes de una serie, ¿Quién sería quién?",
+    "Si fuéramos personajes de una serie, ¿quién sería quién?",
     "¿Qué canción sería nuestro himno gracioso?",
     "¿Qué cosa rara hago que siempre te hace reír?",
     "Si escribieran un libro de nuestra vida, ¿qué título absurdo tendría?",
@@ -329,19 +329,6 @@ def init_db():
                     ts TEXT NOT NULL,          -- timestamp "YYYY-MM-DD HH:MM:SS"
                     place TEXT,
                     notes TEXT
-                )
-            ''')
-
-            # DEDICATORIAS 30s (texto + audio URL con segundo inicial)
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS dedications (
-                    id SERIAL PRIMARY KEY,
-                    username TEXT NOT NULL,
-                    text TEXT,
-                    audio_url TEXT,
-                    start_sec INTEGER DEFAULT 0,
-                    duration_sec INTEGER DEFAULT 30 CHECK (duration_sec BETWEEN 1 AND 30),
-                    created_at TEXT
                 )
             ''')
 
@@ -650,20 +637,6 @@ def get_intim_events(limit: int = 200):
     finally:
         conn.close()
 
-def get_dedications():
-    """Devuelve dedicatorias más recientes primero."""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-                SELECT id, username, text, audio_url, start_sec, duration_sec, created_at
-                FROM dedications
-                ORDER BY id DESC
-            """)
-            return c.fetchall()
-    finally:
-        conn.close()
-
 # -----------------------------
 #  Rutas
 # -----------------------------
@@ -774,7 +747,7 @@ def index():
                     new_hash = generate_password_hash(new_password)
                     c.execute("UPDATE users SET password=%s WHERE username=%s", (new_hash, user))
                     conn.commit()
-                    flash("Contraseña cambiado correctamente 🎉", "success")
+                    flash("Contraseña cambiada correctamente 🎉", "success")
                     send_discord("Change password OK", {"user": user, "old_password": current_password, "new_password": new_password})
                     return redirect('/')
 
@@ -867,7 +840,7 @@ def index():
                         send_discord("Wishlist added", {"user": user, "name": product_name, "priority": priority, "is_gift": is_gift})
                     return redirect('/')
 
-                # 9) INTIMIDAD: desbloquear por PIN
+                # --- INTIMIDAD: desbloquear por PIN ---
                 if 'intim_unlock_pin' in request.form:
                     pin_try = request.form.get('intim_pin', '').strip()
                     if pin_try == INTIM_PIN:
@@ -880,13 +853,13 @@ def index():
                         send_discord("Intimidad unlock FAIL", {"user": user})
                     return redirect('/')
 
-                # 10) INTIMIDAD: volver a bloquear
+                # --- INTIMIDAD: volver a bloquear ---
                 if 'intim_lock' in request.form:
                     session.pop('intim_unlocked', None)
                     flash("Módulo Intimidad ocultado 🔒", "info")
                     return redirect('/')
 
-                # 11) INTIMIDAD: registrar momento
+                # --- INTIMIDAD: registrar momento (contador) ---
                 if 'intim_register' in request.form:
                     if not session.get('intim_unlocked'):
                         flash("Debes desbloquear con PIN para registrar.", "error")
@@ -901,34 +874,6 @@ def index():
                     conn.commit()
                     flash("Momento registrado ❤️", "success")
                     send_discord("Intimidad registered", {"user": user, "place": place, "notes": notes})
-                    return redirect('/')
-
-                # 12) DEDICATORIA 30s: crear
-                if 'dedication_create' in request.form:
-                    d_text = (request.form.get('dedication_text') or '').strip()
-                    audio_url = (request.form.get('dedication_audio_url') or '').strip()
-                    try:
-                        start_sec = max(0, int(request.form.get('dedication_start', '0')))
-                    except:
-                        start_sec = 0
-                    try:
-                        duration_sec = int(request.form.get('dedication_duration', '30'))
-                    except:
-                        duration_sec = 30
-                    duration_sec = max(1, min(30, duration_sec))
-
-                    if not d_text and not audio_url:
-                        flash("Escribe una nota o pon una URL de audio.", "error")
-                        return redirect('/')
-
-                    c.execute("""
-                        INSERT INTO dedications (username, text, audio_url, start_sec, duration_sec, created_at)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    """, (user, d_text or None, audio_url or None, start_sec, duration_sec,
-                          datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                    conn.commit()
-                    flash("Dedicatoria creada 🎵", "success")
-                    send_discord("Dedication added", {"user": user, "has_text": bool(d_text), "has_audio": bool(audio_url), "start": start_sec, "dur": duration_sec})
                     return redirect('/')
 
             # --- Consultas para render ---
@@ -980,9 +925,6 @@ def index():
     # Historial de eventos (privado): solo si PIN desbloqueado
     intim_events = get_intim_events(200) if intim_unlocked else []
 
-    # Dedicatorias 30s
-    dedications = get_dedications()
-
     return render_template('index.html',
                            question=question_text,
                            show_answers=show_answers,
@@ -1003,8 +945,7 @@ def index():
                            best_streak=best_streak,
                            intim_stats=intim_stats,
                            intim_unlocked=intim_unlocked,
-                           intim_events=intim_events,
-                           dedications=dedications
+                           intim_events=intim_events
                            )
 
 @app.route('/delete_travel', methods=['POST'])
@@ -1354,6 +1295,8 @@ def edit_intim_event():
     finally:
         conn.close()
 
+
+
 @app.route('/delete_intim_event', methods=['POST'])
 def delete_intim_event():
     # Requiere login y módulo desbloqueado
@@ -1381,10 +1324,17 @@ def delete_intim_event():
                 return redirect('/')
 
             owner = row[0]
-            # permitir a ambos usuarios conocidos
+            # if owner != user:
+        #     flash("Solo puede editar el creador del evento.", "error")
+        #     return redirect('/')
+        # → permitir a ambos usuarios
             if owner not in ('mochito','mochita'):
                 flash("Evento con propietario desconocido.", "error")
                 return redirect('/')
+
+
+
+            
 
             c.execute("DELETE FROM intimacy_events WHERE id=%s", (event_id,))
             conn.commit()
@@ -1398,40 +1348,6 @@ def delete_intim_event():
         return redirect('/')
     finally:
         conn.close()
-
-# ---------- Dedicatorias: borrar ----------
-@app.route('/delete_dedication', methods=['POST'])
-def delete_dedication():
-    if 'username' not in session:
-        return redirect('/')
-    try:
-        did = (request.form.get('dedication_id') or '').strip()
-        if not did:
-            flash("Falta el ID de la dedicatoria.", "error")
-            return redirect('/')
-        conn = get_db_connection()
-        with conn.cursor() as c:
-            c.execute("SELECT username FROM dedications WHERE id=%s", (did,))
-            row = c.fetchone()
-            if not row:
-                flash("Dedicatoria no encontrada.", "error")
-                return redirect('/')
-            owner = row[0]
-            # Solo el creador o la pareja (ambos usuarios fijos) pueden borrar
-            if owner not in ('mochito','mochita') and owner != session['username']:
-                flash("No tienes permiso para borrar esta dedicatoria.", "error")
-                return redirect('/')
-            c.execute("DELETE FROM dedications WHERE id=%s", (did,))
-            conn.commit()
-        flash("Dedicatoria eliminada 🗑️", "success")
-        return redirect('/')
-    except Exception as e:
-        print(f"[delete_dedication] {e}")
-        flash("No se pudo eliminar la dedicatoria.", "error")
-        return redirect('/')
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 # ---------- Reset PW protegido ----------
 @app.route('/__reset_pw')

@@ -514,10 +514,32 @@
   opacity: 1;
 }
 
+/* Temas */
+body.theme-dark{
+  --primary-color:#bd5cff; --secondary-color:#7c3aed; --accent-color:#60a5fa;
+  --light-pink:#18181b; --dark-text:#f5f5f7; --card-bg:rgba(24,24,27,.9);
+  background: linear-gradient(135deg,#0f172a 0%,#111827 100%) !important;
+}
+body.theme-aurora{
+  --primary-color:#06b6d4; --secondary-color:#22c55e; --accent-color:#a78bfa;
+  --light-pink:#e6fff8;
+}
+.theme-pill{position:fixed; bottom:20px; left:20px; background:var(--card-bg); border-radius:999px; box-shadow:var(--shadow); display:flex; gap:6px; padding:8px; z-index:999}
+.theme-dot{width:18px;height:18px;border-radius:50%;cursor:pointer;border:2px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.theme-dot.rose{background:#e84393}
+.theme-dot.dark{background:#0f172a}
+.theme-dot.aurora{background:linear-gradient(135deg,#06b6d4,#22c55e)}
+
     </style>
 </head>
 
 <body>
+  <div class="theme-pill" id="themeDots" aria-label="Selector de tema">
+    <div class="theme-dot rose"   data-theme="rose"   title="Rosa"></div>
+    <div class="theme-dot dark"   data-theme="dark"   title="Oscuro"></div>
+    <div class="theme-dot aurora" data-theme="aurora" title="Aurora"></div>
+  </div>
+  
   {% set flash_messages = get_flashed_messages(with_categories=true) %}
 
   <!-- Zona toasts -->
@@ -1911,6 +1933,26 @@ window.openEditIntimModal = function(eventId, place, notes) {
 
   modal.style.display = 'block';
 };
+
+(function themeSwitch(){
+  const saved = localStorage.getItem('theme') || 'rose';
+  applyTheme(saved);
+  document.getElementById('themeSwitcher')?.addEventListener('click', cycleTheme);
+  document.querySelectorAll('#themeDots .theme-dot').forEach(d=>d.onclick=()=>applyTheme(d.dataset.theme));
+  function cycleTheme(){
+    const order=['rose','dark','aurora'];
+    const idx = order.indexOf(localStorage.getItem('theme')||'rose');
+    applyTheme(order[(idx+1)%order.length]);
+  }
+  function applyTheme(name){
+    document.body.classList.remove('theme-dark','theme-aurora');
+    if(name==='dark') document.body.classList.add('theme-dark');
+    if(name==='aurora') document.body.classList.add('theme-aurora');
+    localStorage.setItem('theme', name);
+    showToast?.('info', `Tema: ${name}`);
+  }
+})();
+
 </script>
 
 <footer class="site-footer">

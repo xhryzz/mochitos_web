@@ -530,6 +530,168 @@ body.theme-aurora{
 .theme-dot.dark{background:#0f172a}
 .theme-dot.aurora{background:linear-gradient(135deg,#06b6d4,#22c55e)}
 
+
+/* === PALETA SEMÁNTICA PARA TEMAS === */
+:root{
+  /* fondo y superficies */
+  --bg: linear-gradient(135deg, #ffe8f3 0%, #dfe6e9 100%);
+  --surface: rgba(255,255,255,.95);
+  --surface-plain: #ffffff;
+  --muted: #f8f8f8;
+  --border: #eeeeee;
+
+  /* texto */
+  --text: #2d3436;
+  --text-muted: #64748b;
+
+  /* inputs */
+  --input-bg: #f8f8f8;
+  --input-border: #eeeeee;
+
+  /* sombras */
+  --shadow-lg: 0 20px 40px rgba(0,0,0,.15);
+  --shadow-md: 0 8px 25px rgba(0,0,0,.08);
+}
+
+/* Oscuro */
+body.theme-dark{
+  --bg: linear-gradient(135deg,#0f172a 0%,#111827 100%);
+  --surface: rgba(24,24,27,.9);
+  --surface-plain: #18181b;
+  --muted: #0f172a;
+  --border: #2a2a2e;
+
+  --text: #f5f5f7;
+  --text-muted: #a3a3ad;
+
+  --input-bg: #1f1f24;
+  --input-border: #2a2a2e;
+
+  --shadow-lg: 0 20px 40px rgba(0,0,0,.45);
+  --shadow-md: 0 8px 25px rgba(0,0,0,.35);
+}
+
+/* Aurora (mantiene tu rosa/verde/azul, pero con superficies coherentes) */
+body.theme-aurora{
+  --bg: linear-gradient(135deg,#ecfeff 0%, #e6fff8 100%);
+  --surface: rgba(255,255,255,.96);
+  --surface-plain:#ffffff;
+  --muted:#eef7ff;
+  --border:#e6eaf2;
+
+  --text:#0f172a;
+  --text-muted:#475569;
+  --input-bg:#f5f7fb;
+  --input-border:#e6eaf2;
+}
+/* === NORMALIZA FONDOS/TEXTOS A LAS VARS SEMÁNTICAS === */
+body{
+  background: var(--bg) !important;
+  color: var(--text);
+}
+
+/* Tarjetas & secciones */
+.section,
+.login-box,
+.modal-content,
+.counter-item,
+.travel-card,
+.wishlist-card,
+.intim-card,
+.intim-event-card{
+  background: var(--surface) !important;
+  color: var(--text);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border);
+}
+
+/* Elementos que tenías en blanco puro */
+.logout,
+.settings-icon,
+.distance-info,
+.photo-popover,
+.toast{ 
+  background: var(--surface) !important; 
+  color: var(--text);
+}
+
+/* Inputs & textareas */
+input[type="text"], input[type="password"], input[type="date"],
+input[type="url"], input[type="file"], textarea, select{
+  background: var(--input-bg) !important;
+  border: 2px solid var(--input-border) !important;
+  color: var(--text) !important;
+}
+input::placeholder, textarea::placeholder{ color: var(--text-muted); }
+
+/* Botones “claros” que antes eran blancos */
+.icon-btn, .clear-btn{
+  background: var(--surface-plain) !important;
+  color: var(--primary-color) !important;
+  border: 1px solid var(--border);
+}
+.icon-btn:hover, .clear-btn:hover{ filter: brightness(1.05); }
+
+/* Copys que usan grises que en dark quedan apagados */
+.travel-date, .travel-meta, .wishlist-meta, .wishlist-notes,
+.travel-description, .question, small, .photo-hint{
+  color: var(--text-muted) !important;
+}
+
+/* Listas/avatares y contenedores que fijaban #fff */
+.user-avatar{ box-shadow: 0 5px 15px rgba(0,0,0,.15); }
+
+/* Login container y secciones “muted” */
+.travel-form, .wishlist-form, .intim-actions, .intim-kpis .kpi{
+  background: var(--muted) !important;
+  border-color: var(--border);
+}
+
+/* Banners y ondas en dark: suaviza la onda blanca para no “quemar” */
+body.theme-dark .section.banner::after{
+  background:
+    url("data:image/svg+xml,%3Csvg width='1440' height='110' viewBox='0 0 1440 110' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,50 C200,120 420,0 720,70 C1020,140 1240,40 1440,90 L1440,110 L0,110 Z' fill='%2318181b' fill-opacity='0.92'/%3E%3C/svg%3E")
+    center/cover no-repeat !important;
+  filter: drop-shadow(0 -6px 20px rgba(0,0,0,.45));
+}
+
+/* Modales */
+.modal{ background-color: rgba(0,0,0,.85); }
+.modal-header{ border-bottom: 1px solid var(--border); }
+.close-modal{ color: var(--text-muted); }
+.close-modal:hover{ color: var(--primary-color); }
+
+/* Tarjetas de wishlist / travel con borde lateral: respeta estados */
+.wishlist-card{ border-left: 5px solid var(--wishlist-color); }
+.wishlist-card.purchased{ border-left-color: var(--purchased-color); }
+.travel-card.visited{ border-left: 5px solid var(--visited-color); }
+
+/* Tabs: bordes/colores coherentes en dark */
+.wishlist-tabs, .travel-tabs{ border-bottom: 2px solid var(--border); }
+.travel-tab, .wishlist-tab{ color: var(--text); }
+.travel-tab:hover:not(.active), .wishlist-tab:hover:not(.active){ color: var(--secondary-color); }
+
+/* Buscadores */
+.travel-tools input[type="search"]{
+  background: var(--input-bg);
+  border: 2px solid var(--input-border);
+  color: var(--text);
+}
+
+/* Paginación */
+.pager button{
+  background: var(--surface-plain);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+.pager .page-btn.active{
+  color:#fff;
+}
+
+/* Footer */
+.site-footer{ color: #fff; } /* se mantiene el degradado que ya usas */
+
     </style>
 </head>
 
@@ -1935,21 +2097,19 @@ window.openEditIntimModal = function(eventId, place, notes) {
 };
 
 (function themeSwitch(){
-  const saved = localStorage.getItem('theme') || 'rose';
+  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+  const saved = localStorage.getItem('theme') || (prefersDark ? 'dark' : 'rose');
   applyTheme(saved);
-  document.getElementById('themeSwitcher')?.addEventListener('click', cycleTheme);
-  document.querySelectorAll('#themeDots .theme-dot').forEach(d=>d.onclick=()=>applyTheme(d.dataset.theme));
-  function cycleTheme(){
-    const order=['rose','dark','aurora'];
-    const idx = order.indexOf(localStorage.getItem('theme')||'rose');
-    applyTheme(order[(idx+1)%order.length]);
-  }
+
+  document.querySelectorAll('#themeDots .theme-dot')
+    .forEach(d=>d.onclick=()=>applyTheme(d.dataset.theme));
+
   function applyTheme(name){
     document.body.classList.remove('theme-dark','theme-aurora');
-    if(name==='dark') document.body.classList.add('theme-dark');
+    if(name==='dark')   document.body.classList.add('theme-dark');
     if(name==='aurora') document.body.classList.add('theme-aurora');
     localStorage.setItem('theme', name);
-    showToast?.('info', `Tema: ${name}`);
+    window.showToast?.('info', `Tema: ${name}`);
   }
 })();
 

@@ -24,10 +24,90 @@
             --wishlist-color: #fd79a8;
             --purchased-color: #b2bec3;
         }
+
+        /* ===== Temas ===== */
+
+/* (1) Tema por defecto - Rosa romántico (ya lo tienes) */
+:root {
+  --page-bg: linear-gradient(135deg, #ffe8f3 0%, #dfe6e9 100%);
+  /* el resto de tus variables ya definidas */
+}
+
+/* (2) Tema Océano — azules/menta */
+:root[data-theme="ocean"]{
+  --primary-color: #087ea4;       /* azul profundo */
+  --secondary-color: #25c4a5;     /* menta */
+  --accent-color: #6aa9ff;        /* azul claro */
+  --light-pink: #e9fbff;          /* “espuma” clara */
+  --dark-text: #0f172a;           /* casi negro */
+  --light-text: #ffffff;
+  --card-bg: rgba(255,255,255,0.98);
+  --shadow: 0 15px 30px rgba(9, 41, 77, 0.18);
+  --gradient: linear-gradient(135deg, #087ea4 0%, #25c4a5 55%, #6aa9ff 100%);
+  --visited-color: #14b8a6;       /* teal-500 */
+  --wishlist-color: #3b82f6;      /* azul */
+  --purchased-color: #94a3b8;     /* gris azulado */
+  --page-bg: radial-gradient(1200px 600px at 10% -10%, #e9fbff 0%, #cfeaf7 45%, #e6f7ff 100%);
+}
+
+/* (3) Tema Nocturno Neón — oscuro con acentos */
+:root[data-theme="neon"]{
+  --primary-color: #8b5cf6;       /* violeta */
+  --secondary-color: #06b6d4;     /* cian */
+  --accent-color: #22d3ee;        /* cian claro */
+  --light-pink: #0b1020;
+  --dark-text: #e5e7eb;           /* gris muy claro */
+  --light-text: #ffffff;
+  --card-bg: rgba(16, 18, 28, 0.88);
+  --shadow: 0 18px 36px rgba(0,0,0,0.45);
+  --gradient: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 50%, #22d3ee 100%);
+  --visited-color: #10b981;       /* verde neón */
+  --wishlist-color: #f43f5e;      /* rosa fuerte */
+  --purchased-color: #475569;     /* gris pizarra */
+  --page-bg: radial-gradient(900px 500px at 10% -10%, #0b1020 0%, #0b1222 55%, #0a0f1d 100%);
+}
+
+/* ==== Ajustes visuales para temas oscuros (neon) ==== */
+:root[data-theme="neon"] body { color: var(--dark-text); }
+:root[data-theme="neon"] .section,
+:root[data-theme="neon"] .login-box,
+:root[data-theme="neon"] .wishlist-card,
+:root[data-theme="neon"] .travel-card,
+:root[data-theme="neon"] .modal-content{
+  background: var(--card-bg);
+  border-color: rgba(255,255,255,0.06);
+  color: var(--dark-text);
+}
+:root[data-theme="neon"] .travel-card .travel-info,
+:root[data-theme="neon"] .wishlist-card .wishlist-product,
+:root[data-theme="neon"] .travel-destination,
+:root[data-theme="neon"] .question { color: var(--dark-text); }
+:root[data-theme="neon"] input[type="text"],
+:root[data-theme="neon"] input[type="password"],
+:root[data-theme="neon"] input[type="date"],
+:root[data-theme="neon"] input[type="url"],
+:root[data-theme="neon"] textarea,
+:root[data-theme="neon"] select{
+  background: rgba(255,255,255,0.06);
+  border: 2px solid rgba(255,255,255,0.12);
+  color: var(--dark-text);
+}
+:root[data-theme="neon"] .wishlist-link { color: var(--accent-color); }
+:root[data-theme="neon"] .distance-info{
+  background: rgba(16,18,28,0.92);
+  color: var(--dark-text);
+  border-color: rgba(255,255,255,0.06);
+}
+:root[data-theme="neon"] .photo-popover{
+  background: var(--card-bg);
+  border-color: rgba(255,255,255,0.06);
+}
+:root[data-theme="neon"] .toast{ background:#0f172a; }
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Montserrat', sans-serif;
-            background: linear-gradient(135deg, #ffe8f3 0%, #dfe6e9 100%);
+            background: var(--page-bg, linear-gradient(135deg, #ffe8f3 0%, #dfe6e9 100%));
             color: var(--dark-text);
             line-height: 1.6;
             min-height: 100vh; overflow-x: hidden; position: relative;
@@ -599,6 +679,41 @@
       <div class="settings-icon" id="settingsIcon">
         <i class="fas fa-user-cog"></i>
       </div>
+
+
+      <!-- Selector de tema -->
+<div class="theme-switcher" id="themeSwitcher" style="
+position: fixed; top: 30px; left: 92px; z-index:1000;
+">
+<button id="themeBtn" aria-haspopup="true" aria-expanded="false" title="Cambiar tema" style="
+  width:50px;height:50px;border-radius:50%;border:none;cursor:pointer;
+  background:#fff;box-shadow: var(--shadow);display:flex;align-items:center;justify-content:center;
+  color: var(--primary-color); font-size:1.35rem;
+">
+  <i class="fas fa-palette"></i>
+</button>
+<div id="themeMenu" style="
+  position:absolute; margin-top:10px; background: var(--card-bg); border:1px solid rgba(0,0,0,.06);
+  border-radius:14px; box-shadow: 0 18px 40px rgba(0,0,0,.15); padding:8px; display:none; min-width:220px;
+">
+  <button class="theme-opt" data-theme="default" style="display:flex;align-items:center;gap:10px;width:100%;
+    padding:10px 12px;border-radius:10px;border:none;background:transparent;cursor:pointer;">
+    <span style="width:14px;height:14px;border-radius:50%;background:#e84393;"></span>
+    Rosa romántico (predeterminado)
+  </button>
+  <button class="theme-opt" data-theme="ocean" style="display:flex;align-items:center;gap:10px;width:100%;
+    padding:10px 12px;border-radius:10px;border:none;background:transparent;cursor:pointer;">
+    <span style="width:14px;height:14px;border-radius:50%;background:#25c4a5;"></span>
+    Océano (azules/menta)
+  </button>
+  <button class="theme-opt" data-theme="neon" style="display:flex;align-items:center;gap:10px;width:100%;
+    padding:10px 12px;border-radius:10px;border:none;background:transparent;cursor:pointer;">
+    <span style="width:14px;height:14px;border-radius:50%;background:#8b5cf6;"></span>
+    Nocturno Neón (oscuro)
+  </button>
+</div>
+</div>
+
 
         <!-- MODAL EDITAR EVENTO INTIMIDAD -->
   <div id="editIntimModal" class="modal">
@@ -1911,6 +2026,69 @@ window.openEditIntimModal = function(eventId, place, notes) {
 
   modal.style.display = 'block';
 };
+
+// ===== Temas: aplicar, guardar y menú =====
+(function(){
+  const root = document.documentElement; // <html>
+  const KEY = 'couple_theme';
+
+  function applyTheme(theme){
+    // theme: 'default' | 'ocean' | 'neon'
+    if (theme === 'default' || !theme){
+      root.removeAttribute('data-theme');
+    } else {
+      root.setAttribute('data-theme', theme);
+    }
+    try{ localStorage.setItem(KEY, theme || 'default'); }catch{}
+    highlightActive(theme || 'default');
+  }
+
+  function highlightActive(theme){
+    document.querySelectorAll('#themeMenu .theme-opt').forEach(btn=>{
+      btn.style.background = 'transparent';
+      btn.style.fontWeight = '600';
+      btn.style.opacity = '0.9';
+    });
+    const active = document.querySelector(`#themeMenu .theme-opt[data-theme="${theme}"]`);
+    if (active){
+      active.style.background = 'rgba(0,0,0,.05)';
+      if (root.dataset.theme === 'neon') active.style.background = 'rgba(255,255,255,.06)';
+      active.style.opacity = '1';
+    }
+  }
+
+  // Inicializa desde almacenamiento
+  let saved = 'default';
+  try{ saved = localStorage.getItem(KEY) || 'default'; }catch{}
+  applyTheme(saved);
+
+  // Menú
+  const btn = document.getElementById('themeBtn');
+  const menu = document.getElementById('themeMenu');
+  if (btn && menu){
+    btn.addEventListener('click', ()=>{
+      const open = menu.style.display === 'block';
+      menu.style.display = open ? 'none' : 'block';
+      btn.setAttribute('aria-expanded', String(!open));
+    });
+    document.addEventListener('click', (e)=>{
+      if (!menu.contains(e.target) && !btn.contains(e.target)){
+        menu.style.display = 'none';
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+    menu.querySelectorAll('.theme-opt').forEach(opt=>{
+      opt.addEventListener('click', ()=>{
+        const theme = opt.getAttribute('data-theme');
+        applyTheme(theme);
+        menu.style.display = 'none';
+        btn.setAttribute('aria-expanded', 'false');
+        window.showToast?.('success', 'Tema aplicado: ' + (theme==='default' ? 'Rosa romántico' : theme==='ocean' ? 'Océano' : 'Nocturno Neón'));
+      });
+    });
+  }
+})();
+
 </script>
 
 <footer class="site-footer">

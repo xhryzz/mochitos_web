@@ -538,6 +538,57 @@
 }
 
 
+
+/* === Login mejorado === */
+.input-group{ position:relative; margin-bottom:14px; }
+.input-group input{
+  background:#f8f8f8; border:2px solid #eee; width:100%;
+  padding:14px 48px 14px 44px; border-radius:14px; transition:.25s;
+}
+.input-group input:focus{ border-color: var(--accent-color); box-shadow:0 0 0 4px rgba(162,155,254,.18); background:#fff; }
+.input-icon{
+  position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#9aa0a6; font-size:16px;
+}
+.toggle-pass{
+  position:absolute; right:8px; top:50%; transform:translateY(-50%);
+  width:38px; height:38px; border-radius:10px; border:none; cursor:pointer; background:#f3f4f6; color:#6b7280;
+}
+.toggle-pass:hover{ background:#edeef2; }
+
+.remember-row{
+  display:flex; align-items:center; justify-content:space-between; gap:10px; margin:6px 0 14px 0;
+}
+.remember-check{ display:flex; align-items:center; gap:8px; color:#4b5563; font-weight:600; }
+.remember-check input{ width:auto; }
+.forgot-link{ color:var(--accent-color); text-decoration:none; font-weight:700; }
+.forgot-link:hover{ color:var(--primary-color); text-decoration:underline; }
+
+.caps-hint{
+  margin:-6px 0 10px 0; font-size:.95rem; color:#b45309; background:#fff7ed; border-left:4px solid #f59e0b;
+  padding:8px 10px; border-radius:8px;
+}
+
+.btn-full{
+  width:100%;
+  border-radius:14px; padding:14px 16px; font-weight:800; letter-spacing:.3px; display:inline-flex; gap:10px; align-items:center; justify-content:center;
+}
+.btn-spinner{
+  width:18px; height:18px; border-radius:50%; border:3px solid rgba(255,255,255,.35); border-top-color:#fff;
+  display:none; animation:spin 1s linear infinite;
+}
+@keyframes spin{ to { transform: rotate(360deg); } }
+.btn-loading .btn-text{ opacity:.8 }
+.btn-loading .btn-spinner{ display:inline-block }
+
+.login-note{ color:#6b7280; font-size:.9rem; margin-top:12px; }
+
+@media (max-width:576px){
+  .input-group input{ padding:13px 46px 13px 42px; }
+  .toggle-pass{ width:36px; height:36px; }
+}
+
+
+
     </style>
 </head>
 
@@ -582,19 +633,57 @@
 
   <div class="container">
     {% if not session.username %}
-      <!-- LOGIN -->
-      <div class="login-container">
-        <div class="login-box animate-in">
-          <h3>Iniciar sesión</h3>
-          <form method="POST">
-            <input type="text" name="username" placeholder="Usuario" required>
-            <input type="password" name="password" placeholder="Contraseña" required>
-            <button type="submit">Entrar <i class="fas fa-arrow-right"></i></button>
-          </form>
+  <!-- LOGIN MEJORADO -->
+  <div class="login-container">
+    <div class="login-box animate-in" id="loginBox">
+      <div style="margin-bottom:18px">
+        <div style="width:72px;height:72px;border-radius:20px;background:var(--gradient);display:flex;align-items:center;justify-content:center;margin:0 auto 10px auto;box-shadow:0 10px 24px rgba(232,67,147,.25)">
+          <i class="fas fa-heart" style="color:#fff;font-size:26px"></i>
         </div>
+        <h3 style="margin:0">Bienvenido/a</h3>
       </div>
 
-    {% else %}
+      {% if error %}
+        <div class="error-message" role="alert">{{ error }}</div>
+      {% endif %}
+
+      <form method="POST" id="loginForm" novalidate>
+        <!-- Usuario -->
+        <div class="input-group">
+          <i class="fas fa-user input-icon" aria-hidden="true"></i>
+          <input type="text" name="username" id="username" placeholder="Usuario" autocomplete="username" required>
+        </div>
+
+        <!-- Contraseña -->
+        <div class="input-group">
+          <i class="fas fa-lock input-icon" aria-hidden="true"></i>
+          <input type="password" name="password" id="password" placeholder="Contraseña" autocomplete="current-password" required>
+          <button type="button" class="toggle-pass" aria-label="Mostrar u ocultar contraseña">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+        <div class="caps-hint" id="capsHint" aria-live="polite" style="display:none">
+          <i class="fas fa-exclamation-triangle"></i> Tienes <b>Bloq Mayús</b> activado
+        </div>
+
+        <!-- Recordarme + Olvidé -->
+        <div class="remember-row">
+          <label class="remember-check">
+            <input type="checkbox" id="rememberMe" name="remember_me" value="1"> Recordarme
+          </label>
+          <a class="forgot-link" href="#" onclick="event.preventDefault(); showToast?.('info','Pista: pídele a tu Mochito que te resetee la clave 😅');">¿Olvidaste la contraseña?</a>
+        </div>
+
+        <!-- Botón enviar -->
+        <button type="submit" id="loginBtn" class="btn-full">
+          <span class="btn-text">Entrar</span>
+          <span class="btn-spinner" aria-hidden="true"></span>
+        </button>
+      </form>
+
+    </div>
+  </div>
+{% else %}
 
       <a href="/logout" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
 
@@ -1994,6 +2083,59 @@ window.openEditIntimModal = function(eventId, place, notes) {
     tick(); // primer pintado inmediato
     setInterval(tick, 1000);
   };
+})();
+
+// === Login UX helpers ===
+(function(){
+  const form   = document.getElementById('loginForm');
+  const userEl = document.getElementById('username');
+  const passEl = document.getElementById('password');
+  const capsEl = document.getElementById('capsHint');
+  const toggle = document.querySelector('.toggle-pass');
+  const btn    = document.getElementById('loginBtn');
+  const rememberEl = document.getElementById('rememberMe');
+
+  // Autocompletar usuario recordado
+  try {
+    const savedU = localStorage.getItem('cc_username');
+    if (savedU) {
+      userEl.value = savedU;
+      rememberEl.checked = true;
+      passEl.focus();
+    }
+  } catch {}
+
+  // Mostrar/Ocultar contraseña
+  toggle?.addEventListener('click', () => {
+    const isPwd = passEl.type === 'password';
+    passEl.type = isPwd ? 'text' : 'password';
+    toggle.innerHTML = `<i class="fas ${isPwd ? 'fa-eye-slash' : 'fa-eye'}"></i>`;
+    passEl.focus();
+  });
+
+  // Aviso de Bloq Mayús
+  ['keydown','keyup'].forEach(ev => {
+    passEl.addEventListener(ev, (e) => {
+      const on = e.getModifierState && e.getModifierState('CapsLock');
+      if (on) { capsEl.style.display = ''; } else { capsEl.style.display = 'none'; }
+    });
+  });
+
+  // Botón con "loading" + recordar usuario
+  form?.addEventListener('submit', () => {
+    btn.classList.add('btn-loading');
+    // recuerda el usuario si el checkbox está marcado
+    try {
+      if (rememberEl.checked && userEl.value.trim()) {
+        localStorage.setItem('cc_username', userEl.value.trim());
+        // cookie 'remember' para que el backend pueda leerlo si quiere
+        document.cookie = "remember=1; max-age=" + (60*60*24*30) + "; path=/; SameSite=Lax";
+      } else {
+        localStorage.removeItem('cc_username');
+        document.cookie = "remember=; Max-Age=0; path=/";
+      }
+    } catch {}
+  });
 })();
 </script>
 

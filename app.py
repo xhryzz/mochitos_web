@@ -10,6 +10,8 @@ import io
 from base64 import b64encode
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests, json
+from datetime import timedelta
+app.permanent_session_lifetime = timedelta(days=30)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
@@ -660,6 +662,9 @@ def index():
         if request.method == 'POST':
             username = request.form.get('username', '').strip()
             password = request.form.get('password', '').strip()
+            remember = request.form.get('remember_me') == '1'  # viene del checkbox
+            session['username'] = username_validado
+            session.permanent = bool(remember)
             conn = get_db_connection()
             try:
                 with conn.cursor() as c:

@@ -614,88 +614,6 @@
 }
 
 
-/* ===== Tema "nico" (coffee vibes) ===== */
-:root[data-theme="nico"]{
-  --primary-color: #6f4e37;   /* coffee */
-  --secondary-color:#a47148;  /* latte */
-  --accent-color:  #c8ad7f;   /* crema */
-  --light-pink:    #f2e9e4;   /* papel/crema */
-  --dark-text:     #3e2f20;
-  --light-text:    #fff;
-  --card-bg:       rgba(255,255,255,0.94);
-  --shadow:        0 15px 30px rgba(63, 45, 32, 0.15);
-  --gradient:      linear-gradient(135deg, #6f4e37 0%, #a47148 45%, #c8ad7f 100%);
-  --visited-color: #7a8b6f;   /* verde oliva */
-  --wishlist-color:#c49a6c;   /* caramelo */
-  --purchased-color:#b8a39a;  /* gris cálido */
-}
-
-/* Fondo general en nico */
-[data-theme="nico"] body{
-  background: linear-gradient(135deg, #f2e9e4 0%, #eaddcf 100%);
-}
-[data-theme="nico"] body::before{
-  /* olas muy sutiles en tono café */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%236f4e37' fill-opacity='0.04' d='M0,224L48,213.3C96,203,192,181,288,160C384,139,480,117,576,122.7C672,128,768,160,864,170.7C960,181,1056,171,1152,165.3C1248,160,1344,160,1392,160L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
-}
-
-/* Botones/links que tenían tonos fucsia fijos */
-[data-theme="nico"] .icon-btn{ color: var(--primary-color); }
-[data-theme="nico"] .icon-btn:hover{ background: var(--primary-color); color:#fff; }
-[data-theme="nico"] .logout{ color: var(--primary-color); }
-[data-theme="nico"] .logout:hover{ background: var(--primary-color); color:#fff; }
-
-/* Tarjetas, títulos y acentos */
-[data-theme="nico"] .section{ box-shadow: var(--shadow); }
-[data-theme="nico"] .section h3{ border-bottom-color: var(--secondary-color); }
-[data-theme="nico"] .section h3::after{ background: var(--accent-color); }
-
-/* Badges/inputs */
-[data-theme="nico"] input:focus, 
-[data-theme="nico"] textarea:focus{
-  box-shadow: 0 0 0 4px rgba(200,173,127,.30);
-  border-color: var(--accent-color);
-}
-[data-theme="nico"] .question{
-  background: rgba(200,173,127,.12);
-  border-left-color: var(--accent-color);
-}
-
-/* Toasts (fondo oscuro cálido) */
-[data-theme="nico"] .toast{ background:#3b2f2a; }
-[data-theme="nico"] .toast .close{ color:#fff; }
-[data-theme="nico"] .toast.info  { border-left-color:#9ab0a0; }  /* oliva suave */
-[data-theme="nico"] .toast.success{ border-left-color:#88b27a; }  /* verde musgo */
-[data-theme="nico"] .toast.error  { border-left-color:#d17a5b; }  /* terracota */
-
-/* Login detalles */
-[data-theme="nico"] .forgot-link{ color: var(--accent-color); }
-[data-theme="nico"] .forgot-link:hover{ color: var(--primary-color); }
-
-/* Botón de tema */
-.theme-toggle{
-  position: fixed; left: 28px; bottom: 28px;
-  z-index: 1000; border: none; cursor: pointer;
-  padding: 10px 14px; border-radius: 999px; font-weight: 800;
-  background: var(--gradient); color: #fff; box-shadow: var(--shadow);
-}
-.theme-toggle:hover{ transform: translateY(-2px); }
-
-/* Ajustes banner (sombras más cálidas) */
-[data-theme="nico"] .section.banner{ box-shadow: 0 30px 60px rgba(111,78,55,.20); }
-[data-theme="nico"] .banner-overlay h1::after{
-  background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
-  box-shadow: 0 6px 20px rgba(200,173,127,.45);
-}
-
-/* Chips prioridad (tonos cálidos) */
-[data-theme="nico"] .priority-high{ background:#fbe9e3; border-color:#e28d6c; color:#7a3d22; }
-[data-theme="nico"] .priority-mid{  background:#fff4df; border-color:#e8c17a; color:#7a5b19; }
-[data-theme="nico"] .priority-low{  background:#edf3ea; border-color:#9fb89a; color:#2f5a3a; }
-
-/* Regalo */
-[data-theme="nico"] .gift-chip{ background:#efe7db; border-color:#d3b692; color:#6b4e2c; }
-[data-theme="nico"] .gift-mask{ border-color:#d3b692; background:#faf6ef; color:#6b4e2c; }
 
 
     </style>
@@ -847,8 +765,6 @@
       </div>
     </div>
   </div>
-
-  <button id="themeToggle" class="theme-toggle" title="Cambiar tema">☕ Nico</button>
 
       <!-- MODAL PERFIL -->
       <div id="profileModal" class="modal">
@@ -2371,25 +2287,6 @@ window.openEditIntimModal = function(eventId, place, notes) {
     // Deja que el navegador reintente solo; no cierres la conexión
   };
 })();
-
-
-function updateDistanceLine() {
-  if (!map || !christianMarker || !claraMarker) return;
-  if (distanceLine) map.removeLayer(distanceLine);
-
-  // toma el color primario activo desde CSS variables
-  const primary = getComputedStyle(document.documentElement)
-                    .getPropertyValue('--primary-color').trim() || '#e84393';
-
-  distanceLine = L.polyline(
-    [[christianLocation.lat, christianLocation.lng],
-     [claraLocation.lat, claraLocation.lng]],
-    { color: primary, weight: 3, dashArray: '10, 10', lineJoin: 'round' }
-  ).addTo(map);
-
-  const group = new L.featureGroup([christianMarker, claraMarker]);
-  map.fitBounds(group.getBounds().pad(0.2));
-}
 
 </script>
 

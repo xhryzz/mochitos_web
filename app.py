@@ -1,4 +1,4 @@
-# app.py — versión optimizada para PostgreSQL en Render (pool + SSE + keepalive)
+# app.py — versión optimizada para PostgreSQL en Render (pool + SSE + keepalive + cache TTL + Discord async)
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash, Response
 import psycopg2, psycopg2.extras
 from psycopg2.pool import SimpleConnectionPool
@@ -13,7 +13,22 @@ import requests
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
 
-# ========= Discord logs (sin cambios en semántica) =========
+# ======= Opciones de app (micro-opt) =======
+app.config['TEMPLATES_AUTO_RELOAD'] = False
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000  # caché para estáticos
+app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
+
+# ======= Compresión (no afecta a SSE) =======
+try:
+    from flask_compress import Compress
+    app.config['COMPRESS_MIMETYPES'] = ['text/html', 'text/css', 'application/json', 'application/javascript']
+    app.config['COMPRESS_LEVEL'] = 6
+    app.config['COMPRESS_MIN_SIZE'] = 1024
+    Compress(app)
+except Exception:
+    pass  # si no está instalado, seguimos sin compresión
+
+# ========= Discord logs (asíncrono, no bloquea) =========
 DISCORD_WEBHOOK = os.environ.get('DISCORD_WEBHOOK', '')
 
 def client_ip():
@@ -21,6 +36,22 @@ def client_ip():
 
 def _is_hashed(v: str) -> bool:
     return isinstance(v, str) and (v.startswith('pbkdf2:') or v.startswith('scrypt:'))
+
+_DISCORD_Q = queue.Queue(maxsize=500)
+
+def _discord_worker():
+    while True:
+        url, payload = _DISCORD_Q.get()
+        try:
+            requests.post(url, json=payload, timeout=2)
+        except Exception as e:
+            print(f"[discord] error: {e}")
+        finally:
+            _DISCORD_Q.task_done()
+
+if DISCORD_WEBHOOK:
+    t = threading.Thread(target=_discord_worker, daemon=True)
+    t.start()
 
 def send_discord(event: str, payload: dict | None = None):
     if not DISCORD_WEBHOOK: return
@@ -38,12 +69,12 @@ def send_discord(event: str, payload: dict | None = None):
             {"name":"IP","value":client_ip() or "?", "inline":True}
         ]
         if payload:
-            raw = json.dumps(payload, ensure_ascii=False, indent=2)
+            raw = json.dumps(payload, ensure_ascii=False)
             for i, ch in enumerate([raw[i:i+1000] for i in range(0, len(raw), 1000)][:3]):
                 embed["fields"].append({"name":"Datos"+(f" ({i+1})" if i else ""), "value":f"```json\n{ch}\n```","inline":False})
-        requests.post(DISCORD_WEBHOOK, json={"username":"Mochitos Logs","embeds":[embed]}, timeout=6)
+        _DISCORD_Q.put_nowait((DISCORD_WEBHOOK, {"username":"Mochitos Logs","embeds":[embed]}))
     except Exception as e:
-        print(f"[discord] error: {e}")
+        print(f"[discord] prep error: {e}")
 
 # ========= Config Postgres + POOL =========
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -71,7 +102,6 @@ class PooledConn:
         self._inited = False
     def __getattr__(self, name): return getattr(self._conn, name)
     def cursor(self, *a, **k):
-        # cursores dict para menos desempaquetado
         if "cursor_factory" not in k:
             k["cursor_factory"] = psycopg2.extras.DictCursor
         if not self._inited:
@@ -81,7 +111,7 @@ class PooledConn:
                 c.execute("SET statement_timeout = '5s';")
             self._inited = True
         return self._conn.cursor(*a, **k)
-    def close(self):  # devuelve al pool
+    def close(self):
         try: self._pool.putconn(self._conn)
         except Exception: pass
 
@@ -90,7 +120,7 @@ def get_db_connection():
     raw = PG_POOL.getconn()
     return PooledConn(PG_POOL, raw)
 
-# ========= SSE: “casi tiempo real” + keepalive para Render =========
+# ========= SSE: “casi tiempo real” + keepalive =========
 _subscribers_lock = threading.Lock()
 _subscribers: set[queue.Queue] = set()
 
@@ -107,34 +137,61 @@ def sse_events():
 
     def gen():
         try:
-            yield ":\n\n"  # abre el stream
+            # abre el stream
+            yield ":\n\n"
             while True:
                 try:
-                    ev = client_q.get(timeout=20)
-                    yield f"event: {ev['event']}\ndata: {json.dumps(ev['data'])}\n\n"
+                    ev = client_q.get(timeout=15)
+                    payload = json.dumps(ev['data'], separators=(',', ':'))  # JSON compacto
+                    yield f"event: {ev['event']}\ndata: {payload}\n\n"
                 except queue.Empty:
-                    # keepalive cada 20s: evita que Render cierre
-                    yield f": keepalive {int(time.time())}\n\n"
+                    # keepalive cada 15s: evita cierre por Render/proxies
+                    yield f": k {int(time.time())}\n\n"
         finally:
             with _subscribers_lock: _subscribers.discard(client_q)
 
     return Response(gen(), mimetype="text/event-stream", headers={
-        "Cache-Control": "no-cache",
+        "Cache-Control": "no-cache, no-transform",
+        "Connection": "keep-alive",
         "X-Accel-Buffering": "no"
     })
 
-# ========= Constantes (sin cambios funcionales) =========
+# ========= Constantes =========
 QUESTIONS = [
-    # románticas / divertidas / calientes...
     "¿Cuál fue el mejor momento de nuestra relación hasta ahora?",
     "¿Qué es lo primero que pensaste de mí cuando nos conocimos?",
-    # (… mantengo el resto exactos para no romper aleatorios …)
     "¿Qué palabra prohibida debería susurrarte?",
     "¿Cuál es tu posición favorita conmigo?",
     "¿Qué juego de rol te animarías a probar conmigo?",
 ]
 RELATION_START = date(2025, 8, 2)
 INTIM_PIN = os.environ.get('INTIM_PIN', '6969')
+
+# ========= Mini-cache en memoria con TTL =========
+import time as _time
+_cache_store = {}
+
+def _cache_key(fn_name): return f"_cache::{fn_name}"
+
+def ttl_cache(seconds=10):
+    def deco(fn):
+        key = _cache_key(fn.__name__)
+        def wrapped(*a, **k):
+            now = _time.time()
+            item = _cache_store.get(key)
+            if item and (now - item[0] < seconds):
+                return item[1]
+            val = fn(*a, **k)
+            _cache_store[key] = (now, val)
+            return val
+        wrapped.__wrapped__ = fn  # permite saltar caché si hace falta
+        wrapped._cache_key = key
+        return wrapped
+    return deco
+
+def cache_invalidate(*fn_names):
+    for name in fn_names:
+        _cache_store.pop(_cache_key(name), None)
 
 # ========= DB init (igual que el tuyo, con índices extra) =========
 def init_db():
@@ -148,7 +205,6 @@ def init_db():
             id SERIAL PRIMARY KEY, question TEXT, date TEXT)''')
         c.execute('''CREATE TABLE IF NOT EXISTS answers (
             id SERIAL PRIMARY KEY, question_id INTEGER, username TEXT, answer TEXT)''')
-        # columnas/índices idempotentes
         c.execute("ALTER TABLE answers ADD COLUMN IF NOT EXISTS created_at TEXT")
         c.execute("ALTER TABLE answers ADD COLUMN IF NOT EXISTS updated_at TEXT")
         c.execute("CREATE UNIQUE INDEX IF NOT EXISTS answers_unique ON answers (question_id, username)")
@@ -179,7 +235,7 @@ def init_db():
             filename TEXT, mime_type TEXT, uploaded_at TEXT)''')
         c.execute('''CREATE TABLE IF NOT EXISTS intimacy_events (
             id SERIAL PRIMARY KEY, username TEXT NOT NULL, ts TEXT NOT NULL, place TEXT, notes TEXT)''')
-        # usuarios + ubicaciones por defecto (como tenías)
+        # usuarios + ubicaciones por defecto
         try:
             c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochito','1234'))
             c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochita','1234'))
@@ -193,7 +249,7 @@ def init_db():
             conn.commit()
         except Exception as e:
             print("Seed error:", e); conn.rollback()
-        # Índices útiles (idempotentes)
+        # Índices útiles
         c.execute("CREATE INDEX IF NOT EXISTS idx_answers_q_user ON answers (question_id, username)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_travels_vdate ON travels (is_visited, travel_date DESC)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_wishlist_state_prio ON wishlist (is_purchased, priority, created_at DESC)")
@@ -202,7 +258,7 @@ def init_db():
 
 init_db()
 
-# ========= Helpers de datos (idénticos + pequeños retoques) =========
+# ========= Helpers de datos =========
 def _parse_dt(txt: str):
     try: return datetime.strptime(txt, "%Y-%m-%d %H:%M:%S")
     except: return None
@@ -283,6 +339,7 @@ def days_until_meeting():
     finally:
         conn.close()
 
+@ttl_cache(seconds=30)
 def get_banner():
     conn = get_db_connection()
     try:
@@ -295,6 +352,7 @@ def get_banner():
     finally:
         conn.close()
 
+@ttl_cache(seconds=10)
 def get_user_locations():
     conn = get_db_connection()
     try:
@@ -307,6 +365,7 @@ def get_user_locations():
     finally:
         conn.close()
 
+@ttl_cache(seconds=30)
 def get_profile_pictures():
     conn = get_db_connection()
     try:
@@ -328,6 +387,7 @@ def get_travel_photos(travel_id):
     finally:
         conn.close()
 
+@ttl_cache(seconds=8)
 def compute_streaks():
     conn = get_db_connection()
     try:
@@ -420,10 +480,11 @@ def index():
                         """, (user, image_data, filename, mime_type, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit(); flash("Foto de perfil actualizada ✅","success")
                         send_discord("Profile picture updated", {"user": user, "filename": filename})
+                        cache_invalidate('get_profile_pictures')
                         broadcast("profile_update", {"user": user})
                     return redirect('/')
 
-                # 2) Cambio de contraseña (manteniendo compatibilidad)
+                # 2) Cambio de contraseña
                 if 'change_password' in request.form:
                     current_password = request.form.get('current_password','').strip()
                     new_password = request.form.get('new_password','').strip()
@@ -447,7 +508,7 @@ def index():
                     conn.commit(); flash("Contraseña cambiada correctamente 🎉","success")
                     send_discord("Change password OK", {"user": user}); return redirect('/')
 
-                # 3) Responder pregunta (crea/edita con timestamps)
+                # 3) Responder pregunta
                 if 'answer' in request.form:
                     answer = request.form['answer'].strip()
                     if question_id is not None and answer:
@@ -470,6 +531,7 @@ def index():
                                     c.execute("""UPDATE answers SET answer=%s, updated_at=%s WHERE id=%s""",
                                               (answer, now_txt, prev_id))
                                 conn.commit(); send_discord("Answer edited", {"user":user,"question_id":question_id})
+                        cache_invalidate('compute_streaks')
                         broadcast("dq_answer", {"user": user})
                     return redirect('/')
 
@@ -492,6 +554,7 @@ def index():
                                   (image_data, filename, mime_type, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit(); flash("Banner actualizado 🖼️","success")
                         send_discord("Banner updated", {"user": user, "filename": filename})
+                        cache_invalidate('get_banner')
                         broadcast("banner_update", {"by": user})
                     return redirect('/')
 
@@ -541,7 +604,7 @@ def index():
                         broadcast("wishlist_update", {"type":"add"})
                     return redirect('/')
 
-                # INTIMIDAD: desbloquear/bloquear/registrar
+                # INTIMIDAD
                 if 'intim_unlock_pin' in request.form:
                     pin_try = request.form.get('intim_pin','').strip()
                     if pin_try == INTIM_PIN:
@@ -585,7 +648,6 @@ def index():
             c.execute("""SELECT id, destination, description, travel_date, is_visited, created_by
                          FROM travels ORDER BY is_visited, travel_date DESC""")
             travels = c.fetchall()
-            # evitar N+1: cargamos todas las fotos y agrupamos en Python
             c.execute("SELECT travel_id, id, image_url, uploaded_by FROM travel_photos ORDER BY id DESC")
             all_ph = c.fetchall()
             travel_photos_dict = {}
@@ -637,7 +699,7 @@ def index():
                            intim_events=intim_events
                            )
 
-# ======= Rutas REST extra (igual que tenías, con broadcast) =======
+# ======= Rutas REST extra (con broadcast) =======
 @app.route('/delete_travel', methods=['POST'])
 def delete_travel():
     if 'username' not in session: return redirect('/')
@@ -836,6 +898,7 @@ def update_location():
                                  updated_at = EXCLUDED.updated_at""",
                           (username, location_name, latitude, longitude, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 conn.commit()
+            cache_invalidate('get_user_locations')
             broadcast("location_update", {"user": username})
             return jsonify({'success':True,'message':'Ubicación actualizada correctamente'})
         return jsonify({'error':'Datos incompletos'}), 400
@@ -892,8 +955,9 @@ def save_schedules():
                                  VALUES (%s,%s) ON CONFLICT (username, time) DO NOTHING""", (user, hhmm))
             c.execute("DELETE FROM schedules")
             for user in ['mochito','mochita']:
-                for day, times in (schedules_payload or {}).get(user, {}).items():
-                    for hhmm, obj in (times or {}).items():
+                for day, times in (schedules_payload or {}).items():
+                    day_times = times if isinstance(times, dict) else {}
+                    for hhmm, obj in (day_times or {}).items():
                         activity = (obj or {}).get('activity','').strip()
                         color = (obj or {}).get('color','#e84393')
                         if activity:

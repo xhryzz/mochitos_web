@@ -1,13 +1,15 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Christian y Clara 💖</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Montserrat:wght@300;400;500;600;700&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<!-- (Tu bloque <style> original va aquí sin cambios) --> 
-  <style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Christian y Clara 💖</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Montserrat:wght@300;400;500;600;700&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
         :root {
             --primary-color: #e84393;
             --secondary-color: #fd79a8;
@@ -613,345 +615,1649 @@
 
     </style>
 </head>
+
 <body>
-{% set flash_messages = get_flashed_messages(with_categories=true) %}
-<div id="toasts" aria-live="polite" aria-atomic="true"></div>
-<div class="floating-hearts" id="hearts-container"></div>
+  {% set flash_messages = get_flashed_messages(with_categories=true) %}
 
-<!-- MODAL EDIT WISHLIST -->
-<div id="editWishlistModal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Editar producto</h2><span class="close-modal">&times;</span></div><div class="modal-body">
-<form method="POST" action="/edit_wishlist_item" id="editWishlistForm">
-<input type="hidden" name="item_id" id="editItemId">
-<input type="text" name="product_name" id="editProductName" placeholder="Nombre del producto" required>
-<input type="url" name="product_link" id="editProductLink" placeholder="Enlace (opcional)">
-<select name="priority" id="editPriority" required><option value="alta">Prioridad: Alta 🔴</option><option value="media">Prioridad: Media 🟡</option><option value="baja">Prioridad: Baja 🟢</option></select>
-<textarea name="notes" id="editNotes" placeholder="Notas (opcional)" rows="3"></textarea>
-<div style="display:flex;align-items:center;gap:10px;margin:6px 0 16px 0;"><input type="checkbox" id="editIsGift" name="is_gift" style="width:auto;"><label for="editIsGift" style="margin:0;">¿Es un regalo? 🎁</label></div>
-<button type="submit"><i class="fas fa-save"></i> Guardar cambios</button>
-</form></div></div></div>
+  <!-- Zona toasts -->
+  <div id="toasts" aria-live="polite" aria-atomic="true"></div>
 
-<div class="container">
-{% if not session.username %}
-<div class="login-container"><div class="login-box animate-in" id="loginBox">
-<div style="margin-bottom:18px"><div style="width:72px;height:72px;border-radius:20px;background:var(--gradient);display:flex;align-items:center;justify-content:center;margin:0 auto 10px auto;box-shadow:0 10px 24px rgba(232,67,147,.25)"><i class="fas fa-heart" style="color:#fff;font-size:26px"></i></div><h3 style="margin:0">Bienvenido/a</h3></div>
-{% if error %}<div class="error-message" role="alert">{{ error }}</div>{% endif %}
-<form method="POST" id="loginForm" novalidate>
-<div class="input-group"><i class="fas fa-user input-icon" aria-hidden="true"></i><input type="text" name="username" id="username" placeholder="Usuario" autocomplete="username" required></div>
-<div class="input-group"><i class="fas fa-lock input-icon" aria-hidden="true"></i><input type="password" name="password" id="password" placeholder="Contraseña" autocomplete="current-password" required><button type="button" class="toggle-pass" aria-label="Mostrar u ocultar contraseña"><i class="fas fa-eye"></i></button></div>
-<div class="caps-hint" id="capsHint" aria-live="polite" style="display:none"><i class="fas fa-exclamation-triangle"></i> Tienes <b>Bloq Mayús</b> activado</div>
-<div class="remember-row"><label class="remember-check"><input type="checkbox" id="rememberMe" name="remember_me" value="1"> Recordarme</label><a class="forgot-link" href="#" onclick="event.preventDefault();showToast?.('info','Pídele a tu Mochito que te resetee la clave 😅');">¿Olvidaste la contraseña?</a></div>
-<button type="submit" id="loginBtn" class="btn-full"><span class="btn-text">Entrar</span><span class="btn-spinner" aria-hidden="true"></span></button>
-</form>
-</div></div>
+  <!-- Corazones flotantes -->
+  <div class="floating-hearts" id="hearts-container"></div>
+
+  <!-- MODAL EDITAR WISHLIST -->
+  <div id="editWishlistModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Editar producto</h2>
+        <span class="close-modal">&times;</span>
+      </div>
+      <div class="modal-body">
+        <form method="POST" action="/edit_wishlist_item" id="editWishlistForm">
+          <input type="hidden" name="item_id" id="editItemId">
+          <input type="text" name="product_name" id="editProductName" placeholder="Nombre del producto" required>
+          <input type="url" name="product_link" id="editProductLink" placeholder="Enlace (opcional)">
+          <select name="priority" id="editPriority" required>
+            <option value="alta">Prioridad: Alta 🔴</option>
+            <option value="media">Prioridad: Media 🟡</option>
+            <option value="baja">Prioridad: Baja 🟢</option>
+          </select>
+          <textarea name="notes" id="editNotes" placeholder="Notas (opcional)" rows="3"></textarea>
+
+          <div style="display:flex; align-items:center; gap:10px; margin: 6px 0 16px 0;">
+            <input type="checkbox" id="editIsGift" name="is_gift" style="width:auto;">
+            <label for="editIsGift" style="margin:0;">¿Es un regalo? 🎁</label>
+          </div>
+
+          <button type="submit"><i class="fas fa-save"></i> Guardar cambios</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    {% if not session.username %}
+  <!-- LOGIN MEJORADO -->
+  <div class="login-container">
+    <div class="login-box animate-in" id="loginBox">
+      <div style="margin-bottom:18px">
+        <div style="width:72px;height:72px;border-radius:20px;background:var(--gradient);display:flex;align-items:center;justify-content:center;margin:0 auto 10px auto;box-shadow:0 10px 24px rgba(232,67,147,.25)">
+          <i class="fas fa-heart" style="color:#fff;font-size:26px"></i>
+        </div>
+        <h3 style="margin:0">Bienvenido/a</h3>
+      </div>
+
+      {% if error %}
+        <div class="error-message" role="alert">{{ error }}</div>
+      {% endif %}
+
+      <form method="POST" id="loginForm" novalidate>
+        <!-- Usuario -->
+        <div class="input-group">
+          <i class="fas fa-user input-icon" aria-hidden="true"></i>
+          <input type="text" name="username" id="username" placeholder="Usuario" autocomplete="username" required>
+        </div>
+
+        <!-- Contraseña -->
+        <div class="input-group">
+          <i class="fas fa-lock input-icon" aria-hidden="true"></i>
+          <input type="password" name="password" id="password" placeholder="Contraseña" autocomplete="current-password" required>
+          <button type="button" class="toggle-pass" aria-label="Mostrar u ocultar contraseña">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+        <div class="caps-hint" id="capsHint" aria-live="polite" style="display:none">
+          <i class="fas fa-exclamation-triangle"></i> Tienes <b>Bloq Mayús</b> activado
+        </div>
+
+        <!-- Recordarme + Olvidé -->
+        <div class="remember-row">
+          <label class="remember-check">
+            <input type="checkbox" id="rememberMe" name="remember_me" value="1"> Recordarme
+          </label>
+          <a class="forgot-link" href="#" onclick="event.preventDefault(); showToast?.('info','Pídele a tu Mochito que te resetee la clave 😅');">¿Olvidaste la contraseña?</a>
+        </div>
+
+        <!-- Botón enviar -->
+        <button type="submit" id="loginBtn" class="btn-full">
+          <span class="btn-text">Entrar</span>
+          <span class="btn-spinner" aria-hidden="true"></span>
+        </button>
+      </form>
+
+    </div>
+  </div>
 {% else %}
 
-<a href="/logout" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
+      <a href="/logout" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
 
-<!-- BANNER -->
-<div class="section banner animate-in">
-{% if banner_file %}<img src="{{ banner_file }}" alt="Banner">{% else %}<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 450'%3E%3Crect width='1200' height='450' fill='%23ffe8f3'/%3E%3C/svg%3E" alt="Banner por defecto">{% endif %}
-<div class="banner-overlay"><div class="scroll-hint" aria-hidden="true"></div>
-<h1>Christian <span class="heart">❤️</span> Clara</h1>
-<form method="POST" enctype="multipart/form-data" class="banner-form">
-<label for="banner-upload" class="custom-file-upload"><i class="fas fa-image"></i> Elegir imagen</label>
-<input id="banner-upload" type="file" name="banner" accept="image/*" required style="display:none;">
-<button type="submit"><i class="fas fa-sync-alt"></i> Cambiar banner</button>
-</form></div></div>
+      <!-- BANNER -->
+      <div class="section banner animate-in">
+        {% if banner_file %}
+          <img src="{{ banner_file }}" alt="Banner">
+        {% else %}
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 450'%3E%3Crect width='1200' height='450' fill='%23ffe8f3'/%3E%3C/svg%3E" alt="Banner por defecto">
+        {% endif %}
+        <div class="banner-overlay">
+          <div class="scroll-hint" aria-hidden="true"></div>
 
-<div class="settings-icon" id="settingsIcon"><i class="fas fa-user-cog"></i></div>
+          <h1>Christian <span class="heart">❤️</span> Clara</h1>
+          <form method="POST" enctype="multipart/form-data" class="banner-form">
+            <label for="banner-upload" class="custom-file-upload">
+              <i class="fas fa-image"></i> Elegir imagen
+            </label>
+            <input id="banner-upload" type="file" name="banner" accept="image/*" required style="display: none;">
+            <button type="submit"><i class="fas fa-sync-alt"></i> Cambiar banner</button>
+          </form>
+        </div>
+      </div>
 
-<!-- MODAL EDIT INTIMIDAD -->
-<div id="editIntimModal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Editar momento</h2><span class="close-modal">&times;</span></div><div class="modal-body">
-<form method="POST" action="/edit_intim_event" id="editIntimForm">
-<input type="hidden" name="event_id" id="editEventId">
-<input type="text" name="intim_place_edit" id="editIntimPlace" placeholder="Lugar (opcional)" style="margin-bottom:15px;">
-<textarea name="intim_notes_edit" id="editIntimNotes" placeholder="Notas privadas (opcional)" rows="4" style="margin-bottom:15px;"></textarea>
-<button type="submit"><i class="fas fa-save"></i> Guardar cambios</button>
-</form></div></div></div>
+      <!-- PERFIL (icono) -->
+      <div class="settings-icon" id="settingsIcon">
+        <i class="fas fa-user-cog"></i>
+      </div>
 
-<!-- MODAL PERFIL -->
-<div id="profileModal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Mi Perfil</h2><span class="close-modal">&times;</span></div><div class="modal-body">
-<div class="profile-section">
-{% if profile_pictures.get(session.username) %}<img src="{{ profile_pictures.get(session.username) }}" alt="Foto de perfil" class="profile-picture">{% else %}<div class="profile-picture" style="background:var(--gradient);display:flex;align-items:center;justify-content:center;color:white;font-size:2rem;font-weight:bold;">{{ session.username[0]|upper }}</div>{% endif %}
-<div><h4>Hola, {{ session.username }}</h4><p>Actualiza tu foto o cambia tu contraseña.</p></div>
-</div>
-<form method="POST" enctype="multipart/form-data" class="profile-form" style="margin-bottom:20px;"><label for="profile-upload" class="custom-file-upload"><i class="fas fa-user-circle"></i> Elegir foto de perfil</label><input id="profile-upload" type="file" name="profile_picture" accept="image/*" style="display:none;"><button type="submit" name="update_profile"><i class="fas fa-sync-alt"></i> Actualizar foto</button></form>
-<hr style="border:none;border-top:1px solid #eee;margin:10px 0 20px 0;">
-<form method="POST" class="profile-form"><input type="hidden" name="change_password" value="1"><input type="password" name="current_password" placeholder="Contraseña actual" required><input type="password" name="new_password" placeholder="Nueva contraseña" required><input type="password" name="confirm_password" placeholder="Repite la nueva contraseña" required><button type="submit"><i class="fas fa-lock"></i> Cambiar contraseña</button></form>
-</div></div></div>
+        <!-- MODAL EDITAR EVENTO INTIMIDAD -->
+  <div id="editIntimModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Editar momento</h2>
+        <span class="close-modal">&times;</span>
+      </div>
+      <div class="modal-body">
+        <form method="POST" action="/edit_intim_event" id="editIntimForm">
+          <input type="hidden" name="event_id" id="editEventId">
+          
+          <input type="text" name="intim_place_edit" id="editIntimPlace" 
+                 placeholder="Lugar (opcional)" style="margin-bottom: 15px;">
+          
+          <textarea name="intim_notes_edit" id="editIntimNotes" 
+                    placeholder="Notas privadas (opcional)" 
+                    rows="4" style="margin-bottom: 15px;"></textarea>
+          
+          <button type="submit">
+            <i class="fas fa-save"></i> Guardar cambios
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
 
-<!-- CONTADORES -->
-<div class="section animate-in delay-1"><h3>Nosotros</h3>
-<div class="counters">
-<div class="counter-item"><h4>Días juntos</h4><p>{{ days_together }}</p></div>
-{% if days_until_meeting is not none %}<div class="counter-item"><h4>Días hasta vernos</h4><p>{{ days_until_meeting }}</p></div>{% endif %}
-</div>
-<form method="POST" class="inline-form"><input type="date" name="meeting_date" required><button type="submit"><i class="fas fa-calendar-alt"></i> Actualizar fecha</button></form>
-</div>
+      <!-- MODAL PERFIL -->
+      <div id="profileModal" class="modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Mi Perfil</h2>
+            <span class="close-modal">&times;</span>
+          </div>
+          <div class="modal-body">
+            <div class="profile-section">
+              {% if profile_pictures.get(session.username) %}
+                <img src="{{ profile_pictures.get(session.username) }}" alt="Foto de perfil" class="profile-picture">
+              {% else %}
+                <div class="profile-picture" style="background: var(--gradient); display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; font-weight: bold;">
+                  {{ session.username[0]|upper }}
+                </div>
+              {% endif %}
+              <div>
+                <h4>Hola, {{ session.username }}</h4>
+                <p>Actualiza tu foto o cambia tu contraseña.</p>
+              </div>
+            </div>
 
-<!-- INTIMIDAD -->
-<div class="section animate-in"><h3>Intimidad <small style="font-size:.9rem;opacity:.7;">(privado)</small></h3>
-{% if not intim_unlocked %}
-<p>Este módulo está oculto. Introduce el PIN para verlo.</p>
-<form method="POST" class="intim-pin-wrap"><input type="password" name="intim_pin" placeholder="PIN" required><button type="submit" name="intim_unlock_pin"><i class="fas fa-lock-open"></i> Desbloquear</button></form>
-{% else %}
-<form method="POST" class="intim-actions"><button type="submit" name="intim_register" title="Registrar momento (suma 1 a hoy)"><i class="fas fa-heart"></i> Registrar momento</button><input type="text" name="intim_place" placeholder="Lugar (opcional)" style="flex:1;min-width:200px;"><textarea name="intim_notes" placeholder="Notas privadas (opcional)" rows="1" style="flex:2;min-width:220px;"></textarea><button type="submit" name="intim_lock" style="margin-left:auto;background:#fff;color:#e84393;"><i class="fas fa-eye-slash"></i> Ocultar</button></form>
-<div class="intim-kpis"><div class="kpi"><h4>Hoy</h4><p>{{ intim_stats.today_count }}</p></div><div class="kpi"><h4>Este mes</h4><p>{{ intim_stats.month_total }}</p></div><div class="kpi"><h4>Este año</h4><p>{{ intim_stats.year_total }}</p></div></div>
-<div class="intim-events" style="margin-top:20px;"><h4 style="color:var(--primary-color);margin-bottom:15px;">Historial de momentos</h4>
-{% if intim_events %}
-<div class="events-list" style="display:flex;flex-direction:column;gap:12px;">
-{% for event in intim_events %}
-<div class="intim-event-card" style="background:#fff;border-radius:12px;padding:15px;box-shadow:0 4px 12px rgba(0,0,0,.08);border-left:4px solid var(--accent-color);">
-<div style="display:flex;justify-content:between;align-items:flex-start;gap:12px;">
-<div style="flex:1;">
-<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-<div class="user-avatar" style="width:32px;height:32px;">{% if profile_pictures.get(event.username) %}<img src="{{ profile_pictures.get(event.username) }}" alt="{{ event.username }}">{% else %}{{ event.username[0]|upper }}{% endif %}</div>
-<strong style="color:var(--primary-color);">{{ event.username }}</strong>
-<small style="color:#888;margin-left:auto;">{{ event.ts[:16] }}</small></div>
-{% if event.place %}<div style="margin-bottom:6px;"><strong>Lugar:</strong> {{ event.place }}</div>{% endif %}
-{% if event.notes %}<div style="background:#f8f9fa;padding:10px;border-radius:8px;margin-top:8px;"><strong>Notas:</strong> <span style="white-space:pre-wrap;">{{ event.notes }}</span></div>{% endif %}
-</div>
-{% if intim_unlocked and username in ['mochito','mochita'] %}
-<div class="event-actions" style="display:flex;gap:6px;">
-<button type="button" class="icon-btn edit-intim-btn" title="Editar evento" onclick='openEditIntimModal({{ event.id }},{{ (event.place or "")|tojson }},{{ (event.notes or "")|tojson }})'><i class="fas fa-edit"></i></button>
-<form method="POST" action="/delete_intim_event" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este evento?');" style="display:inline;"><input type="hidden" name="event_id" value="{{ event.id }}"><button type="submit" class="icon-btn" title="Eliminar evento"><i class="fas fa-trash"></i></button></form>
-</div>
+            <!-- FORM: Cambiar foto -->
+            <form method="POST" enctype="multipart/form-data" class="profile-form" style="margin-bottom: 20px;">
+              <label for="profile-upload" class="custom-file-upload">
+                <i class="fas fa-user-circle"></i> Elegir foto de perfil
+              </label>
+              <input id="profile-upload" type="file" name="profile_picture" accept="image/*" style="display: none;">
+              <button type="submit" name="update_profile"><i class="fas fa-sync-alt"></i> Actualizar foto</button>
+            </form>
+
+            <hr style="border:none;border-top:1px solid #eee;margin: 10px 0 20px 0;">
+
+            <!-- FORM: Cambiar contraseña -->
+            <form method="POST" class="profile-form">
+              <input type="hidden" name="change_password" value="1">
+              <input type="password" name="current_password" placeholder="Contraseña actual" required>
+              <input type="password" name="new_password" placeholder="Nueva contraseña" required>
+              <input type="password" name="confirm_password" placeholder="Repite la nueva contraseña" required>
+              <button type="submit">
+                <i class="fas fa-lock"></i> Cambiar contraseña
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contadores -->
+      <div class="section animate-in delay-1">
+        <h3>Nosotros</h3>
+        <div class="counters">
+          <div class="counter-item">
+            <h4>Días juntos</h4>
+            <p>{{ days_together }}</p>
+          </div>
+          {% if days_until_meeting is not none %}
+          <div class="counter-item">
+            <h4>Días hasta vernos</h4>
+            <p>{{ days_until_meeting }}</p>
+          </div>
+          {% endif %}
+        </div>
+        <form method="POST" class="inline-form">
+          <input type="date" name="meeting_date" required>
+          <button type="submit"><i class="fas fa-calendar-alt"></i> Actualizar fecha</button>
+        </form>
+      </div>
+
+      <!-- INTIMIDAD (discreto) -->
+      <div class="section animate-in">
+        <h3>Intimidad <small style="font-size:.9rem; opacity:.7;">(privado)</small></h3>
+        {% if not intim_unlocked %}
+          <p>Este módulo está oculto. Introduce el PIN para verlo.</p>
+          <form method="POST" class="intim-pin-wrap">
+            <input type="password" name="intim_pin" placeholder="PIN" required>
+            <button type="submit" name="intim_unlock_pin">
+              <i class="fas fa-lock-open"></i> Desbloquear
+            </button>
+          </form>
+        {% else %}
+          <!-- Acciones -->
+          <form method="POST" class="intim-actions">
+            <button type="submit" name="intim_register" title="Registrar momento (suma 1 a hoy)">
+              <i class="fas fa-heart"></i> Registrar momento
+            </button>
+            <input type="text" name="intim_place" placeholder="Lugar (opcional)" style="flex:1; min-width:200px;">
+            <textarea name="intim_notes" placeholder="Notas privadas (opcional)" rows="1" style="flex:2; min-width:220px;"></textarea>
+            <button type="submit" name="intim_lock" style="margin-left:auto; background:#fff; color:#e84393;">
+              <i class="fas fa-eye-slash"></i> Ocultar
+            </button>
+          </form>
+
+          <!-- KPIs rápidos -->
+          <div class="intim-kpis">
+            <div class="kpi">
+              <h4>Hoy</h4>
+              <p>{{ intim_stats.today_count }}</p>
+            </div>
+            <div class="kpi">
+              <h4>Este mes</h4>
+              <p>{{ intim_stats.month_total }}</p>
+            </div>
+            <div class="kpi">
+              <h4>Este año</h4>
+              <p>{{ intim_stats.year_total }}</p>
+            </div>
+          </div>
+
+
+                    <!-- Lista de eventos -->
+          <div class="intim-events" style="margin-top: 20px;">
+            <h4 style="color: var(--primary-color); margin-bottom: 15px;">Historial de momentos</h4>
+            {% if intim_events %}
+              <div class="events-list" style="display: flex; flex-direction: column; gap: 12px;">
+                {% for event in intim_events %}
+                  <div class="intim-event-card" style="background: #fff; border-radius: 12px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,.08); border-left: 4px solid var(--accent-color);">
+                    <div style="display: flex; justify-content: between; align-items: flex-start; gap: 12px;">
+                      <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                          <div class="user-avatar" style="width: 32px; height: 32px;">
+                            {% if profile_pictures.get(event.username) %}
+                              <img src="{{ profile_pictures.get(event.username) }}" alt="{{ event.username }}">
+                            {% else %}
+                              {{ event.username[0]|upper }}
+                            {% endif %}
+                          </div>
+                          <strong style="color: var(--primary-color);">{{ event.username }}</strong>
+                          <small style="color: #888; margin-left: auto;">
+                            {{ event.ts[:16] }}
+                          </small>
+                        </div>
+                        
+                        {% if event.place %}
+                        <div style="margin-bottom: 6px;">
+                          <strong>Lugar:</strong> {{ event.place }}
+                        </div>
+                        {% endif %}
+                        
+                        {% if event.notes %}
+                        <div style="background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 8px;">
+                          <strong>Notas:</strong> 
+                          <span style="white-space: pre-wrap;">{{ event.notes }}</span>
+                        </div>
+                        {% endif %}
+                      </div>
+                      
+                      {% if intim_unlocked and username in ['mochito','mochita'] %}
+  <div class="event-actions" style="display: flex; gap: 6px;">
+    <button
+      type="button"
+      class="icon-btn edit-intim-btn"
+      title="Editar evento"
+      onclick='openEditIntimModal(
+        {{ event.id }},
+        {{ (event.place or "")|tojson }},
+        {{ (event.notes or "")|tojson }}
+      )'>
+      <i class="fas fa-edit"></i>
+    </button>
+    <form method="POST" action="/delete_intim_event"
+          onsubmit="return confirm('¿Estás seguro de que quieres eliminar este evento?');"
+          style="display: inline;">
+      <input type="hidden" name="event_id" value="{{ event.id }}">
+      <button type="submit" class="icon-btn" title="Eliminar evento">
+        <i class="fas fa-trash"></i>
+      </button>
+    </form>
+  </div>
 {% endif %}
-</div></div>
-{% endfor %}
-</div>
-{% else %}<p style="text-align:center;color:#888;padding:20px;">Aún no hay eventos registrados.</p>{% endif %}
-</div>
-<div class="intim-stats">
-<div class="intim-card"><b>Última vez</b><br>{% if intim_stats.last_dt %}{{ intim_stats.last_dt.strftime("%Y-%m-%d %H:%M") }} (hace {{ intim_stats.days_since_last }} día{% if intim_stats.days_since_last != 1 %}s{% endif %}){% else %}Aún no hay registros.{% endif %}</div>
-<div class="intim-card"><b>Racha actual (días seguidos con intimidad)</b><br>{{ intim_stats.streak_days }} día{% if intim_stats.streak_days != 1 %}s{% endif %}</div>
-<div class="intim-card"><b>Días sin 👉👌</b><br>{% if intim_stats.days_since_last is not none %}{{ intim_stats.days_since_last }} día{% if intim_stats.days_since_last != 1 %}s{% endif %}{% else %}—{% endif %}</div>
-</div>
-{% endif %}
+
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p style="text-align: center; color: #888; padding: 20px;">
+                Aún no hay eventos registrados.
+              </p>
+            {% endif %}
+          </div>
+
+          <!-- Detalle: última vez + rachas -->
+          <div class="intim-stats">
+            <div class="intim-card">
+              <b>Última vez</b><br>
+              {% if intim_stats.last_dt %}
+                {{ intim_stats.last_dt.strftime("%Y-%m-%d %H:%M") }} (hace {{ intim_stats.days_since_last }} día{% if intim_stats.days_since_last != 1 %}s{% endif %})
+              {% else %}
+                Aún no hay registros.
+              {% endif %}
+            </div>
+            <div class="intim-card">
+              <b>Racha actual (días seguidos con intimidad)</b><br>
+              {{ intim_stats.streak_days }} día{% if intim_stats.streak_days != 1 %}s{% endif %}
+            </div>
+            <div class="intim-card">
+              <b>Días sin 👉👌</b><br>
+              {% if intim_stats.days_since_last is not none %}
+                {{ intim_stats.days_since_last }} día{% if intim_stats.days_since_last != 1 %}s{% endif %}
+              {% else %}
+                —
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Mapa de Distancia -->
+      <div class="section animate-in delay-2">
+        <h3>Distancia</h3>
+        <p>Cuánta distancia hay entre nosotros.</p>
+
+        <div class="distance-map-container">
+          <div id="distanceMap"></div>
+          <div class="distance-info">
+            <h4>Distancia entre nosotros</h4>
+            <div class="distance-value" id="distanceValue">Cargando...</div>
+            <div id="locationInfo">
+              <div class="location-badge">
+                {% if profile_pictures.get('mochito') %}
+                  <img src="{{ profile_pictures.get('mochito') }}" alt="Christian">
+                {% else %}
+                  <span>C</span>
+                {% endif %}
+                <span id="christianLocation">Algemesí, Valencia</span>
+              </div>
+              <div class="location-badge">
+                {% if profile_pictures.get('mochita') %}
+                  <img src="{{ profile_pictures.get('mochita') }}" alt="Clara">
+                {% else %}
+                  <span>C</span>
+                {% endif %}
+                <span id="claraLocation">Córdoba</span>
+              </div>
+            </div>
+
+            <!-- 🌍 FORM: Actualizar ubicación (manual o automática) -->
+            <form class="location-form" id="locationForm">
+              <div class="row">
+                <input type="text" id="userLocation" placeholder="Tu ciudad/barrio (opcional si usas el botón)">
+                <button type="button" id="useMyLocationBtn">
+                  <i class="fas fa-location-arrow"></i> Usar mi ubicación
+                </button>
+              </div>
+              <button type="submit"><i class="fas fa-map-marker-alt"></i> Actualizar con texto</button>
+              <small style="opacity:.8; display:block; margin-top:6px;">Consejo: en HTTPS el navegador te permite usar la ubicación real.</small>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Horarios -->
+      <div class="section animate-in delay-2">
+        <h3>Nuestros Horarios</h3>
+        <p>Nuestros horarios y activiades (editables).</p>
+        <a href="/horario">
+          <button style="width: 100%;">
+            <i class="fas fa-calendar-alt"></i> Ver Horarios
+          </button>
+        </a>
+      </div>
+
+      <!-- Pregunta diaria -->
+<div class="section animate-in delay-2">
+  <h3>Pregunta del día</h3>
+
+  <div class="dq-countdown">
+    <div class="dq-countdown-card">
+      <div class="dq-countdown-title">
+        <i class="fas fa-clock" aria-hidden="true"></i>
+        Próximo cambio de pregunta
+      </div>
+      <div class="dq-countdown-time" id="dqTimer" aria-live="polite">--:--:--</div>
+    </div>
+  </div>
+
+  <p class="question"><b>{{ question }}</b></p>
+
+  <div class="streak-badges">
+    <div class="streak-badge">
+      <i class="fas fa-fire"></i>
+      Racha actual: {{ current_streak }} día{% if current_streak != 1 %}s{% endif %}
+    </div>
+    <div class="streak-badge best">
+      <i class="fas fa-trophy"></i>
+      Mejor racha: {{ best_streak }} día{% if best_streak != 1 %}s{% endif %}
+    </div>
+  </div>
+
+  <!-- {# === A) Ambos respondieron === #} -->
+  {% if show_answers %}
+    <div class="answers" style="gap:12px;">
+      {# Tu bloque (editable) #}
+      <div class="answer-item" style="flex-wrap:wrap;">
+        <div class="user-avatar">
+          {% if profile_pictures.get(username) %}
+            <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+          {% else %} {{ username[0]|upper }} {% endif %}
+        </div>
+
+        <div class="answer-content" style="flex:1;">
+          <div class="answer-head" style="display:flex; align-items:center; gap:10px;">
+  <div style="flex:1;">
+    <b>Tú:</b>
+    <span id="ans-text-me" class="answer-text">{{ user_answer }}</span>
+    {% if answers_edited and answers_edited.get(username) %}
+      <small class="edited-pill">(editado)</small>
+    {% endif %}
+  </div>
+  <a href="#" class="edit-link" onclick="return toggleEdit('me');">Editar</a>
 </div>
 
-<!-- MAPA -->
-<div class="section animate-in delay-2"><h3>Distancia</h3><p>Cuánta distancia hay entre nosotros.</p>
-<div class="distance-map-container"><div id="distanceMap"></div>
-<div class="distance-info"><h4>Distancia entre nosotros</h4><div class="distance-value" id="distanceValue">Cargando...</div>
-<div id="locationInfo">
-<div class="location-badge">{% if profile_pictures.get('mochito') %}<img src="{{ profile_pictures.get('mochito') }}" alt="Christian">{% else %}<span>C</span>{% endif %}<span id="christianLocation">Algemesí, Valencia</span></div>
-<div class="location-badge">{% if profile_pictures.get('mochita') %}<img src="{{ profile_pictures.get('mochita') }}" alt="Clara">{% else %}<span>C</span>{% endif %}<span id="claraLocation">Córdoba</span></div>
-</div>
-<form class="location-form" id="locationForm"><div class="row"><input type="text" id="userLocation" placeholder="Tu ciudad/barrio (opcional si usas el botón)"><button type="button" id="useMyLocationBtn"><i class="fas fa-location-arrow"></i> Usar mi ubicación</button></div><button type="submit"><i class="fas fa-map-marker-alt"></i> Actualizar con texto</button><small style="opacity:.8;display:block;margin-top:6px;">Consejo: en HTTPS el navegador te permite usar la ubicación real.</small></form>
-</div></div></div>
 
-<!-- HORARIOS -->
-<div class="section animate-in delay-2"><h3>Nuestros Horarios</h3><p>Nuestros horarios y activiades (editables).</p><a href="/horario"><button style="width:100%;"><i class="fas fa-calendar-alt"></i> Ver Horarios</button></a></div>
+          <form method="POST" id="ans-form-me" style="display:none; margin-top:10px;">
+            <input type="text" name="answer" value="{{ user_answer }}" required>
+            <button type="submit"><i class="fas fa-save"></i> Guardar</button>
+            <button type="button" onclick="toggleEdit('me')" style="background:#fff;color:#e84393;border:1px solid #eee">
+              Cancelar
+            </button>
+          </form>
+        </div>
+      </div>
 
-<!-- PREGUNTA DEL DÍA -->
-<div class="section animate-in delay-2"><h3>Pregunta del día</h3>
-<div class="dq-countdown"><div class="dq-countdown-card"><div class="dq-countdown-title"><i class="fas fa-clock" aria-hidden="true"></i> Próximo cambio de pregunta</div><div class="dq-countdown-time" id="dqTimer" aria-live="polite">--:--:--</div></div></div>
-<p class="question"><b>{{ question }}</b></p>
-<div class="streak-badges"><div class="streak-badge"><i class="fas fa-fire"></i> Racha actual: {{ current_streak }} día{% if current_streak != 1 %}s{% endif %}</div><div class="streak-badge best"><i class="fas fa-trophy"></i> Mejor racha: {{ best_streak }} día{% if best_streak != 1 %}s{% endif %}</div></div>
-{% if show_answers %}
-<div class="answers" style="gap:12px;">
-<div class="answer-item" style="flex-wrap:wrap;">
-<div class="user-avatar">{% if profile_pictures.get(username) %}<img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">{% else %}{{ username[0]|upper }}{% endif %}</div>
-<div class="answer-content" style="flex:1;">
-<div class="answer-head" style="display:flex;align-items:center;gap:10px;">
-<div style="flex:1;"><b>Tú:</b> <span id="ans-text-me" class="answer-text">{{ user_answer }}</span>{% if answers_edited and answers_edited.get(username) %}<small class="edited-pill">(editado)</small>{% endif %}</div>
-<a href="#" class="edit-link" onclick="return toggleEdit('me');">Editar</a></div>
-<form method="POST" id="ans-form-me" style="display:none;margin-top:10px;"><input type="text" name="answer" value="{{ user_answer }}" required><button type="submit"><i class="fas fa-save"></i> Guardar</button><button type="button" onclick="toggleEdit('me')" style="background:#fff;color:#e84393;border:1px solid #eee">Cancelar</button></form>
-</div></div>
-<div class="answer-item"><div class="user-avatar">{% if profile_pictures.get(other_user) %}<img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">{% else %}{{ other_user[0]|upper }}{% endif %}</div><div><b>{{ other_user }}:</b> <span class="answer-text">{{ other_answer }}</span>{% if answers_edited and answers_edited.get(other_user) %}<small class="edited-pill">(editado)</small>{% endif %}</div></div>
-</div>
-{% elif user_answer and not other_answer %}
-<div class="answers" style="gap:12px;">
-<div class="answer-item" style="flex-wrap:wrap;"><div class="user-avatar">{% if profile_pictures.get(username) %}<img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">{% else %}{{ username[0]|upper }}{% endif %}</div>
-<div class="answer-content" style="flex:1;">
-<div class="answer-head" style="display:flex;align-items:center;gap:10px;"><div style="flex:1;"><b>Tú:</b> <span id="ans-text-me" class="answer-text">{{ user_answer }}</span>{% if answers_edited and answers_edited.get(username) %}<small class="edited-pill">(editado)</small>{% endif %}</div><a href="#" class="edit-link" onclick="return toggleEdit('me');">Editar</a></div>
-<form method="POST" id="ans-form-me" style="display:none;margin-top:10px;"><input type="text" name="answer" value="{{ user_answer }}" required><button type="submit"><i class="fas fa-save"></i> Guardar</button><button type="button" onclick="toggleEdit('me')" style="background:#fff;color:#e84393;border:1px solid #eee">Cancelar</button></form>
-</div></div></div><p style="margin-top:8px;opacity:.75;">Aún falta la respuesta de <b>{{ other_user }}</b> 🕒</p>
-{% elif (not user_answer) and other_answer %}
-<form method="POST" class="inline-form" style="margin-bottom:15px;display:flex;gap:8px;"><input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;"><button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button></form>
-<div class="answers"><div class="answer-item blurred"><div class="user-avatar">{% if profile_pictures.get(other_user) %}<img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">{% else %}{{ other_user[0]|upper }}{% endif %}</div><div><b>{{ other_user }}:</b> <span class="answer-text">{{ other_answer }}</span>{% if answers_edited and answers_edited.get(other_user) %}<small class="edited-pill">(editado)</small>{% endif %}</div></div></div>
-{% else %}
-<form method="POST" class="inline-form" style="display:flex;gap:8px;"><input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;"><button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button></form>
-{% endif %}
+      <!-- {# Bloque de la otra persona (solo lectura) #} -->
+      <div class="answer-item">
+        <div class="user-avatar">
+          {% if profile_pictures.get(other_user) %}
+            <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+          {% else %} {{ other_user[0]|upper }} {% endif %}
+        </div>
+        <div>
+  <b>{{ other_user }}:</b>
+  <span class="answer-text">{{ other_answer }}</span>
+  {% if answers_edited and answers_edited.get(other_user) %}
+    <small class="edited-pill">(editado)</small>
+  {% endif %}
 </div>
 
-<!-- WISHLIST -->
-<div class="section animate-in delay-3">
-<h3>Nuestra Lista de Deseos</h3><p>Cosas que nos gustaría tener o regalarnos mutuamente.</p>
-<div class="wishlist-tabs" id="wishlist-tabs-container"><div class="wishlist-tab active" data-tab="wanted">Deseados</div><div class="wishlist-tab" data-tab="purchased">Comprados</div><div class="wishlist-tab" data-tab="add-wishlist">Añadir Deseo</div></div>
+      </div>
+    </div>
 
-<div class="wishlist-content active" id="wanted-tab"><div class="wishlist-grid">
-{% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift in wishlist_items if not is_purchased %}
-{% set pri = (priority or 'media') %}{% set soy_creador = (created_by == username) %}{% set oculto_para_mi = (is_gift and not soy_creador) %}
-<div class="wishlist-card {% if oculto_para_mi %}locked{% endif %}">
-<div class="wishlist-status status-wanted">Deseado</div>
-<div style="display:flex;gap:8px;flex-wrap:wrap;">
-<div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}"><i class="fas fa-flag"></i> {{ pri|capitalize }}</div>
-{% if is_gift %}<div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>{% endif %}
-</div>
-{% if oculto_para_mi %}
-<div class="gift-mask">🎁 <div>¡Esto es un regalo para ti!</div><small>Los detalles están ocultos para mantener la sorpresa.</small></div>
-{% else %}
-<h3 class="wishlist-product">{{ product_name }}</h3>
-{% if product_link %}<a href="{{ product_link }}" target="_blank" class="wishlist-link"><i class="fas fa-link"></i> Ver producto</a>{% endif %}
-{% if notes %}<p class="wishlist-notes">{{ notes }}</p>{% endif %}
-{% endif %}
-<div class="wishlist-meta"><span><div class="user-avatar" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:5px;">{% if profile_pictures.get(created_by) %}<img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">{% else %}{{ created_by[0]|upper }}{% endif %}</div>Creado por {{ created_by }}</span><span>{{ created_at[:10] }}</span></div>
-{% if not oculto_para_mi %}
-<div class="wishlist-actions">
-<form method="POST" action="/toggle_wishlist_status"><input type="hidden" name="item_id" value="{{ id }}"><button type="submit" class="icon-btn" title="Marcar como comprado"><i class="fas fa-check"></i></button></form>
-<button class="icon-btn" title="Editar" onclick='openEditModal({{ id }},{{ product_name|tojson }},{{ product_link|tojson }},{{ (notes or "")|tojson }},{{ pri|tojson }},{{ is_gift|tojson }})'><i class="fas fa-edit"></i></button>
-{% if created_by == username %}<form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');"><input type="hidden" name="item_id" value="{{ id }}"><button type="submit" class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button></form>{% endif %}
-</div>
-{% endif %}
-</div>
-{% else %}
-<p>No hay productos en tu lista de deseos. ¡Añade el primero!</p>
-{% endfor %}
-</div></div>
+  <!-- {# === B) Tú respondiste y falta el/la otr@ (puedes editar mientras) === #} -->
+  {% elif user_answer and not other_answer %}
+    <div class="answers" style="gap:12px;">
+      <div class="answer-item" style="flex-wrap:wrap;">
+        <div class="user-avatar">
+          {% if profile_pictures.get(username) %}
+            <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+          {% else %} {{ username[0]|upper }} {% endif %}
+        </div>
 
-<div class="wishlist-content" id="purchased-tab"><div class="wishlist-grid">
-{% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift in wishlist_items if is_purchased %}
-{% set pri = (priority or 'media') %}{% set soy_creador = (created_by == username) %}{% set oculto_para_mi = (is_gift and not soy_creador) %}
-<div class="wishlist-card purchased {% if oculto_para_mi %}locked{% endif %}">
-<div class="wishlist-status status-purchased">Comprado</div>
-<div style="display:flex;gap:8px;flex-wrap:wrap;"><div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}"><i class="fas fa-flag"></i> {{ pri|capitalize }}</div>{% if is_gift %}<div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>{% endif %}</div>
-{% if oculto_para_mi %}<div class="gift-mask">🎁 <div>¡Esto es (o era) un regalo para ti!</div><small>Detalles ocultos para mantener la sorpresa.</small></div>
-{% else %}
-<h3 class="wishlist-product">{{ product_name }}</h3>
-{% if product_link %}<a href="{{ product_link }}" target="_blank" class="wishlist-link"><i class="fas fa-link"></i> Ver producto</a>{% endif %}
-{% if notes %}<p class="wishlist-notes">{{ notes }}</p>{% endif %}
-{% endif %}
-<div class="wishlist-meta"><span><div class="user-avatar" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:5px;">{% if profile_pictures.get(created_by) %}<img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">{% else %}{{ created_by[0]|upper }}{% endif %}</div>Creado por {{ created_by }}</span><span>{{ created_at[:10] }}</span></div>
-{% if not oculto_para_mi %}
-<div class="wishlist-actions">
-<form method="POST" action="/toggle_wishlist_status"><input type="hidden" name="item_id" value="{{ id }}"><button type="submit" class="icon-btn" title="Marcar como no comprado"><i class="fas fa-undo"></i></button></form>
-<button class="icon-btn" title="Editar" onclick='openEditModal({{ id }},{{ product_name|tojson }},{{ product_link|tojson }},{{ (notes or "")|tojson }},{{ pri|tojson }},{{ is_gift|tojson }})'><i class="fas fa-edit"></i></button>
-{% if created_by == username %}<form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');"><input type="hidden" name="item_id" value="{{ id }}"><button type="submit" class="icon-btn" title="Eliminar"><i class="fas a fa-trash"></i></button></form>{% endif %}
-</div>{% endif %}
-</div>
-{% else %}<p>No hay productos comprados todavía.</p>{% endfor %}
-</div></div>
-
-<div class="wishlist-content" id="add-wishlist-tab"><div class="wishlist-form">
-<h4>Añadir nuevo producto</h4>
-<form method="POST">
-<input type="text" name="product_name" placeholder="Nombre del producto" required>
-<input type="url" name="product_link" placeholder="Enlace (opcional)">
-<textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
-<select name="priority" required style="margin-bottom:15px;"><option value="alta">Prioridad: Alta 🔴</option><option value="media" selected>Prioridad: Media 🟡</option><option value="baja">Prioridad: Baja 🟢</option></select>
-<div style="display:flex;align-items:center;gap:10px;margin:6px 0 16px 0;"><input type="checkbox" id="is_gift" name="is_gift" style="width:auto;"><label for="is_gift" style="margin:0;">¿Es un regalo (ocultar a la otra persona)? 🎁</label></div>
-<button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
-</form></div></div>
+        <div class="answer-content" style="flex:1;">
+         <div class="answer-head" style="display:flex; align-items:center; gap:10px;">
+  <div style="flex:1;">
+    <b>Tú:</b>
+    <span id="ans-text-me" class="answer-text">{{ user_answer }}</span>
+    {% if answers_edited and answers_edited.get(username) %}
+      <small class="edited-pill">(editado)</small>
+    {% endif %}
+  </div>
+  <a href="#" class="edit-link" onclick="return toggleEdit('me');">Editar</a>
 </div>
 
-<!-- VIAJES -->
-<div class="section animate-in delay-4"><h3>Nuestros Viajes</h3><p>Lugares que hemos visitado y destinos que soñamos conocer juntos.</p>
-<div class="travel-tabs" id="travel-tabs-container"><div class="travel-tab active" data-tab="visited">Lugares Visitados</div><div class="travel-tab" data-tab="wishlist-travel">Quiero Ir</div><div class="travel-tab" data-tab="add-travel">Añadir Viaje</div></div>
 
-<div class="travel-content active" id="visited-tab">
-<div class="travel-tools"><input type="search" id="visited-search" placeholder="Buscar destino/país en visitados..."><button type="button" class="clear-btn" onclick="clearTravelSearch('visited')">Limpiar</button></div>
-<div class="travels-grid">
-{% for id, destination, description, travel_date, is_visited, created_by in travels if is_visited %}
-<div class="travel-card visited">
-<div class="travel-cover">
-{% if travel_photos_dict[id] %}
-<div class="travel-photos">{% for photo in travel_photos_dict[id] %}<img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%;border-radius:10px;margin:5px 0;">{% endfor %}</div>
-{% else %}<div class="empty-album"><i class="fas fa-map-marker-alt"></i></div>{% endif %}
-<div class="travel-status status-visited">Visitado</div></div>
-<div class="travel-info">
-<h3 class="travel-destination">{{ destination }}</h3>
-{% if travel_date %}<p class="travel-date">{{ travel_date }}</p>{% endif %}
-{% if description %}<p class="travel-description">{{ description }}</p>{% endif %}
-<div class="travel-meta"><span>{{ travel_photos_dict[id]|length }} fotos</span><span><div class="user-avatar" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:5px;">{% if profile_pictures.get(created_by) %}<img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">{% else %}{{ created_by[0]|upper }}{% endif %}</div>Creado por {{ created_by }}</span></div>
-<div class="travel-actions">
-<form method="POST" action="/toggle_travel_status"><input type="hidden" name="travel_id" value="{{ id }}"><button type="submit" class="icon-btn" title="Mover a deseados"><i class="fas fa-heart"></i></button></form>
-<button type="button" class="icon-btn plus" title="Añadir foto" onclick="togglePhotoMenu('visited-{{ id }}')"><i class="fas fa-plus"></i></button>
-<div class="photo-popover" id="photo-popover-visited-{{ id }}">
-<div class="photo-popover-header"><div class="photo-popover-title">Añadir foto por enlace</div><button type="button" class="close-btn" onclick="togglePhotoMenu('visited-{{ id }}')"><i class="fas fa-times"></i></button></div>
-<form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('visited-{{ id }}')"><input type="hidden" name="travel_id" value="{{ id }}"><input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required><button type="submit" class="button"><i class="fas fa-check"></i> Guardar</button></form>
-<div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div></div>
-<form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');"><input type="hidden" name="travel_id" value="{{ id }}"><button type="submit" class="icon-btn" title="Eliminar viaje"><i class="fas fa-trash"></i></button></form>
-</div></div></div>
-{% else %}<p>No hay lugares visitados todavía. ¡Añade el primero!</p>{% endfor %}
-</div><div class="pager" id="visited-pager"></div>
+          <form method="POST" id="ans-form-me" style="display:none; margin-top:10px;">
+            <input type="text" name="answer" value="{{ user_answer }}" required>
+            <button type="submit"><i class="fas fa-save"></i> Guardar</button>
+            <button type="button" onclick="toggleEdit('me')" style="background:#fff;color:#e84393;border:1px solid #eee">
+              Cancelar
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <p style="margin-top:8px;opacity:.75;">Aún falta la respuesta de <b>{{ other_user }}</b> 🕒</p>
+
+  <!-- {# === C) El/la otr@ ya respondió y tú no: su bloque borroso + tu caja para responder === #} -->
+  {% elif (not user_answer) and other_answer %}
+    <form method="POST" class="inline-form" style="margin-bottom:15px; display:flex; gap:8px;">
+      <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
+      <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+    </form>
+
+    <div class="answers">
+      <div class="answer-item blurred">
+        <div class="user-avatar">
+          {% if profile_pictures.get(other_user) %}
+            <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+          {% else %} {{ other_user[0]|upper }} {% endif %}
+        </div>
+        <div>
+  <b>{{ other_user }}:</b>
+  <span class="answer-text">{{ other_answer }}</span>
+  {% if answers_edited and answers_edited.get(other_user) %}
+    <small class="edited-pill">(editado)</small>
+  {% endif %}
 </div>
 
-<div class="travel-content" id="wishlist-travel-tab">
-<div class="travel-tools"><input type="search" id="wishlist-search" placeholder="Buscar destino/país en quiero ir..."><button type="button" class="clear-btn" onclick="clearTravelSearch('wishlist')">Limpiar</button></div>
-<div class="travels-grid">
-{% for id, destination, description, travel_date, is_visited, created_by in travels if not is_visited %}
-<div class="travel-card wishlist">
-<div class="travel-cover">
-{% if travel_photos_dict[id] %}
-<div class="travel-photos">{% for photo in travel_photos_dict[id] %}<img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%;border-radius:10px;margin:5px 0;">{% endfor %}</div>
-{% else %}<div class="empty-album"><i class="fas fa-map-marker-alt"></i></div>{% endif %}
-<div class="travel-status status-wishlist">Deseado</div></div>
-<div class="travel-info">
-<h3 class="travel-destination">{{ destination }}</h3>
-{% if description %}<p class="travel-description">{{ description }}</p>{% endif %}
-<div class="travel-meta"><span>{{ travel_photos_dict[id]|length }} fotos</span><span><div class="user-avatar" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:5px;">{% if profile_pictures.get(created_by) %}<img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">{% else %}{{ created_by[0]|upper }}{% endif %}</div>Creado por {{ created_by }}</span></div>
-<div class="travel-actions">
-<form method="POST" action="/toggle_travel_status"><input type="hidden" name="travel_id" value="{{ id }}"><button type="submit" class="icon-btn" title="Marcar como visitado"><i class="fas fa-check"></i></button></form>
-<button type="button" class="icon-btn plus" title="Añadir foto" onclick="togglePhotoMenu('wish-{{ id }}')"><i class="fas fa-plus"></i></button>
-<div class="photo-popover" id="photo-popover-wish-{{ id }}"><div class="photo-popover-header"><div class="photo-popover-title">Añadir foto por enlace</div><button type="button" class="close-btn" onclick="togglePhotoMenu('wish-{{ id }}')"><i class="fas fa-times"></i></button></div>
-<form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('wish-{{ id }}')"><input type="hidden" name="travel_id" value="{{ id }}"><input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required><button type="submit" class="button"><i class="fas fa-check"></i> Guardar</button></form>
-<div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div></div>
-<form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');"><input type="hidden" name="travel_id" value="{{ id }}"><button type="submit" class="icon-btn" title="Eliminar viaje"><i class="fas fa-trash"></i></button></form>
-</div></div></div>
-{% else %}<p>No hay destinos en tu lista de deseos. ¡Añade el primero!</p>{% endfor %}
-</div><div class="pager" id="wishlist-pager"></div>
+      </div>
+    </div>
+
+  {# === D) Nadie ha respondido aún === #}
+  {% else %}
+    <form method="POST" class="inline-form" style="display:flex; gap:8px;">
+      <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
+      <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+    </form>
+  {% endif %}
 </div>
 
-<div class="travel-content" id="add-travel-tab"><div class="travel-form">
-<h4>Añadir nuevo viaje</h4>
-<form method="POST"><input type="text" name="travel_destination" placeholder="Destino" required><textarea name="travel_description" placeholder="Descripción (opcional)" rows="3"></textarea><input type="date" name="travel_date"><div style="display:flex;align-items:center;margin-bottom:15px;"><input type="checkbox" id="travel_visited" name="travel_visited" style="width:auto;margin-right:10px;"><label for="travel_visited">¿Ya lo hemos visitado?</label></div><button type="submit"><i class="fas fa-plus"></i> Añadir viaje</button></form>
-</div></div>
 
-{% endif %}
-</div>
+      <!-- Lista de deseos -->
+      <div class="section animate-in delay-3">
+        <h3>Nuestra Lista de Deseos</h3>
+        <p>Cosas que nos gustaría tener o regalarnos mutuamente.</p>
+
+        <div class="wishlist-tabs" id="wishlist-tabs-container">
+          <div class="wishlist-tab active" data-tab="wanted">Deseados</div>
+          <div class="wishlist-tab" data-tab="purchased">Comprados</div>
+          <div class="wishlist-tab" data-tab="add-wishlist">Añadir Deseo</div>
+        </div>
+
+        <!-- Deseados -->
+        <div class="wishlist-content active" id="wanted-tab">
+          <div class="wishlist-grid">
+            {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift in wishlist_items if not is_purchased %}
+              {% set pri = (priority or 'media') %}
+              {% set soy_creador = (created_by == username) %}
+              {% set oculto_para_mi = (is_gift and not soy_creador) %}
+
+              <div class="wishlist-card {% if oculto_para_mi %}locked{% endif %}">
+                <div class="wishlist-status status-wanted">Deseado</div>
+
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
+                    <i class="fas fa-flag"></i> {{ pri|capitalize }}
+                  </div>
+                  {% if is_gift %}
+                    <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
+                  {% endif %}
+                </div>
+
+                {% if oculto_para_mi %}
+                  <div class="gift-mask">
+                    🎁 <div>¡Esto es un regalo para ti!</div>
+                    <small>Los detalles están ocultos para mantener la sorpresa.</small>
+                  </div>
+                {% else %}
+                  <h3 class="wishlist-product">{{ product_name }}</h3>
+                  {% if product_link %}
+                    <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+                      <i class="fas fa-link"></i> Ver producto
+                    </a>
+                  {% endif %}
+                  {% if notes %}
+                    <p class="wishlist-notes">{{ notes }}</p>
+                  {% endif %}
+                {% endif %}
+
+                <div class="wishlist-meta">
+                  <span>
+                    <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                      {% if profile_pictures.get(created_by) %}
+                        <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
+                      {% else %}
+                        {{ created_by[0]|upper }}
+                      {% endif %}
+                    </div>
+                    Creado por {{ created_by }}
+                  </span>
+                  <span>{{ created_at[:10] }}</span>
+                </div>
+
+                {% if not oculto_para_mi %}
+                <div class="wishlist-actions">
+                  <form method="POST" action="/toggle_wishlist_status">
+                    <input type="hidden" name="item_id" value="{{ id }}">
+                    <button type="submit" class="icon-btn" title="Marcar como comprado">
+                      <i class="fas fa-check"></i>
+                    </button>
+                  </form>
+
+                  <button class="icon-btn" title="Editar"
+                          onclick='openEditModal({{ id }}, {{ product_name|tojson }}, {{ product_link|tojson }}, {{ (notes or "")|tojson }}, {{ pri|tojson }}, {{ is_gift|tojson }})'>
+                    <i class="fas fa-edit"></i>
+                  </button>
+
+                  {% if created_by == username %}
+                  <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+                    <input type="hidden" name="item_id" value="{{ id }}">
+                    <button type="submit" class="icon-btn" title="Eliminar">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </form>
+                  {% endif %}
+                </div>
+                {% endif %}
+              </div>
+            {% else %}
+              <p>No hay productos en tu lista de deseos. ¡Añade el primero!</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Comprados -->
+        <div class="wishlist-content" id="purchased-tab">
+          <div class="wishlist-grid">
+            {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift in wishlist_items if is_purchased %}
+              {% set pri = (priority or 'media') %}
+              {% set soy_creador = (created_by == username) %}
+              {% set oculto_para_mi = (is_gift and not soy_creador) %}
+
+              <div class="wishlist-card purchased {% if oculto_para_mi %}locked{% endif %}">
+                <div class="wishlist-status status-purchased">Comprado</div>
+
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
+                    <i class="fas fa-flag"></i> {{ pri|capitalize }}
+                  </div>
+                  {% if is_gift %}
+                    <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
+                  {% endif %}
+                </div>
+
+                {% if oculto_para_mi %}
+                  <div class="gift-mask">
+                    🎁 <div>¡Esto es (o era) un regalo para ti!</div>
+                    <small>Detalles ocultos para mantener la sorpresa.</small>
+                  </div>
+                {% else %}
+                  <h3 class="wishlist-product">{{ product_name }}</h3>
+                  {% if product_link %}
+                    <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+                      <i class="fas fa-link"></i> Ver producto
+                    </a>
+                  {% endif %}
+                  {% if notes %}
+                    <p class="wishlist-notes">{{ notes }}</p>
+                  {% endif %}
+                {% endif %}
+
+                <div class="wishlist-meta">
+                  <span>
+                    <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                      {% if profile_pictures.get(created_by) %}
+                        <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
+                      {% else %}
+                        {{ created_by[0]|upper }}
+                      {% endif %}
+                    </div>
+                    Creado por {{ created_by }}
+                  </span>
+                  <span>{{ created_at[:10] }}</span>
+                </div>
+
+                {% if not oculto_para_mi %}
+                <div class="wishlist-actions">
+                  <form method="POST" action="/toggle_wishlist_status">
+                    <input type="hidden" name="item_id" value="{{ id }}">
+                    <button type="submit" class="icon-btn" title="Marcar como no comprado">
+                      <i class="fas fa-undo"></i>
+                    </button>
+                  </form>
+
+                  <button class="icon-btn" title="Editar"
+                          onclick='openEditModal({{ id }}, {{ product_name|tojson }}, {{ product_link|tojson }}, {{ (notes or "")|tojson }}, {{ pri|tojson }}, {{ is_gift|tojson }})'>
+                    <i class="fas fa-edit"></i>
+                  </button>
+
+                  {% if created_by == username %}
+                  <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+                    <input type="hidden" name="item_id" value="{{ id }}">
+                    <button type="submit" class="icon-btn" title="Eliminar">
+                      <i class="fas a fa-trash"></i>
+                    </button>
+                  </form>
+                  {% endif %}
+                </div>
+                {% endif %}
+              </div>
+            {% else %}
+              <p>No hay productos comprados todavía.</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Añadir deseo -->
+        <div class="wishlist-content" id="add-wishlist-tab">
+          <div class="wishlist-form">
+            <h4>Añadir nuevo producto</h4>
+            <form method="POST">
+              <input type="text" name="product_name" placeholder="Nombre del producto" required>
+              <input type="url" name="product_link" placeholder="Enlace (opcional)">
+              <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
+
+              <select name="priority" required style="margin-bottom:15px;">
+                <option value="alta">Prioridad: Alta 🔴</option>
+                <option value="media" selected>Prioridad: Media 🟡</option>
+                <option value="baja">Prioridad: Baja 🟢</option>
+              </select>
+
+              <div style="display:flex; align-items:center; gap:10px; margin: 6px 0 16px 0;">
+                <input type="checkbox" id="is_gift" name="is_gift" style="width:auto;">
+                <label for="is_gift" style="margin:0;">¿Es un regalo (ocultar a la otra persona)? 🎁</label>
+              </div>
+
+              <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Viajes -->
+      <div class="section animate-in delay-4">
+        <h3>Nuestros Viajes</h3>
+        <p>Lugares que hemos visitado y destinos que soñamos conocer juntos.</p>
+
+        <div class="travel-tabs" id="travel-tabs-container">
+          <div class="travel-tab active" data-tab="visited">Lugares Visitados</div>
+          <div class="travel-tab" data-tab="wishlist-travel">Quiero Ir</div>
+          <div class="travel-tab" data-tab="add-travel">Añadir Viaje</div>
+        </div>
+
+        <!-- Visitados -->
+        <div class="travel-content active" id="visited-tab">
+          <div class="travel-tools">
+            <input type="search" id="visited-search" placeholder="Buscar destino/país en visitados...">
+            <button type="button" class="clear-btn" onclick="clearTravelSearch('visited')">Limpiar</button>
+          </div>
+
+          <div class="travels-grid">
+            {% for id, destination, description, travel_date, is_visited, created_by in travels if is_visited %}
+              <div class="travel-card visited">
+                <div class="travel-cover">
+                  {% if travel_photos_dict[id] %}
+                    <div class="travel-photos">
+                      {% for photo in travel_photos_dict[id] %}
+                        <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <div class="empty-album">
+                      <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                  {% endif %}
+                  <div class="travel-status status-visited">Visitado</div>
+                </div>
+
+                <div class="travel-info">
+                  <h3 class="travel-destination">{{ destination }}</h3>
+                  {% if travel_date %}<p class="travel-date">{{ travel_date }}</p>{% endif %}
+                  {% if description %}<p class="travel-description">{{ description }}</p>{% endif %}
+
+                  <div class="travel-meta">
+                    <span>{{ travel_photos_dict[id]|length }} fotos</span>
+                    <span>
+                      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                        {% if profile_pictures.get(created_by) %}<img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">{% else %}{{ created_by[0]|upper }}{% endif %}
+                      </div>
+                      Creado por {{ created_by }}
+                    </span>
+                  </div>
+
+                  <div class="travel-actions">
+                    <form method="POST" action="/toggle_travel_status">
+                      <input type="hidden" name="travel_id" value="{{ id }}">
+                      <button type="submit" class="icon-btn" title="Mover a deseados">
+                        <i class="fas fa-heart"></i>
+                      </button>
+                    </form>
+
+                    <button type="button" class="icon-btn plus" title="Añadir foto" onclick="togglePhotoMenu('visited-{{ id }}')">
+                      <i class="fas fa-plus"></i>
+                    </button>
+
+                    <div class="photo-popover" id="photo-popover-visited-{{ id }}">
+                      <div class="photo-popover-header">
+                        <div class="photo-popover-title">Añadir foto por enlace</div>
+                        <button type="button" class="close-btn" onclick="togglePhotoMenu('visited-{{ id }}')">
+                          <i class="fas fa-times"></i>
+                        </button>
+                      </div>
+                      <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('visited-{{ id }}')">
+                        <input type="hidden" name="travel_id" value="{{ id }}">
+                        <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
+                        <button type="submit" class="button"><i class="fas fa-check"></i> Guardar</button>
+                      </form>
+                      <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
+                    </div>
+
+                    <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
+                      <input type="hidden" name="travel_id" value="{{ id }}">
+                      <button type="submit" class="icon-btn" title="Eliminar viaje">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            {% else %}
+              <p>No hay lugares visitados todavía. ¡Añade el primero!</p>
+            {% endfor %}
+          </div>
+          <div class="pager" id="visited-pager"></div>
+        </div>
+
+        <!-- Quiero ir -->
+        <div class="travel-content" id="wishlist-travel-tab">
+          <div class="travel-tools">
+            <input type="search" id="wishlist-search" placeholder="Buscar destino/país en quiero ir...">
+            <button type="button" class="clear-btn" onclick="clearTravelSearch('wishlist')">Limpiar</button>
+          </div>
+
+          <div class="travels-grid">
+            {% for id, destination, description, travel_date, is_visited, created_by in travels if not is_visited %}
+              <div class="travel-card wishlist">
+                <div class="travel-cover">
+                  {% if travel_photos_dict[id] %}
+                    <div class="travel-photos">
+                      {% for photo in travel_photos_dict[id] %}
+                        <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <div class="empty-album">
+                      <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                  {% endif %}
+                  <div class="travel-status status-wishlist">Deseado</div>
+                </div>
+
+                <div class="travel-info">
+                  <h3 class="travel-destination">{{ destination }}</h3>
+                  {% if description %}<p class="travel-description">{{ description }}</p>{% endif %}
+
+                  <div class="travel-meta">
+                    <span>{{ travel_photos_dict[id]|length }} fotos</span>
+                    <span>
+                      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                        {% if profile_pictures.get(created_by) %}<img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">{% else %}{{ created_by[0]|upper }}{% endif %}
+                      </div>
+                      Creado por {{ created_by }}
+                    </span>
+                  </div>
+
+                  <div class="travel-actions">
+                    <form method="POST" action="/toggle_travel_status">
+                      <input type="hidden" name="travel_id" value="{{ id }}">
+                      <button type="submit" class="icon-btn" title="Marcar como visitado">
+                        <i class="fas fa-check"></i>
+                      </button>
+                    </form>
+
+                    <button type="button" class="icon-btn plus" title="Añadir foto" onclick="togglePhotoMenu('wish-{{ id }}')">
+                      <i class="fas fa-plus"></i>
+                    </button>
+
+                    <div class="photo-popover" id="photo-popover-wish-{{ id }}">
+                      <div class="photo-popover-header">
+                        <div class="photo-popover-title">Añadir foto por enlace</div>
+                        <button type="button" class="close-btn" onclick="togglePhotoMenu('wish-{{ id }}')">
+                          <i class="fas fa-times"></i>
+                        </button>
+                      </div>
+                      <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('wish-{{ id }}')">
+                        <input type="hidden" name="travel_id" value="{{ id }}">
+                        <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
+                        <button type="submit" class="button"><i class="fas fa-check"></i> Guardar</button>
+                      </form>
+                      <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
+                    </div>
+
+                    <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
+                      <input type="hidden" name="travel_id" value="{{ id }}">
+                      <button type="submit" class="icon-btn" title="Eliminar viaje">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            {% else %}
+              <p>No hay destinos en tu lista de deseos. ¡Añade el primero!</p>
+            {% endfor %}
+          </div>
+          <div class="pager" id="wishlist-pager"></div>
+        </div>
+
+        <!-- Añadir viaje -->
+        <div class="travel-content" id="add-travel-tab">
+          <div class="travel-form">
+            <h4>Añadir nuevo viaje</h4>
+            <form method="POST">
+              <input type="text" name="travel_destination" placeholder="Destino" required>
+              <textarea name="travel_description" placeholder="Descripción (opcional)" rows="3"></textarea>
+              <input type="date" name="travel_date">
+              <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                <input type="checkbox" id="travel_visited" name="travel_visited" style="width: auto; margin-right: 10px;">
+                <label for="travel_visited">¿Ya lo hemos visitado?</label>
+              </div>
+              <button type="submit"><i class="fas fa-plus"></i> Añadir viaje</button>
+            </form>
+          </div>
+        </div>
+
+      {% endif %}
+  </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-(function(){const msgs={{(flash_messages if flash_messages is defined else get_flashed_messages(with_categories=true))|tojson|safe}},wrap=document.getElementById('toasts');if(!wrap)return;function closeToast(el){el.classList.add('closing');el.addEventListener('animationend',()=>el.remove(),{once:true})}window.showToast=function(category,text){const el=document.createElement('div');el.className='toast '+(category||'info');el.innerHTML=`<div class="toast-content"><span class="dot"></span><span class="text">${text}</span><button class="close" aria-label="Cerrar">&times;</button></div><div class="progress"></div>`;el.querySelector('.close').addEventListener('click',()=>closeToast(el));const life=3500;setTimeout(()=>closeToast(el),life);requestAnimationFrame(()=>{el.querySelector('.progress').style.width='0%'});wrap.appendChild(el)};if(Array.isArray(msgs)){msgs.forEach(([cat,txt],i)=>{setTimeout(()=>window.showToast(cat,txt),i*150)})}})();
-function createHearts(){const c=document.getElementById('hearts-container');if(!c)return;for(let i=0;i<15;i++){const h=document.createElement('div');h.classList.add('heart');h.innerHTML='❤';h.style.left=Math.random()*100+'vw';h.style.animationDelay=Math.random()*5+'s';h.style.fontSize=(Math.random()*15+15)+'px';c.appendChild(h)}}
-function setupTabs(){document.querySelectorAll('#wishlist-tabs-container .wishlist-tab').forEach(t=>{t.addEventListener('click',()=>{document.querySelectorAll('#wishlist-tabs-container .wishlist-tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.wishlist-content').forEach(c=>c.classList.remove('active'));t.classList.add('active');document.getElementById(`${t.getAttribute('data-tab')}-tab`)?.classList.add('active')})});document.querySelectorAll('#travel-tabs-container .travel-tab').forEach(t=>{t.addEventListener('click',()=>{document.querySelectorAll('#travel-tabs-container .travel-tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.travel-content').forEach(c=>c.classList.remove('active'));t.classList.add('active');document.getElementById(`${t.getAttribute('data-tab')}-tab`)?.classList.add('active')})})}
-(function(){document.addEventListener('click',e=>{if(e.target.matches('.close-modal')){document.querySelectorAll('.modal').forEach(m=>m.style.display='none')}});window.addEventListener('click',e=>{document.querySelectorAll('.modal').forEach(m=>{if(e.target===m)m.style.display='none'})});const si=document.getElementById('settingsIcon'),pm=document.getElementById('profileModal');if(si&&pm)si.addEventListener('click',()=>{pm.style.display='block'})})();
-window.openEditModal=function(id,name,link,notes,priority,is_gift){const m=document.getElementById('editWishlistModal');if(!m)return;const $=s=>document.getElementById(s);$('editItemId').value=id;$('editProductName').value=name||'';$('editProductLink').value=link||'';$('editNotes').value=notes||'';$('editPriority').value=priority||'media';$('editIsGift').checked=!!is_gift;m.style.display='block'};
-function togglePhotoMenu(key){const id='photo-popover-'+key,t=document.getElementById(id);if(!t)return;document.querySelectorAll('.photo-popover.open').forEach(p=>{if(p.id!==id)p.classList.remove('open')});t.classList.toggle('open');if(t.classList.contains('open')){const i=t.querySelector('input[type="url"]');if(i)setTimeout(()=>i.focus(),120)}}
-window.togglePhotoMenu=togglePhotoMenu;function closePhotoMenuAfterSubmit(key){const t=document.getElementById('photo-popover-'+key);if(t)setTimeout(()=>t.classList.remove('open'),50)}window.closePhotoMenuAfterSubmit=closePhotoMenuAfterSubmit;
-document.addEventListener('click',e=>{const p=document.querySelector('.photo-popover.open');if(!p)return;const inside=p.contains(e.target),plus=e.target.closest('.icon-btn.plus');if(!inside&&!plus)p.classList.remove('open')});document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.photo-popover.open').forEach(p=>p.classList.remove('open'))});
-let map,christianMarker,claraMarker,distanceLine;let christianLocation={lat:39.1925,lng:-0.4353,name:"Algemesí, Valencia"},claraLocation={lat:37.8882,lng:-4.7794,name:"Córdoba"};
-function initMap(){const el=document.getElementById('distanceMap');if(!el||typeof L==='undefined')return;map=L.map('distanceMap').setView([39.5,-3.0],6);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
-const cA={{ (profile_pictures.get('mochito') or 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23e84393"/><text x="50" y="60" font-size="40" text-anchor="middle" fill="white">C</text></svg>')|tojson }},
-clA={{ (profile_pictures.get('mochita') or 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23a29bfe"/><text x="50" y="60" font-size="40" text-anchor="middle" fill="white">C</text></svg>')|tojson }};
-const ci=L.divIcon({className:'custom-div-icon',html:`<div style="background-image:url(${cA});background-size:cover;width:40px;height:40px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(0,0,0,.5);"></div>`,iconSize:[40,40],iconAnchor:[20,20]}),
-cli=L.divIcon({className:'custom-div-icon',html:`<div style="background-image:url(${clA});background-size:cover;width:40px;height:40px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(0,0,0,.5);"></div>`,iconSize:[40,40],iconAnchor:[20,20]});
-christianMarker=L.marker([christianLocation.lat,christianLocation.lng],{icon:ci}).addTo(map);claraMarker=L.marker([claraLocation.lat,claraLocation.lng],{icon:cli}).addTo(map);updateDistanceLine();updateDistanceInfo();loadSavedLocations()}
-function updateDistanceLine(){if(!map||!christianMarker||!claraMarker)return;if(distanceLine)map.removeLayer(distanceLine);distanceLine=L.polyline([[christianLocation.lat,christianLocation.lng],[claraLocation.lat,claraLocation.lng]],{color:'#e84393',weight:3,dashArray:'10, 10',lineJoin:'round'}).addTo(map);const g=new L.featureGroup([christianMarker,claraMarker]);map.fitBounds(g.getBounds().pad(0.2))}
-function updateDistanceInfo(){const el=document.getElementById('distanceValue');if(!el)return;const d=calculateDistance(christianLocation.lat,christianLocation.lng,claraLocation.lat,claraLocation.lng);el.textContent=`${d.toFixed(1)} km`;const ch=document.getElementById('christianLocation'),cl=document.getElementById('claraLocation');if(ch)ch.textContent=christianLocation.name;if(cl)cl.textContent=claraLocation.name}
-function calculateDistance(a,b,c,d){const R=6371,dLat=deg2rad(c-a),dLon=deg2rad(d-b),x=Math.sin(dLat/2)**2+Math.cos(deg2rad(a))*Math.cos(deg2rad(c))*Math.sin(dLon/2)**2;return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}function deg2rad(d){return d*(Math.PI/180)}
-async function geocodeAddress(q){try{const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`,{headers:{'Accept-Language':'es'}}),d=await r.json();if(Array.isArray(d)&&d.length>0)return{lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon),name:(d[0].display_name||'').split(',')[0]||q};throw new Error('Ubicación no encontrada')}catch(e){console.error(e);window.showToast?.('error','No se pudo encontrar la ubicación. Intenta con una dirección más específica.');return null}}
-async function reverseGeocode(lat,lon){try{const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`,{headers:{'Accept-Language':'es'}}),d=await r.json(),city=d.address?.city||d.address?.town||d.address?.village||d.address?.hamlet||d.name||'Mi ubicación',cc=d.address?.country_code?d.address.country_code.toUpperCase():'';return `${city}${cc?', '+cc:''}`}catch{return'Mi ubicación'}}
-function saveLocations(){try{localStorage.setItem('coupleLocations',JSON.stringify({christian:christianLocation,clara:claraLocation}))}catch{}}
-function loadSavedLocations(){try{const s=localStorage.getItem('coupleLocations');if(!s)return;const Ls=JSON.parse(s);christianLocation=Ls.christian||christianLocation;claraLocation=Ls.clara||claraLocation;christianMarker?.setLatLng([christianLocation.lat,christianLocation.lng]);claraMarker?.setLatLng([claraLocation.lat,claraLocation.lng]);updateDistanceLine();updateDistanceInfo()}catch{}}
-function setupLocationForm(){const f=document.getElementById('locationForm');if(!f)return;f.addEventListener('submit',async e=>{e.preventDefault();const i=document.getElementById('userLocation');if(!i||!i.value.trim())return;const b=f.querySelector('button[type="submit"]'),o=b?b.innerHTML:'';if(b){b.innerHTML='<i class="fas fa-spinner fa-spin"></i> Buscando...';b.disabled=true}const d=await geocodeAddress(i.value.trim());if(d){const u={{ (session.username or '')|tojson }};if(u==='mochito'){christianLocation=d;christianMarker?.setLatLng([d.lat,d.lng])}else if(u==='mochita'){claraLocation=d;claraMarker?.setLatLng([d.lat,d.lng])}else{christianLocation=d;christianMarker?.setLatLng([d.lat,d.lng])}updateDistanceLine();updateDistanceInfo();saveLocations();i.value='';window.showToast?.('success',`¡Ubicación actualizada! Ahora estás en ${d.name}`)}if(b){b.innerHTML=o;b.disabled=false}})}
-function setupUseMyLocation(){const b=document.getElementById('useMyLocationBtn');if(!b)return;b.addEventListener('click',()=>{if(!('geolocation'in navigator)){window.showToast?.('error','Tu navegador no soporta geolocalización.');return}const o=b.innerHTML;b.innerHTML='<i class="fas fa-spinner fa-spin"></i> Obteniendo...';b.disabled=true;const opts={enableHighAccuracy:true,timeout:12000,maximumAge:0};navigator.geolocation.getCurrentPosition(async pos=>{const {latitude:lat,longitude:lng}=pos.coords,name=await reverseGeocode(lat,lng),u={{ (session.username or '')|tojson }};if(u==='mochito'){christianLocation={lat,lng,name};christianMarker?.setLatLng([lat,lng])}else if(u==='mochita'){claraLocation={lat,lng,name};claraMarker?.setLatLng([lat,lng])}else{christianLocation={lat,lng,name};christianMarker?.setLatLng([lat,lng])}updateDistanceLine();updateDistanceInfo();saveLocations();window.showToast?.('success',`Ubicación actualizada: ${name}`);b.innerHTML=o;b.disabled=false},err=>{const m={1:'Has denegado el permiso de ubicación.',2:'No se pudo determinar tu ubicación.',3:'Tiempo de espera agotado.'}[err.code]||'Error al obtener la ubicación.';window.showToast?.('error',m+' Puedes introducir la ciudad manualmente.');b.innerHTML=o;b.disabled=false},opts)})}
-function paginateGrid(gridEl,pagerEl,pageSize=6){if(!gridEl||!pagerEl)return{goToFirst(){},refresh(){}};const cards=[...gridEl.querySelectorAll(':scope > .travel-card')];let empty=gridEl.querySelector('.no-results');if(!empty){empty=document.createElement('p');empty.className='no-results';empty.textContent='Sin resultados.';empty.style.display='none';empty.style.gridColumn='1/-1';gridEl.appendChild(empty)}let cur=1;function matched(){return cards.filter(el=>el.dataset.match!=='0')}function hideAll(){cards.forEach(el=>el.style.display='none')}function btn(label,onClick,o={}){const b=document.createElement('button');b.textContent=label;b.className='page-btn'+(o.active?' active':'');if(o.title)b.title=o.title;if(o.disabled)b.disabled=true;(!o.disabled&&onClick)&&b.addEventListener('click',onClick);return b}function renderPager(tp){pagerEl.innerHTML='';pagerEl.appendChild(btn('«',()=>{cur=1;renderPage()},{disabled:cur===1,title:'Primera'}));pagerEl.appendChild(btn('‹',()=>{cur=Math.max(1,cur-1);renderPage()},{disabled:cur===1,title:'Anterior'}));const w=5;let from=Math.max(1,cur-Math.floor(w/2)),to=Math.min(tp,from+w-1);from=Math.max(1,to-w+1);for(let p=from;p<=to;p++)pagerEl.appendChild(btn(String(p),()=>{cur=p;renderPage()},{active:p===cur}));pagerEl.appendChild(btn('›',()=>{cur=Math.min(tp,cur+1);renderPage()},{disabled:cur===tp,title:'Siguiente'}));pagerEl.appendChild(btn('»',()=>{cur=tp;renderPage()},{disabled:cur===tp,title:'Última'}))}function renderPage(){const m=matched(),total=m.length,tp=Math.max(1,Math.ceil(total/pageSize));if(cur>tp)cur=tp;if(total===0){hideAll();empty.style.display='';pagerEl.style.display='none';pagerEl.innerHTML='';return}else empty.style.display='none';if(tp<=1){pagerEl.style.display='none';pagerEl.innerHTML='';hideAll();m.forEach(el=>el.style.display='');return}pagerEl.style.display='flex';const start=(cur-1)*pageSize,end=start+pageSize;hideAll();m.forEach((el,i)=>{el.style.display=(i>=start&&i<end)?'':''});renderPager(tp)}renderPage();return{goToFirst:()=>{cur=1;renderPage()},refresh:()=>renderPage()}}
-let visitedPagerAPI=null,wishlistPagerAPI=null;
-function setupTravelPagination(){const vg=document.querySelector('#visited-tab .travels-grid'),vp=document.getElementById('visited-pager'),wg=document.querySelector('#wishlist-travel-tab .travels-grid'),wp=document.getElementById('wishlist-pager');visitedPagerAPI=paginateGrid(vg,vp,6);wishlistPagerAPI=paginateGrid(wg,wp,6)}
-function setupTravelSearch(scopeId,inputId,pager){const grid=document.querySelector(`#${scopeId} .travels-grid`),input=document.getElementById(inputId);if(!grid||!input)return;const cards=[...grid.querySelectorAll(':scope > .travel-card')];function apply(termRaw){const t=(termRaw||'').trim().toLowerCase();cards.forEach(card=>{const dest=(card.querySelector('.travel-destination')?.textContent||'').toLowerCase(),desc=(card.querySelector('.travel-description')?.textContent||'').toLowerCase(),date=(card.querySelector('.travel-date')?.textContent||'').toLowerCase(),match=t===''||dest.includes(t)||desc.includes(t)||date.includes(t);card.dataset.match=match?'1':'0'});pager?.goToFirst?.();pager?.refresh?.()}input.addEventListener('input',()=>apply(input.value));apply(input.value)}
-function clearTravelSearch(which){if(which==='visited'){const i=document.getElementById('visited-search');if(i){i.value='';setupTravelSearch('visited-tab','visited-search',visitedPagerAPI)}}if(which==='wishlist'){const i=document.getElementById('wishlist-search');if(i){i.value='';setupTravelSearch('wishlist-travel-tab','wishlist-search',wishlistPagerAPI)}}}
-document.addEventListener('DOMContentLoaded',function(){createHearts();setupTabs();initMap();setupLocationForm();setupUseMyLocation();setupTravelPagination();startDailyQuestionCountdown();setupTravelSearch('visited-tab','visited-search',visitedPagerAPI);setupTravelSearch('wishlist-travel-tab','wishlist-search',wishlistPagerAPI);document.querySelectorAll('.section, .banner').forEach((el,i)=>{el.classList.add('animate-in');el.classList.add(`delay-${i%5}`)});document.querySelectorAll('input[type="file"]').forEach(i=>{i.addEventListener('change',function(){const l=this.previousElementSibling;if(l&&this.files.length>0){const ic=l.querySelector('i');if(ic)ic.className='fas fa-check'}})})});
-window.openEditIntimModal=function(eventId,place,notes){const m=document.getElementById('editIntimModal');if(!m)return;const idEl=document.getElementById('editEventId'),pl=document.getElementById('editIntimPlace'),nt=document.getElementById('editIntimNotes'),sid=(eventId??'').toString();idEl.value=sid;pl.value=(place??'');nt.value=(notes??'');if(!sid){alert('No se pudo cargar el ID del evento. Recarga la página e inténtalo de nuevo.');return}m.style.display='block'};
-(function(){const TZ='Europe/Madrid';function nowTz(tz){return new Date(new Date().toLocaleString('en-US',{timeZone:tz}))}function msToMidnight(tz){const n=nowTz(tz),nx=new Date(n);nx.setHours(24,0,0,0);return nx-n}function fmt(ms){if(ms<0)ms=0;const s=Math.floor(ms/1000),h=String(Math.floor(s/3600)).padStart(2,'0'),m=String(Math.floor((s%3600)/60)).padStart(2,'0'),ss=String(s%60).padStart(2,'0');return `${h}:${m}:${ss}`}window.startDailyQuestionCountdown=function(){const el=document.getElementById('dqTimer');if(!el)return;function tick(){const ms=msToMidnight(TZ);if(ms<=0){el.textContent='00:00:00';setTimeout(()=>location.reload(),800);return}el.textContent=fmt(ms)}tick();setInterval(tick,1000)}})();
-(function(){const f=document.getElementById('loginForm'),u=document.getElementById('username'),p=document.getElementById('password'),caps=document.getElementById('capsHint'),tg=document.querySelector('.toggle-pass'),btn=document.getElementById('loginBtn'),rem=document.getElementById('rememberMe');try{const sv=localStorage.getItem('cc_username');if(sv){u.value=sv;rem.checked=true;p.focus()}}catch{}tg?.addEventListener('click',()=>{const isPwd=p.type==='password';p.type=isPwd?'text':'password';tg.innerHTML=`<i class="fas ${isPwd?'fa-eye-slash':'fa-eye'}"></i>`;p.focus()});['keydown','keyup'].forEach(ev=>{p.addEventListener(ev,e=>{const on=e.getModifierState&&e.getModifierState('CapsLock');caps.style.display=on?'':'none'})});f?.addEventListener('submit',()=>{btn.classList.add('btn-loading');try{if(rem.checked&&u.value.trim()){localStorage.setItem('cc_username',u.value.trim());document.cookie="remember=1; max-age="+(60*60*24*30)+"; path=/; SameSite=Lax"}else{localStorage.removeItem('cc_username');document.cookie="remember=; Max-Age=0; path=/"}}catch{}})})();
-function toggleEdit(who){const f=document.getElementById('ans-form-'+who),txt=document.getElementById('ans-text-'+who);if(!f||!txt)return false;const show=f.style.display!=='none';f.style.display=show?'none':'block';if(!show){const i=f.querySelector('input[name="answer"]');if(i)i.value=(txt.textContent||'').trim();i?.focus()}return false}
+// =====================
+// TOASTS (Flash + helper)
+// =====================
+(function () {
+  const msgs = {{ (flash_messages if flash_messages is defined else get_flashed_messages(with_categories=true)) | tojson | safe }};
+  const wrap = document.getElementById('toasts');
+  if (!wrap) return;
 
-  const es = new EventSource('/events');
-  ['wishlist_update','travel_update','intim_update','profile_update','banner_update','dq_answer','meeting_update','schedule_update','location_update']
-    .forEach(ev => es.addEventListener(ev, () => location.reload()));
+  function closeToast(el){
+    el.classList.add('closing');
+    el.addEventListener('animationend', ()=> el.remove(), { once:true });
+  }
+
+  window.showToast = function(category, text){
+    const el = document.createElement('div');
+    el.className = 'toast ' + (category || 'info');
+    el.innerHTML = `
+      <div class="toast-content">
+        <span class="dot"></span>
+        <span class="text">${text}</span>
+        <button class="close" aria-label="Cerrar">&times;</button>
+      </div>
+      <div class="progress"></div>
+    `;
+    el.querySelector('.close').addEventListener('click', () => closeToast(el));
+    const life = 3500;
+    setTimeout(() => closeToast(el), life);
+    requestAnimationFrame(() => { el.querySelector('.progress').style.width = '0%'; });
+    wrap.appendChild(el);
+  };
+
+  if (Array.isArray(msgs)) {
+    msgs.forEach(([cat, txt], i) => {
+      setTimeout(()=> window.showToast(cat, txt), i * 150);
+    });
+  }
+})();
+
+
+// =====================
+// Corazones de fondo
+// =====================
+function createHearts() {
+  const container = document.getElementById('hearts-container');
+  if (!container) return;
+  const heartCount = 15;
+  for (let i = 0; i < heartCount; i++) {
+    const heart = document.createElement('div');
+    heart.classList.add('heart');
+    heart.innerHTML = '❤';
+    heart.style.left = Math.random() * 100 + 'vw';
+    heart.style.animationDelay = Math.random() * 5 + 's';
+    heart.style.fontSize = (Math.random() * 15 + 15) + 'px';
+    container.appendChild(heart);
+  }
+}
+
+
+// =====================
+// Tabs: Wishlist & Viajes
+// =====================
+function setupTabs() {
+  // Wishlist
+  document.querySelectorAll('#wishlist-tabs-container .wishlist-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('#wishlist-tabs-container .wishlist-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.wishlist-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      const tabId = tab.getAttribute('data-tab');
+      const target = document.getElementById(`${tabId}-tab`);
+      if (target) target.classList.add('active');
+    });
+  });
+
+  // Travel
+  document.querySelectorAll('#travel-tabs-container .travel-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('#travel-tabs-container .travel-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.travel-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      const tabId = tab.getAttribute('data-tab');
+      const target = document.getElementById(`${tabId}-tab`);
+      if (target) target.classList.add('active');
+    });
+  });
+}
+
+
+// =====================
+// Modal genérico
+// =====================
+(function setupModals(){
+  document.addEventListener('click', (e) => {
+    if (e.target.matches('.close-modal')) {
+      document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+    }
+  });
+  window.addEventListener('click', (event) => {
+    document.querySelectorAll('.modal').forEach(modal => {
+      if (event.target === modal) modal.style.display = 'none';
+    });
+  });
+  const settingsIcon = document.getElementById('settingsIcon');
+  const profileModal = document.getElementById('profileModal');
+  if (settingsIcon && profileModal) {
+    settingsIcon.addEventListener('click', () => { profileModal.style.display = 'block'; });
+  }
+})();
+
+// Editor wishlist
+window.openEditModal = function(id, name, link, notes, priority, is_gift) {
+  const modal = document.getElementById('editWishlistModal');
+  if (!modal) return;
+  const $ = (sel) => document.getElementById(sel);
+
+  $('editItemId').value = id;
+  $('editProductName').value = name || '';
+  $('editProductLink').value = link || '';
+  $('editNotes').value = notes || '';
+  $('editPriority').value = priority || 'media';
+  $('editIsGift').checked = !!is_gift;
+
+  modal.style.display = 'block';
+};
+
+
+// =====================
+// Popover fotos (viajes)
+// =====================
+function togglePhotoMenu(key){
+  const id = 'photo-popover-' + key;
+  const target = document.getElementById(id);
+  if(!target) return;
+  document.querySelectorAll('.photo-popover.open').forEach(p => { if(p.id !== id) p.classList.remove('open'); });
+  target.classList.toggle('open');
+  if(target.classList.contains('open')){
+    const input = target.querySelector('input[type="url"]');
+    if(input){ setTimeout(()=> input.focus(), 120); }
+  }
+}
+window.togglePhotoMenu = togglePhotoMenu;
+
+function closePhotoMenuAfterSubmit(key){
+  const id = 'photo-popover-' + key;
+  const target = document.getElementById(id);
+  if(target) setTimeout(()=> target.classList.remove('open'), 50);
+}
+window.closePhotoMenuAfterSubmit = closePhotoMenuAfterSubmit;
+
+document.addEventListener('click', (e) => {
+  const openPop = document.querySelector('.photo-popover.open');
+  if(!openPop) return;
+  const isInsidePopover = openPop.contains(e.target);
+  const isPlusBtn = e.target.closest('.icon-btn.plus');
+  if(!isInsidePopover && !isPlusBtn){ openPop.classList.remove('open'); }
+});
+document.addEventListener('keydown', (e) => { if(e.key === 'Escape'){ document.querySelectorAll('.photo-popover.open').forEach(p => p.classList.remove('open')); } });
+
+
+// =====================
+// MAPA (Leaflet) + Distancia + Geocoding + GEOLOCALIZACIÓN REAL
+// =====================
+let map, christianMarker, claraMarker, distanceLine;
+let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" };
+let claraLocation     = { lat: 37.8882, lng: -4.7794, name: "Córdoba" };
+
+function initMap() {
+  const mapEl = document.getElementById('distanceMap');
+  if (!mapEl || typeof L === 'undefined') return;
+
+  map = L.map('distanceMap').setView([39.5, -3.0], 6);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+
+  const christianAvatar = {{ (profile_pictures.get('mochito') or 
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23e84393"/><text x="50" y="60" font-size="40" text-anchor="middle" fill="white">C</text></svg>') | tojson }};
+  const claraAvatar = {{ (profile_pictures.get('mochita') or 
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23a29bfe"/><text x="50" y="60" font-size="40" text-anchor="middle" fill="white">C</text></svg>') | tojson }};
+
+  const christianIcon = L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div style="background-image:url(${christianAvatar});background-size:cover;width:40px;height:40px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(0,0,0,.5);"></div>`,
+    iconSize: [40, 40], iconAnchor: [20, 20]
+  });
+  const claraIcon = L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div style="background-image:url(${claraAvatar});background-size:cover;width:40px;height:40px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(0,0,0,.5);"></div>`,
+    iconSize: [40, 40], iconAnchor: [20, 20]
+  });
+
+  christianMarker = L.marker([christianLocation.lat, christianLocation.lng], { icon: christianIcon }).addTo(map);
+  claraMarker     = L.marker([claraLocation.lat, claraLocation.lng], { icon: claraIcon }).addTo(map);
+
+  updateDistanceLine();
+  updateDistanceInfo();
+  loadSavedLocations();
+}
+
+function updateDistanceLine() {
+  if (!map || !christianMarker || !claraMarker) return;
+  if (distanceLine) map.removeLayer(distanceLine);
+
+  distanceLine = L.polyline(
+    [[christianLocation.lat, christianLocation.lng], [claraLocation.lat, claraLocation.lng]],
+    { color: '#e84393', weight: 3, dashArray: '10, 10', lineJoin: 'round' }
+  ).addTo(map);
+
+  const group = new L.featureGroup([christianMarker, claraMarker]);
+  map.fitBounds(group.getBounds().pad(0.2));
+}
+
+function updateDistanceInfo() {
+  const el = document.getElementById('distanceValue');
+  if (!el) return;
+  const distance = calculateDistance(
+    christianLocation.lat, christianLocation.lng,
+    claraLocation.lat, claraLocation.lng
+  );
+  el.textContent = `${distance.toFixed(1)} km`;
+
+  const ch = document.getElementById('christianLocation');
+  const cl = document.getElementById('claraLocation');
+  if (ch) ch.textContent = christianLocation.name;
+  if (cl) cl.textContent = claraLocation.name;
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+function deg2rad(deg){ return deg * (Math.PI/180); }
+
+// Geocodificación directa (texto -> coords)
+async function geocodeAddress(address) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
+    const response = await fetch(url, { headers: { 'Accept-Language': 'es' } });
+    const data = await response.json();
+    if (Array.isArray(data) && data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon),
+        name: (data[0].display_name || '').split(',')[0] || address
+      };
+    }
+    throw new Error('Ubicación no encontrada');
+  } catch (error) {
+    console.error('Error en geocodificación:', error);
+    window.showToast?.('error', 'No se pudo encontrar la ubicación. Intenta con una dirección más específica.');
+    return null;
+  }
+}
+
+// 🔁 Geocodificación inversa (coords -> nombre corto)
+async function reverseGeocode(lat, lon) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`, { headers: { 'Accept-Language': 'es' }});
+    const data = await res.json();
+    const city = data.address?.city || data.address?.town || data.address?.village || data.address?.hamlet || data.name || 'Mi ubicación';
+    const country = data.address?.country_code ? data.address.country_code.toUpperCase() : '';
+    return `${city}${country ? ', ' + country : ''}`;
+  } catch {
+    return 'Mi ubicación';
+  }
+}
+
+// Persistencia local
+function saveLocations() {
+  try {
+    const locations = { christian: christianLocation, clara: claraLocation };
+    localStorage.setItem('coupleLocations', JSON.stringify(locations));
+  } catch { /* nada */ }
+}
+function loadSavedLocations() {
+  try {
+    const saved = localStorage.getItem('coupleLocations');
+    if (!saved) return;
+    const locations = JSON.parse(saved);
+    christianLocation = locations.christian || christianLocation;
+    claraLocation     = locations.clara     || claraLocation;
+    christianMarker?.setLatLng([christianLocation.lat, christianLocation.lng]);
+    claraMarker?.setLatLng([claraLocation.lat, claraLocation.lng]);
+    updateDistanceLine();
+    updateDistanceInfo();
+  } catch { /* nada */ }
+}
+
+// Formulario: actualizar por texto
+function setupLocationForm() {
+  const form = document.getElementById('locationForm');
+  if (!form) return;
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const input = document.getElementById('userLocation');
+    if (!input || !input.value.trim()) return;
+
+    const btn = form.querySelector('button[type="submit"]');
+    const original = btn ? btn.innerHTML : '';
+    if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...'; btn.disabled = true; }
+
+    const locationData = await geocodeAddress(input.value.trim());
+
+    if (locationData) {
+      const currentUser = {{ (session.username or '') | tojson }};
+      if (currentUser === 'mochito') {
+        christianLocation = locationData;
+        christianMarker?.setLatLng([locationData.lat, locationData.lng]);
+      } else if (currentUser === 'mochita') {
+        claraLocation = locationData;
+        claraMarker?.setLatLng([locationData.lat, locationData.lng]);
+      } else {
+        christianLocation = locationData;
+        christianMarker?.setLatLng([locationData.lat, locationData.lng]);
+      }
+      updateDistanceLine();
+      updateDistanceInfo();
+      saveLocations();
+      input.value = '';
+      window.showToast?.('success', `¡Ubicación actualizada! Ahora estás en ${locationData.name}`);
+    }
+
+    if (btn) { btn.innerHTML = original; btn.disabled = false; }
+  });
+}
+
+// 🌐 Botón: usar ubicación real del navegador
+function setupUseMyLocation() {
+  const btn = document.getElementById('useMyLocationBtn');
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    if (!('geolocation' in navigator)) {
+      window.showToast?.('error', 'Tu navegador no soporta geolocalización.');
+      return;
+    }
+
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Obteniendo...';
+    btn.disabled = true;
+
+    const opts = { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 };
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      const name = await reverseGeocode(lat, lng);
+
+      const currentUser = {{ (session.username or '') | tojson }};
+      if (currentUser === 'mochito') {
+        christianLocation = { lat, lng, name };
+        christianMarker?.setLatLng([lat, lng]);
+      } else if (currentUser === 'mochita') {
+        claraLocation = { lat, lng, name };
+        claraMarker?.setLatLng([lat, lng]);
+      } else {
+        christianLocation = { lat, lng, name };
+        christianMarker?.setLatLng([lat, lng]);
+      }
+
+      updateDistanceLine();
+      updateDistanceInfo();
+      saveLocations();
+      window.showToast?.('success', `Ubicación actualizada: ${name}`);
+      btn.innerHTML = original; btn.disabled = false;
+    }, (err) => {
+      const msg = {
+        1: 'Has denegado el permiso de ubicación.',
+        2: 'No se pudo determinar tu ubicación.',
+        3: 'Tiempo de espera agotado.'
+      }[err.code] || 'Error al obtener la ubicación.';
+      window.showToast?.('error', msg + ' Puedes introducir la ciudad manualmente.');
+      btn.innerHTML = original; btn.disabled = false;
+    }, opts);
+  });
+}
+
+
+// =====================
+// Paginación + Buscador (viajes) – 6 por página
+// =====================
+function paginateGrid(gridEl, pagerEl, pageSize = 6) {
+  if (!gridEl || !pagerEl) return { goToFirst(){}, refresh(){} };
+  const allCards = Array.from(gridEl.querySelectorAll(':scope > .travel-card'));
+  let emptyMsg = gridEl.querySelector('.no-results');
+  if (!emptyMsg) {
+    emptyMsg = document.createElement('p');
+    emptyMsg.className = 'no-results';
+    emptyMsg.textContent = 'Sin resultados.';
+    emptyMsg.style.display = 'none';
+    emptyMsg.style.gridColumn = '1/-1';
+    gridEl.appendChild(emptyMsg);
+  }
+  let current = 1;
+  function getMatched() { return allCards.filter(el => el.dataset.match !== '0'); }
+  function hideAll() { allCards.forEach(el => { el.style.display = 'none'; }); }
+  function makeBtn(label, onClick, opts = {}) {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.className = 'page-btn' + (opts.active ? ' active' : '');
+    if (opts.title) b.title = opts.title;
+    if (opts.disabled) b.disabled = true;
+    if (!opts.disabled && onClick) b.addEventListener('click', onClick);
+    return b;
+  }
+  function renderPager(totalPages) {
+    pagerEl.innerHTML = '';
+    pagerEl.appendChild(makeBtn('«', () => { current = 1; renderPage(); }, { disabled: current === 1, title: 'Primera' }));
+    pagerEl.appendChild(makeBtn('‹', () => { current = Math.max(1, current - 1); renderPage(); }, { disabled: current === 1, title: 'Anterior' }));
+    const windowSize = 5;
+    let from = Math.max(1, current - Math.floor(windowSize / 2));
+    let to = Math.min(totalPages, from + windowSize - 1);
+    from = Math.max(1, to - windowSize + 1);
+    for (let p = from; p <= to; p++) {
+      pagerEl.appendChild(makeBtn(String(p), () => { current = p; renderPage(); }, { active: p === current }));
+    }
+    pagerEl.appendChild(makeBtn('›', () => { current = Math.min(totalPages, current + 1); renderPage(); }, { disabled: current === totalPages, title: 'Siguiente' }));
+    pagerEl.appendChild(makeBtn('»', () => { current = totalPages; renderPage(); }, { disabled: current === totalPages, title: 'Última' }));
+  }
+  function renderPage() {
+    const matched = getMatched();
+    const total = matched.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    if (current > totalPages) current = totalPages;
+    if (total === 0) {
+      hideAll(); emptyMsg.style.display = ''; pagerEl.style.display = 'none'; pagerEl.innerHTML = ''; return;
+    } else { emptyMsg.style.display = 'none'; }
+    if (totalPages <= 1) {
+      pagerEl.style.display = 'none'; pagerEl.innerHTML = '';
+      hideAll(); matched.forEach(el => { el.style.display = ''; });
+      return;
+    }
+    pagerEl.style.display = 'flex';
+    const start = (current - 1) * pageSize;
+    const end = start + pageSize;
+    hideAll();
+    matched.forEach((el, i) => { el.style.display = (i >= start && i < end) ? '' : 'none'; });
+    renderPager(totalPages);
+  }
+  renderPage();
+  return { goToFirst: () => { current = 1; renderPage(); }, refresh: () => renderPage() };
+}
+let visitedPagerAPI = null;
+let wishlistPagerAPI = null;
+
+function setupTravelPagination() {
+  const visitedGrid = document.querySelector('#visited-tab .travels-grid');
+  const visitedPager = document.getElementById('visited-pager');
+  const wishlistGrid = document.querySelector('#wishlist-travel-tab .travels-grid');
+  const wishlistPager = document.getElementById('wishlist-pager');
+  visitedPagerAPI = paginateGrid(visitedGrid, visitedPager, 6);
+  wishlistPagerAPI = paginateGrid(wishlistGrid, wishlistPager, 6);
+}
+
+function setupTravelSearch(scopeId, inputId, pagerAPI) {
+  const grid = document.querySelector(`#${scopeId} .travels-grid`);
+  const input = document.getElementById(inputId);
+  if (!grid || !input) return;
+
+  const cards = Array.from(grid.querySelectorAll(':scope > .travel-card'));
+  function applyFilter(termRaw) {
+    const term = (termRaw || '').trim().toLowerCase();
+    cards.forEach(card => {
+      const dest = (card.querySelector('.travel-destination')?.textContent || '').toLowerCase();
+      const desc = (card.querySelector('.travel-description')?.textContent || '').toLowerCase();
+      const date = (card.querySelector('.travel-date')?.textContent || '').toLowerCase();
+      const match = term === '' || dest.includes(term) || desc.includes(term) || date.includes(term);
+      card.dataset.match = match ? '1' : '0';
+    });
+    pagerAPI?.goToFirst?.();
+    pagerAPI?.refresh?.();
+  }
+  input.addEventListener('input', () => applyFilter(input.value));
+  applyFilter(input.value);
+}
+function clearTravelSearch(which) {
+  if (which === 'visited') {
+    const i = document.getElementById('visited-search');
+    if (i) { i.value = ''; setupTravelSearch('visited-tab', 'visited-search', visitedPagerAPI); }
+  }
+  if (which === 'wishlist') {
+    const i = document.getElementById('wishlist-search');
+    if (i) { i.value = ''; setupTravelSearch('wishlist-travel-tab', 'wishlist-search', wishlistPagerAPI); }
+  }
+}
+
+
+// =====================
+// DOMContentLoaded
+// =====================
+document.addEventListener('DOMContentLoaded', function() {
+  createHearts();
+  setupTabs();
+  initMap();
+  setupLocationForm();
+  setupUseMyLocation(); // <-- activa el botón de ubicación real
+  setupTravelPagination();
+  startDailyQuestionCountdown();
+  setupTravelSearch('visited-tab', 'visited-search', visitedPagerAPI);
+  setupTravelSearch('wishlist-travel-tab', 'wishlist-search', wishlistPagerAPI);
+
+  document.querySelectorAll('.section, .banner').forEach((el, index) => {
+    el.classList.add('animate-in');
+    el.classList.add(`delay-${index % 5}`);
+  });
+
+  document.querySelectorAll('input[type="file"]').forEach(input => {
+    input.addEventListener('change', function() {
+      const label = this.previousElementSibling;
+      if (label && this.files.length > 0) {
+        const icon = label.querySelector('i');
+        if (icon) icon.className = 'fas fa-check';
+      }
+    });
+  });
+});
+
+
+// Función para abrir modal de edición de evento de intimidad
+window.openEditIntimModal = function(eventId, place, notes) {
+  const modal = document.getElementById('editIntimModal');
+  if (!modal) return;
+
+  // Asegura que siempre hay inputs
+  const idEl    = document.getElementById('editEventId');
+  const placeEl = document.getElementById('editIntimPlace');
+  const notesEl = document.getElementById('editIntimNotes');
+
+  // Normaliza valores
+  const safeId    = (eventId ?? '').toString();
+  const safePlace = (place ?? '');
+  const safeNotes = (notes ?? '');
+
+  idEl.value    = safeId;
+  placeEl.value = safePlace;
+  notesEl.value = safeNotes;
+
+  // Mini validación visual por si el id no llegara
+  if (!safeId) {
+    alert('No se pudo cargar el ID del evento. Recarga la página e inténtalo de nuevo.');
+    return;
+  }
+
+  modal.style.display = 'block';
+};
+
+(function(){
+  const TZ = 'Europe/Madrid';
+
+  // Hora "ahora" en la zona horaria dada (mantiene coherencia incluso con cambios DST)
+  function nowInTz(tz){
+    // Truco: convertimos a string en esa TZ y lo volvemos a Date;
+    // así los componentes reflejan el reloj de la TZ.
+    return new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
+  }
+
+  // Milisegundos hasta la próxima medianoche en esa TZ
+  function msUntilNextMidnightTz(tz){
+    const now = nowInTz(tz);
+    const next = new Date(now);
+    // 24:00 del "hoy" de la TZ => próxima medianoche de esa TZ
+    next.setHours(24, 0, 0, 0);
+    return next - now;
+  }
+
+  function formatHMS(ms){
+    if (ms < 0) ms = 0;
+    const totalSec = Math.floor(ms / 1000);
+    const h = String(Math.floor(totalSec / 3600)).padStart(2,'0');
+    const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2,'0');
+    const s = String(totalSec % 60).padStart(2,'0');
+    return `${h}:${m}:${s}`;
+  }
+
+  window.startDailyQuestionCountdown = function(){
+    const el = document.getElementById('dqTimer');
+    if (!el) return;
+
+    function tick(){
+      const ms = msUntilNextMidnightTz(TZ);
+      // Si llegó la medianoche en España, refresca para cargar la nueva pregunta
+      if (ms <= 0){
+        el.textContent = '00:00:00';
+        // Pequeño delay para evitar bucles
+        setTimeout(()=> location.reload(), 800);
+        return;
+      }
+      el.textContent = formatHMS(ms);
+    }
+
+    tick(); // primer pintado inmediato
+    setInterval(tick, 1000);
+  };
+})();
+
+// === Login UX helpers ===
+(function(){
+  const form   = document.getElementById('loginForm');
+  const userEl = document.getElementById('username');
+  const passEl = document.getElementById('password');
+  const capsEl = document.getElementById('capsHint');
+  const toggle = document.querySelector('.toggle-pass');
+  const btn    = document.getElementById('loginBtn');
+  const rememberEl = document.getElementById('rememberMe');
+
+  // Autocompletar usuario recordado
+  try {
+    const savedU = localStorage.getItem('cc_username');
+    if (savedU) {
+      userEl.value = savedU;
+      rememberEl.checked = true;
+      passEl.focus();
+    }
+  } catch {}
+
+  // Mostrar/Ocultar contraseña
+  toggle?.addEventListener('click', () => {
+    const isPwd = passEl.type === 'password';
+    passEl.type = isPwd ? 'text' : 'password';
+    toggle.innerHTML = `<i class="fas ${isPwd ? 'fa-eye-slash' : 'fa-eye'}"></i>`;
+    passEl.focus();
+  });
+
+  // Aviso de Bloq Mayús
+  ['keydown','keyup'].forEach(ev => {
+    passEl.addEventListener(ev, (e) => {
+      const on = e.getModifierState && e.getModifierState('CapsLock');
+      if (on) { capsEl.style.display = ''; } else { capsEl.style.display = 'none'; }
+    });
+  });
+
+  // Botón con "loading" + recordar usuario
+  form?.addEventListener('submit', () => {
+    btn.classList.add('btn-loading');
+    // recuerda el usuario si el checkbox está marcado
+    try {
+      if (rememberEl.checked && userEl.value.trim()) {
+        localStorage.setItem('cc_username', userEl.value.trim());
+        // cookie 'remember' para que el backend pueda leerlo si quiere
+        document.cookie = "remember=1; max-age=" + (60*60*24*30) + "; path=/; SameSite=Lax";
+      } else {
+        localStorage.removeItem('cc_username');
+        document.cookie = "remember=; Max-Age=0; path=/";
+      }
+    } catch {}
+  });
+})();
+
+
+  // Extra: si tienes CSP que bloquea inline styles, este helper asegura visibilidad
+  (function ensureModalCSS() {
+    const modal = document.getElementById('editIntimModal');
+    if (!modal) return;
+    // Si tu .modal usa display:none por defecto, luego lo abrimos con 'block'
+    // Asegúrate que ningún otro CSS lo tape:
+    modal.style.zIndex = 1000; // ya lo traías, refuerzo por si acaso
+  })();
+
+
+  // abre/cierra el formulario de edición de TU respuesta
+  function toggleEdit(key){
+    const form = document.getElementById('ans-form-' + key);
+    if(!form) return false;
+    form.style.display = (form.style.display === 'none' || !form.style.display) ? 'block' : 'none';
+    if (form.style.display === 'block') {
+      const input = form.querySelector('input[name="answer"]');
+      if (input) setTimeout(()=> input.focus(), 50);
+    }
+    return false; // evita el salto del enlace
+  }
+  window.toggleEdit = toggleEdit;
+
 </script>
+
+<footer class="site-footer">
+    <p>Esta web ha sido realizada por 
+        <a href="https://www.instagram.com/chriismartinezz/" target="_blank" class="autor-link">Christian Martínez</a> ❤️
+    </p>
+</footer>
+
 </body>
 </html>

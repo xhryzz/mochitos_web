@@ -886,31 +886,29 @@
                       </div>
                       
                       {% if intim_unlocked and username in ['mochito','mochita'] %}
-                      <div class="event-actions" style="display: flex; gap: 6px;">
-                        <!-- Botón Editar -->
-                        <button
-  type="button"
-  class="icon-btn edit-intim-btn"
-  data-edit-intim
-  data-id="{{ event.id }}"
-  data-place="{{ (event.place or '')|e }}"
-  data-notes="{{ (event.notes or '')|e }}"
-  title="Editar evento">
-  <i class="fas fa-edit"></i>
-</button>
+  <div class="event-actions" style="display: flex; gap: 6px;">
+    <button
+      type="button"
+      class="icon-btn edit-intim-btn"
+      title="Editar evento"
+      onclick='openEditIntimModal(
+        {{ event.id }},
+        {{ (event.place or "")|tojson }},
+        {{ (event.notes or "")|tojson }}
+      )'>
+      <i class="fas fa-edit"></i>
+    </button>
+    <form method="POST" action="/delete_intim_event"
+          onsubmit="return confirm('¿Estás seguro de que quieres eliminar este evento?');"
+          style="display: inline;">
+      <input type="hidden" name="event_id" value="{{ event.id }}">
+      <button type="submit" class="icon-btn" title="Eliminar evento">
+        <i class="fas fa-trash"></i>
+      </button>
+    </form>
+  </div>
+{% endif %}
 
-                        
-                        <!-- Botón Eliminar -->
-                        <form method="POST" action="/delete_intim_event" 
-                              onsubmit="return confirm('¿Estás seguro de que quieres eliminar este evento?');"
-                              style="display: inline;">
-                          <input type="hidden" name="event_id" value="{{ event.id }}">
-                          <button type="submit" class="icon-btn" title="Eliminar evento">
-                            <i class="fas fa-trash"></i>
-                          </button>
-                        </form>
-                      </div>
-                      {% endif %}
                     </div>
                   </div>
                 {% endfor %}
@@ -2143,34 +2141,7 @@ window.openEditIntimModal = function(eventId, place, notes) {
     } catch {}
   });
 })();
-  // Delegación: funciona aunque el contenido se renderice dinámicamente
-  document.addEventListener('click', function (e) {
-    const btn = e.target.closest('[data-edit-intim]');
-    if (!btn) return;
 
-    const id    = btn.getAttribute('data-id') || '';
-    const place = btn.getAttribute('data-place') || '';
-    const notes = btn.getAttribute('data-notes') || '';
-
-    if (!id) {
-      alert('No se pudo cargar el ID del evento. Recarga la página e inténtalo de nuevo.');
-      return;
-    }
-    // Llama a tu función existente (o abre directo el modal si prefieres)
-    if (typeof window.openEditIntimModal === 'function') {
-      window.openEditIntimModal(id, place, notes);
-    } else {
-      // Fallback: abre el modal manualmente
-      const modal   = document.getElementById('editIntimModal');
-      const idEl    = document.getElementById('editEventId');
-      const placeEl = document.getElementById('editIntimPlace');
-      const notesEl = document.getElementById('editIntimNotes');
-      if (modal && idEl && placeEl && notesEl) {
-        idEl.value = id; placeEl.value = place; notesEl.value = notes;
-        modal.style.display = 'block';
-      }
-    }
-  });
 
   // Extra: si tienes CSP que bloquea inline styles, este helper asegura visibilidad
   (function ensureModalCSS() {

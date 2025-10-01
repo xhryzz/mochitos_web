@@ -2251,6 +2251,39 @@ window.openEditIntimModal = function(eventId, place, notes) {
   }
   window.toggleEdit = toggleEdit;
 
+
+/* SSE “drop-in” compatible con tu HTML antiguo.
+   - No depende de IDs concretos.
+   - Si el navegador no soporta SSE, no pasa nada.
+   - Ante un evento, recarga para reflejar cambios (rápido y robusto).
+*/
+(function () {
+  if (!('EventSource' in window)) return;
+
+  var es = new EventSource('/events');  // endpoint SSE del backend
+  // Mantener viva la conexión:
+  es.addEventListener('ping', function(){ /* noop */ });
+
+  // Cualquier cambio relevante dispara una recarga ligera
+  es.addEventListener('update', function (e) {
+    try {
+      var data = JSON.parse(e.data || '{}');
+      // Puedes filtrar si quieres, pero recargar es lo más sólido sin tocar HTML
+      if (['question','answer','wishlist','travel','intim','banner','profile','schedules','locations'].includes(data.kind)) {
+        // Espera un micro-tick por si llegan varios eventos seguidos
+        setTimeout(function(){ location.reload(); }, 80);
+      }
+    } catch (_) {
+      // En caso de payload raro, recarga también
+      setTimeout(function(){ location.reload(); }, 120);
+    }
+  });
+
+  es.onerror = function () {
+    // Deja que el navegador reintente solo; no cierres la conexión
+  };
+})();
+
 </script>
 
 <footer class="site-footer">

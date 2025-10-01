@@ -614,10 +614,14 @@
 }
 
 
-/* =========================
-   TEMA "Nico" (café/latte)
-   ========================= */
-:root[data-theme="nico"]{
+
+/* ============================
+   HOTFIX TEMA "Nico" ☕
+   (Pegar al FINAL del <style>)
+   ============================ */
+
+/* 1) Habilita el tema por atributo data-theme en <html> */
+[data-theme="nico"]{
   /* Paleta */
   --primary-color: #6B4F3A;   /* espresso */
   --secondary-color:#C69C6D;  /* latte */
@@ -633,135 +637,91 @@
   --purchased-color:#A8A29E;  /* gris-cálido */
 }
 
-/* Fondo general más cálido */
-:root[data-theme="nico"] body{
+/* 2) Fondo general más cálido */
+[data-theme="nico"] body{
   background: linear-gradient(135deg,#F6ECD9 0%, #EDE3D5 60%, #E7DDCF 100%);
   color: var(--dark-text);
 }
 
-/* Banner con filtro cálido */
-:root[data-theme="nico"] .banner{
-  box-shadow: 0 30px 60px rgba(107,79,58,.18);
+/* 3) Quita la ola ROSA del overlay y pon una café */
+[data-theme="nico"] body::before{
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%236B4F3A' fill-opacity='0.06' d='M0,224L48,213.3C96,203,192,181,288,160C384,139,480,117,576,122.7C672,128,768,160,864,170.7C960,181,1056,171,1152,165.3C1248,160,1344,160,1392,160L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'/%3E%3C/svg%3E");
 }
-:root[data-theme="nico"] .section.banner img{
+
+/* 4) Asegura que los elementos principales usen el gradiente del tema */
+[data-theme="nico"] .section::before,
+[data-theme="nico"] button,
+[data-theme="nico"] .logout,
+[data-theme="nico"] .site-footer{
+  background: var(--gradient);
+}
+
+/* 5) Ajustes visuales clave para que “se note” el cambio */
+[data-theme="nico"] .section{
+  border-radius: 24px;
+  border: 1px solid rgba(139,108,83,.18);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 12px 28px rgba(43,33,26,.10);
+}
+[data-theme="nico"] .section h3{
+  color: var(--primary-color);
+  border-bottom-color: var(--secondary-color);
+}
+[data-theme="nico"] .section h3::after{
+  background: var(--accent-color);
+}
+[data-theme="nico"] .section.banner img{
   filter: saturate(1.02) contrast(1.02) sepia(.12);
 }
-
-/* Tarjetas más redondeadas y estilo papel */
-:root[data-theme="nico"] .section{
-  border-radius: 24px;
-  border: 1px solid rgba(139, 108, 83, .18);
-  backdrop-filter: blur(4px);
-}
-:root[data-theme="nico"] .section::before{
-  background: var(--gradient);
-}
-
-/* Inputs y botones */
-:root[data-theme="nico"] input[type="text"],
-:root[data-theme="nico"] input[type="password"],
-:root[data-theme="nico"] input[type="date"],
-:root[data-theme="nico"] input[type="url"],
-:root[data-theme="nico"] textarea,
-:root[data-theme="nico"] select[name="priority"]{
-  background:#FBF6EE;
-  border:2px solid #E4D8C7;
-  border-radius:16px;
-}
-:root[data-theme="nico"] input:focus,
-:root[data-theme="nico"] textarea:focus{
-  border-color:#C8A27D;
-  box-shadow:0 0 0 4px rgba(198,156,109,.25);
-}
-:root[data-theme="nico"] button{
-  background: var(--gradient);
-  box-shadow: 0 8px 22px rgba(107,79,58,.28);
-  border-radius: 14px;
-}
-:root[data-theme="nico"] .icon-btn{
+[data-theme="nico"] .icon-btn{
   background:#FFF8EE;
   color:#6B4F3A;
   border:1px solid #EADCCB;
 }
-
-/* Títulos */
-:root[data-theme="nico"] .section h3{
-  color: var(--primary-color);
-  border-bottom-color: var(--secondary-color);
+[data-theme="nico"] input[type="text"],
+[data-theme="nico"] input[type="password"],
+[data-theme="nico"] input[type="date"],
+[data-theme="nico"] input[type="url"],
+[data-theme="nico"] textarea,
+[data-theme="nico"] select[name="priority"]{
+  background:#FBF6EE;
+  border:2px solid #E4D8C7;
+  border-radius:16px;
 }
-:root[data-theme="nico"] .section h3::after{
-  background: var(--accent-color);
+[data-theme="nico"] input:focus,
+[data-theme="nico"] textarea:focus{
+  border-color:#C8A27D;
+  box-shadow:0 0 0 4px rgba(198,156,109,.25);
 }
-
-/* Cards de viajes/wishlist */
-:root[data-theme="nico"] .travel-card,
-:root[data-theme="nico"] .wishlist-card{
-  background: #FCF8F1;
+[data-theme="nico"] .travel-card,
+[data-theme="nico"] .wishlist-card{
+  background:#FCF8F1;
   box-shadow: 0 12px 28px rgba(43,33,26,.10);
 }
-:root[data-theme="nico"] .travel-cover img{
-  filter: sepia(.08) saturate(1.05) contrast(1.02);
-}
-
-/* Badges / chips */
-:root[data-theme="nico"] .priority-chip{
+[data-theme="nico"] .priority-chip{
   background:#FBF4E6; border-color:#E0C8A6; color:#6B4F3A;
 }
-:root[data-theme="nico"] .priority-high{
+[data-theme="nico"] .priority-high{
   background:#FBE9E6; border-color:#E0A7A0; color:#8F2820;
 }
-:root[data-theme="nico"] .priority-mid{
+[data-theme="nico"] .priority-mid{
   background:#FFF4DD; border-color:#E7C88E; color:#7A5A2D;
 }
-:root[data-theme="nico"] .priority-low{
+[data-theme="nico"] .priority-low{
   background:#E9FFF6; border-color:#B8E0D0; color:#0F6B5C;
 }
-:root[data-theme="nico"] .gift-chip{
+[data-theme="nico"] .gift-chip{
   background:#F3E7DA; border-color:#D5B899; color:#6B4F3A;
 }
-:root[data-theme="nico"] .gift-mask{
+[data-theme="nico"] .gift-mask{
   border-color:#D5B899; background:#FBF4E8; color:#6B4F3A;
 }
-:root[data-theme="nico"] .streak-badge i{ color: var(--secondary-color); }
-
-/* Login */
-:root[data-theme="nico"] .login-container{
-  background: var(--gradient);
-}
-:root[data-theme="nico"] .login-box{
-  background: var(--card-bg);
-}
-
-/* Distancia: panel */
-:root[data-theme="nico"] .distance-info{
+[data-theme="nico"] .distance-info{
   background: rgba(252,248,241,.98);
   border: 1px solid #E4D8C7;
 }
-:root[data-theme="nico"] .distance-value{
+[data-theme="nico"] .distance-value{
   color: var(--primary-color);
-}
-
-/* Footer */
-:root[data-theme="nico"] .site-footer{
-  background: var(--gradient);
-}
-
-/* ===== Selector de tema (UI) ===== */
-.theme-switch{
-  position: fixed; left: 92px; top: 28px; z-index: 1000;
-  display:flex; gap:8px; background:#ffffff; border-radius:999px;
-  box-shadow: var(--shadow); padding:6px; align-items:center;
-}
-.theme-switch button{
-  border:none; padding:8px 12px; border-radius:999px; cursor:pointer;
-  font-weight:700;
-  background:#F6F6F6; color:#444;
-}
-.theme-switch button.active{
-  background: var(--gradient); color:#fff;
-}
-@media (max-width:768px){
-  .theme-switch{ left: 16px; top: 86px; }
 }
 
 

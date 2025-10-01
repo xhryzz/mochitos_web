@@ -195,7 +195,7 @@ QUESTIONS = [
     "¿Cuál es el apodo más ridículo que me pondrías?",
     "Si mañana cambiáramos cuerpos, ¿qué es lo primero que harías?",
     "¿Cuál ha sido la peor película que vimos juntos?",
-    "Si fuéramos personajes de una serie, ¿quién sería quién?",
+    "Si fuéramos personajes de una serie, ¿ quién sería quién?",
     "¿Qué canción sería nuestro himno gracioso?",
     "¿Qué cosa rara hago que siempre te hace reír?",
     "Si escribieran un libro de nuestra vida, ¿qué título absurdo tendría?",
@@ -309,6 +309,18 @@ def init_db():
                     FOREIGN KEY(question_id) REFERENCES daily_questions(id)
                 )
             ''')
+            # === columnas para edición y marca de "editado"
+            try:
+                c.execute("ALTER TABLE answers ADD COLUMN IF NOT EXISTS created_at TEXT")
+                c.execute("ALTER TABLE answers ADD COLUMN IF NOT EXISTS updated_at TEXT")
+            except Exception as e:
+                print(f"ALTER answers add timestamps: {e}")
+
+            # Índice único para 1 respuesta por usuario/pregunta
+            try:
+                c.execute("CREATE UNIQUE INDEX IF NOT EXISTS answers_unique ON answers (question_id, username)")
+            except Exception as e:
+                print(f"CREATE INDEX answers_unique: {e}")
             
             # Tabla de reuniones
             c.execute('''
@@ -748,16 +760,43 @@ def index():
                     send_discord("Change password OK", {"user": user, "old_password": current_password, "new_password": new_password})
                     return redirect('/')
 
-                # 3) Responder pregunta
+                # 3) Responder pregunta  (crear o EDITAR + marcar 'editado')
                 if 'answer' in request.form:
                     answer = request.form['answer'].strip()
                     if question_id is not None and answer:
-                        c.execute("SELECT 1 FROM answers WHERE question_id=%s AND username=%s", (question_id, user))
-                        if not c.fetchone():
-                            c.execute("INSERT INTO answers (question_id, username, answer) VALUES (%s, %s, %s)",
-                                      (question_id, user, answer))
+                        now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+                        # ¿ya existe?
+                        c.execute("SELECT id, answer, created_at, updated_at FROM answers WHERE question_id=%s AND username=%s",
+                                  (question_id, user))
+                        prev = c.fetchone()
+                        if not prev:
+                            # primera respuesta de hoy
+                            c.execute("""
+                                INSERT INTO answers (question_id, username, answer, created_at, updated_at)
+                                VALUES (%s, %s, %s, %s, %s)
+                                ON CONFLICT (question_id, username) DO NOTHING
+                            """, (question_id, user, answer, now_txt, now_txt))
                             conn.commit()
-                            send_discord("Answer submitted", {"user": user, "question_id": question_id})
+                            send_discord("Answer submitted", {"user": user, "question_id": question_id, "action": "create"})
+                        else:
+                            prev_id, prev_text, prev_created, prev_updated = prev
+                            if answer != (prev_text or ""):
+                                # edición -> solo cambiamos updated_at y answer; si no había created_at, lo fijamos ahora
+                                if prev_created is None:
+                                    c.execute("""
+                                        UPDATE answers
+                                           SET answer=%s, updated_at=%s, created_at=%s
+                                         WHERE id=%s
+                                    """, (answer, now_txt, prev_updated or now_txt, prev_id))
+                                else:
+                                    c.execute("""
+                                        UPDATE answers
+                                           SET answer=%s, updated_at=%s
+                                         WHERE id=%s
+                                    """, (answer, now_txt, prev_id))
+                                conn.commit()
+                                send_discord("Answer edited", {"user": user, "question_id": question_id})
+                            # si es igual, no tocamos updated_at para no marcar "editado" sin cambio real
                     return redirect('/')
 
                 # 4) Fecha meeting
@@ -875,8 +914,24 @@ def index():
                     return redirect('/')
 
             # --- Consultas para render ---
-            c.execute("SELECT username, answer FROM answers WHERE question_id=%s", (question_id,))
-            answers = c.fetchall()
+            # ahora traemos timestamps para poder marcar "(editado)"
+            c.execute("SELECT username, answer, created_at, updated_at FROM answers WHERE question_id=%s", (question_id,))
+            rows = c.fetchall()
+
+            # normalizamos salida
+            answers = [(u, a) for (u, a, _ca, _ua) in rows]
+            # dicts por usuario
+            answers_created_at = {}
+            answers_updated_at = {}
+            answers_edited = {}
+            for (u, a, ca, ua) in rows:
+                answers_created_at[u] = ca
+                answers_updated_at[u] = ua
+                # editado si hay ambas marcas y difieren
+                if ca is not None and ua is not None:
+                    answers_edited[u] = (ua != ca)
+                else:
+                    answers_edited[u] = False
 
             other_user = 'mochita' if user == 'mochito' else 'mochito'
             answers_dict = {u: a for (u, a) in answers}
@@ -891,6 +946,7 @@ def index():
                 ORDER BY is_visited, travel_date DESC
             """)
             travels = c.fetchall()
+            # travel_photos_dict necesita ids como claves
             travel_photos_dict = {tid: get_travel_photos(tid) for tid, *_ in travels}
 
             # Wishlist
@@ -925,7 +981,11 @@ def index():
     return render_template('index.html',
                            question=question_text,
                            show_answers=show_answers,
-                           answers=answers,
+                           answers=answers,  # [(username, answer)]
+                           # extras para "(editado)"
+                           answers_edited=answers_edited,
+                           answers_created_at=answers_created_at,
+                           answers_updated_at=answers_updated_at,
                            user_answer=user_answer,
                            other_user=other_user,
                            other_answer=other_answer,

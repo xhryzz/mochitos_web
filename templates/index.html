@@ -1002,93 +1002,135 @@
       </div>
 
       <!-- Pregunta diaria -->
-      <div class="section animate-in delay-2">
-        <h3>Pregunta del día</h3>
-        <div class="dq-countdown">
-          <div class="dq-countdown-card">
-            <div class="dq-countdown-title">
-              <i class="fas fa-clock" aria-hidden="true"></i>
-              Próximo cambio de pregunta
-            </div>
-            <div class="dq-countdown-time" id="dqTimer" aria-live="polite">--:--:--</div>
-          </div>
-        </div>
-        
-        <p class="question"><b>{{ question }}</b></p>
+<div class="section animate-in delay-2">
+  <h3>Pregunta del día</h3>
 
-        <div class="streak-badges">
-          <div class="streak-badge">
-            <i class="fas fa-fire"></i>
-            Racha actual: {{ current_streak }} día{% if current_streak != 1 %}s{% endif %}
-          </div>
-          <div class="streak-badge best">
-            <i class="fas fa-trophy"></i>
-            Mejor racha: {{ best_streak }} día{% if best_streak != 1 %}s{% endif %}
-          </div>
-        </div>
-
-        {% if show_answers %}
-          <div class="answers">
-            {% for u, a in answers %}
-              <div class="answer-item">
-                <div class="user-avatar">
-                  {% if profile_pictures.get(u) %}
-                    <img src="{{ profile_pictures.get(u) }}" alt="{{ u }}">
-                  {% else %}
-                    {{ u[0]|upper }}
-                  {% endif %}
-                </div>
-                <div><b>{{ u }}:</b> <span class="answer-text">{{ a }}</span></div>
-              </div>
-            {% endfor %}
-          </div>
-        {% else %}
-          {% if user_answer and not other_answer %}
-            <div class="answers">
-              <div class="answer-item">
-                <div class="user-avatar">
-                  {% if profile_pictures.get(username) %}
-                    <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
-                  {% else %}
-                    {{ username[0]|upper }}
-                  {% endif %}
-                </div>
-                <div><b>Tú:</b> <span class="answer-text">{{ user_answer }}</span></div>
-              </div>
-            </div>
-            <p style="margin-top:10px;">Aún falta la respuesta de <b>{{ other_user }}</b> 🕒</p>
-
-          {% elif (not user_answer) and other_answer %}
-            <form method="POST" class="inline-form" style="margin-bottom:15px;">
-              <input type="text" name="answer" placeholder="Tu respuesta..." required>
-              <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-            </form>
-
-            <div class="answers">
-              <div class="answer-item blurred">
-                <div class="user-avatar">
-                  {% if profile_pictures.get(other_user) %}
-                    <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
-                  {% else %}
-                    {{ other_user[0]|upper }}
-                  {% endif %}
-                </div>
-                <div>
-                  <b>{{ other_user }}:</b>
-                  <span class="answer-text">{{ other_answer }}</span>
-                  <div class="blur-hint">Responde para desbloquear</div>
-                </div>
-              </div>
-            </div>
-
-          {% else %}
-            <form method="POST" class="inline-form">
-              <input type="text" name="answer" placeholder="Tu respuesta..." required>
-              <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-            </form>
-          {% endif %}
-        {% endif %}
+  <div class="dq-countdown">
+    <div class="dq-countdown-card">
+      <div class="dq-countdown-title">
+        <i class="fas fa-clock" aria-hidden="true"></i>
+        Próximo cambio de pregunta
       </div>
+      <div class="dq-countdown-time" id="dqTimer" aria-live="polite">--:--:--</div>
+    </div>
+  </div>
+
+  <p class="question"><b>{{ question }}</b></p>
+
+  <div class="streak-badges">
+    <div class="streak-badge">
+      <i class="fas fa-fire"></i>
+      Racha actual: {{ current_streak }} día{% if current_streak != 1 %}s{% endif %}
+    </div>
+    <div class="streak-badge best">
+      <i class="fas fa-trophy"></i>
+      Mejor racha: {{ best_streak }} día{% if best_streak != 1 %}s{% endif %}
+    </div>
+  </div>
+  
+  {% if show_answers %}
+    <div class="answers">
+      {# Tu respuesta + marca (editado) #}
+      <div class="answer-item">
+        <div class="user-avatar">
+          {% if profile_pictures.get(username) %}
+            <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+          {% else %}
+            {{ username[0]|upper }}
+          {% endif %}
+        </div>
+        <div>
+          <b>Tú:</b>
+          <span class="answer-text">{{ user_answer }}</span>
+          {% if answers_edited and answers_edited.get(username) %}
+            <small style="opacity:.7;margin-left:6px;">(editado)</small>
+          {% endif %}
+        </div>
+      </div>
+
+      <form method="POST" class="inline-form" style="margin:10px 0 4px 0; display:flex; gap:8px;">
+        <input type="text" name="answer" placeholder="Editar tu respuesta…" value="{{ user_answer }}" required style="flex:1;">
+        <button type="submit"><i class="fas fa-save"></i> Guardar</button>
+      </form>
+
+      <div class="answer-item">
+        <div class="user-avatar">
+          {% if profile_pictures.get(other_user) %}
+            <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+          {% else %}
+            {{ other_user[0]|upper }}
+          {% endif %}
+        </div>
+        <div>
+          <b>{{ other_user }}:</b>
+          <span class="answer-text">{{ other_answer }}</span>
+          {% if answers_edited and answers_edited.get(other_user) %}
+            <small style="opacity:.7;margin-left:6px;">(editado)</small>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+
+  {% elif user_answer and not other_answer %}
+    <div class="answers">
+      <div class="answer-item">
+        <div class="user-avatar">
+          {% if profile_pictures.get(username) %}
+            <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+          {% else %}
+            {{ username[0]|upper }}
+          {% endif %}
+        </div>
+        <div>
+          <b>Tú:</b>
+          <span class="answer-text">{{ user_answer }}</span>
+          {% if answers_edited and answers_edited.get(username) %}
+            <small style="opacity:.7;margin-left:6px;">(editado)</small>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+
+    <form method="POST" class="inline-form" style="margin-top:10px; display:flex; gap:8px;">
+      <input type="text" name="answer" placeholder="Editar tu respuesta…" value="{{ user_answer }}" required style="flex:1;">
+      <button type="submit"><i class="fas fa-save"></i> Guardar</button>
+    </form>
+
+    <p style="margin-top:8px;opacity:.75;">Aún falta la respuesta de <b>{{ other_user }}</b> 🕒</p>
+
+  {% elif (not user_answer) and other_answer %}
+    <form method="POST" class="inline-form" style="margin-bottom:15px; display:flex; gap:8px;">
+      <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
+      <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+    </form>
+
+    <div class="answers">
+      <div class="answer-item blurred">
+        <div class="user-avatar">
+          {% if profile_pictures.get(other_user) %}
+            <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+          {% else %}
+            {{ other_user[0]|upper }}
+          {% endif %}
+        </div>
+        <div>
+          <b>{{ other_user }}:</b>
+          <span class="answer-text">{{ other_answer }}</span>
+          <div class="blur-hint">Responde para desbloquear</div>
+        </div>
+      </div>
+    </div>
+
+  {% else %}
+    <form method="POST" class="inline-form" style="display:flex; gap:8px;">
+      <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
+      <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+    </form>
+  {% endif %}
+</div>
+
 
       <!-- Lista de deseos -->
       <div class="section animate-in delay-3">

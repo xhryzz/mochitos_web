@@ -615,115 +615,6 @@
 
 
 
-/* ============================
-   HOTFIX TEMA "Nico" ☕
-   (Pegar al FINAL del <style>)
-   ============================ */
-
-/* 1) Habilita el tema por atributo data-theme en <html> */
-[data-theme="nico"]{
-  /* Paleta */
-  --primary-color: #6B4F3A;   /* espresso */
-  --secondary-color:#C69C6D;  /* latte */
-  --accent-color:   #8C6A4A;  /* moka */
-  --light-pink:     #F6ECD9;  /* crema */
-  --dark-text:      #2B211A;  /* tostado oscuro */
-  --light-text:     #FAF7F2;
-  --card-bg:        rgba(250,245,237,0.95); /* parchment */
-  --shadow:         0 18px 36px rgba(43,33,26,0.18);
-  --gradient:       linear-gradient(135deg,#6B4F3A 0%,#8C6A4A 50%,#C69C6D 100%);
-  --visited-color:  #7A8F66;  /* oliva-suave */
-  --wishlist-color: #BE8B5E;  /* caramelo */
-  --purchased-color:#A8A29E;  /* gris-cálido */
-}
-
-/* 2) Fondo general más cálido */
-[data-theme="nico"] body{
-  background: linear-gradient(135deg,#F6ECD9 0%, #EDE3D5 60%, #E7DDCF 100%);
-  color: var(--dark-text);
-}
-
-/* 3) Quita la ola ROSA del overlay y pon una café */
-[data-theme="nico"] body::before{
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%236B4F3A' fill-opacity='0.06' d='M0,224L48,213.3C96,203,192,181,288,160C384,139,480,117,576,122.7C672,128,768,160,864,170.7C960,181,1056,171,1152,165.3C1248,160,1344,160,1392,160L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'/%3E%3C/svg%3E");
-}
-
-/* 4) Asegura que los elementos principales usen el gradiente del tema */
-[data-theme="nico"] .section::before,
-[data-theme="nico"] button,
-[data-theme="nico"] .logout,
-[data-theme="nico"] .site-footer{
-  background: var(--gradient);
-}
-
-/* 5) Ajustes visuales clave para que “se note” el cambio */
-[data-theme="nico"] .section{
-  border-radius: 24px;
-  border: 1px solid rgba(139,108,83,.18);
-  backdrop-filter: blur(4px);
-  box-shadow: 0 12px 28px rgba(43,33,26,.10);
-}
-[data-theme="nico"] .section h3{
-  color: var(--primary-color);
-  border-bottom-color: var(--secondary-color);
-}
-[data-theme="nico"] .section h3::after{
-  background: var(--accent-color);
-}
-[data-theme="nico"] .section.banner img{
-  filter: saturate(1.02) contrast(1.02) sepia(.12);
-}
-[data-theme="nico"] .icon-btn{
-  background:#FFF8EE;
-  color:#6B4F3A;
-  border:1px solid #EADCCB;
-}
-[data-theme="nico"] input[type="text"],
-[data-theme="nico"] input[type="password"],
-[data-theme="nico"] input[type="date"],
-[data-theme="nico"] input[type="url"],
-[data-theme="nico"] textarea,
-[data-theme="nico"] select[name="priority"]{
-  background:#FBF6EE;
-  border:2px solid #E4D8C7;
-  border-radius:16px;
-}
-[data-theme="nico"] input:focus,
-[data-theme="nico"] textarea:focus{
-  border-color:#C8A27D;
-  box-shadow:0 0 0 4px rgba(198,156,109,.25);
-}
-[data-theme="nico"] .travel-card,
-[data-theme="nico"] .wishlist-card{
-  background:#FCF8F1;
-  box-shadow: 0 12px 28px rgba(43,33,26,.10);
-}
-[data-theme="nico"] .priority-chip{
-  background:#FBF4E6; border-color:#E0C8A6; color:#6B4F3A;
-}
-[data-theme="nico"] .priority-high{
-  background:#FBE9E6; border-color:#E0A7A0; color:#8F2820;
-}
-[data-theme="nico"] .priority-mid{
-  background:#FFF4DD; border-color:#E7C88E; color:#7A5A2D;
-}
-[data-theme="nico"] .priority-low{
-  background:#E9FFF6; border-color:#B8E0D0; color:#0F6B5C;
-}
-[data-theme="nico"] .gift-chip{
-  background:#F3E7DA; border-color:#D5B899; color:#6B4F3A;
-}
-[data-theme="nico"] .gift-mask{
-  border-color:#D5B899; background:#FBF4E8; color:#6B4F3A;
-}
-[data-theme="nico"] .distance-info{
-  background: rgba(252,248,241,.98);
-  border: 1px solid #E4D8C7;
-}
-[data-theme="nico"] .distance-value{
-  color: var(--primary-color);
-}
-
 
     </style>
 </head>
@@ -848,13 +739,6 @@
       <div class="settings-icon" id="settingsIcon">
         <i class="fas fa-user-cog"></i>
       </div>
-
-      <!-- Selector de tema -->
-<div class="theme-switch" id="themeSwitch" role="group" aria-label="Selector de tema">
-  <button type="button" id="themeDefault" title="Tema principal">Principal</button>
-  <button type="button" id="themeNico"    title="Tema Nico (café)">Nico ☕</button>
-</div>
-
 
         <!-- MODAL EDITAR EVENTO INTIMIDAD -->
   <div id="editIntimModal" class="modal">
@@ -2402,37 +2286,6 @@ window.openEditIntimModal = function(eventId, place, notes) {
   es.onerror = function () {
     // Deja que el navegador reintente solo; no cierres la conexión
   };
-})();
-
-// ===== Alternador de tema (default <-> nico) =====
-(function(){
-  const root = document.documentElement;    // <html>
-  const btnDefault = document.getElementById('themeDefault');
-  const btnNico    = document.getElementById('themeNico');
-
-  function applyTheme(theme){
-    if (theme === 'nico'){
-      root.setAttribute('data-theme','nico');
-    } else {
-      root.removeAttribute('data-theme'); // vuelve al principal (tu :root original)
-    }
-    localStorage.setItem('cc_theme', theme || 'default');
-    reflectActive(theme);
-  }
-
-  function reflectActive(theme){
-    if (!btnDefault || !btnNico) return;
-    btnDefault.classList.toggle('active', theme !== 'nico');
-    btnNico.classList.toggle('active', theme === 'nico');
-  }
-
-  // Cargar tema guardado
-  const saved = localStorage.getItem('cc_theme') || 'default';
-  applyTheme(saved);
-
-  // Listeners
-  btnDefault?.addEventListener('click', () => applyTheme('default'));
-  btnNico?.addEventListener('click',   () => applyTheme('nico'));
 })();
 
 </script>

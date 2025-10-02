@@ -158,12 +158,73 @@ def sse_events():
 
 # ========= Constantes =========
 QUESTIONS = [
-    "¿Cuál fue el mejor momento de nuestra relación hasta ahora?",
-    "¿Qué es lo primero que pensaste de mí cuando nos conocimos?",
-    "¿Qué palabra prohibida debería susurrarte?",
-    "¿Cuál es tu posición favorita conmigo?",
-    "¿Qué juego de rol te animarías a probar conmigo?",
+    # Amorosas / Emocionales
+    "¿Qué fue lo que más te atrajo de mí al principio?",
+    "¿Qué parte de nuestra relación te hace sentir más feliz?",
+    "¿Qué canción te recuerda a nosotros?",
+    "¿Qué harías si solo tuviéramos un día más juntos?",
+    "¿Qué detalle pequeño que hago te enamora más?",
+    "¿Cómo describirías nuestro amor en tres palabras?",
+    "¿Qué es lo que más amas de nuestras conversaciones?",
+    "¿Qué sueñas para nuestro futuro juntos?",
+    "¿Qué te hace sentir más amado/a por mí?",
+    "¿Qué te gustaría que nunca cambiara entre nosotros?",
+    "¿Qué promesa me harías hoy sin pensarlo dos veces?",
+    
+    # Divertidas / De Risa
+    "Si fuéramos un dúo cómico, ¿cómo nos llamaríamos?",
+    "¿Qué harías si despertaras y fueras yo por un día?",
+    "¿Cuál es el apodo más ridículo que se te ocurre para mí?",
+    "¿Qué canción cantarías desnudo/a en la ducha como si fuera un show?",
+    "¿Qué superpoder inútil te gustaría tener?",
+    "¿Qué animal representa mejor nuestra relación y por qué?",
+    "¿Cuál es el momento más tonto que hemos vivido juntos?",
+    "¿Qué harías si estuviéramos atrapados en un supermercado por 24 horas?",
+    "¿Qué serie seríamos si nuestra vida fuera una comedia?",
+    "¿Con qué personaje de dibujos animados me comparas?",
+    
+    # Calientes / Picantes 🔥
+    "¿Qué parte de mi cuerpo te gusta más tocar?",
+    "¿Dónde te gustaría que te besara ahora mismo?",
+    "¿Has fantaseado conmigo hoy?",
+    "¿Cuál fue la última vez que soñaste algo caliente conmigo?",
+    "¿En qué lugar prohibido te gustaría hacerlo conmigo?",
+    "¿Qué prenda mía te gustaría quitarme con los dientes?",
+    "¿Qué harías si estuviéramos solos en un ascensor por 30 minutos?",
+    "¿Cuál es tu fantasía secreta conmigo que aún no me has contado?",
+    "¿Qué juguete usarías conmigo esta noche?",
+    "¿Te gustaría que te atara o prefieres atarme a mí?",
+    
+    # Creativas / Imaginación
+    "Si tuviéramos una casa del árbol, ¿cómo sería por dentro?",
+    "Si hiciéramos una película sobre nosotros, ¿cómo se llamaría?",
+    "¿Cómo sería nuestro planeta si fuéramos los únicos habitantes?",
+    "Si pudieras diseñar una cita perfecta desde cero, ¿cómo sería?",
+    "Si nos perdiéramos en el tiempo, ¿en qué época te gustaría vivir conmigo?",
+    "Si nuestra historia de amor fuera un libro, ¿cómo sería el final?",
+    "Si pudieras regalarme una experiencia mágica, ¿cuál sería?",
+    "¿Qué mundo ficticio te gustaría explorar conmigo?",
+    
+    # Reflexivas / Profundas
+    "¿Qué aprendiste sobre ti mismo/a desde que estamos juntos?",
+    "¿Qué miedos tienes sobre el futuro y cómo puedo ayudarte con ellos?",
+    "¿Cómo te gustaría crecer como pareja conmigo?",
+    "¿Qué errores cometiste en el pasado que no quieres repetir conmigo?",
+    "¿Qué significa para ti una relación sana?",
+    "¿Cuál es el mayor sueño que quieres cumplir y cómo puedo ayudarte?",
+    "¿Qué necesitas escuchar más seguido de mí?",
+    "¿Qué momento de tu infancia quisieras revivir conmigo al lado?",
+    
+    # Random / Curiosas
+    "¿Cuál es el olor que más te recuerda a mí?",
+    "¿Qué comida describes como ‘sexy’?",
+    "¿Qué harías si fueras invisible por un día y solo yo te pudiera ver?",
+    "¿Qué parte de mi rutina diaria te parece más adorable?",
+    "¿Si pudieras clonar una parte de mí, cuál sería?",
+    "¿Qué emoji usarías para describir nuestra relación?",
+    "¿Si solo pudieras besarme o abrazarme por un mes, qué eliges?",
 ]
+
 RELATION_START = date(2025, 8, 2)
 INTIM_PIN = os.environ.get('INTIM_PIN', '6969')
 
@@ -1031,3 +1092,4 @@ def after(resp):
 if __name__ == '__main__':
     # threaded=True para SSE + peticiones concurrentes en dev
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False, threaded=True)
+

@@ -615,15 +615,15 @@
 }
 
 
-/* Chip de talla */
-.size-chip{
-  display:inline-flex; align-items:center; gap:6px;
-  padding:6px 10px; border-radius:999px; font-size:.8rem; font-weight:700;
-  background:#eef2ff; border:2px solid #c7d2fe; color:#3730a3; /* azul suave */
-  margin:6px 0 10px 0;
-}
-.size-chip i{ font-size:.95rem; }
-
+/* Badge de talla */
+.wishlist-size{
+  font-size: .9rem; /* o: clamp(.85rem, .8rem + .4vw, 1rem); */
+  color: #555;
+  background: #f8f8f8;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin-top: 6px;
+  display: inline-block;
 
     </style>
 </head>
@@ -1220,7 +1220,7 @@
             {% endif %}
             {# NUEVO: chip de talla visible si no está oculto #}
             {% if (size or '')|trim and not oculto_para_mi %}
-              <div class="size-chip" title="Talla">
+              <div class="wishlist-size" title="Talla">
                 <i class="fas fa-ruler-combined" aria-hidden="true"></i> {{ size }}
               </div>
             {% endif %}
@@ -1317,7 +1317,7 @@
             {% endif %}
             {# NUEVO: chip de talla visible si no está oculto #}
             {% if (size or '')|trim and not oculto_para_mi %}
-              <div class="size-chip" title="Talla">
+              <div class="wishlist-size" title="Talla">
                 <i class="fas fa-ruler-combined" aria-hidden="true"></i> {{ size }}
               </div>
             {% endif %}

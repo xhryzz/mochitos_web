@@ -654,7 +654,7 @@ def index():
                     product_name = request.form['product_name'].strip()
                     product_link = request.form.get('product_link','').strip()
                     notes = request.form.get('wishlist_notes','').strip()
-                    product_size = request.form.get('product_size','').strip()   # 👈 nuevo campo
+                    product_size = request.form.get('size','').strip()
                     priority = request.form.get('priority','media').strip()
                     is_gift = bool(request.form.get('is_gift'))
                     if priority not in ('alta','media','baja'): priority='media'
@@ -719,12 +719,29 @@ def index():
                 travel_photos_dict.setdefault(tr_id, []).append({'id': pid, 'url': url, 'uploaded_by': up})
 
             # Wishlist (ahora incluye size)
-            c.execute("""SELECT id, product_name, product_link, notes, size, created_by, created_at, is_purchased,
-                                COALESCE(priority,'media') AS priority, COALESCE(is_gift,false) AS is_gift
-                         FROM wishlist
-                         ORDER BY is_purchased ASC,
-                                  CASE COALESCE(priority,'media') WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,
-                                  created_at DESC""")
+            c.execute("""
+                        SELECT
+                        id,
+                        product_name,
+                        product_link,
+                        notes,
+                        created_by,
+                        created_at,
+                        is_purchased,
+                        COALESCE(priority,'media') AS priority,
+                        COALESCE(is_gift,false)   AS is_gift,
+                        size
+                        FROM wishlist
+                        ORDER BY
+                        is_purchased ASC,
+                        CASE COALESCE(priority,'media')
+                            WHEN 'alta' THEN 0
+                            WHEN 'media' THEN 1
+                            ELSE 2
+                        END,
+                        created_at DESC
+                    """)
+
             wishlist_items = c.fetchall()
 
             banner_file = get_banner()
@@ -847,7 +864,7 @@ def edit_wishlist_item():
         product_name = request.form['product_name'].strip()
         product_link = request.form.get('product_link','').strip()
         notes = request.form.get('notes','').strip()
-        product_size = request.form.get('product_size','').strip()   # 👈 nuevo campo
+        product_size = request.form.get('size','').strip()
         priority = request.form.get('priority','media').strip()
         is_gift = bool(request.form.get('is_gift'))
         if priority not in ('alta','media','baja'): priority='media'

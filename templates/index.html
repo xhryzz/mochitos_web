@@ -875,117 +875,6 @@
 }
 
 
-/* =========================
-   THEME SWITCH (UI + NICO)
-   ========================= */
-
-/* Botón flotante del selector */
-.theme-switch{
-  position: fixed; bottom: 22px; left: 22px; z-index: 1100;
-}
-.theme-btn{
-  display:inline-flex; align-items:center; gap:10px;
-  border:none; border-radius:14px; padding:10px 14px; cursor:pointer;
-  background: var(--card-bg); color: var(--dark-text);
-  box-shadow: 0 10px 22px rgba(0,0,0,.08); font-weight:800;
-  border:1px solid rgba(0,0,0,.06);
-}
-.theme-btn i{ opacity:.9; }
-.theme-menu{
-  position:absolute; bottom:56px; left:0; min-width:220px;
-  background:#fff; border:1px solid #ececf2; border-radius:14px; overflow:hidden;
-  box-shadow:0 18px 40px rgba(0,0,0,.18); transform: translateY(8px);
-  opacity:0; pointer-events:none; transition: .18s ease; 
-}
-.theme-menu.open{ transform: translateY(0); opacity:1; pointer-events:auto; }
-.theme-menu button{
-  width:100%; padding:12px 14px; background:#fff; border:0; text-align:left; cursor:pointer; font-weight:700;
-}
-.theme-menu button:hover{ background:#f6f7fb; }
-
-/* ============== */
-/* TEMA NICO ☕🐾  */
-/* ============== */
-:root[data-theme="nico"]{
-  /* paleta café */
-  --primary-color: #8B5E3C;      /* espresso */
-  --secondary-color: #C3A384;    /* latte */
-  --accent-color: #D7B899;       /* crema */
-  --light-pink: #F6EFE7;         /* fondo cálido */
-  --dark-text: #3A2D2A;          /* marrón oscuro */
-  --light-text: #fff;
-  --card-bg: rgba(255,250,245,0.94);
-  --shadow: 0 18px 38px rgba(58,45,42,0.15);
-  --gradient: linear-gradient(135deg, #8B5E3C 0%, #A1724D 50%, #C3A384 100%);
-  --visited-color: #6FBF8B;      /* verde menta */
-  --wishlist-color: #C58F5C;     /* caramelo */
-  --purchased-color: #B8A58B;    /* moka suave */
-}
-
-/* Fondo con patitas sutiles cuando está el tema nico */
-:root[data-theme="nico"] body{
-  background:
-    linear-gradient(135deg, #F6EFE7 0%, #EFE7DF 100%);
-  color: var(--dark-text);
-}
-:root[data-theme="nico"] body::before{
-  /* patrón de huellas muy suave */
-  background-image:
-    url("data:image/svg+xml,%3Csvg width='160' height='160' viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%238B5E3C' fill-opacity='0.06'%3E%3Ccircle cx='40' cy='40' r='8'/%3E%3Ccircle cx='56' cy='28' r='5'/%3E%3Ccircle cx='28' cy='26' r='5'/%3E%3Ccircle cx='48' cy='18' r='4'/%3E%3Cpath d='M28 48c8 0 18 10 18 18s-10 8-18 8-18 0-18-8 10-18 18-18z'/%3E%3C/g%3E%3C/svg%3E"),
-    linear-gradient(135deg, #F6EFE7 0%, #EFE7DF 100%);
-  background-size: 160px 160px, cover;
-  opacity:.95;
-}
-
-/* Tarjetas y acentos en nico */
-:root[data-theme="nico"] .section{
-  border: 1px solid rgba(139,94,60,0.15);
-  box-shadow: var(--shadow);
-}
-:root[data-theme="nico"] .section::before{
-  background: var(--gradient);
-}
-:root[data-theme="nico"] .section h3{
-  border-bottom-color: var(--secondary-color);
-}
-:root[data-theme="nico"] .section h3::after{
-  background: var(--accent-color);
-}
-
-/* Botones en nico */
-:root[data-theme="nico"] button{
-  background: var(--gradient);
-  box-shadow: 0 8px 22px rgba(139,94,60,.28);
-}
-:root[data-theme="nico"] button:hover{
-  box-shadow: 0 10px 26px rgba(139,94,60,.34);
-}
-
-/* Chips, enlaces, etc. heredan colores cálidos */
-:root[data-theme="nico"] .wishlist-link{
-  background:#F4EEE6; border-color:#E9E1D9;
-}
-:root[data-theme="nico"] .wishlist-link:hover{
-  background:#EFE7DF; color: var(--primary-color); border-color:#E2D8CE;
-}
-:root[data-theme="nico"] .priority-high{ background:#FFEDEB; border-color:#F5B2A7; color:#8B3A2A; }
-:root[data-theme="nico"] .priority-mid{  background:#FFF6E0; border-color:#FFD18A; color:#996500; }
-:root[data-theme="nico"] .priority-low{  background:#ECFFF7; border-color:#9BE0C7; color:#0F6B5C; }
-
-/* Inputs focus (a tono crema) */
-:root[data-theme="nico"] input:focus,
-:root[data-theme="nico"] textarea:focus,
-:root[data-theme="nico"] select:focus{
-  box-shadow: 0 0 0 4px rgba(199,168,133,.28);
-  border-color: var(--accent-color);
-}
-
-/* Banner sombras más cálidas */
-:root[data-theme="nico"] .section.banner{
-  box-shadow: 0 30px 60px rgba(139,94,60,.18);
-}
-
-
     </style>
 </head>
 
@@ -1113,18 +1002,6 @@
       <div class="settings-icon" id="settingsIcon">
         <i class="fas fa-user-cog"></i>
       </div>
-
-      <!-- Selector de temas -->
-<div class="theme-switch">
-  <button id="themeBtn" class="theme-btn" type="button">
-    <i class="fas fa-palette" aria-hidden="true"></i>
-    <span id="themeLabel">Tema: actual</span>
-  </button>
-  <div class="theme-menu" id="themeMenu" role="menu" aria-label="Seleccionar tema">
-    <button type="button" data-theme=""   role="menuitem">💕 Tema actual</button>
-    <button type="button" data-theme="nico" role="menuitem">☕ Nico (café)</button>
-  </div>
-</div>
 
         <!-- MODAL EDITAR EVENTO INTIMIDAD -->
   <div id="editIntimModal" class="modal">
@@ -2208,10 +2085,9 @@ function updateDistanceLine() {
   if (!map || !christianMarker || !claraMarker) return;
   if (distanceLine) map.removeLayer(distanceLine);
 
-  const prim = getCSS('--primary-color') || '#e84393';
   distanceLine = L.polyline(
     [[christianLocation.lat, christianLocation.lng], [claraLocation.lat, claraLocation.lng]],
-    { color: prim, weight: 3, dashArray: '10, 10', lineJoin: 'round' }
+    { color: '#e84393', weight: 3, dashArray: '10, 10', lineJoin: 'round' }
   ).addTo(map);
 
   const group = new L.featureGroup([christianMarker, claraMarker]);
@@ -2714,63 +2590,6 @@ window.openEditIntimModal = function(eventId, place, notes) {
     // Deja que el navegador reintente solo; no cierres la conexión
   };
 })();
-
-Pega este bloque antes de // ===================== // MAPA (Leaflet) ... (para que ya exista el helper de CSS y el tema cargado):
-
-<script>
-/* Helpers de tema */
-(function(){
-  const r = document.documentElement;
-  const THEME_KEY = 'cc_theme';
-
-  function setTheme(name){
-    if (name) { r.setAttribute('data-theme', name); }
-    else { r.removeAttribute('data-theme'); }
-    localStorage.setItem(THEME_KEY, name || '');
-    const label = document.getElementById('themeLabel');
-    if (label) label.textContent = 'Tema: ' + (name === 'nico' ? 'Nico (café)' : 'actual');
-    // ajusta gradientes en toasts para que vayan a juego
-    try {
-      const style = getComputedStyle(r);
-      const prim = style.getPropertyValue('--primary-color').trim();
-      const acc  = style.getPropertyValue('--accent-color').trim();
-      document.querySelectorAll('.toast.info .progress').forEach(el => el.style.background = `linear-gradient(90deg,${acc},${prim})`);
-      document.querySelectorAll('.toast.success .progress').forEach(el => el.style.background = `linear-gradient(90deg,#34d399,#10b981)`);
-      document.querySelectorAll('.toast.error .progress').forEach(el => el.style.background = `linear-gradient(90deg,#f87171,#ef4444)`);
-    } catch {}
-  }
-
-  // Cargar el que haya guardado
-  const saved = localStorage.getItem(THEME_KEY) || '';
-  if (saved) r.setAttribute('data-theme', saved);
-
-  // UI del menú
-  const btn  = document.getElementById('themeBtn');
-  const menu = document.getElementById('themeMenu');
-  const label = document.getElementById('themeLabel');
-  if (label) label.textContent = 'Tema: ' + (saved === 'nico' ? 'Nico (café)' : 'actual');
-
-  btn?.addEventListener('click', () => menu?.classList.toggle('open'));
-  document.addEventListener('click', (e)=>{
-    if (!menu) return;
-    if (!menu.contains(e.target) && !btn.contains(e.target)) menu.classList.remove('open');
-  });
-  menu?.querySelectorAll('button[data-theme]').forEach(b=>{
-    b.addEventListener('click', ()=>{
-      setTheme(b.getAttribute('data-theme') || '');
-      menu.classList.remove('open');
-    });
-  });
-
-  // Exponer por si acaso
-  window.setTheme = setTheme;
-})();
-
-/* Helper global para leer variables CSS (lo usaremos en el mapa) */
-function getCSS(varName){
-  try { return getComputedStyle(document.documentElement).getPropertyValue(varName).trim(); }
-  catch { return ''; }
-}
 
 </script>
 

@@ -2591,7 +2591,71 @@ window.openEditIntimModal = function(eventId, place, notes) {
   };
 })();
 
+// === Web Push ===
+async function setupPush() {
+  try {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      console.warn("Push no soportado en este navegador");
+      return;
+    }
+
+    // 1) registra el SW
+    const reg = await navigator.serviceWorker.register("/static/sw.js");
+
+    // 2) permiso de notificaciones
+    let perm = Notification.permission;
+    if (perm === "default") perm = await Notification.requestPermission();
+    if (perm !== "granted") {
+      console.warn("Permiso de notificaciones denegado");
+      return;
+    }
+
+    // 3) VAPID pública desde el backend
+    const r = await fetch("/push/vapid-public");
+    const { key } = await r.json();
+    if (!key) { console.warn("VAPID pública no configurada"); return; }
+
+    // 4) suscripción (o reutiliza la existente)
+    const appServerKey = urlBase64ToUint8Array(key);
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: appServerKey
+      });
+    }
+
+    // 5) envía la suscripción al servidor
+    await fetch("/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify(sub)
+    });
+
+    window.showToast?.("success", "Notificaciones activadas en este dispositivo ✅");
+  } catch (e) {
+    console.error("setupPush error:", e);
+    window.showToast?.("error", "No se pudieron activar las notificaciones");
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+// Lánzalo automáticamente cuando hay sesión iniciada
+document.addEventListener("DOMContentLoaded", () => {
+  {% if session.username %}
+    setupPush();
+  {% endif %}
+});
 </script>
+
 
 <footer class="site-footer">
     <p>Esta web ha sido realizada por 

@@ -2645,53 +2645,8 @@ if (!key) { console.warn("VAPID pública no configurada"); return; }
   }
 }
 
-function urlBase64ToUint8Array(base64String) {
-  const padding = "=".repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const raw = atob(base64);
-  const out = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-  return out;
-}
-
-// Lánzalo automáticamente cuando hay sesión iniciada
-document.addEventListener("DOMContentLoaded", () => {
-  {% if session.username %}
-    setupPush();
-  {% endif %}
-});
-
-document.addEventListener("DOMContentLoaded", () => {
-  {% if session.username %}
-    const btn = document.getElementById('enablePushBtn');
-    if (btn) {
-      // muestra el botón si aún no está concedido
-      if (Notification.permission === 'granted') btn.style.display = 'none';
-      btn.addEventListener('click', async () => {
-        await setupPush();
-        if (Notification.permission === 'granted') {
-          btn.style.display = 'none';
-        }
-      });
-    }
-    // si quieres seguir auto-intentando en navegadores permisivos:
-    setupPush();
-  {% endif %}
-});
-
-
-(async () => {
-  if (!('serviceWorker' in navigator)) return;
-  try {
-    await navigator.serviceWorker.register('/sw.js');
-    console.log('SW registrado en /sw.js');
-  } catch (e) {
-    console.error('SW register fail', e);
-  }
-})();
-
-
-async function urlBase64ToUint8Array(base64String){
+// --- Helper: NO async ---
+function urlBase64ToUint8Array(base64String){
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const raw = atob(base64);
@@ -2701,39 +2656,56 @@ async function urlBase64ToUint8Array(base64String){
 }
 
 async function enablePush(){
-  if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-    showToast?.('error','Tu navegador no soporta notificaciones');
-    return;
+  try{
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+      showToast?.('error','Tu navegador no soporta notificaciones');
+      return;
+    }
+
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { showToast?.('error','Permiso denegado'); return; }
+
+    // Asegura que el SW esté listo (el registrado en /sw.js)
+    const reg = await navigator.serviceWorker.ready;
+
+    // 1) VAPID pública
+    const r = await fetch('/push/vapid-public');
+    const data = await r.json();
+    const vapidPublicKey = data.vapidPublicKey || data.key;
+    if (!vapidPublicKey) { showToast?.('error','VAPID pública vacía'); return; }
+
+    // 2) Suscripción (reutiliza si ya existe)
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) // <- SIN await
+      });
+    }
+
+    // 3) Enviar al servidor
+    const rr = await fetch('/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify(sub)
+    });
+    const jj = await rr.json();
+    if (jj.ok) showToast?.('success','Notificaciones activadas ✅');
+    else showToast?.('error','Falló la suscripción');
+  }catch(e){
+    console.error('enablePush error:', e);
+    showToast?.('error','No se pudieron activar las notificaciones');
   }
-
-  const perm = await Notification.requestPermission();
-  if (perm !== 'granted') { showToast?.('error','Permiso denegado'); return; }
-
-  const reg = await navigator.serviceWorker.ready;
-
-  // 1) Pide la VAPID pública al backend (ya tienes /push/vapid-public)
-  const r = await fetch('/push/vapid-public');
-  const { vapidPublicKey } = await r.json();
-  if (!vapidPublicKey) { showToast?.('error','VAPID pública vacía'); return; }
-
-  // 2) Suscribe en el navegador
-  const sub = await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: await urlBase64ToUint8Array(vapidPublicKey),
-  });
-
-  // 3) Envía la suscripción al servidor (guardar/actualizar en DB)
-  const rr = await fetch('/push/subscribe', {
-    method: 'POST',
-    headers: { 'Content-Type':'application/json' },
-    body: JSON.stringify(sub)
-  });
-  const jj = await rr.json();
-  if (jj.ok) showToast?.('success','Notificaciones activadas');
-  else showToast?.('error','Falló la suscripción');
 }
 
-document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
+// Botón
+document.getElementById('enablePushBtn')?.addEventListener('click', async () => {
+  await enablePush();
+  if (Notification.permission === 'granted') {
+    document.getElementById('enablePushBtn').style.display = 'none';
+  }
+});
+
 
 </script>
 

@@ -1,34 +1,38 @@
-# app.py — versión optimizada para PostgreSQL en Render (pool + SSE + keepalive + cache TTL + Discord async)
+# app.py — con Web Push y notificaciones
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash, Response
 import psycopg2, psycopg2.extras
 from psycopg2.pool import SimpleConnectionPool
 from datetime import datetime, date, timedelta
-import random, os, io, json, time, queue, threading, hashlib
+import random, os, io, json, time, queue, threading, hashlib, base64, binascii
 from werkzeug.utils import secure_filename
 from contextlib import closing
 from base64 import b64encode
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 
+# Web Push
+from pywebpush import webpush, WebPushException
+import pytz
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
 
-# ======= Opciones de app (micro-opt) =======
+# ======= Opciones de app =======
 app.config['TEMPLATES_AUTO_RELOAD'] = False
-app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000  # caché para estáticos
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
-# ======= Compresión (no afecta a SSE) =======
+# ======= Compresión (si está) =======
 try:
     from flask_compress import Compress
-    app.config['COMPRESS_MIMETYPES'] = ['text/html', 'text/css', 'application/json', 'application/javascript']
+    app.config['COMPRESS_MIMETYPES'] = ['text/html','text/css','application/json','application/javascript']
     app.config['COMPRESS_LEVEL'] = 6
     app.config['COMPRESS_MIN_SIZE'] = 1024
     Compress(app)
 except Exception:
-    pass  # si no está instalado, seguimos sin compresión
+    pass
 
-# ========= Discord logs (asíncrono, no bloquea) =========
+# ========= Discord logs (asíncrono) =========
 DISCORD_WEBHOOK = os.environ.get('DISCORD_WEBHOOK', '')
 
 def client_ip():
@@ -87,7 +91,6 @@ def _init_pool():
     if PG_POOL: return
     if not DATABASE_URL:
         raise RuntimeError("Falta DATABASE_URL para PostgreSQL")
-    # Pool con keepalives y SSL (Render)
     PG_POOL = SimpleConnectionPool(
         1, int(os.environ.get("DB_MAX_CONN", "10")),
         dsn=DATABASE_URL,
@@ -120,7 +123,7 @@ def get_db_connection():
     raw = PG_POOL.getconn()
     return PooledConn(PG_POOL, raw)
 
-# ========= SSE: “casi tiempo real” + keepalive =========
+# ========= SSE =========
 _subscribers_lock = threading.Lock()
 _subscribers: set[queue.Queue] = set()
 
@@ -134,22 +137,18 @@ def broadcast(event_name: str, data: dict):
 def sse_events():
     client_q: queue.Queue = queue.Queue(maxsize=200)
     with _subscribers_lock: _subscribers.add(client_q)
-
     def gen():
         try:
-            # abre el stream
             yield ":\n\n"
             while True:
                 try:
                     ev = client_q.get(timeout=15)
-                    payload = json.dumps(ev['data'], separators=(',', ':'))  # JSON compacto
+                    payload = json.dumps(ev['data'], separators=(',', ':'))
                     yield f"event: {ev['event']}\ndata: {payload}\n\n"
                 except queue.Empty:
-                    # keepalive cada 15s: evita cierre por Render/proxies
                     yield f": k {int(time.time())}\n\n"
         finally:
             with _subscribers_lock: _subscribers.discard(client_q)
-
     return Response(gen(), mimetype="text/event-stream", headers={
         "Cache-Control": "no-cache, no-transform",
         "Connection": "keep-alive",
@@ -170,8 +169,7 @@ QUESTIONS = [
     "¿Qué te hace sentir más amado/a por mí?",
     "¿Qué te gustaría que nunca cambiara entre nosotros?",
     "¿Qué promesa me harías hoy sin pensarlo dos veces?",
-    
-    # Divertidas / De Risa
+    # Divertidas
     "Si fuéramos un dúo cómico, ¿cómo nos llamaríamos?",
     "¿Qué harías si despertaras y fueras yo por un día?",
     "¿Cuál es el apodo más ridículo que se te ocurre para mí?",
@@ -182,8 +180,7 @@ QUESTIONS = [
     "¿Qué harías si estuviéramos atrapados en un supermercado por 24 horas?",
     "¿Qué serie seríamos si nuestra vida fuera una comedia?",
     "¿Con qué personaje de dibujos animados me comparas?",
-    
-    # Calientes / Picantes 🔥
+    # Picantes 🔥
     "¿Qué parte de mi cuerpo te gusta más tocar?",
     "¿Dónde te gustaría que te besara ahora mismo?",
     "¿Has fantaseado conmigo hoy?",
@@ -194,18 +191,16 @@ QUESTIONS = [
     "¿Cuál es tu fantasía secreta conmigo que aún no me has contado?",
     "¿Qué juguete usarías conmigo esta noche?",
     "¿Te gustaría que te atara o prefieres atarme a mí?",
-    
-    # Creativas / Imaginación
+    # Creativas
     "Si tuviéramos una casa del árbol, ¿cómo sería por dentro?",
     "Si hiciéramos una película sobre nosotros, ¿cómo se llamaría?",
     "¿Cómo sería nuestro planeta si fuéramos los únicos habitantes?",
     "Si pudieras diseñar una cita perfecta desde cero, ¿cómo sería?",
     "Si nos perdiéramos en el tiempo, ¿en qué época te gustaría vivir conmigo?",
     "Si nuestra historia de amor fuera un libro, ¿cómo sería el final?",
-    "Si pudieras regalarme una experiencia mágica, ¿cuál sería?",
+    "Si pudieras regalarme una experiencia mágica, ¿ cuál sería?",
     "¿Qué mundo ficticio te gustaría explorar conmigo?",
-    
-    # Reflexivas / Profundas
+    # Reflexivas
     "¿Qué aprendiste sobre ti mismo/a desde que estamos juntos?",
     "¿Qué miedos tienes sobre el futuro y cómo puedo ayudarte con ellos?",
     "¿Cómo te gustaría crecer como pareja conmigo?",
@@ -214,8 +209,7 @@ QUESTIONS = [
     "¿Cuál es el mayor sueño que quieres cumplir y cómo puedo ayudarte?",
     "¿Qué necesitas escuchar más seguido de mí?",
     "¿Qué momento de tu infancia quisieras revivir conmigo al lado?",
-    
-    # Random / Curiosas
+    # Random
     "¿Cuál es el olor que más te recuerda a mí?",
     "¿Qué comida describes como ‘sexy’?",
     "¿Qué harías si fueras invisible por un día y solo yo te pudiera ver?",
@@ -227,12 +221,10 @@ QUESTIONS = [
 RELATION_START = date(2025, 8, 2)
 INTIM_PIN = os.environ.get('INTIM_PIN', '6969')
 
-# ========= Mini-cache en memoria con TTL =========
+# ========= Mini-cache =========
 import time as _time
 _cache_store = {}
-
 def _cache_key(fn_name): return f"_cache::{fn_name}"
-
 def ttl_cache(seconds=10):
     def deco(fn):
         key = _cache_key(fn.__name__)
@@ -244,16 +236,15 @@ def ttl_cache(seconds=10):
             val = fn(*a, **k)
             _cache_store[key] = (now, val)
             return val
-        wrapped.__wrapped__ = fn  # permite saltar caché si hace falta
+        wrapped.__wrapped__ = fn
         wrapped._cache_key = key
         return wrapped
     return deco
-
 def cache_invalidate(*fn_names):
     for name in fn_names:
         _cache_store.pop(_cache_key(name), None)
 
-# ========= DB init (igual que el tuyo, con índices extra) =========
+# ========= DB init (añadimos app_state y push_subscriptions si no existen) =========
 def init_db():
     with closing(get_db_connection()) as conn, conn.cursor() as c:
         c.execute('''CREATE TABLE IF NOT EXISTS users (
@@ -284,9 +275,7 @@ def init_db():
                      ADD COLUMN IF NOT EXISTS priority TEXT
                      CHECK (priority IN ('alta','media','baja')) DEFAULT 'media'""")
         c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS is_gift BOOLEAN DEFAULT FALSE""")
-        # >>> soporte de tallas <<<
         c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS size TEXT""")
-        # <<<
         c.execute('''CREATE TABLE IF NOT EXISTS schedules (
             id SERIAL PRIMARY KEY, username TEXT NOT NULL, day TEXT NOT NULL,
             time TEXT NOT NULL, activity TEXT, color TEXT, UNIQUE(username, day, time))''')
@@ -298,7 +287,18 @@ def init_db():
             filename TEXT, mime_type TEXT, uploaded_at TEXT)''')
         c.execute('''CREATE TABLE IF NOT EXISTS intimacy_events (
             id SERIAL PRIMARY KEY, username TEXT NOT NULL, ts TEXT NOT NULL, place TEXT, notes TEXT)''')
-        # usuarios + ubicaciones por defecto
+        # App state para flags de notificaciones ya enviadas
+        c.execute('''CREATE TABLE IF NOT EXISTS app_state (
+            key TEXT PRIMARY KEY, value TEXT)''')
+        # Push subscriptions (si no la creaste manualmente, la crea aquí)
+        c.execute('''CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id SERIAL PRIMARY KEY,
+            username TEXT NOT NULL,
+            endpoint TEXT UNIQUE NOT NULL,
+            p256dh TEXT NOT NULL,
+            auth TEXT NOT NULL,
+            created_at TEXT)''')
+        # Seed básico
         try:
             c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochito','1234'))
             c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochita','1234'))
@@ -312,16 +312,17 @@ def init_db():
             conn.commit()
         except Exception as e:
             print("Seed error:", e); conn.rollback()
-        # Índices útiles
+        # Índices
         c.execute("CREATE INDEX IF NOT EXISTS idx_answers_q_user ON answers (question_id, username)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_travels_vdate ON travels (is_visited, travel_date DESC)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_wishlist_state_prio ON wishlist (is_purchased, priority, created_at DESC)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_intim_user_ts ON intimacy_events (username, ts DESC)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions (username)")
         conn.commit()
 
 init_db()
 
-# ========= Helpers de datos =========
+# ========= Helpers =========
 def _parse_dt(txt: str):
     try: return datetime.strptime(txt, "%Y-%m-%d %H:%M:%S")
     except: return None
@@ -415,19 +416,6 @@ def get_banner():
     finally:
         conn.close()
 
-@ttl_cache(seconds=10)
-def get_user_locations():
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT username, location_name, latitude, longitude FROM locations")
-            out = {}
-            for u, name, lat, lng in c.fetchall():
-                out[u] = {'name':name, 'lat':lat, 'lng':lng}
-            return out
-    finally:
-        conn.close()
-
 @ttl_cache(seconds=30)
 def get_profile_pictures():
     conn = get_db_connection()
@@ -438,15 +426,6 @@ def get_profile_pictures():
             for u, img, mt in c.fetchall():
                 pics[u] = f"data:{mt};base64,{b64encode(img).decode('utf-8')}"
             return pics
-    finally:
-        conn.close()
-
-def get_travel_photos(travel_id):
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT id, image_url, uploaded_by FROM travel_photos WHERE travel_id=%s ORDER BY id DESC", (travel_id,))
-            return [{'id':r[0],'url':r[1],'uploaded_by':r[2]} for r in c.fetchall()]
     finally:
         conn.close()
 
@@ -486,6 +465,181 @@ def compute_streaks():
     sset = set(compl)
     while d in sset: cur += 1; d -= timedelta(days=1)
     return cur, best
+
+# ========= Web Push helpers =========
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "").strip()
+VAPID_PUBLIC_KEY_HEX = os.environ.get("VAPID_PUBLIC_KEY", "").strip()
+VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:admin@example.com").strip()
+
+def hex_to_base64url(hexstr: str) -> str:
+    try:
+        b = binascii.unhexlify(hexstr)
+        s = base64.urlsafe_b64encode(b).decode().rstrip("=")
+        return s
+    except Exception:
+        return ""
+
+def get_vapid_public_base64url() -> str:
+    # Web Push JS espera base64url del punto no comprimido (65 bytes). Tú has guardado HEX.
+    return hex_to_base64url(VAPID_PUBLIC_KEY_HEX)
+
+def get_subscriptions_for(user: str):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE username=%s""",(user,))
+            return [{"id":r[0],"endpoint":r[1],"keys":{"p256dh":r[2],"auth":r[3]}} for r in c.fetchall()]
+    finally:
+        conn.close()
+
+def _delete_subscription_by_endpoint(endpoint: str):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("DELETE FROM push_subscriptions WHERE endpoint=%s", (endpoint,))
+            conn.commit()
+    finally:
+        conn.close()
+
+def send_push_raw(sub: dict, payload: dict):
+    if not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY_HEX:
+        return False
+    try:
+        webpush(
+            subscription_info={
+                "endpoint": sub["endpoint"],
+                "keys": {
+                    "p256dh": sub["keys"]["p256dh"],
+                    "auth": sub["keys"]["auth"],
+                }
+            },
+            data=json.dumps(payload, ensure_ascii=False),
+            vapid_private_key=VAPID_PRIVATE_KEY,
+            vapid_claims={"sub": VAPID_SUBJECT},
+            timeout=5
+        )
+        return True
+    except WebPushException as e:
+        # si está caducada/410/404, la borramos
+        status = getattr(e.response, "status_code", None)
+        if status in (404, 410):
+            try: _delete_subscription_by_endpoint(sub["endpoint"])
+            except: pass
+        print(f"[push] error: {e}")
+        return False
+    except Exception as e:
+        print(f"[push] error gen: {e}")
+        return False
+
+def send_push_to(user: str, title: str, body: str, data: dict | None = None):
+    subs = get_subscriptions_for(user)
+    payload = {"title": title, "body": body, "data": data or {}}
+    ok = False
+    for sub in subs:
+        ok = send_push_raw(sub, payload) or ok
+    return ok
+
+def send_push_both(title: str, body: str, data: dict | None = None):
+    send_push_to('mochito', title, body, data)
+    send_push_to('mochita', title, body, data)
+
+# ========= App state helpers =========
+def state_get(key: str, default: str | None = None) -> str | None:
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT value FROM app_state WHERE key=%s",(key,))
+            row = c.fetchone()
+            return row[0] if row else default
+    finally:
+        conn.close()
+
+def state_set(key: str, value: str):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""INSERT INTO app_state (key,value) VALUES (%s,%s)
+                         ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value""",(key,value))
+            conn.commit()
+    finally:
+        conn.close()
+
+# ========= Background scheduler (recordatorios) =========
+def europe_madrid_now():
+    return datetime.now(pytz.timezone("Europe/Madrid"))
+
+def seconds_until_next_midnight_madrid():
+    now = europe_madrid_now()
+    nxt = now.replace(hour=0,minute=0,second=0,microsecond=0) + timedelta(days=1)
+    return (nxt - now).total_seconds()
+
+def background_loop():
+    """Bucles de 45–60s para:
+       - crear pregunta del día a medianoche y notificar a ambos
+       - recordatorios 3/2/1 días (09:00 y 21:00)
+       - últimas 3h si falta responder
+    """
+    print("[bg] scheduler iniciado")
+    while True:
+        try:
+            now = europe_madrid_now()
+            today = now.date()
+
+            # 1) Asegurar pregunta de hoy + notificación “cambio de pregunta” (una vez/día)
+            last_dq_push = state_get("last_dq_push_date", "")
+            if str(today) != last_dq_push:
+                qid, qtext = get_today_question()   # crea si falta
+                send_push_both("Nueva pregunta del día 💘", "¡Ya tienes una nueva pregunta! Entra y respóndela.")
+                state_set("last_dq_push_date", str(today))
+                cache_invalidate('compute_streaks')
+
+            # 2) Recordatorios 3/2/1 días para veros (dos al día: 09:00 y 21:00)
+            try:
+                d = days_until_meeting()
+            except Exception:
+                d = None
+            if d is not None and d in (1,2,3):
+                for hh in (9, 21):
+                    key = f"meet_push_{today.isoformat()}_{hh}"
+                    already = state_get(key, "")
+                    if not already and now.hour==hh and 0 <= now.minute < 3:  # ventana 3 min
+                        title = f"Faltan {d} día{'s' if d!=1 else ''} para veros 📍"
+                        body  = "Cuenta atrás activada. ¡Qué emoción!"
+                        send_push_both(title, body)
+                        state_set(key, "1")
+
+            # 3) Últimas 3 horas para responder si falta
+            try:
+                qid, _ = get_today_question()
+            except Exception:
+                qid = None
+            if qid:
+                # ¿Quién respondió?
+                conn = get_db_connection()
+                try:
+                    with conn.cursor() as c:
+                        c.execute("SELECT username FROM answers WHERE question_id=%s", (qid,))
+                        have = {r[0] for r in c.fetchall()}
+                finally:
+                    conn.close()
+
+                secs_left = seconds_until_next_midnight_madrid()
+                # envía recordatorio si quedan <= 3h y no se ha mandado ya hoy a esa persona
+                if secs_left <= 3*3600:
+                    for u in ('mochito','mochita'):
+                        if u not in have:
+                            key = f"late_reminder_{today.isoformat()}_{u}"
+                            if not state_get(key, ""):
+                                send_push_to(u, "Te queda poco para responder ⏳", "Responde tu pregunta del día antes del cambio.")
+                                state_set(key, "1")
+
+        except Exception as e:
+            print(f"[bg] error: {e}")
+
+        time.sleep(45)  # periodo
+
+# Lanzar scheduler en segundo plano
+threading.Thread(target=background_loop, daemon=True).start()
 
 # ========= Rutas =========
 @app.route('/', methods=['GET', 'POST'])
@@ -596,6 +750,13 @@ def index():
                                 conn.commit(); send_discord("Answer edited", {"user":user,"question_id":question_id})
                         cache_invalidate('compute_streaks')
                         broadcast("dq_answer", {"user": user})
+
+                        # Push: avisar al otro usuario cuando alguien responde
+                        other_user = 'mochita' if user == 'mochito' else 'mochito'
+                        try:
+                            send_push_to(other_user, "¡Tu pareja ha respondido! 💬", "Entra para ver la respuesta (cuando tú respondas).")
+                        except Exception as e:
+                            print("[push answer] ", e)
                     return redirect('/')
 
                 # 4) Meeting date
@@ -649,7 +810,7 @@ def index():
                         broadcast("travel_update", {"type":"photo_add","id":int(travel_id)})
                     return redirect('/')
 
-                # 8) Wishlist add (ahora con tallas)
+                # 8) Wishlist add
                 if 'product_name' in request.form and 'edit_wishlist_item' not in request.path:
                     product_name = request.form['product_name'].strip()
                     product_link = request.form.get('product_link','').strip()
@@ -666,6 +827,16 @@ def index():
                         conn.commit(); flash("Producto añadido a la lista 🛍️","success")
                         send_discord("Wishlist added", {"user":user,"name":product_name,"priority":priority,"is_gift":is_gift,"size":product_size})
                         broadcast("wishlist_update", {"type":"add"})
+
+                        # Push a la otra persona
+                        other_user = 'mochita' if user == 'mochito' else 'mochito'
+                        try:
+                            if is_gift:
+                                send_push_to(other_user, "¡Sorpresa en la lista! 🎁", "Han añadido un regalo (detalles ocultos).")
+                            else:
+                                send_push_to(other_user, "Nuevo deseo en la lista 💡", f"{user} añadió: {product_name}")
+                        except Exception as e:
+                            print("[push wishlist] ", e)
                     return redirect('/')
 
                 # INTIMIDAD
@@ -708,7 +879,6 @@ def index():
             user_answer, other_answer = dict_ans.get(user), dict_ans.get(other_user)
             show_answers = (user_answer is not None) and (other_answer is not None)
 
-            # Viajes (1 consulta + dict de fotos por id)
             c.execute("""SELECT id, destination, description, travel_date, is_visited, created_by
                          FROM travels ORDER BY is_visited, travel_date DESC""")
             travels = c.fetchall()
@@ -718,7 +888,6 @@ def index():
             for tr_id, pid, url, up in all_ph:
                 travel_photos_dict.setdefault(tr_id, []).append({'id': pid, 'url': url, 'uploaded_by': up})
 
-            # Wishlist (ahora incluye size)
             c.execute("""
                         SELECT
                         id,
@@ -741,7 +910,6 @@ def index():
                         END,
                         created_at DESC
                     """)
-
             wishlist_items = c.fetchall()
 
             banner_file = get_banner()
@@ -838,279 +1006,242 @@ def toggle_travel_status():
 
 @app.route('/delete_wishlist_item', methods=['POST'])
 def delete_wishlist_item():
-    if 'username' not in session: return redirect('/')
+    if 'username' not in session: 
+        return redirect('/')
     try:
         item_id = request.form['item_id']
         user = session['username']
         conn = get_db_connection()
         with conn.cursor() as c:
-            c.execute("SELECT created_by FROM wishlist WHERE id=%s", (item_id,))
-            result = c.fetchone()
-            if result and result[0] == user:
-                c.execute("DELETE FROM wishlist WHERE id=%s", (item_id,))
-                conn.commit(); flash("Producto eliminado de la lista 🗑️","success")
-                broadcast("wishlist_update", {"type":"delete","id":int(item_id)})
+            c.execute("DELETE FROM wishlist WHERE id=%s", (item_id,))
+            conn.commit()
+        flash("Elemento eliminado de la lista 🗑️", "success")
+        send_discord("Wishlist delete", {"user": user, "item_id": item_id})
+        broadcast("wishlist_update", {"type": "delete", "id": int(item_id)})
         return redirect('/')
     except Exception as e:
-        print(f"Error en delete_wishlist_item: {e}"); flash("No se pudo eliminar el producto.","error"); return redirect('/')
-    finally:
-        if 'conn' in locals(): conn.close()
-
-@app.route('/edit_wishlist_item', methods=['POST'])
-def edit_wishlist_item():
-    if 'username' not in session: return redirect('/')
-    try:
-        item_id = request.form['item_id']
-        product_name = request.form['product_name'].strip()
-        product_link = request.form.get('product_link','').strip()
-        notes = request.form.get('notes','').strip()
-        product_size = request.form.get('size','').strip()
-        priority = request.form.get('priority','media').strip()
-        is_gift = bool(request.form.get('is_gift'))
-        if priority not in ('alta','media','baja'): priority='media'
-        if product_name:
-            conn = get_db_connection()
-            with conn.cursor() as c:
-                c.execute("""UPDATE wishlist SET product_name=%s, product_link=%s, notes=%s, size=%s, priority=%s, is_gift=%s WHERE id=%s""",
-                          (product_name, product_link, notes, product_size, priority, is_gift, item_id))
-                conn.commit(); flash("Producto actualizado ✅","success")
-                broadcast("wishlist_update", {"type":"edit","id":int(item_id)})
+        print(f"Error en delete_wishlist_item: {e}")
+        flash("No se pudo eliminar el elemento.", "error")
         return redirect('/')
-    except Exception as e:
-        print(f"Error en edit_wishlist_item: {e}"); flash("No se pudo actualizar el producto.","error"); return redirect('/')
     finally:
-        if 'conn' in locals(): conn.close()
+        if 'conn' in locals():
+            conn.close()
 
-@app.route('/toggle_wishlist_status', methods=['POST'])
-def toggle_wishlist_status():
-    if 'username' not in session: return redirect('/')
+@app.route('/toggle_wishlist_item', methods=['POST'])
+def toggle_wishlist_item():
+    if 'username' not in session:
+        return redirect('/')
     try:
         item_id = request.form['item_id']
+        user = session['username']
         conn = get_db_connection()
         with conn.cursor() as c:
             c.execute("SELECT is_purchased FROM wishlist WHERE id=%s", (item_id,))
-            current_status = c.fetchone()[0]
-            new_status = not current_status
-            c.execute("UPDATE wishlist SET is_purchased=%s WHERE id=%s", (new_status, item_id))
+            row = c.fetchone()
+            if not row:
+                flash("Elemento no encontrado.", "error")
+                return redirect('/')
+            new_state = not bool(row[0])
+            c.execute("UPDATE wishlist SET is_purchased=%s WHERE id=%s", (new_state, item_id))
             conn.commit()
-        flash("Estado de compra actualizado ✅","success")
-        broadcast("wishlist_update", {"type":"toggle","id":int(item_id),"is_purchased":bool(new_status)})
+        flash("Estado del elemento actualizado ✅", "success")
+        send_discord("Wishlist toggle", {"user": user, "item_id": item_id, "is_purchased": bool(new_state)})
+        broadcast("wishlist_update", {"type": "toggle", "id": int(item_id), "is_purchased": bool(new_state)})
         return redirect('/')
     except Exception as e:
-        print(f"Error en toggle_wishlist_status: {e}"); flash("No se pudo actualizar el estado.","error"); return redirect('/')
+        print(f"Error en toggle_wishlist_item: {e}")
+        flash("No se pudo actualizar el estado del elemento.", "error")
+        return redirect('/')
     finally:
-        if 'conn' in locals(): conn.close()
+        if 'conn' in locals():
+            conn.close()
 
-# ===== Intimidad: editar/borrar =====
-@app.route('/edit_intim_event', methods=['POST'])
-def edit_intim_event():
+@app.route('/edit_wishlist_item', methods=['POST'])
+def edit_wishlist_item():
     if 'username' not in session:
-        flash("Sesión no iniciada.", "error"); return redirect('/')
-    if not session.get('intim_unlocked'):
-        flash("Debes desbloquear con PIN para editar.", "error"); return redirect('/')
-    user = session['username']
-    event_id = (request.form.get('event_id') or '').strip()
-    place = (request.form.get('intim_place_edit') or '').strip()
-    notes = (request.form.get('intim_notes_edit') or '').strip()
-    if not event_id.isdigit():
-        flash("ID de evento inválido o vacío.", "error"); return redirect('/')
-    conn = get_db_connection()
+        return redirect('/')
     try:
+        item_id      = request.form.get('item_id')
+        product_name = (request.form.get('product_name') or '').strip()
+        product_link = (request.form.get('product_link') or '').strip()
+        notes        = (request.form.get('wishlist_notes') or '').strip()
+        size         = (request.form.get('size') or '').strip()
+        priority     = (request.form.get('priority') or 'media').strip()
+        is_gift      = bool(request.form.get('is_gift'))
+
+        if priority not in ('alta','media','baja'):
+            priority = 'media'
+
+        conn = get_db_connection()
         with conn.cursor() as c:
-            c.execute("SELECT username FROM intimacy_events WHERE id=%s", (event_id,))
-            row = c.fetchone()
-            if not row: flash("Evento no encontrado.","error"); return redirect('/')
-            owner = row[0]
-            if owner not in ('mochito','mochita'):
-                flash("Evento con propietario desconocido.", "error"); return redirect('/')
-            c.execute("""UPDATE intimacy_events SET place=%s, notes=%s WHERE id=%s""", (place or None, notes or None, event_id))
+            c.execute("""UPDATE wishlist SET
+                            product_name=%s,
+                            product_link=%s,
+                            notes=%s,
+                            size=%s,
+                            priority=%s,
+                            is_gift=%s
+                         WHERE id=%s""",
+                      (product_name, product_link, notes, size, priority, is_gift, item_id))
             conn.commit()
-        flash("Momento actualizado ✅","success")
-        broadcast("intim_update", {"type":"edit","id":int(event_id)})
+        flash("Elemento actualizado ✏️", "success")
+        send_discord("Wishlist edit", {
+            "user": session['username'], "item_id": item_id,
+            "priority": priority, "is_gift": is_gift
+        })
+        broadcast("wishlist_update", {"type": "edit", "id": int(item_id)})
         return redirect('/')
     except Exception as e:
-        print(f"[edit_intim_event] {e}"); flash("No se pudo actualizar el momento.","error"); return redirect('/')
-    finally:
-        conn.close()
-
-@app.route('/delete_intim_event', methods=['POST'])
-def delete_intim_event():
-    if 'username' not in session: return redirect('/')
-    if not session.get('intim_unlocked'):
-        flash("Debes desbloquear con PIN para borrar.", "error"); return redirect('/')
-    event_id = (request.form.get('event_id') or '').strip()
-    if not event_id:
-        flash("Falta el ID del evento.", "error"); return redirect('/')
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT username FROM intimacy_events WHERE id=%s", (event_id,))
-            row = c.fetchone()
-            if not row: flash("Evento no encontrado.", "error"); return redirect('/')
-            owner = row[0]
-            if owner not in ('mochito','mochita'):
-                flash("Evento con propietario desconocido.", "error"); return redirect('/')
-            c.execute("DELETE FROM intimacy_events WHERE id=%s", (event_id,))
-            conn.commit()
-        flash("Momento eliminado 🗑️","success")
-        broadcast("intim_update", {"type":"delete","id":int(event_id)})
+        print(f"Error en edit_wishlist_item: {e}")
+        flash("No se pudo editar el elemento.", "error")
         return redirect('/')
-    except Exception as e:
-        print(f"[delete_intim_event] {e}"); flash("No se pudo eliminar el momento.","error"); return redirect('/')
     finally:
-        conn.close()
+        if 'conn' in locals():
+            conn.close()
 
-# ===== Ubicaciones (AJAX) =====
+# ======= Ubicación del usuario =======
 @app.route('/update_location', methods=['POST'])
 def update_location():
-    if 'username' not in session: return jsonify({'error':'No autorizado'}), 401
+    if 'username' not in session:
+        return redirect('/')
     try:
-        data = request.get_json(force=True)
-        location_name, latitude, longitude = data.get('location_name'), data.get('latitude'), data.get('longitude')
-        username = session['username']
-        if location_name and latitude and longitude:
-            conn = get_db_connection()
-            with conn.cursor() as c:
-                c.execute("""INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
-                             VALUES (%s,%s,%s,%s,%s)
-                             ON CONFLICT (username) DO UPDATE
-                             SET location_name = EXCLUDED.location_name,
-                                 latitude = EXCLUDED.latitude,
-                                 longitude = EXCLUDED.longitude,
-                                 updated_at = EXCLUDED.updated_at""",
-                          (username, location_name, latitude, longitude, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                conn.commit()
-            cache_invalidate('get_user_locations')
-            broadcast("location_update", {"user": username})
-            return jsonify({'success':True,'message':'Ubicación actualizada correctamente'})
-        return jsonify({'error':'Datos incompletos'}), 400
-    except Exception as e:
-        print(f"Error en update_location: {e}"); return jsonify({'error':'Error interno del servidor'}), 500
+        user = session['username']
+        location_name = (request.form.get('location_name') or '').strip()
+        lat = request.form.get('latitude')
+        lon = request.form.get('longitude')
+        lat = float(lat) if lat not in (None, '') else None
+        lon = float(lon) if lon not in (None, '') else None
+        now_txt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-@app.route('/get_locations', methods=['GET'])
-def get_locations():
-    if 'username' not in session: return jsonify({'error':'No autorizado'}), 401
-    try:
-        return jsonify(get_user_locations())
-    except Exception as e:
-        print(f"Error en get_locations: {e}"); return jsonify({'error':'Error interno del servidor'}), 500
-
-# ===== Horarios =====
-@app.route('/horario')
-def horario():
-    if 'username' not in session: return redirect('/')
-    return render_template('schedule.html')
-
-@app.route('/api/schedules', methods=['GET'])
-def get_schedules():
-    if 'username' not in session: return jsonify({'error':'No autorizado'}), 401
-    try:
         conn = get_db_connection()
         with conn.cursor() as c:
-            c.execute("SELECT username, day, time, activity, color FROM schedules")
-            rows = c.fetchall()
-            schedules = {'mochito': {}, 'mochita': {}}
-            for username, day, time, activity, color in rows:
-                schedules.setdefault(username, {}).setdefault(day, {})[time] = {'activity':activity, 'color':color}
-            c.execute("SELECT username, time FROM schedule_times ORDER BY time")
-            times_rows = c.fetchall()
-            customTimes = {'mochito': [], 'mochita': []}
-            for username, time in times_rows:
-                if username in customTimes: customTimes[username].append(time)
-            return jsonify({'schedules': schedules, 'customTimes': customTimes})
-    except Exception as e:
-        print(f"Error en get_schedules: {e}"); return jsonify({'error':'Error interno del servidor'}), 500
-
-@app.route('/api/schedules/save', methods=['POST'])
-def save_schedules():
-    if 'username' not in session: return jsonify({'error':'No autorizado'}), 401
-    try:
-        data = request.get_json(force=True)
-        schedules_payload = data.get('schedules', {})
-        custom_times_payload = data.get('customTimes', {})
-        conn = get_db_connection()
-        with conn.cursor() as c:
-            for user, times in (custom_times_payload or {}).items():
-                c.execute("DELETE FROM schedule_times WHERE username=%s", (user,))
-                for hhmm in times:
-                    c.execute("""INSERT INTO schedule_times (username, time)
-                                 VALUES (%s,%s) ON CONFLICT (username, time) DO NOTHING""", (user, hhmm))
-            c.execute("DELETE FROM schedules")
-            for user in ['mochito','mochita']:
-                for day, times in (schedules_payload or {}).items():
-                    day_times = times if isinstance(times, dict) else {}
-                    for hhmm, obj in (day_times or {}).items():
-                        activity = (obj or {}).get('activity','').strip()
-                        color = (obj or {}).get('color','#e84393')
-                        if activity:
-                            c.execute("""INSERT INTO schedules (username, day, time, activity, color)
-                                         VALUES (%s,%s,%s,%s,%s)
-                                         ON CONFLICT (username, day, time)
-                                         DO UPDATE SET activity=EXCLUDED.activity, color=EXCLUDED.color""",
-                                      (user, day, hhmm, activity, color))
+            c.execute("""
+                INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
+                VALUES (%s,%s,%s,%s,%s)
+                ON CONFLICT (username) DO UPDATE
+                SET location_name=EXCLUDED.location_name,
+                    latitude=EXCLUDED.latitude,
+                    longitude=EXCLUDED.longitude,
+                    updated_at=EXCLUDED.updated_at
+            """, (user, location_name, lat, lon, now_txt))
             conn.commit()
-        broadcast("schedule_update", {"by": session['username']})
-        return jsonify({'ok': True})
+        flash("Ubicación actualizada 📍", "success")
+        send_discord("Location updated", {"user": user, "name": location_name, "lat": lat, "lon": lon})
+        broadcast("location_update", {"user": user})
+        return redirect('/')
     except Exception as e:
-        print(f"Error en save_schedules: {e}"); return jsonify({'error':'Error interno del servidor'}), 500
+        print(f"Error en update_location: {e}")
+        flash("No se pudo actualizar la ubicación.", "error")
+        return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
-# ===== Logout / Imágenes / Reset PW =====
+# ======= Logout =======
 @app.route('/logout')
 def logout():
-    session.pop('username', None); return redirect('/')
-
-@app.route('/image/<int:image_id>')
-def get_image(image_id):
-    conn = get_db_connection()
     try:
-        with conn.cursor() as c:
-            c.execute("SELECT image_data, mime_type FROM profile_pictures WHERE id=%s", (image_id,))
-            row = c.fetchone()
-            if row:
-                                return send_file(io.BytesIO(row[0]), mimetype=row[1])
-            return "Imagen no encontrada", 404
-    finally:
-        conn.close()
-
-@app.route('/__reset_pw')
-def __reset_pw():
-    token = request.args.get('token',''); expected = os.environ.get('RESET_TOKEN','')
-    if not expected: return "RESET_TOKEN no configurado en el entorno", 403
-    if token != expected:
-        send_discord("Reset PW FAIL", {"reason":"bad_token","ip":client_ip()}); return "Token inválido", 403
-    u = request.args.get('u','').strip(); pw = request.args.get('pw','').strip()
-    if not u or not pw: return "Faltan parámetros u y pw", 400
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT 1 FROM users WHERE username=%s", (u,))
-            if not c.fetchone(): return f"Usuario {u} no existe", 404
-            new_hash = generate_password_hash(pw)
-            c.execute("UPDATE users SET password=%s WHERE username=%s", (new_hash, u))
-            conn.commit()
-        send_discord("Reset PW OK", {"user": u}); return f"Contraseña de {u} actualizada correctamente", 200
-    except Exception as e:
-        send_discord("Reset PW ERROR", {"error": str(e)}); return "Error interno", 500
-    finally:
-        conn.close()
-
-# ===== Micro-optimizaciones HTTP (ETag/caché en binarios) =====
-@app.after_request
-def after(resp):
-    try:
-        if request.method == "GET" and resp.status_code == 200 and request.path.startswith(("/image/")):
-            body = resp.get_data()
-            etag = hashlib.md5(body).hexdigest()
-            resp.set_etag(etag)
-            resp.headers.setdefault("Cache-Control", "public, max-age=2592000, immutable")
-        else:
-            if request.path == "/" or request.path.startswith(("/delete_","/edit_","/toggle_","/add_","/intim_","/answer","/api/")):
-                resp.headers["Cache-Control"] = "no-store"
+        user = session.get('username')
+        session.clear()
+        send_discord("Logout", {"user": user})
     except Exception:
         pass
-    return resp
+    return redirect('/')
 
+# ======= Web Push: claves y suscripciones =======
+@app.route('/push/vapid-public')
+def push_vapid_public():
+    # Devuelve la clave pública en base64url como espera la API JS
+    key_b64url = get_vapid_public_base64url()
+    return jsonify({"vapidPublicKey": key_b64url})
+
+@app.route('/push/subscribe', methods=['POST'])
+def push_subscribe():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "not_logged"}), 401
+    try:
+        user = session['username']
+        sub = request.get_json(force=True, silent=False)
+
+        endpoint = sub.get('endpoint', '').strip()
+        keys = sub.get('keys', {}) or {}
+        p256dh = (keys.get('p256dh') or '').strip()
+        auth   = (keys.get('auth') or '').strip()
+
+        if not endpoint or not p256dh or not auth:
+            return jsonify({"ok": False, "error": "bad_payload"}), 400
+
+        conn = get_db_connection()
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO push_subscriptions (username, endpoint, p256dh, auth, created_at)
+                VALUES (%s,%s,%s,%s,%s)
+                ON CONFLICT (endpoint) DO UPDATE SET
+                    username=EXCLUDED.username,
+                    p256dh=EXCLUDED.p256dh,
+                    auth=EXCLUDED.auth,
+                    created_at=EXCLUDED.created_at
+            """, (user, endpoint, p256dh, auth, datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")))
+            conn.commit()
+
+        send_discord("Push subscribed", {"user": user})
+        return jsonify({"ok": True})
+    except Exception as e:
+        print(f"[push_subscribe] {e}")
+        return jsonify({"ok": False, "error": "server_error"}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/push/unsubscribe', methods=['POST'])
+def push_unsubscribe():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "not_logged"}), 401
+    try:
+        payload = request.get_json(force=True, silent=False)
+        endpoint = (payload.get('endpoint') or '').strip()
+        if not endpoint:
+            return jsonify({"ok": False, "error": "bad_payload"}), 400
+        _delete_subscription_by_endpoint(endpoint)
+        send_discord("Push unsubscribed", {"user": session['username']})
+        return jsonify({"ok": True})
+    except Exception as e:
+        print(f"[push_unsubscribe] {e}")
+        return jsonify({"ok": False, "error": "server_error"}), 500
+
+@app.route('/push/test', methods=['POST', 'GET'])
+def push_test():
+    # Permite probar rápidamente el envío de una notificación
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "not_logged"}), 401
+    try:
+        who = request.values.get('who', 'both')  # 'mochito' | 'mochita' | 'both'
+        title = request.values.get('title', 'Prueba de notificación 🔔')
+        body  = request.values.get('body',  'Esto es un test desde el servidor.')
+
+        if who == 'both':
+            send_push_both(title, body)
+        elif who in ('mochito','mochita'):
+            send_push_to(who, title, body)
+        else:
+            return jsonify({"ok": False, "error": "bad_who"}), 400
+
+        return jsonify({"ok": True})
+    except Exception as e:
+        print(f"[push_test] {e}")
+        return jsonify({"ok": False, "error": "server_error"}), 500
+
+# ======= Errores simpáticos =======
+@app.errorhandler(404)
+def not_found(_):
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def server_error(_):
+    # Intenta no revelar trazas al usuario final
+    return render_template('500.html'), 500
+
+# ======= WSGI / Run =======
 if __name__ == '__main__':
-    # threaded=True para SSE + peticiones concurrentes en dev
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False, threaded=True)
-
+    port = int(os.environ.get('PORT', '5000'))
+    app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))

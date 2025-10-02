@@ -10,6 +10,7 @@ from base64 import b64encode
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 
+
 # Web Push
 from pywebpush import webpush, WebPushException
 import pytz
@@ -80,48 +81,116 @@ def send_discord(event: str, payload: dict | None = None):
     except Exception as e:
         print(f"[discord] prep error: {e}")
 
-# ========= Config Postgres + POOL =========
-DATABASE_URL = os.environ.get('DATABASE_URL')
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+# ========= Config Postgres + POOL (robusto contra sockets/SSL rotos) =========
+DATABASE_URL = os.environ.get('DATABASE_URL', '')
+
+def _normalize_database_url(url: str) -> str:
+    if not url:
+        return url
+    # Normaliza el prefijo heroku-style
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    # Forzamos sslmode=require en el propio DSN (evita discrepancias)
+    if "sslmode=" not in url:
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}sslmode=require"
+    return url
+
+DATABASE_URL = _normalize_database_url(DATABASE_URL)
+
+from psycopg2 import OperationalError, InterfaceError, DatabaseError
 
 PG_POOL = None
+
 def _init_pool():
+    """Crea el pool una sola vez."""
     global PG_POOL
-    if PG_POOL: return
+    if PG_POOL:
+        return
     if not DATABASE_URL:
         raise RuntimeError("Falta DATABASE_URL para PostgreSQL")
+    # Pasamos TODO via dsn ya normalizado
     PG_POOL = SimpleConnectionPool(
-        1, int(os.environ.get("DB_MAX_CONN", "10")),
+        1,
+        int(os.environ.get("DB_MAX_CONN", "10")),
         dsn=DATABASE_URL,
-        sslmode='require',
-        keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=5,
-        connect_timeout=8
+        keepalives=1,
+        keepalives_idle=30,
+        keepalives_interval=10,
+        keepalives_count=5,
+        connect_timeout=8,
     )
 
 class PooledConn:
+    """Wrapper que inicializa la sesión y se autorecupera si la conexión está rota."""
     def __init__(self, pool, conn):
-        self._pool, self._conn = pool, conn
+        self._pool = pool
+        self._conn = conn
         self._inited = False
-    def __getattr__(self, name): return getattr(self._conn, name)
+
+    def _reconnect(self):
+        # Devuelve la conexión rota y obtiene una nueva del pool
+        try:
+            self._pool.putconn(self._conn, close=True)
+        except Exception:
+            pass
+        self._conn = self._pool.getconn()
+        self._inited = False
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
     def cursor(self, *a, **k):
         if "cursor_factory" not in k:
             k["cursor_factory"] = psycopg2.extras.DictCursor
+
+        # Inicialización de parámetros de sesión (una vez por conexión viva)
         if not self._inited:
-            with self._conn.cursor() as c:
-                c.execute("SET application_name = 'mochitos';")
-                c.execute("SET idle_in_transaction_session_timeout = '5s';")
-                c.execute("SET statement_timeout = '5s';")
-            self._inited = True
-        return self._conn.cursor(*a, **k)
+            try:
+                with self._conn.cursor() as c:
+                    c.execute("SET application_name = 'mochitos';")
+                    c.execute("SET idle_in_transaction_session_timeout = '5s';")
+                    c.execute("SET statement_timeout = '5s';")
+                self._inited = True
+            except (OperationalError, InterfaceError):
+                # Conexión rota: reconecta y vuelve a aplicar los SET
+                self._reconnect()
+                with self._conn.cursor() as c:
+                    c.execute("SET application_name = 'mochitos';")
+                    c.execute("SET idle_in_transaction_session_timeout = '5s';")
+                    c.execute("SET statement_timeout = '5s';")
+                self._inited = True
+
+        try:
+            return self._conn.cursor(*a, **k)
+        except (OperationalError, InterfaceError):
+            # Si al crear el cursor falla (socket/SSL roto), reconecta y devuelve cursor nuevo
+            self._reconnect()
+            return self._conn.cursor(*a, **k)
+
     def close(self):
-        try: self._pool.putconn(self._conn)
-        except Exception: pass
+        try:
+            self._pool.putconn(self._conn)
+        except Exception:
+            pass
 
 def get_db_connection():
+    """Saca una conexión del pool, la 'pingea' y, si falla, la recicla antes de devolverla."""
     _init_pool()
-    raw = PG_POOL.getconn()
-    return PooledConn(PG_POOL, raw)
+    conn = PG_POOL.getconn()
+    wrapped = PooledConn(PG_POOL, conn)
+    # Ping ligero para detectar sockets/SSL rotos antes de usarlos
+    try:
+        with wrapped.cursor() as c:
+            c.execute("SELECT 1;")
+            _ = c.fetchone()
+    except (OperationalError, InterfaceError, DatabaseError):
+        wrapped._reconnect()
+        with wrapped.cursor() as c:
+            c.execute("SELECT 1;")
+            _ = c.fetchone()
+    return wrapped
+
 
 # ========= SSE =========
 _subscribers_lock = threading.Lock()

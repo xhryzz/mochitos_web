@@ -745,6 +745,60 @@
   /* Si alguna tarjeta se queda sin notas/enlace/talla, el meta igualmente
      se queda al fondo por el margin-top:auto */
 
+     /* ================================
+   WISHLIST — tarjetas mismo alto, sin cortar contenido
+   ================================ */
+:root{
+  /* alto fijo de la tarjeta (ajústalo a tu gusto) */
+  --wish-h: clamp(300px, 36vh, 360px);
+}
+
+/* todas las celdas estiran a mismo alto */
+.wishlist-grid{ align-items: stretch; }
+
+/* tarjeta en columna con alto fijo */
+.wishlist-card{
+  height: var(--wish-h);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;     /* nada se sale de la tarjeta */
+  position: relative;
+}
+
+/* área central que crece/scrolla si hay mucho contenido */
+.wishlist-main{
+  flex: 1 1 auto;
+  min-height: 0;        /* IMPORTANTE para que flex permita el scroll interno */
+  overflow: auto;       /* aparece scroll solo si hace falta */
+  padding-right: 2px;   /* evita que el scroll tape texto */
+}
+
+/* footer (meta + acciones) pegado abajo */
+.wishlist-meta{ margin-top: auto; }
+.wishlist-actions{ margin-top: 10px; }
+
+/* quita recortes previos por line-clamp si los tenías */
+.wishlist-product,
+.wishlist-notes{
+  display: block !important;
+  -webkit-line-clamp: unset !important;
+  -webkit-box-orient: unset !important;
+  overflow: visible !important;
+}
+
+/* si hay máscara de regalo, que no fuerce altura extra */
+.wishlist-card.locked .gift-mask{ min-height: auto; }
+
+/* scrollbar finita (opcional) */
+.wishlist-main::-webkit-scrollbar{ width: 8px; }
+.wishlist-main::-webkit-scrollbar-thumb{ background: #e8e8ef; border-radius: 8px; }
+.wishlist-main:hover::-webkit-scrollbar-thumb{ background: #d3d3e0; }
+
+/* micro-ajustes para que nada “salte” */
+.priority-chip, .gift-chip, .size-chip{ margin: 4px 0 8px; }
+.wishlist-link{ margin-bottom: 8px; }
+.wishlist-size{ margin: 6px 0 8px; }
+
     </style>
 </head>
 
@@ -1329,88 +1383,89 @@
         {% set oculto_para_mi = (is_gift and not soy_creador) %}
 
         <div class="wishlist-card {% if oculto_para_mi %}locked{% endif %}">
-          <div class="wishlist-status status-wanted">Deseado</div>
+  <div class="wishlist-status status-wanted">Deseado</div>
 
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
-              <i class="fas fa-flag"></i> {{ pri|capitalize }}
-            </div>
-            {% if is_gift %}
-              <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
-            {% endif %}
-            {# ⚠️ Quitado el chip de talla de la cabecera #}
-          </div>
+  <div class="wishlist-main">
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
+        <i class="fas fa-flag"></i> {{ pri|capitalize }}
+      </div>
+      {% if is_gift %}
+        <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
+      {% endif %}
+    </div>
 
-          {% if oculto_para_mi %}
-            <div class="gift-mask">
-              🎁 <div>¡Esto es un regalo para ti!</div>
-              <small>Los detalles están ocultos para mantener la sorpresa.</small>
-            </div>
-          {% else %}
-            <h3 class="wishlist-product">{{ product_name }}</h3>
+    {% if oculto_para_mi %}
+      <div class="gift-mask">
+        🎁 <div>¡Esto es un regalo para ti!</div>
+        <small>Los detalles están ocultos para mantener la sorpresa.</small>
+      </div>
+    {% else %}
+      <h3 class="wishlist-product">{{ product_name }}</h3>
 
-            {% if product_link %}
-              <a href="{{ product_link }}" target="_blank" class="wishlist-link">
-                <i class="fas fa-link"></i> Ver producto
-              </a>
-              {# 👇 Talla debajo del enlace #}
-              {% if (size or '')|trim %}
-                <div class="wishlist-size"><strong>Talla:</strong> {{ size }}</div>
-              {% endif %}
-            {% endif %}
+      {% if product_link %}
+        <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+          <i class="fas fa-link"></i> Ver producto
+        </a>
+        {% if (size or '')|trim %}
+          <div class="wishlist-size"><strong>Talla:</strong> {{ size }}</div>
+        {% endif %}
+      {% endif %}
 
-            {% if notes %}
-              <p class="wishlist-notes">{{ notes }}</p>
-            {% endif %}
-          {% endif %}
+      {% if notes %}
+        <p class="wishlist-notes">{{ notes }}</p>
+      {% endif %}
+    {% endif %}
+  </div> <!-- /wishlist-main -->
 
-          <div class="wishlist-meta">
-            <span>
-              <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                {% if profile_pictures.get(created_by) %}
-                  <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
-                {% else %}
-                  {{ created_by[0]|upper }}
-                {% endif %}
-              </div>
-              Creado por {{ created_by }}
-            </span>
-            <span>{{ created_at[:10] }}</span>
-          </div>
+  <div class="wishlist-meta">
+    <span>
+      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+        {% if profile_pictures.get(created_by) %}
+          <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
+        {% else %}
+          {{ created_by[0]|upper }}
+        {% endif %}
+      </div>
+      Creado por {{ created_by }}
+    </span>
+    <span>{{ created_at[:10] }}</span>
+  </div>
 
-          {% if not oculto_para_mi %}
-          <div class="wishlist-actions">
-            <form method="POST" action="/toggle_wishlist_status">
-              <input type="hidden" name="item_id" value="{{ id }}">
-              <button type="submit" class="icon-btn" title="Marcar como comprado">
-                <i class="fas fa-check"></i>
-              </button>
-            </form>
+  {% if not oculto_para_mi %}
+  <div class="wishlist-actions">
+    <form method="POST" action="/toggle_wishlist_status">
+      <input type="hidden" name="item_id" value="{{ id }}">
+      <button type="submit" class="icon-btn" title="Marcar como comprado">
+        <i class="fas fa-check"></i>
+      </button>
+    </form>
 
-            <button class="icon-btn" title="Editar"
-                    onclick='openEditModal(
-                      {{ id }},
-                      {{ product_name|tojson }},
-                      {{ product_link|tojson }},
-                      {{ (notes or "")|tojson }},
-                      {{ pri|tojson }},
-                      {{ is_gift|tojson }},
-                      {{ (size or "")|tojson }}
-                    )'>
-              <i class="fas fa-edit"></i>
-            </button>
+    <button class="icon-btn" title="Editar"
+            onclick='openEditModal(
+              {{ id }},
+              {{ product_name|tojson }},
+              {{ product_link|tojson }},
+              {{ (notes or "")|tojson }},
+              {{ pri|tojson }},
+              {{ is_gift|tojson }},
+              {{ (size or "")|tojson }}
+            )'>
+      <i class="fas fa-edit"></i>
+    </button>
 
-            {% if created_by == username %}
-            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm("¿Estás seguro de que quieres eliminar este producto?");">
-              <input type="hidden" name="item_id" value="{{ id }}">
-              <button type="submit" class="icon-btn" title="Eliminar">
-                <i class="fas fa-trash"></i>
-              </button>
-            </form>
-            {% endif %}
-          </div>
-          {% endif %}
-        </div>
+    {% if created_by == username %}
+    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+      <input type="hidden" name="item_id" value="{{ id }}">
+      <button type="submit" class="icon-btn" title="Eliminar">
+        <i class="fas fa-trash"></i>
+      </button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
       {% else %}
         <p>No hay productos en tu lista de deseos. ¡Añade el primero!</p>
       {% endfor %}
@@ -1426,88 +1481,89 @@
         {% set oculto_para_mi = (is_gift and not soy_creador) %}
 
         <div class="wishlist-card purchased {% if oculto_para_mi %}locked{% endif %}">
-          <div class="wishlist-status status-purchased">Comprado</div>
+  <div class="wishlist-status status-purchased">Comprado</div>
 
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
-              <i class="fas fa-flag"></i> {{ pri|capitalize }}
-            </div>
-            {% if is_gift %}
-              <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
-            {% endif %}
-            {# ⚠️ Quitado el chip de talla de la cabecera #}
-          </div>
+  <div class="wishlist-main">
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
+        <i class="fas fa-flag"></i> {{ pri|capitalize }}
+      </div>
+      {% if is_gift %}
+        <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
+      {% endif %}
+    </div>
 
-          {% if oculto_para_mi %}
-            <div class="gift-mask">
-              🎁 <div>¡Esto es (o era) un regalo para ti!</div>
-              <small>Detalles ocultos para mantener la sorpresa.</small>
-            </div>
-          {% else %}
-            <h3 class="wishlist-product">{{ product_name }}</h3>
+    {% if oculto_para_mi %}
+      <div class="gift-mask">
+        🎁 <div>¡Esto es (o era) un regalo para ti!</div>
+        <small>Detalles ocultos para mantener la sorpresa.</small>
+      </div>
+    {% else %}
+      <h3 class="wishlist-product">{{ product_name }}</h3>
 
-            {% if product_link %}
-              <a href="{{ product_link }}" target="_blank" class="wishlist-link">
-                <i class="fas fa-link"></i> Ver producto
-              </a>
-              {# 👇 Talla debajo del enlace #}
-              {% if (size or '')|trim %}
-                <div class="wishlist-size"><strong>Talla:</strong> {{ size }}</div>
-              {% endif %}
-            {% endif %}
+      {% if product_link %}
+        <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+          <i class="fas fa-link"></i> Ver producto
+        </a>
+        {% if (size or '')|trim %}
+          <div class="wishlist-size"><strong>Talla:</strong> {{ size }}</div>
+        {% endif %}
+      {% endif %}
 
-            {% if notes %}
-              <p class="wishlist-notes">{{ notes }}</p>
-            {% endif %}
-          {% endif %}
+      {% if notes %}
+        <p class="wishlist-notes">{{ notes }}</p>
+      {% endif %}
+    {% endif %}
+  </div> <!-- /wishlist-main -->
 
-          <div class="wishlist-meta">
-            <span>
-              <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                {% if profile_pictures.get(created_by) %}
-                  <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
-                {% else %}
-                  {{ created_by[0]|upper }}
-                {% endif %}
-              </div>
-              Creado por {{ created_by }}
-            </span>
-            <span>{{ created_at[:10] }}</span>
-          </div>
+  <div class="wishlist-meta">
+    <span>
+      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+        {% if profile_pictures.get(created_by) %}
+          <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
+        {% else %}
+          {{ created_by[0]|upper }}
+        {% endif %}
+      </div>
+      Creado por {{ created_by }}
+    </span>
+    <span>{{ created_at[:10] }}</span>
+  </div>
 
-          {% if not oculto_para_mi %}
-          <div class="wishlist-actions">
-            <form method="POST" action="/toggle_wishlist_status">
-              <input type="hidden" name="item_id" value="{{ id }}">
-              <button type="submit" class="icon-btn" title="Marcar como no comprado">
-                <i class="fas fa-undo"></i>
-              </button>
-            </form>
+  {% if not oculto_para_mi %}
+  <div class="wishlist-actions">
+    <form method="POST" action="/toggle_wishlist_status">
+      <input type="hidden" name="item_id" value="{{ id }}">
+      <button type="submit" class="icon-btn" title="Marcar como no comprado">
+        <i class="fas fa-undo"></i>
+      </button>
+    </form>
 
-            <button class="icon-btn" title="Editar"
-                    onclick='openEditModal(
-                      {{ id }},
-                      {{ product_name|tojson }},
-                      {{ product_link|tojson }},
-                      {{ (notes or "")|tojson }},
-                      {{ pri|tojson }},
-                      {{ is_gift|tojson }},
-                      {{ (size or "")|tojson }}
-                    )'>
-              <i class="fas fa-edit"></i>
-            </button>
+    <button class="icon-btn" title="Editar"
+            onclick='openEditModal(
+              {{ id }},
+              {{ product_name|tojson }},
+              {{ product_link|tojson }},
+              {{ (notes or "")|tojson }},
+              {{ pri|tojson }},
+              {{ is_gift|tojson }},
+              {{ (size or "")|tojson }}
+            )'>
+      <i class="fas fa-edit"></i>
+    </button>
 
-            {% if created_by == username %}
-            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm("¿Estás seguro de que quieres eliminar este producto?");">
-              <input type="hidden" name="item_id" value="{{ id }}">
-              <button type="submit" class="icon-btn" title="Eliminar">
-                <i class="fas fa-trash"></i>
-              </button>
-            </form>
-            {% endif %}
-          </div>
-          {% endif %}
-        </div>
+    {% if created_by == username %}
+    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+      <input type="hidden" name="item_id" value="{{ id }}">
+      <button type="submit" class="icon-btn" title="Eliminar">
+        <i class="fas fa-trash"></i>
+      </button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
       {% else %}
         <p>No hay productos comprados todavía.</p>
       {% endfor %}

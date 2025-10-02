@@ -988,6 +988,10 @@
 .modal { z-index: 2000; }
 .theme-icon { z-index: 1100; } /* por encima de casi todo, pero debajo del modal */
 
+
+
+  /* Fuerza visual del modal cuando tenga la clase is-open */
+  #themeModal.is-open { display:block !important; }
     </style>
 </head>
 
@@ -2874,6 +2878,56 @@ window.openEditIntimModal = function(eventId, place, notes) {
   //   }
   // });
 })();
+
+
+
+
+/* ===== Selector de tema: apertura + aplicar (delegado) ===== */
+(function () {
+  const root  = document.documentElement;
+  const modal = document.getElementById('themeModal');
+  const KEY   = 'cc_theme';
+
+  function openTheme()  { if (modal){ modal.classList.add('is-open');  modal.removeAttribute('aria-hidden'); } }
+  function closeTheme() { if (modal){ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); } }
+
+  document.addEventListener('click', (e) => {
+    // 1) Abrir (icono paleta o su <i>)
+    if (e.target.closest('#themeIcon')) { openTheme(); return; }
+
+    // 2) Cerrar con la X
+    if (e.target.matches('#themeModal .close-modal')) { closeTheme(); return; }
+
+    // 3) Cerrar clic fuera del contenido
+    if (e.target === modal) { closeTheme(); return; }
+
+    // 4) APLICAR TEMA (botones con data-apply-theme)
+    const applyBtn = e.target.closest('[data-apply-theme]');
+    if (applyBtn) {
+      const name = applyBtn.getAttribute('data-apply-theme'); // "nico" o "default"
+      if (name === 'nico') root.setAttribute('data-theme', 'nico');
+      else root.removeAttribute('data-theme');
+
+      try { localStorage.setItem(KEY, name); } catch {}
+      // feedback opcional
+      window.showToast?.('success', `Tema aplicado: ${name === 'nico' ? 'Nico' : 'Actual'}`);
+
+      // Evita burbujas raras y cierra
+      e.preventDefault();
+      e.stopPropagation();
+      closeTheme();
+    }
+  });
+
+  // 5) Restaurar al cargar
+  (function restore(){
+    let saved = null;
+    try { saved = localStorage.getItem(KEY); } catch {}
+    if (saved === 'nico') root.setAttribute('data-theme','nico');
+    else root.removeAttribute('data-theme');
+  })();
+})();
+
 </script>
 
 <footer class="site-footer">

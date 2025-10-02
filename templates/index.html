@@ -1,4 +1,4 @@
- 
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -537,9 +537,6 @@
   .dq-countdown-card{ gap:10px; }
   .dq-countdown-note{ width:100%; margin-left:0; }
 }
-.section + .section {
-  margin-top: 50px;
-}
 
 
 
@@ -617,328 +614,15 @@
   color:#6b7280;
 }
 
-.wishlist-size {
-  font-size: 0.9em;
-  color: #555;
-  background: #f8f8f8;
-  padding: 4px 8px;
-  border-radius: 6px;
-  margin-top: 6px;
-}
 
-/* === Pregunta diaria: avisos y placeholders === */
-.answer-placeholder {
-  font-style: italic;
-  color: #7f8c8d;
-  opacity: 0.85;
+/* Chip de talla */
+.size-chip{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 10px; border-radius:999px; font-size:.8rem; font-weight:700;
+  background:#eef2ff; border:2px solid #c7d2fe; color:#3730a3; /* azul suave */
+  margin:6px 0 10px 0;
 }
-
-.missing-answer {
-  margin-top: 8px;
-  font-style: italic;
-  font-weight: 600;
-  color: var(--primary-color);
-  background: #fff0f6;
-  border-left: 4px solid var(--secondary-color);
-  padding: 8px 12px;
-  border-radius: 10px;
-}
-
-/* Separación clara entre secciones principales */
-.section + .section {
-  margin-top: 40px; /* o el valor que quieras */
-}
-
-.section {
-  margin-bottom: 40px; /* más aire abajo */
-  border-bottom: 1px solid rgba(0,0,0,.05);
-  padding-bottom: 35px;
-}
-
-.no-answers {
-  margin-top: 8px;
-  font-style: italic;
-  color: #555;
-  opacity: 0.9;
-  text-align: center;
-}
-
-/* Para diferenciar bien el bloque borroso */
-.answer-item.blurred {
-  background: #fafafa;
-  border-left: 5px dashed var(--accent-color);
-}
-.answer-item.blurred .answer-text {
-  filter: none; /* quitamos blur */
-  font-style: italic;
-  color: #999;
-}
-
-
-/* Respuestas bloqueadas con blur + overlay */
-.answer-item.blurred {
-  position: relative;
-  overflow: hidden;
-}
-
-.answer-item.blurred .answer-text {
-  filter: blur(10px);
-  user-select: none;
-  pointer-events: none;
-  opacity: 0.6;
-}
-
-.answer-item.blurred .blur-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  color: #555;
-  background: rgba(255,255,255,.65);
-  border-radius: 12px;
-  text-align: center;
-  padding: 10px;
-}
-
-
-/* ===========================
-   WISHLIST — Tarjetas iguales
-   =========================== */
-
-/* Mantén las pestañas tal cual (no las tocamos). 
-   Solo redefinimos grid y tarjetas. */
-   .wishlist-grid{
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 22px;
-  margin-top: 20px;
-  align-items: stretch; /* estira elementos por fila */
-}
-
-/* Tarjeta: layout de columna, altura consistente */
-.wishlist-card{
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 300px;            /* <- fija una altura base para igualarlas */
-  padding: 18px;
-  border-radius: 18px;
-  background: var(--card-bg);
-  border: 1px solid rgba(0,0,0,.05);
-  box-shadow: 0 10px 24px rgba(0,0,0,.06);
-  overflow: hidden;
-  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
-}
-
-/* Acento degradado sutil en el borde al hover */
-.wishlist-card::before{
-  content:"";
-  position:absolute; inset:0;
-  border-radius: 18px;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(232,67,147,.25), rgba(162,155,254,.25));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor; /* Safari */
-  mask-composite: exclude;     /* Otros */
-  pointer-events:none;
-  opacity:.0;
-  transition: opacity .22s ease;
-}
-.wishlist-card:hover{
-  transform: translateY(-6px);
-  box-shadow: 0 16px 36px rgba(0,0,0,.10);
-}
-.wishlist-card:hover::before{ opacity: 1; }
-
-/* Estado comprado/pendiente con un borde lateral fijo (discreto) */
-.wishlist-card.purchased{ border-left: 6px solid var(--purchased-color); opacity:.92; }
-.wishlist-card:not(.purchased){ border-left: 6px solid var(--wishlist-color); }
-
-/* Pill de estado arriba a la derecha */
-.wishlist-status{
-  position: absolute;
-  top: 12px; right: 12px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: .78rem;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing:.2px;
-  box-shadow: 0 6px 14px rgba(0,0,0,.12);
-}
-.status-wanted{   background: var(--wishlist-color); }
-.status-purchased{background: var(--purchased-color); }
-
-/* Chips (ya las tienes, solo ajuste de separación) */
-.wishlist-card .priority-chip,
-.wishlist-card .gift-chip{ margin: 4px 6px 10px 0; }
-
-/* Título con clamp (dos líneas) para igualdad de alturas */
-.wishlist-product{
-  font-family: 'Playfair Display', serif;
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: var(--dark-text);
-  margin: 6px 0 6px 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2; 
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* Enlace con subrayado elegante al hover */
-.wishlist-link{
-  color: var(--accent-color);
-  text-decoration: none;
-  display: inline-flex;
-  align-items:center;
-  gap:8px;
-  margin: 4px 0 8px 0;
-  font-weight:700;
-}
-.wishlist-link:hover{ text-decoration: underline; color: var(--primary-color); }
-
-/* Notas y talla con clamp para uniformidad */
-.wishlist-size{
-  font-size: .9rem;
-  color: #555;
-  background: #f8f8f8;
-  padding: 6px 10px;
-  border-radius: 8px;
-  margin-top: 6px;
-  display: inline-block;
-}
-.wishlist-notes{
-  color: #555;
-  font-style: italic;
-  margin-top: 8px;
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-line-clamp: 3; 
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* Empuja meta y acciones al pie para cuadrar alturas */
-.wishlist-meta{ 
-  margin-top: auto; 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  font-size: .9rem; 
-  color: #888; 
-  gap:10px;
-  padding-top: 10px;
-  border-top: 1px dashed rgba(0,0,0,.06);
-}
-
-/* Acciones pegadas al borde inferior con buen gap */
-.wishlist-actions{
-  display: flex; 
-  gap: 10px; 
-  margin-top: 12px;
-}
-
-/* Botones redondos con mejor accesibilidad */
-.icon-btn{
-  width: 38px; height: 38px;
-  border: none; cursor: pointer;
-  border-radius: 12px;
-  background: #fff;
-  color: var(--primary-color);
-  display: inline-flex; align-items: center; justify-content: center;
-  box-shadow: 0 8px 18px rgba(0,0,0,.08);
-  transition: transform .15s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
-}
-.icon-btn:hover{
-  transform: translateY(-2px);
-  background: var(--primary-color);
-  color: #fff;
-  box-shadow: 0 12px 26px rgba(232,67,147,.28);
-}
-
-/* Mantén la máscara de regalo que ya tienes */
-.wishlist-card.locked .wishlist-actions{ display:none !important; }
-
-/* Responsivo fino */
-@media (max-width: 992px){
-  .wishlist-grid{ grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-  .wishlist-card{ min-height: 290px; }
-}
-@media (max-width: 576px){
-  .wishlist-grid{ grid-template-columns: 1fr; }
-  .wishlist-card{ min-height: 280px; }
-}
-
-
-/* =========================
-   THEME SWITCHER (UI + THEMES)
-   ========================= */
-
-/* Botón flotante del selector (junto al de perfil) */
-.theme-icon{
-  position: fixed;
-  top: 30px; left: 92px; /* a la derecha del perfil (50px + margen) */
-  width: 50px; height: 50px;
-  border-radius: 50%;
-  background: white;
-  color: var(--primary-color);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.3rem;
-  box-shadow: var(--shadow);
-  z-index: 1000; cursor: pointer;
-  transition: all .3s;
-}
-.theme-icon:hover{ background: var(--primary-color); color: #fff; transform: translateY(-3px) rotate(-15deg); }
-
-/* Modal del selector (reutiliza .modal genérico) */
-.theme-grid{
-  display:grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
-  gap:14px;
-}
-.theme-card{
-  border:1px solid rgba(0,0,0,.08);
-  border-radius:14px;
-  background:#fff;
-  padding:14px;
-  box-shadow:0 8px 20px rgba(0,0,0,.06);
-}
-.theme-card h4{
-  margin:0 0 8px 0; font-size:1.05rem; color:#333;
-  display:flex; align-items:center; gap:8px;
-}
-.theme-swatches{
-  display:grid; grid-template-columns: repeat(5, 1fr);
-  gap:6px; margin: 10px 0 12px 0;
-}
-.theme-swatch{
-  height:28px; border-radius:8px; border:1px solid rgba(0,0,0,.05);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
-}
-.theme-meta{
-  font-size:.9rem; color:#666;
-}
-
-/* Botón “Aplicar tema” dentro de las cards */
-.theme-actions{
-  display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;
-}
-.theme-actions .btn-outline{
-  border-radius:12px; padding:10px 12px; font-weight:800;
-  background:#fff; color: var(--primary-color);
-  border:1px solid rgba(0,0,0,.08);
-  box-shadow:0 6px 16px rgba(0,0,0,.06);
-  cursor:pointer; transition:.2s;
-}
-.theme-actions .btn-outline:hover{
-  transform: translateY(-2px);
-  background: var(--primary-color); color:#fff;
-  box-shadow:0 12px 24px rgba(232,67,147,.25);
-}
+.size-chip i{ font-size:.95rem; }
 
 
     </style>
@@ -965,13 +649,14 @@
           <input type="hidden" name="item_id" id="editItemId">
           <input type="text" name="product_name" id="editProductName" placeholder="Nombre del producto" required>
           <input type="url" name="product_link" id="editProductLink" placeholder="Enlace (opcional)">
+          
           <select name="priority" id="editPriority" required>
             <option value="alta">Prioridad: Alta 🔴</option>
             <option value="media">Prioridad: Media 🟡</option>
             <option value="baja">Prioridad: Baja 🟢</option>
           </select>
-          <input type="text" name="product_size" id="editProductSize" placeholder="Talla / Medidas (opcional)">
           <textarea name="notes" id="editNotes" placeholder="Notas (opcional)" rows="3"></textarea>
+          <input type="text" name="size" id="editSize" placeholder="Talla (opcional)">
 
           <div style="display:flex; align-items:center; gap:10px; margin: 6px 0 16px 0;">
             <input type="checkbox" id="editIsGift" name="is_gift" style="width:auto;">
@@ -1065,7 +750,6 @@
       <div class="settings-icon" id="settingsIcon">
         <i class="fas fa-user-cog"></i>
       </div>
-
 
         <!-- MODAL EDITAR EVENTO INTIMIDAD -->
   <div id="editIntimModal" class="modal">
@@ -1470,44 +1154,42 @@
 
     <p style="margin-top:8px;opacity:.75;">Aún falta la respuesta de <b>{{ other_user }}</b> 🕒</p>
 
-<!-- === C) El/la otr@ ya respondió y tú no === -->
-{% elif (not user_answer) and other_answer %}
-  <form method="POST" class="inline-form" style="margin-bottom:15px; display:flex; gap:8px;">
-    <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
-    <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-  </form>
+  <!-- {# === C) El/la otr@ ya respondió y tú no: su bloque borroso + tu caja para responder === #} -->
+  {% elif (not user_answer) and other_answer %}
+    <form method="POST" class="inline-form" style="margin-bottom:15px; display:flex; gap:8px;">
+      <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
+      <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+    </form>
 
-  <div class="answers">
-    <div class="answer-item blurred">
-      <div class="user-avatar">
-        {% if profile_pictures.get(other_user) %}
-          <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
-        {% else %} {{ other_user[0]|upper }} {% endif %}
-      </div>
-      <div>
-        <b>{{ other_user }}:</b>
-        <span class="answer-text">{{ other_answer }}</span>
-      </div>
+    <div class="answers">
+      <div class="answer-item blurred">
+        <div class="user-avatar">
+          {% if profile_pictures.get(other_user) %}
+            <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+          {% else %} {{ other_user[0]|upper }} {% endif %}
+        </div>
+        <div>
+  <b>{{ other_user }}:</b>
+  <span class="answer-text">{{ other_answer }}</span>
+  {% if answers_edited and answers_edited.get(other_user) %}
+    <small class="edited-pill">(editado)</small>
+  {% endif %}
+</div>
 
-      <!-- Overlay de candado -->
-      <div class="blur-overlay">🔒 Respuesta oculta hasta que contestes</div>
+      </div>
     </div>
-  </div>
 
-{# === D) Nadie ha respondido aún === #}
-{% else %}
-  <form method="POST" class="inline-form" style="display:flex; gap:8px;">
-    <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
-    <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-  </form>
-  <p style="margin-top:8px; opacity:.75; font-style:italic;">
-    Aún no hay respuestas, ¡sé el primero en contestar!
-  </p>
-{% endif %}
+  {# === D) Nadie ha respondido aún === #}
+  {% else %}
+    <form method="POST" class="inline-form" style="display:flex; gap:8px;">
+      <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
+      <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+    </form>
+  {% endif %}
+</div>
 
-</div> <!-- 👈 Cierre de la sección Pregunta diaria -->
 
-<!-- Lista de deseos -->
+      <!-- Lista de deseos -->
 <div class="section animate-in delay-3">
   <h3>Nuestra Lista de Deseos</h3>
   <p>Cosas que nos gustaría tener o regalarnos mutuamente.</p>
@@ -1521,7 +1203,7 @@
   <!-- Deseados -->
   <div class="wishlist-content active" id="wanted-tab">
     <div class="wishlist-grid">
-      {% for id, product_name, product_link, notes, size, created_by, created_at, is_purchased, priority, is_gift in wishlist_items if not is_purchased %}
+      {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift, size in wishlist_items if not is_purchased %}
         {% set pri = (priority or 'media') %}
         {% set soy_creador = (created_by == username) %}
         {% set oculto_para_mi = (is_gift and not soy_creador) %}
@@ -1536,6 +1218,12 @@
             {% if is_gift %}
               <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
             {% endif %}
+            {# NUEVO: chip de talla visible si no está oculto #}
+            {% if (size or '')|trim and not oculto_para_mi %}
+              <div class="size-chip" title="Talla">
+                <i class="fas fa-ruler-combined" aria-hidden="true"></i> {{ size }}
+              </div>
+            {% endif %}
           </div>
 
           {% if oculto_para_mi %}
@@ -1549,9 +1237,6 @@
               <a href="{{ product_link }}" target="_blank" class="wishlist-link">
                 <i class="fas fa-link"></i> Ver producto
               </a>
-            {% endif %}
-            {% if size %}
-              <p class="wishlist-size"><b>Talla/Medidas:</b> {{ size }}</p>
             {% endif %}
             {% if notes %}
               <p class="wishlist-notes">{{ notes }}</p>
@@ -1582,7 +1267,15 @@
             </form>
 
             <button class="icon-btn" title="Editar"
-                    onclick='openEditModal({{ id }}, {{ product_name|tojson }}, {{ product_link|tojson }}, {{ (notes or "")|tojson }}, {{ (size or "")|tojson }}, {{ pri|tojson }}, {{ is_gift|tojson }})'>
+                    onclick='openEditModal(
+                      {{ id }},
+                      {{ product_name|tojson }},
+                      {{ product_link|tojson }},
+                      {{ (notes or "")|tojson }},
+                      {{ pri|tojson }},
+                      {{ is_gift|tojson }},
+                      {{ (size or "")|tojson }}   /* NUEVO: talla */
+                    )'>
               <i class="fas fa-edit"></i>
             </button>
 
@@ -1606,7 +1299,8 @@
   <!-- Comprados -->
   <div class="wishlist-content" id="purchased-tab">
     <div class="wishlist-grid">
-      {% for id, product_name, product_link, notes, size, created_by, created_at, is_purchased, priority, is_gift in wishlist_items if is_purchased %}
+      {# NUEVO: añadimos size también en este bucle #}
+      {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift, size in wishlist_items if is_purchased %}
         {% set pri = (priority or 'media') %}
         {% set soy_creador = (created_by == username) %}
         {% set oculto_para_mi = (is_gift and not soy_creador) %}
@@ -1621,6 +1315,12 @@
             {% if is_gift %}
               <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
             {% endif %}
+            {# NUEVO: chip de talla visible si no está oculto #}
+            {% if (size or '')|trim and not oculto_para_mi %}
+              <div class="size-chip" title="Talla">
+                <i class="fas fa-ruler-combined" aria-hidden="true"></i> {{ size }}
+              </div>
+            {% endif %}
           </div>
 
           {% if oculto_para_mi %}
@@ -1634,9 +1334,6 @@
               <a href="{{ product_link }}" target="_blank" class="wishlist-link">
                 <i class="fas fa-link"></i> Ver producto
               </a>
-            {% endif %}
-            {% if size %}
-              <p class="wishlist-size"><b>Talla/Medidas:</b> {{ size }}</p>
             {% endif %}
             {% if notes %}
               <p class="wishlist-notes">{{ notes }}</p>
@@ -1667,7 +1364,15 @@
             </form>
 
             <button class="icon-btn" title="Editar"
-                    onclick='openEditModal({{ id }}, {{ product_name|tojson }}, {{ product_link|tojson }}, {{ (notes or "")|tojson }}, {{ (size or "")|tojson }}, {{ pri|tojson }}, {{ is_gift|tojson }})'>
+                    onclick='openEditModal(
+                      {{ id }},
+                      {{ product_name|tojson }},
+                      {{ product_link|tojson }},
+                      {{ (notes or "")|tojson }},
+                      {{ pri|tojson }},
+                      {{ is_gift|tojson }},
+                      {{ (size or "")|tojson }}   /* NUEVO: talla */
+                    )'>
               <i class="fas fa-edit"></i>
             </button>
 
@@ -1694,9 +1399,8 @@
       <h4>Añadir nuevo producto</h4>
       <form method="POST">
         <input type="text" name="product_name" placeholder="Nombre del producto" required>
-        <input type="url" name="product_link" placeholder="Enlace (opcional)">
+        <input type="url"  name="product_link" placeholder="Enlace (opcional)">
         <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
-        <input type="text" name="product_size" placeholder="Talla / Medidas (opcional)">
 
         <select name="priority" required style="margin-bottom:15px;">
           <option value="alta">Prioridad: Alta 🔴</option>
@@ -1708,6 +1412,9 @@
           <input type="checkbox" id="is_gift" name="is_gift" style="width:auto;">
           <label for="is_gift" style="margin:0;">¿Es un regalo (ocultar a la otra persona)? 🎁</label>
         </div>
+
+        <!-- NUEVO: talla -->
+        <input type="text" name="size" placeholder="Talla (opcional) – ej: M, 40 EU, 85B" />
 
         <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
       </form>
@@ -2025,21 +1732,27 @@ function setupTabs() {
 })();
 
 // Editor wishlist
-window.openEditModal = function(id, name, link, notes, size, priority, is_gift) {
+// Antes: window.openEditModal = function(id, name, link, notes, priority, is_gift)
+window.openEditModal = function(id, name, link, notes, priority, is_gift, size) {
   const modal = document.getElementById('editWishlistModal');
   if (!modal) return;
   const $ = (sel) => document.getElementById(sel);
 
-  $('editItemId').value       = id;
-  $('editProductName').value  = name || '';
-  $('editProductLink').value  = link || '';
-  $('editNotes').value        = notes || '';
-  $('editProductSize').value  = size || '';
-  $('editPriority').value     = priority || 'media';
-  $('editIsGift').checked     = !!is_gift;
+  $('editItemId').value = id;
+  $('editProductName').value = name || '';
+  $('editProductLink').value = link || '';
+  $('editNotes').value = notes || '';
+  $('editPriority').value = priority || 'media';
+  $('editIsGift').checked = !!is_gift;
+
+  // NUEVO:
+  const editSize = $('editSize');
+  if (editSize) editSize.value = size || '';
 
   modal.style.display = 'block';
 };
+
+
 
 // =====================
 // Popover fotos (viajes)
@@ -2625,10 +2338,6 @@ window.openEditIntimModal = function(eventId, place, notes) {
   };
 })();
 
-
-
-
-})();
 </script>
 
 <footer class="site-footer">
@@ -2639,4 +2348,3 @@ window.openEditIntimModal = function(eventId, place, notes) {
 
 </body>
 </html>
-

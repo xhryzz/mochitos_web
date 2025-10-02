@@ -2826,6 +2826,54 @@ window.openEditIntimModal = function(eventId, place, notes) {
     else root.removeAttribute('data-theme');
   })();
 })();
+
+// ====== FIX: abrir/cerrar el modal de temas de forma segura ======
+(function () {
+  const modal = document.getElementById('themeModal');
+
+  // 1) Asegura una clase que fuerce la visibilidad del modal
+  const style = document.createElement('style');
+  style.textContent = `
+    /* Fuerza apertura con clase (gana a la regla .modal { display:none }) */
+    #themeModal.is-open { display: block !important; }
+  `;
+  document.head.appendChild(style);
+
+  // 2) Abrir al click en el icono (soporta clic en el <div> o en su <i>)
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#themeIcon')) {
+      if (!modal) return;
+      modal.classList.add('is-open');
+      modal.removeAttribute('aria-hidden'); // por si alguna regla CSS usa [aria-hidden]
+    }
+  });
+
+  // 3) Cerrar con la X
+  document.addEventListener('click', (e) => {
+    if (!modal) return;
+    if (e.target.matches('#themeModal .close-modal')) {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+  });
+
+  // 4) Cerrar al click fuera del contenido
+  window.addEventListener('click', (e) => {
+    if (!modal) return;
+    if (e.target === modal) {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+  });
+
+  // 5) (Debug) Si quieres comprobar que se está abriendo:
+  // document.addEventListener('click', e => {
+  //   if (e.target.closest('#themeIcon')) {
+  //     console.log('Abriendo modal de tema…', getComputedStyle(modal).display);
+  //     setTimeout(() => console.log('Display tras abrir:', getComputedStyle(modal).display), 0);
+  //   }
+  // });
+})();
 </script>
 
 <footer class="site-footer">

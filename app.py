@@ -284,6 +284,9 @@ def init_db():
                      ADD COLUMN IF NOT EXISTS priority TEXT
                      CHECK (priority IN ('alta','media','baja')) DEFAULT 'media'""")
         c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS is_gift BOOLEAN DEFAULT FALSE""")
+        # >>> soporte de tallas <<<
+        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS size TEXT""")
+        # <<<
         c.execute('''CREATE TABLE IF NOT EXISTS schedules (
             id SERIAL PRIMARY KEY, username TEXT NOT NULL, day TEXT NOT NULL,
             time TEXT NOT NULL, activity TEXT, color TEXT, UNIQUE(username, day, time))''')
@@ -646,21 +649,22 @@ def index():
                         broadcast("travel_update", {"type":"photo_add","id":int(travel_id)})
                     return redirect('/')
 
-                # 8) Wishlist add
+                # 8) Wishlist add (ahora con tallas)
                 if 'product_name' in request.form and 'edit_wishlist_item' not in request.path:
                     product_name = request.form['product_name'].strip()
                     product_link = request.form.get('product_link','').strip()
                     notes = request.form.get('wishlist_notes','').strip()
+                    product_size = request.form.get('product_size','').strip()   # 👈 nuevo campo
                     priority = request.form.get('priority','media').strip()
                     is_gift = bool(request.form.get('is_gift'))
                     if priority not in ('alta','media','baja'): priority='media'
                     if product_name:
-                        c.execute("""INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift)
-                                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
-                                  (product_name, product_link, notes, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        c.execute("""INSERT INTO wishlist (product_name, product_link, notes, size, created_by, created_at, is_purchased, priority, is_gift)
+                                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                                  (product_name, product_link, notes, product_size, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                                    False, priority, is_gift))
                         conn.commit(); flash("Producto añadido a la lista 🛍️","success")
-                        send_discord("Wishlist added", {"user":user,"name":product_name,"priority":priority,"is_gift":is_gift})
+                        send_discord("Wishlist added", {"user":user,"name":product_name,"priority":priority,"is_gift":is_gift,"size":product_size})
                         broadcast("wishlist_update", {"type":"add"})
                     return redirect('/')
 
@@ -714,8 +718,8 @@ def index():
             for tr_id, pid, url, up in all_ph:
                 travel_photos_dict.setdefault(tr_id, []).append({'id': pid, 'url': url, 'uploaded_by': up})
 
-            # Wishlist
-            c.execute("""SELECT id, product_name, product_link, notes, created_by, created_at, is_purchased,
+            # Wishlist (ahora incluye size)
+            c.execute("""SELECT id, product_name, product_link, notes, size, created_by, created_at, is_purchased,
                                 COALESCE(priority,'media') AS priority, COALESCE(is_gift,false) AS is_gift
                          FROM wishlist
                          ORDER BY is_purchased ASC,
@@ -843,14 +847,15 @@ def edit_wishlist_item():
         product_name = request.form['product_name'].strip()
         product_link = request.form.get('product_link','').strip()
         notes = request.form.get('notes','').strip()
+        product_size = request.form.get('product_size','').strip()   # 👈 nuevo campo
         priority = request.form.get('priority','media').strip()
         is_gift = bool(request.form.get('is_gift'))
         if priority not in ('alta','media','baja'): priority='media'
         if product_name:
             conn = get_db_connection()
             with conn.cursor() as c:
-                c.execute("""UPDATE wishlist SET product_name=%s, product_link=%s, notes=%s, priority=%s, is_gift=%s WHERE id=%s""",
-                          (product_name, product_link, notes, priority, is_gift, item_id))
+                c.execute("""UPDATE wishlist SET product_name=%s, product_link=%s, notes=%s, size=%s, priority=%s, is_gift=%s WHERE id=%s""",
+                          (product_name, product_link, notes, product_size, priority, is_gift, item_id))
                 conn.commit(); flash("Producto actualizado ✅","success")
                 broadcast("wishlist_update", {"type":"edit","id":int(item_id)})
         return redirect('/')
@@ -1045,7 +1050,7 @@ def get_image(image_id):
             c.execute("SELECT image_data, mime_type FROM profile_pictures WHERE id=%s", (image_id,))
             row = c.fetchone()
             if row:
-                return send_file(io.BytesIO(row[0]), mimetype=row[1])
+                                return send_file(io.BytesIO(row[0]), mimetype=row[1])
             return "Imagen no encontrada", 404
     finally:
         conn.close()
@@ -1091,3 +1096,4 @@ def after(resp):
 if __name__ == '__main__':
     # threaded=True para SSE + peticiones concurrentes en dev
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False, threaded=True)
+

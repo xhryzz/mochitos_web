@@ -613,6 +613,42 @@
   color:#6b7280;
 }
 
+/* === Pregunta diaria: avisos y placeholders === */
+.answer-placeholder {
+  font-style: italic;
+  color: #7f8c8d;
+  opacity: 0.85;
+}
+
+.missing-answer {
+  margin-top: 8px;
+  font-style: italic;
+  font-weight: 600;
+  color: var(--primary-color);
+  background: #fff0f6;
+  border-left: 4px solid var(--secondary-color);
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+
+.no-answers {
+  margin-top: 8px;
+  font-style: italic;
+  color: #555;
+  opacity: 0.9;
+  text-align: center;
+}
+
+/* Para diferenciar bien el bloque borroso */
+.answer-item.blurred {
+  background: #fafafa;
+  border-left: 5px dashed var(--accent-color);
+}
+.answer-item.blurred .answer-text {
+  filter: none; /* quitamos blur */
+  font-style: italic;
+  color: #999;
+}
 
 
 
@@ -1158,24 +1194,28 @@
           {% else %} {{ other_user[0]|upper }} {% endif %}
         </div>
         <div>
-  <b>{{ other_user }}:</b>
-  <span class="answer-text">{{ other_answer }}</span>
-  {% if answers_edited and answers_edited.get(other_user) %}
-    <small class="edited-pill">(editado)</small>
-  {% endif %}
-</div>
-
+          <b>{{ other_user }}:</b>
+          <span class="answer-text">🔒 Respuesta oculta hasta que contestes</span>
+        </div>
       </div>
     </div>
+    <p style="margin-top:8px; opacity:.75; font-style:italic;">
+      ¡Faltas tú por responder! ✍️
+    </p>
+        
 
-  {# === D) Nadie ha respondido aún === #}
-  {% else %}
-    <form method="POST" class="inline-form" style="display:flex; gap:8px;">
-      <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
-      <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-    </form>
-  {% endif %}
-</div>
+    {# === D) Nadie ha respondido aún === #}
+    {% else %}
+      <form method="POST" class="inline-form" style="display:flex; gap:8px;">
+        <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
+        <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+      </form>
+      <p style="margin-top:8px; opacity:.75; font-style:italic;">
+        Aún no hay respuestas, ¡sé el primero en contestar!
+      </p>
+    {% endif %}
+    
+
 
 
       <!-- Lista de deseos -->

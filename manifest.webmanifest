@@ -1,0 +1,14 @@
+{
+    "name": "Christian y Clara",
+    "short_name": "Mochitos",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#e84393",
+    "icons": [
+      { "src": "/static/favicon.ico", "sizes": "192x192", "type": "image/png" },
+      { "src": "/static/favicon.ico", "sizes": "512x512", "type": "image/png" }
+    ]
+  }
+  

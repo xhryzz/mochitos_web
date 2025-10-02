@@ -11,6 +11,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="manifest" href="/static/manifest.webmanifest">
+<meta name="theme-color" content="#e84393">
+
+<!-- iOS PWA hints -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png">
     <style>
         :root {
             --primary-color: #e84393;
@@ -2738,6 +2745,84 @@ navigator.serviceWorker.register("/static/sw.js");
 
 // Botón
 document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
+
+
+
+(async function setupPush(){
+  const btn = document.getElementById('enablePushBtn');
+  if (!btn) return;
+
+  // iOS: guiar al usuario si no está instalada como app
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+  btn.addEventListener('click', async () => {
+    try {
+      if (!window.isSecureContext && location.hostname !== 'localhost') {
+        showToast?.('error','Necesitas HTTPS para activar notificaciones'); return;
+      }
+      if (isIOS && !isStandalone) {
+        showToast?.('info','En iPhone, primero Añade la web a la pantalla de inicio y ábrela desde ahí para activar notificaciones.'); 
+        // En iOS, el prompt solo aparece en la PWA instalada.
+        // Continúo igualmente para otros navegadores.
+      }
+
+      // 1) Registrar Service Worker
+      if (!('serviceWorker' in navigator)) {
+        showToast?.('error','Tu navegador no soporta Service Workers'); return;
+      }
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+
+      // 2) Pedir permiso (tiene que venir de este gesto de botón)
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        showToast?.('error','Has denegado el permiso de notificaciones'); return;
+      }
+
+      // 3) Obtener VAPID public key (base64url)
+      const r = await fetch('/push/vapid-public');
+      const j = await r.json();
+      if (!j.vapidPublicKey) {
+        showToast?.('error','No se pudo obtener la clave pública VAPID'); return;
+      }
+
+      // 4) Convertir base64url -> Uint8Array
+      const appServerKey = (function b64urlToUint8Array(base64String){
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const b64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const raw = atob(b64);
+        const arr = new Uint8Array(raw.length);
+        for (let i=0;i<raw.length;i++) arr[i] = raw.charCodeAt(i);
+        return arr;
+      })(j.vapidPublicKey);
+
+      // 5) Suscribirse
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: appServerKey
+      });
+
+      // 6) Enviar la suscripción a tu backend
+      const res = await fetch('/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify(sub)
+      });
+      const ok = (await res.json()).ok;
+      if (ok) {
+        showToast?.('success','¡Notificaciones activadas!');
+      } else {
+        showToast?.('error','No se pudo guardar la suscripción');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast?.('error','Error activando notificaciones');
+    }
+  });
+})();
+
+
 
 
 </script>

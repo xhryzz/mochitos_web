@@ -1310,6 +1310,14 @@ def server_error(_):
     # Intenta no revelar trazas al usuario final
     return render_template('500.html'), 500
 
+
+
+@app.route('/sw.js')
+def service_worker():
+    return send_file(os.path.join(app.root_path, 'static', 'sw.js'),
+                     mimetype='application/javascript')
+
+
 # ======= WSGI / Run =======
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))

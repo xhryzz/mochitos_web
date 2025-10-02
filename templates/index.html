@@ -730,6 +730,7 @@
             <option value="media">Prioridad: Media 🟡</option>
             <option value="baja">Prioridad: Baja 🟢</option>
           </select>
+          <input type="text" name="product_size" id="editProductSize" placeholder="Talla / Medidas (opcional)">
           <textarea name="notes" id="editNotes" placeholder="Notas (opcional)" rows="3"></textarea>
 
           <div style="display:flex; align-items:center; gap:10px; margin: 6px 0 16px 0;">
@@ -1783,21 +1784,21 @@ function setupTabs() {
 })();
 
 // Editor wishlist
-window.openEditModal = function(id, name, link, notes, priority, is_gift) {
+window.openEditModal = function(id, name, link, notes, size, priority, is_gift) {
   const modal = document.getElementById('editWishlistModal');
   if (!modal) return;
   const $ = (sel) => document.getElementById(sel);
 
-  $('editItemId').value = id;
-  $('editProductName').value = name || '';
-  $('editProductLink').value = link || '';
-  $('editNotes').value = notes || '';
-  $('editPriority').value = priority || 'media';
-  $('editIsGift').checked = !!is_gift;
+  $('editItemId').value       = id;
+  $('editProductName').value  = name || '';
+  $('editProductLink').value  = link || '';
+  $('editNotes').value        = notes || '';
+  $('editProductSize').value  = size || '';
+  $('editPriority').value     = priority || 'media';
+  $('editIsGift').checked     = !!is_gift;
 
   modal.style.display = 'block';
 };
-
 
 // =====================
 // Popover fotos (viajes)

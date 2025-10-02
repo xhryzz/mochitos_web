@@ -2654,57 +2654,80 @@ function urlBase64ToUint8Array(base64String){
   for (let i=0; i<raw.length; ++i) out[i] = raw.charCodeAt(i);
   return out;
 }
+// Registra SIEMPRE el SW al cargar
+(async function registerSWOnLoad(){
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    // OJO: raíz, no /static
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    // Espera a que esté listo
+    await navigator.serviceWorker.ready;
+    console.log('[SW] listo', reg.scope);
+  } catch (err) {
+    console.error('[SW] registro falló', err);
+    window.showToast?.('error','No se pudo registrar el Service Worker');
+  }
+})();
 
 async function enablePush(){
   try{
-    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-      showToast?.('error','Tu navegador no soporta notificaciones');
-      return;
+    // Checks básicos
+    if (!('Notification' in window)) { showToast?.('error','Este navegador no soporta notificaciones'); return; }
+    if (!('serviceWorker' in navigator)) { showToast?.('error','Service Worker no soportado'); return; }
+    if (!('PushManager' in window)) { showToast?.('error','Push no soportado'); return; }
+
+    // Asegura que el SW esté registrado (por si el registro inicial falló)
+    let reg = await navigator.serviceWorker.getRegistration('/');
+    if (!reg) {
+      try {
+        reg = await navigator.serviceWorker.register('/sw.js');
+      } catch (e) {
+        console.error('Registro SW falló:', e);
+        showToast?.('error','No se pudo registrar el Service Worker');
+        return;
+      }
     }
+    reg = await navigator.serviceWorker.ready;
 
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') { showToast?.('error','Permiso denegado'); return; }
+    // Pide permiso
+    let perm = Notification.permission;
+    if (perm === 'default') perm = await Notification.requestPermission();
+    if (perm !== 'granted') { showToast?.('error','Permiso de notificaciones denegado'); return; }
 
-    // Asegura que el SW esté listo (el registrado en /sw.js)
-    const reg = await navigator.serviceWorker.ready;
-
-    // 1) VAPID pública
+    // VAPID pública
     const r = await fetch('/push/vapid-public');
-    const data = await r.json();
+    if (!r.ok) { showToast?.('error','/push/vapid-public devolvió error'); return; }
+    const data = await r.json().catch(()=> ({}));
     const vapidPublicKey = data.vapidPublicKey || data.key;
     if (!vapidPublicKey) { showToast?.('error','VAPID pública vacía'); return; }
 
-    // 2) Suscripción (reutiliza si ya existe)
+    // Suscripción (reutiliza si existe)
     let sub = await reg.pushManager.getSubscription();
     if (!sub) {
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) // <- SIN await
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
       });
     }
 
-    // 3) Enviar al servidor
+    // Enviar al servidor
     const rr = await fetch('/push/subscribe', {
       method: 'POST',
       headers: { 'Content-Type':'application/json' },
       body: JSON.stringify(sub)
     });
-    const jj = await rr.json();
-    if (jj.ok) showToast?.('success','Notificaciones activadas ✅');
-    else showToast?.('error','Falló la suscripción');
+    if (!rr.ok) { showToast?.('error','No se pudo guardar la suscripción'); return; }
+
+    showToast?.('success','Notificaciones activadas ✅');
+    document.getElementById('enablePushBtn')?.remove();
   }catch(e){
     console.error('enablePush error:', e);
-    showToast?.('error','No se pudieron activar las notificaciones');
+    showToast?.('error','Fallo al activar notificaciones (mira consola)');
   }
 }
 
 // Botón
-document.getElementById('enablePushBtn')?.addEventListener('click', async () => {
-  await enablePush();
-  if (Notification.permission === 'granted') {
-    document.getElementById('enablePushBtn').style.display = 'none';
-  }
-});
+document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
 
 
 </script>

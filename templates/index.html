@@ -983,6 +983,11 @@
   background: linear-gradient(135deg, #6f4e37, #b08968);
 }
 
+
+/* Fix de capas para que el modal quede siempre arriba */
+.modal { z-index: 2000; }
+.theme-icon { z-index: 1100; } /* por encima de casi todo, pero debajo del modal */
+
     </style>
 </head>
 
@@ -2776,6 +2781,50 @@ window.openEditIntimModal = function(eventId, place, notes) {
       root.removeAttribute('data-theme');
     }
   });
+})();
+
+/* Fix seguro para abrir/cerrar el modal de temas aunque otros listeners fallen */
+(function(){
+  const root = document.documentElement;
+  const THEME_KEY = 'cc_theme';
+  const modal = document.getElementById('themeModal');
+
+  // Abrir al clicar el icono o su <i> hijo
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#themeIcon')) {
+      if (modal) modal.style.display = 'block';
+    }
+  });
+
+  // Cerrar con la X y clic fuera
+  document.addEventListener('click', (e) => {
+    if (!modal) return;
+    if (e.target.matches('#themeModal .close-modal')) modal.style.display = 'none';
+    if (e.target === modal) modal.style.display = 'none';
+  });
+
+  // Aplicar tema (botones dentro del modal)
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('#themeModal [data-apply-theme]');
+    if (!btn) return;
+    const name = btn.getAttribute('data-apply-theme');
+    if (name === 'nico') {
+      root.setAttribute('data-theme', 'nico');
+    } else {
+      root.removeAttribute('data-theme');
+    }
+    try { localStorage.setItem(THEME_KEY, name); } catch {}
+    window.showToast?.('success', `Tema aplicado: ${name === 'nico' ? 'Nico' : 'Actual'}`);
+    setTimeout(()=> { if (modal) modal.style.display = 'none'; }, 120);
+  });
+
+  // Restaurar al cargar
+  (function restoreTheme(){
+    let saved = null;
+    try { saved = localStorage.getItem(THEME_KEY); } catch {}
+    if (saved === 'nico') root.setAttribute('data-theme','nico');
+    else root.removeAttribute('data-theme');
+  })();
 })();
 </script>
 

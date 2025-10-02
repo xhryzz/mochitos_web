@@ -701,6 +701,177 @@
   padding: 10px;
 }
 
+
+/* ===========================
+   WISHLIST — Tarjetas iguales
+   =========================== */
+
+/* Mantén las pestañas tal cual (no las tocamos). 
+   Solo redefinimos grid y tarjetas. */
+   .wishlist-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 22px;
+  margin-top: 20px;
+  align-items: stretch; /* estira elementos por fila */
+}
+
+/* Tarjeta: layout de columna, altura consistente */
+.wishlist-card{
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 300px;            /* <- fija una altura base para igualarlas */
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--card-bg);
+  border: 1px solid rgba(0,0,0,.05);
+  box-shadow: 0 10px 24px rgba(0,0,0,.06);
+  overflow: hidden;
+  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+}
+
+/* Acento degradado sutil en el borde al hover */
+.wishlist-card::before{
+  content:"";
+  position:absolute; inset:0;
+  border-radius: 18px;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(232,67,147,.25), rgba(162,155,254,.25));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; /* Safari */
+  mask-composite: exclude;     /* Otros */
+  pointer-events:none;
+  opacity:.0;
+  transition: opacity .22s ease;
+}
+.wishlist-card:hover{
+  transform: translateY(-6px);
+  box-shadow: 0 16px 36px rgba(0,0,0,.10);
+}
+.wishlist-card:hover::before{ opacity: 1; }
+
+/* Estado comprado/pendiente con un borde lateral fijo (discreto) */
+.wishlist-card.purchased{ border-left: 6px solid var(--purchased-color); opacity:.92; }
+.wishlist-card:not(.purchased){ border-left: 6px solid var(--wishlist-color); }
+
+/* Pill de estado arriba a la derecha */
+.wishlist-status{
+  position: absolute;
+  top: 12px; right: 12px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: .78rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing:.2px;
+  box-shadow: 0 6px 14px rgba(0,0,0,.12);
+}
+.status-wanted{   background: var(--wishlist-color); }
+.status-purchased{background: var(--purchased-color); }
+
+/* Chips (ya las tienes, solo ajuste de separación) */
+.wishlist-card .priority-chip,
+.wishlist-card .gift-chip{ margin: 4px 6px 10px 0; }
+
+/* Título con clamp (dos líneas) para igualdad de alturas */
+.wishlist-product{
+  font-family: 'Playfair Display', serif;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--dark-text);
+  margin: 6px 0 6px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; 
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Enlace con subrayado elegante al hover */
+.wishlist-link{
+  color: var(--accent-color);
+  text-decoration: none;
+  display: inline-flex;
+  align-items:center;
+  gap:8px;
+  margin: 4px 0 8px 0;
+  font-weight:700;
+}
+.wishlist-link:hover{ text-decoration: underline; color: var(--primary-color); }
+
+/* Notas y talla con clamp para uniformidad */
+.wishlist-size{
+  font-size: .9rem;
+  color: #555;
+  background: #f8f8f8;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin-top: 6px;
+  display: inline-block;
+}
+.wishlist-notes{
+  color: #555;
+  font-style: italic;
+  margin-top: 8px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3; 
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Empuja meta y acciones al pie para cuadrar alturas */
+.wishlist-meta{ 
+  margin-top: auto; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  font-size: .9rem; 
+  color: #888; 
+  gap:10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(0,0,0,.06);
+}
+
+/* Acciones pegadas al borde inferior con buen gap */
+.wishlist-actions{
+  display: flex; 
+  gap: 10px; 
+  margin-top: 12px;
+}
+
+/* Botones redondos con mejor accesibilidad */
+.icon-btn{
+  width: 38px; height: 38px;
+  border: none; cursor: pointer;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--primary-color);
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 18px rgba(0,0,0,.08);
+  transition: transform .15s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
+}
+.icon-btn:hover{
+  transform: translateY(-2px);
+  background: var(--primary-color);
+  color: #fff;
+  box-shadow: 0 12px 26px rgba(232,67,147,.28);
+}
+
+/* Mantén la máscara de regalo que ya tienes */
+.wishlist-card.locked .wishlist-actions{ display:none !important; }
+
+/* Responsivo fino */
+@media (max-width: 992px){
+  .wishlist-grid{ grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+  .wishlist-card{ min-height: 290px; }
+}
+@media (max-width: 576px){
+  .wishlist-grid{ grid-template-columns: 1fr; }
+  .wishlist-card{ min-height: 280px; }
+}
+
     </style>
 </head>
 

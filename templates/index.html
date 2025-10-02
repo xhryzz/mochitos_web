@@ -631,6 +631,17 @@
   border-radius: 10px;
 }
 
+/* Separación clara entre secciones principales */
+.section + .section {
+  margin-top: 40px; /* o el valor que quieras */
+}
+
+.section {
+  margin-bottom: 40px; /* más aire abajo */
+  border-bottom: 1px solid rgba(0,0,0,.05);
+  padding-bottom: 35px;
+}
+
 .no-answers {
   margin-top: 8px;
   font-style: italic;
@@ -651,6 +662,32 @@
 }
 
 
+/* Respuestas bloqueadas con blur + overlay */
+.answer-item.blurred {
+  position: relative;
+  overflow: hidden;
+}
+
+.answer-item.blurred .answer-text {
+  filter: blur(10px);
+  user-select: none;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.answer-item.blurred .blur-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #555;
+  background: rgba(255,255,255,.65);
+  border-radius: 12px;
+  text-align: center;
+  padding: 10px;
+}
 
     </style>
 </head>
@@ -1179,30 +1216,31 @@
 
     <p style="margin-top:8px;opacity:.75;">Aún falta la respuesta de <b>{{ other_user }}</b> 🕒</p>
 
-  <!-- {# === C) El/la otr@ ya respondió y tú no: su bloque borroso + tu caja para responder === #} -->
-  {% elif (not user_answer) and other_answer %}
-    <form method="POST" class="inline-form" style="margin-bottom:15px; display:flex; gap:8px;">
-      <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
-      <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-    </form>
+<!-- === C) El/la otr@ ya respondió y tú no === -->
+{% elif (not user_answer) and other_answer %}
+  <form method="POST" class="inline-form" style="margin-bottom:15px; display:flex; gap:8px;">
+    <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
+    <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+  </form>
 
-    <div class="answers">
-      <div class="answer-item blurred">
-        <div class="user-avatar">
-          {% if profile_pictures.get(other_user) %}
-            <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
-          {% else %} {{ other_user[0]|upper }} {% endif %}
-        </div>
-        <div>
-          <b>{{ other_user }}:</b>
-          <span class="answer-text">🔒 Respuesta oculta hasta que contestes</span>
-        </div>
+  <div class="answers">
+    <div class="answer-item blurred">
+      <div class="user-avatar">
+        {% if profile_pictures.get(other_user) %}
+          <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+        {% else %} {{ other_user[0]|upper }} {% endif %}
       </div>
+      <div>
+        <b>{{ other_user }}:</b>
+        <span class="answer-text">{{ other_answer }}</span>
+      </div>
+
+      <!-- Overlay de candado -->
+      <div class="blur-overlay">🔒 Respuesta oculta hasta que contestes</div>
     </div>
-    <p style="margin-top:8px; opacity:.75; font-style:italic;">
-      ¡Faltas tú por responder! ✍️
-    </p>
-        
+  </div>
+{% endif %}
+
 
     {# === D) Nadie ha respondido aún === #}
     {% else %}

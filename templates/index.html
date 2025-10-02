@@ -615,15 +615,26 @@
 }
 
 
-/* Badge de talla */
+/* Chip de talla */
+.size-chip{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 10px; border-radius:999px; font-size:.8rem; font-weight:700;
+  background:#eef2ff; border:2px solid #c7d2fe; color:#3730a3; /* azul suave */
+  margin:6px 0 10px 0;
+}
+.size-chip i{ font-size:.95rem; }
+
+
+/* Talla debajo del enlace */
 .wishlist-size{
-  font-size: .9rem; /* o: clamp(.85rem, .8rem + .4vw, 1rem); */
+  font-size: .95rem;
   color: #555;
   background: #f8f8f8;
   padding: 6px 10px;
   border-radius: 8px;
-  margin-top: 6px;
+  margin-top: 8px;
   display: inline-block;
+}
 
     </style>
 </head>
@@ -1189,7 +1200,7 @@
 </div>
 
 
-      <!-- Lista de deseos -->
+<!-- Lista de deseos -->
 <div class="section animate-in delay-3">
   <h3>Nuestra Lista de Deseos</h3>
   <p>Cosas que nos gustaría tener o regalarnos mutuamente.</p>
@@ -1218,12 +1229,7 @@
             {% if is_gift %}
               <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
             {% endif %}
-            {# NUEVO: chip de talla visible si no está oculto #}
-            {% if (size or '')|trim and not oculto_para_mi %}
-              <div class="wishlist-size" title="Talla">
-                <i class="fas fa-ruler-combined" aria-hidden="true"></i> {{ size }}
-              </div>
-            {% endif %}
+            {# ⚠️ Quitado el chip de talla de la cabecera #}
           </div>
 
           {% if oculto_para_mi %}
@@ -1233,11 +1239,17 @@
             </div>
           {% else %}
             <h3 class="wishlist-product">{{ product_name }}</h3>
+
             {% if product_link %}
               <a href="{{ product_link }}" target="_blank" class="wishlist-link">
                 <i class="fas fa-link"></i> Ver producto
               </a>
+              {# 👇 Talla debajo del enlace #}
+              {% if (size or '')|trim %}
+                <div class="wishlist-size"><strong>Talla:</strong> {{ size }}</div>
+              {% endif %}
             {% endif %}
+
             {% if notes %}
               <p class="wishlist-notes">{{ notes }}</p>
             {% endif %}
@@ -1274,13 +1286,13 @@
                       {{ (notes or "")|tojson }},
                       {{ pri|tojson }},
                       {{ is_gift|tojson }},
-                      {{ (size or "")|tojson }}   /* NUEVO: talla */
+                      {{ (size or "")|tojson }}
                     )'>
               <i class="fas fa-edit"></i>
             </button>
 
             {% if created_by == username %}
-            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm("¿Estás seguro de que quieres eliminar este producto?");">
               <input type="hidden" name="item_id" value="{{ id }}">
               <button type="submit" class="icon-btn" title="Eliminar">
                 <i class="fas fa-trash"></i>
@@ -1299,7 +1311,6 @@
   <!-- Comprados -->
   <div class="wishlist-content" id="purchased-tab">
     <div class="wishlist-grid">
-      {# NUEVO: añadimos size también en este bucle #}
       {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift, size in wishlist_items if is_purchased %}
         {% set pri = (priority or 'media') %}
         {% set soy_creador = (created_by == username) %}
@@ -1315,12 +1326,7 @@
             {% if is_gift %}
               <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
             {% endif %}
-            {# NUEVO: chip de talla visible si no está oculto #}
-            {% if (size or '')|trim and not oculto_para_mi %}
-              <div class="wishlist-size" title="Talla">
-                <i class="fas fa-ruler-combined" aria-hidden="true"></i> {{ size }}
-              </div>
-            {% endif %}
+            {# ⚠️ Quitado el chip de talla de la cabecera #}
           </div>
 
           {% if oculto_para_mi %}
@@ -1330,11 +1336,17 @@
             </div>
           {% else %}
             <h3 class="wishlist-product">{{ product_name }}</h3>
+
             {% if product_link %}
               <a href="{{ product_link }}" target="_blank" class="wishlist-link">
                 <i class="fas fa-link"></i> Ver producto
               </a>
+              {# 👇 Talla debajo del enlace #}
+              {% if (size or '')|trim %}
+                <div class="wishlist-size"><strong>Talla:</strong> {{ size }}</div>
+              {% endif %}
             {% endif %}
+
             {% if notes %}
               <p class="wishlist-notes">{{ notes }}</p>
             {% endif %}
@@ -1371,13 +1383,13 @@
                       {{ (notes or "")|tojson }},
                       {{ pri|tojson }},
                       {{ is_gift|tojson }},
-                      {{ (size or "")|tojson }}   /* NUEVO: talla */
+                      {{ (size or "")|tojson }}
                     )'>
               <i class="fas fa-edit"></i>
             </button>
 
             {% if created_by == username %}
-            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm("¿Estás seguro de que quieres eliminar este producto?");">
               <input type="hidden" name="item_id" value="{{ id }}">
               <button type="submit" class="icon-btn" title="Eliminar">
                 <i class="fas fa-trash"></i>
@@ -1413,7 +1425,7 @@
           <label for="is_gift" style="margin:0;">¿Es un regalo (ocultar a la otra persona)? 🎁</label>
         </div>
 
-        <!-- NUEVO: talla -->
+        <!-- Talla -->
         <input type="text" name="size" placeholder="Talla (opcional) – ej: M, 40 EU, 85B" />
 
         <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
@@ -1421,7 +1433,6 @@
     </div>
   </div>
 </div>
-
 
       <!-- Viajes -->
       <div class="section animate-in delay-4">

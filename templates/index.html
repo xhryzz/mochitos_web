@@ -636,6 +636,115 @@
   display: inline-block;
 }
 
+
+  /* ================================
+     WISHLIST: Tarjetas a igual altura
+     ================================ */
+
+  :root{
+    /* Alto fijo (responsivo) de cada tarjeta */
+    --wish-h: clamp(270px, 34vh, 340px);
+  }
+
+  /* Que las celdas de grid estiren los items */
+  .wishlist-grid{
+    align-items: stretch;
+  }
+
+  /* Tarjeta con layout en columna y alto fijo */
+  .wishlist-card{
+    height: var(--wish-h);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;                 /* oculta exceso */
+    position: relative;
+  }
+
+  /* Badge de estado se mantiene visible */
+  .wishlist-status{
+    z-index: 1;
+  }
+
+  /* El contenido superior (chips + título + enlace + talla + notas)
+     irá “comprimiéndose” si falta espacio */
+  .wishlist-card > *:not(.wishlist-meta):not(.wishlist-actions){
+    /* nada especial aquí: dejamos flujo normal */
+  }
+
+  /* Empuja el bloque meta (y lo que venga detrás) al fondo */
+  .wishlist-meta{
+    margin-top: auto;                 /* footer pegado al fondo */
+  }
+
+  /* Botonera: pequeño respiro cuando está al fondo */
+  .wishlist-actions{
+    margin-top: 10px;
+    flex-wrap: nowrap;
+  }
+
+  /* Título recortado a 2 líneas */
+  .wishlist-product{
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    min-height: calc(1.3rem * 2 + 4px); /* mantiene altura fija del título */
+    margin-bottom: 8px;
+  }
+
+  /* Enlace en una sola línea con puntos suspensivos */
+  .wishlist-link{
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    margin-bottom: 8px;
+  }
+
+  /* Talla discreta; no crece en vertical */
+  .wishlist-size{
+    margin-top: 6px;
+    margin-bottom: 8px;
+  }
+
+  /* Notas recortadas a 3 líneas */
+  .wishlist-notes{
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;   /* <= cambia a 2 o 4 si prefieres */
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+
+  /* Cuando el contenido está oculto por regalo, centrado pero sin romper el alto */
+  .wishlist-card.locked .gift-mask{
+    min-height: auto;        /* deja que el flex gestione el espacio */
+  }
+
+  /* Comprados siguen iguales, solo respetan el alto */
+  .wishlist-card.purchased{
+    /* ya tienes estilo; se mantiene */
+  }
+
+  /* Accesibilidad visual en hover sin romper el alto fijo */
+  .wishlist-card:hover{
+    transform: translateY(-6px);
+  }
+
+  /* Ajustes finos en chips para que no “salten” */
+  .priority-chip, .gift-chip, .size-chip{
+    margin-top: 4px;
+    margin-bottom: 8px;
+  }
+
+  /* Evita que imágenes de avatar crezcan y desplacen el footer */
+  .wishlist-meta .user-avatar{
+    flex-shrink: 0;
+  }
+
+  /* Si alguna tarjeta se queda sin notas/enlace/talla, el meta igualmente
+     se queda al fondo por el margin-top:auto */
+
     </style>
 </head>
 
@@ -1413,6 +1522,8 @@
         <input type="text" name="product_name" placeholder="Nombre del producto" required>
         <input type="url"  name="product_link" placeholder="Enlace (opcional)">
         <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
+        <!-- Talla -->
+        <input type="text" name="size" placeholder="Talla (opcional)" />
 
         <select name="priority" required style="margin-bottom:15px;">
           <option value="alta">Prioridad: Alta 🔴</option>
@@ -1425,8 +1536,7 @@
           <label for="is_gift" style="margin:0;">¿Es un regalo (ocultar a la otra persona)? 🎁</label>
         </div>
 
-        <!-- Talla -->
-        <input type="text" name="size" placeholder="Talla (opcional) – ej: M, 40 EU, 85B" />
+        
 
         <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
       </form>

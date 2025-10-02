@@ -712,11 +712,6 @@ def index():
                                   created_at DESC""")
             wishlist_items = c.fetchall()
 
-            c.execute("""INSERT INTO wishlist (product_name, product_link, notes, size, created_by, created_at, is_purchased, priority, is_gift)
-             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-          (product_name, product_link, notes, product_size, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-           False, priority, is_gift))
-
 
             banner_file = get_banner()
             profile_pictures = get_profile_pictures()

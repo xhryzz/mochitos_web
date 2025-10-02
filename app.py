@@ -1305,11 +1305,6 @@ def server_error(_):
 
 
 
-@app.route('/sw.js')
-def service_worker():
-    return send_file(os.path.join(app.root_path, 'static', 'sw.js'),
-                     mimetype='application/javascript')
-
 # --- Service Worker en la raíz ---
 from flask import make_response
 

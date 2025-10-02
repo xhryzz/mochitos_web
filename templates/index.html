@@ -1239,20 +1239,18 @@
       <div class="blur-overlay">🔒 Respuesta oculta hasta que contestes</div>
     </div>
   </div>
+
+{# === D) Nadie ha respondido aún === #}
+{% else %}
+  <form method="POST" class="inline-form" style="display:flex; gap:8px;">
+    <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
+    <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+  </form>
+  <p style="margin-top:8px; opacity:.75; font-style:italic;">
+    Aún no hay respuestas, ¡sé el primero en contestar!
+  </p>
 {% endif %}
 
-
-    {# === D) Nadie ha respondido aún === #}
-    {% else %}
-      <form method="POST" class="inline-form" style="display:flex; gap:8px;">
-        <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
-        <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-      </form>
-      <p style="margin-top:8px; opacity:.75; font-style:italic;">
-        Aún no hay respuestas, ¡sé el primero en contestar!
-      </p>
-    {% endif %}
-    
 
 
 

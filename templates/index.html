@@ -1438,7 +1438,7 @@
               <div class="events-list" style="display: flex; flex-direction: column; gap: 12px;">
                 {% for event in intim_events %}
                   <div class="intim-event-card" style="background: #fff; border-radius: 12px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,.08); border-left: 4px solid var(--accent-color);">
-                    <div style="display: flex; justify-content: between; align-items: flex-start; gap: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
                       <div style="flex: 1;">
                         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                           <div class="user-avatar" style="width: 32px; height: 32px;">
@@ -2142,6 +2142,7 @@
   </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
 
 <script>
 // =====================
@@ -2233,27 +2234,41 @@ function setupTabs() {
 
 
 // =====================
-// Modal genérico
+// Modal genérico (robusto)
 // =====================
 (function setupModals(){
   document.addEventListener('click', (e) => {
     if (e.target.matches('.close-modal')) {
-      document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+      document.querySelectorAll('.modal').forEach(m => {
+        m.style.display = 'none';
+        m.classList.remove('is-open');
+        m.setAttribute('aria-hidden','true');
+      });
     }
   });
+
   window.addEventListener('click', (event) => {
     document.querySelectorAll('.modal').forEach(modal => {
-      if (event.target === modal) modal.style.display = 'none';
+      if (event.target === modal && modal.classList.contains('is-open')) {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden','true');
+        modal.style.display = 'none';
+      }
     });
   });
+
   const settingsIcon = document.getElementById('settingsIcon');
   const profileModal = document.getElementById('profileModal');
   if (settingsIcon && profileModal) {
-    settingsIcon.addEventListener('click', () => { profileModal.style.display = 'block'; });
+    settingsIcon.addEventListener('click', () => {
+      profileModal.style.display = 'block';
+      profileModal.classList.add('is-open');
+      profileModal.removeAttribute('aria-hidden');
+    });
   }
 })();
 
-// Editor wishlist
+// Editor wishlist (modal)
 window.openEditModal = function(id, name, link, notes, size, priority, is_gift) {
   const modal = document.getElementById('editWishlistModal');
   if (!modal) return;
@@ -2268,6 +2283,8 @@ window.openEditModal = function(id, name, link, notes, size, priority, is_gift) 
   $('editIsGift').checked     = !!is_gift;
 
   modal.style.display = 'block';
+  modal.classList.add('is-open');
+  modal.removeAttribute('aria-hidden');
 };
 
 // =====================
@@ -2348,9 +2365,10 @@ function updateDistanceLine() {
   if (!map || !christianMarker || !claraMarker) return;
   if (distanceLine) map.removeLayer(distanceLine);
 
+  const color = getComputedStyle(document.documentElement).getPropertyValue('--visited-color')?.trim() || '#e84393';
   distanceLine = L.polyline(
     [[christianLocation.lat, christianLocation.lng], [claraLocation.lat, claraLocation.lng]],
-    { color: '#e84393', weight: 3, dashArray: '10, 10', lineJoin: 'round' }
+    { color, weight: 3, dashArray: '10, 10', lineJoin: 'round' }
   ).addTo(map);
 
   const group = new L.featureGroup([christianMarker, claraMarker]);
@@ -2634,17 +2652,264 @@ function clearTravelSearch(which) {
     if (i) { i.value = ''; setupTravelSearch('wishlist-travel-tab', 'wishlist-search', wishlistPagerAPI); }
   }
 }
+window.clearTravelSearch = clearTravelSearch;
 
 
 // =====================
-// DOMContentLoaded
+// Pregunta diaria — Countdown a medianoche Europa/Madrid
 // =====================
-document.addEventListener('DOMContentLoaded', function() {
+(function(){
+  const TZ = 'Europe/Madrid';
+
+  function nowInTz(tz){
+    return new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
+  }
+  function msUntilNextMidnightTz(tz){
+    const now = nowInTz(tz);
+    const next = new Date(now);
+    next.setHours(24, 0, 0, 0);
+    return next - now;
+  }
+  function formatHMS(ms){
+    if (ms < 0) ms = 0;
+    const totalSec = Math.floor(ms / 1000);
+    const h = String(Math.floor(totalSec / 3600)).padStart(2,'0');
+    const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2,'0');
+    const s = String(totalSec % 60).padStart(2,'0');
+    return `${h}:${m}:${s}`;
+  }
+
+  window.startDailyQuestionCountdown = function(){
+    const el = document.getElementById('dqTimer');
+    if (!el) return;
+    function tick(){
+      const ms = msUntilNextMidnightTz(TZ);
+      if (ms <= 0){
+        el.textContent = '00:00:00';
+        setTimeout(()=> location.reload(), 800);
+        return;
+      }
+      el.textContent = formatHMS(ms);
+    }
+    tick();
+    setInterval(tick, 1000);
+  };
+})();
+
+
+// === Login UX helpers ===
+(function(){
+  const form   = document.getElementById('loginForm');
+  const userEl = document.getElementById('username');
+  const passEl = document.getElementById('password');
+  const capsEl = document.getElementById('capsHint');
+  const toggle = document.querySelector('.toggle-pass');
+  const btn    = document.getElementById('loginBtn');
+  const rememberEl = document.getElementById('rememberMe');
+
+  try {
+    const savedU = localStorage.getItem('cc_username');
+    if (savedU) {
+      userEl.value = savedU;
+      rememberEl.checked = true;
+      passEl.focus();
+    }
+  } catch {}
+
+  toggle?.addEventListener('click', () => {
+    const isPwd = passEl.type === 'password';
+    passEl.type = isPwd ? 'text' : 'password';
+    toggle.innerHTML = `<i class="fas ${isPwd ? 'fa-eye-slash' : 'fa-eye'}"></i>`;
+    passEl.focus();
+  });
+
+  ['keydown','keyup'].forEach(ev => {
+    passEl.addEventListener(ev, (e) => {
+      const on = e.getModifierState && e.getModifierState('CapsLock');
+      if (on) { capsEl.style.display = ''; } else { capsEl.style.display = 'none'; }
+    });
+  });
+
+  form?.addEventListener('submit', () => {
+    btn.classList.add('btn-loading');
+    try {
+      if (rememberEl.checked && userEl.value.trim()) {
+        localStorage.setItem('cc_username', userEl.value.trim());
+        document.cookie = "remember=1; max-age=" + (60*60*24*30) + "; path=/; SameSite=Lax";
+      } else {
+        localStorage.removeItem('cc_username');
+        document.cookie = "remember=; Max-Age=0; path=/";
+      }
+    } catch {}
+  });
+})();
+
+
+// Función para abrir modal de edición de evento de intimidad
+window.openEditIntimModal = function(eventId, place, notes) {
+  const modal = document.getElementById('editIntimModal');
+  if (!modal) return;
+
+  const idEl    = document.getElementById('editEventId');
+  const placeEl = document.getElementById('editIntimPlace');
+  const notesEl = document.getElementById('editIntimNotes');
+
+  const safeId    = (eventId ?? '').toString();
+  const safePlace = (place ?? '');
+  const safeNotes = (notes ?? '');
+
+  idEl.value    = safeId;
+  placeEl.value = safePlace;
+  notesEl.value = safeNotes;
+
+  if (!safeId) {
+    alert('No se pudo cargar el ID del evento. Recarga la página e inténtalo de nuevo.');
+    return;
+  }
+
+  modal.style.display = 'block';
+  modal.classList.add('is-open');
+  modal.removeAttribute('aria-hidden');
+};
+
+// abre/cierra el formulario de edición de TU respuesta
+function toggleEdit(key){
+  const form = document.getElementById('ans-form-' + key);
+  if(!form) return false;
+  form.style.display = (form.style.display === 'none' || !form.style.display) ? 'block' : 'none';
+  if (form.style.display === 'block') {
+    const input = form.querySelector('input[name="answer"]');
+    if (input) setTimeout(()=> input.focus(), 50);
+  }
+  return false;
+}
+window.toggleEdit = toggleEdit;
+
+
+// ================================
+// SSE auto-reload (si el backend emite eventos)
+// ================================
+(function () {
+  if (!('EventSource' in window)) return;
+
+  var es = new EventSource('/events');
+  es.addEventListener('ping', function(){ /* noop */ });
+
+  es.addEventListener('update', function (e) {
+    try {
+      var data = JSON.parse(e.data || '{}');
+      if (['question','answer','wishlist','travel','intim','banner','profile','schedules','locations'].includes(data.kind)) {
+        setTimeout(function(){ location.reload(); }, 80);
+      }
+    } catch (_) {
+      setTimeout(function(){ location.reload(); }, 120);
+    }
+  });
+
+  es.onerror = function () { /* dejar que reintente solo */ };
+})();
+
+
+// ================================
+// Selector de tema — aplicar/abrir/cerrar + persistencia
+// ================================
+(function () {
+  const root  = document.documentElement;
+  const KEY   = 'cc_theme';
+  const modal = document.getElementById('themeModal');
+
+  (function ensureCSS(){
+    const s = document.createElement('style');
+    s.textContent = `#themeModal.is-open { display:block !important; }`;
+    document.head.appendChild(s);
+  })();
+
+  function applyTheme(name){
+    if (name === 'nico') root.setAttribute('data-theme','nico');
+    else root.removeAttribute('data-theme');
+    try{ localStorage.setItem(KEY, name); }catch{}
+    (window.showToast || console.log)('success', `Tema aplicado: ${name === 'nico' ? 'Nico' : 'Actual'}`);
+  }
+
+  function openModal(){
+    if (!modal) return;
+    modal.style.display = 'block';
+    modal.classList.add('is-open');
+    modal.removeAttribute('aria-hidden');
+  }
+
+  function closeModal(){
+    if (!modal) return;
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden','true');
+    modal.style.display = 'none';
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    let saved = null;
+    try { saved = localStorage.getItem(KEY); } catch {}
+    if (saved === 'nico') root.setAttribute('data-theme','nico');
+    else root.removeAttribute('data-theme');
+  });
+
+  document.addEventListener('click', function(e){
+    if (e.target.closest('#themeIcon')) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      openModal();
+      return;
+    }
+    if (!modal || !modal.classList.contains('is-open')) return;
+
+    if (e.target.matches('#themeModal .close-modal')) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      closeModal();
+      return;
+    }
+
+    if (e.target === modal) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      closeModal();
+      return;
+    }
+
+    const btn = e.target.closest('#themeModal [data-apply-theme]');
+    if (btn) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      const name = btn.getAttribute('data-apply-theme'); // 'nico' | 'default'
+      applyTheme(name);
+      closeModal();
+      return;
+    }
+  }, true);
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && modal && modal.classList.contains('is-open')) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      closeModal();
+    }
+  }, true);
+})();
+
+
+// =====================
+// Arranque SEGURO (espera a Leaflet, imágenes, etc.)
+// =====================
+window.addEventListener('load', function () {
   createHearts();
   setupTabs();
-  initMap();
+  initMap();                 // <— aquí L ya existe
   setupLocationForm();
-  setupUseMyLocation(); // <-- activa el botón de ubicación real
+  setupUseMyLocation();
   setupTravelPagination();
   startDailyQuestionCountdown();
   setupTravelSearch('visited-tab', 'visited-search', visitedPagerAPI);
@@ -2665,302 +2930,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
-
-
-// Función para abrir modal de edición de evento de intimidad
-window.openEditIntimModal = function(eventId, place, notes) {
-  const modal = document.getElementById('editIntimModal');
-  if (!modal) return;
-
-  // Asegura que siempre hay inputs
-  const idEl    = document.getElementById('editEventId');
-  const placeEl = document.getElementById('editIntimPlace');
-  const notesEl = document.getElementById('editIntimNotes');
-
-  // Normaliza valores
-  const safeId    = (eventId ?? '').toString();
-  const safePlace = (place ?? '');
-  const safeNotes = (notes ?? '');
-
-  idEl.value    = safeId;
-  placeEl.value = safePlace;
-  notesEl.value = safeNotes;
-
-  // Mini validación visual por si el id no llegara
-  if (!safeId) {
-    alert('No se pudo cargar el ID del evento. Recarga la página e inténtalo de nuevo.');
-    return;
-  }
-
-  modal.style.display = 'block';
-};
-
-(function(){
-  const TZ = 'Europe/Madrid';
-
-  // Hora "ahora" en la zona horaria dada (mantiene coherencia incluso con cambios DST)
-  function nowInTz(tz){
-    // Truco: convertimos a string en esa TZ y lo volvemos a Date;
-    // así los componentes reflejan el reloj de la TZ.
-    return new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
-  }
-
-  // Milisegundos hasta la próxima medianoche en esa TZ
-  function msUntilNextMidnightTz(tz){
-    const now = nowInTz(tz);
-    const next = new Date(now);
-    // 24:00 del "hoy" de la TZ => próxima medianoche de esa TZ
-    next.setHours(24, 0, 0, 0);
-    return next - now;
-  }
-
-  function formatHMS(ms){
-    if (ms < 0) ms = 0;
-    const totalSec = Math.floor(ms / 1000);
-    const h = String(Math.floor(totalSec / 3600)).padStart(2,'0');
-    const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2,'0');
-    const s = String(totalSec % 60).padStart(2,'0');
-    return `${h}:${m}:${s}`;
-  }
-
-  window.startDailyQuestionCountdown = function(){
-    const el = document.getElementById('dqTimer');
-    if (!el) return;
-
-    function tick(){
-      const ms = msUntilNextMidnightTz(TZ);
-      // Si llegó la medianoche en España, refresca para cargar la nueva pregunta
-      if (ms <= 0){
-        el.textContent = '00:00:00';
-        // Pequeño delay para evitar bucles
-        setTimeout(()=> location.reload(), 800);
-        return;
-      }
-      el.textContent = formatHMS(ms);
-    }
-
-    tick(); // primer pintado inmediato
-    setInterval(tick, 1000);
-  };
-})();
-
-// === Login UX helpers ===
-(function(){
-  const form   = document.getElementById('loginForm');
-  const userEl = document.getElementById('username');
-  const passEl = document.getElementById('password');
-  const capsEl = document.getElementById('capsHint');
-  const toggle = document.querySelector('.toggle-pass');
-  const btn    = document.getElementById('loginBtn');
-  const rememberEl = document.getElementById('rememberMe');
-
-  // Autocompletar usuario recordado
-  try {
-    const savedU = localStorage.getItem('cc_username');
-    if (savedU) {
-      userEl.value = savedU;
-      rememberEl.checked = true;
-      passEl.focus();
-    }
-  } catch {}
-
-  // Mostrar/Ocultar contraseña
-  toggle?.addEventListener('click', () => {
-    const isPwd = passEl.type === 'password';
-    passEl.type = isPwd ? 'text' : 'password';
-    toggle.innerHTML = `<i class="fas ${isPwd ? 'fa-eye-slash' : 'fa-eye'}"></i>`;
-    passEl.focus();
-  });
-
-  // Aviso de Bloq Mayús
-  ['keydown','keyup'].forEach(ev => {
-    passEl.addEventListener(ev, (e) => {
-      const on = e.getModifierState && e.getModifierState('CapsLock');
-      if (on) { capsEl.style.display = ''; } else { capsEl.style.display = 'none'; }
-    });
-  });
-
-  // Botón con "loading" + recordar usuario
-  form?.addEventListener('submit', () => {
-    btn.classList.add('btn-loading');
-    // recuerda el usuario si el checkbox está marcado
-    try {
-      if (rememberEl.checked && userEl.value.trim()) {
-        localStorage.setItem('cc_username', userEl.value.trim());
-        // cookie 'remember' para que el backend pueda leerlo si quiere
-        document.cookie = "remember=1; max-age=" + (60*60*24*30) + "; path=/; SameSite=Lax";
-      } else {
-        localStorage.removeItem('cc_username');
-        document.cookie = "remember=; Max-Age=0; path=/";
-      }
-    } catch {}
-  });
-})();
-
-
-  // Extra: si tienes CSP que bloquea inline styles, este helper asegura visibilidad
-  (function ensureModalCSS() {
-    const modal = document.getElementById('editIntimModal');
-    if (!modal) return;
-    // Si tu .modal usa display:none por defecto, luego lo abrimos con 'block'
-    // Asegúrate que ningún otro CSS lo tape:
-    modal.style.zIndex = 1000; // ya lo traías, refuerzo por si acaso
-  })();
-
-
-  // abre/cierra el formulario de edición de TU respuesta
-  function toggleEdit(key){
-    const form = document.getElementById('ans-form-' + key);
-    if(!form) return false;
-    form.style.display = (form.style.display === 'none' || !form.style.display) ? 'block' : 'none';
-    if (form.style.display === 'block') {
-      const input = form.querySelector('input[name="answer"]');
-      if (input) setTimeout(()=> input.focus(), 50);
-    }
-    return false; // evita el salto del enlace
-  }
-  window.toggleEdit = toggleEdit;
-
-
-/* SSE “drop-in” compatible con tu HTML antiguo.
-   - No depende de IDs concretos.
-   - Si el navegador no soporta SSE, no pasa nada.
-   - Ante un evento, recarga para reflejar cambios (rápido y robusto).
-*/
-(function () {
-  if (!('EventSource' in window)) return;
-
-  var es = new EventSource('/events');  // endpoint SSE del backend
-  // Mantener viva la conexión:
-  es.addEventListener('ping', function(){ /* noop */ });
-
-  // Cualquier cambio relevante dispara una recarga ligera
-  es.addEventListener('update', function (e) {
-    try {
-      var data = JSON.parse(e.data || '{}');
-      // Puedes filtrar si quieres, pero recargar es lo más sólido sin tocar HTML
-      if (['question','answer','wishlist','travel','intim','banner','profile','schedules','locations'].includes(data.kind)) {
-        // Espera un micro-tick por si llegan varios eventos seguidos
-        setTimeout(function(){ location.reload(); }, 80);
-      }
-    } catch (_) {
-      // En caso de payload raro, recarga también
-      setTimeout(function(){ location.reload(); }, 120);
-    }
-  });
-
-  es.onerror = function () {
-    // Deja que el navegador reintente solo; no cierres la conexión
-  };
-})();
-
-/* ================================
-   Selector de tema — versión única
-   (abrir/cerrar/aplicar + persistencia)
-   ================================ */
-(function () {
-  const root  = document.documentElement;
-  const KEY   = 'cc_theme';
-  const modal = document.getElementById('themeModal');
-
-  // 0) Asegura una regla CSS que fuerce la visibilidad con la clase
-  (function ensureCSS(){
-    const s = document.createElement('style');
-    s.textContent = `
-      #themeModal.is-open { display:block !important; }
-    `;
-    document.head.appendChild(s);
-  })();
-
-  // 1) Aplicar tema + persistir
-  function applyTheme(name){
-    if (name === 'nico') root.setAttribute('data-theme','nico');
-    else root.removeAttribute('data-theme'); // vuelve al tema “Actual”
-    try{ localStorage.setItem(KEY, name); }catch{}
-    (window.showToast || console.log)('success', `Tema aplicado: ${name === 'nico' ? 'Nico' : 'Actual'}`);
-  }
-
-  // 2) Abrir / cerrar modal
-
-function openModal(){
-  if (!modal) return;
-  modal.style.display = 'block';          // <-- fuerza apertura inline
-  modal.classList.add('is-open');
-  modal.removeAttribute('aria-hidden');
-}
-
-function closeModal(){
-  if (!modal) return;
-  modal.classList.remove('is-open');
-  modal.setAttribute('aria-hidden','true');
-  modal.style.display = 'none';           // <-- fuerza cierre inline
-}
-
-
-  // 3) Restaurar tema guardado al cargar
-  document.addEventListener('DOMContentLoaded', () => {
-    let saved = null;
-    try { saved = localStorage.getItem(KEY); } catch {}
-    if (saved === 'nico') root.setAttribute('data-theme','nico');
-    else root.removeAttribute('data-theme');
-  });
-
-  // 4) Delegación EN CAPTURA (gana a otros listeners que consumen el click)
-  document.addEventListener('click', function(e){
-    // Abrir: click en el botón de paleta (div o su <i>)
-    if (e.target.closest('#themeIcon')) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      openModal();
-      return;
-    }
-
-    // Si el modal no existe o no está abierto, no seguimos
-    if (!modal || !modal.classList.contains('is-open')) return;
-
-    // Cerrar con la X
-    if (e.target.matches('#themeModal .close-modal')) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      closeModal();
-      return;
-    }
-
-    // Cerrar clic en el backdrop
-    if (e.target === modal) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      closeModal();
-      return;
-    }
-
-    // Aplicar tema (botones dentro del modal con data-apply-theme)
-    const btn = e.target.closest('#themeModal [data-apply-theme]');
-    if (btn) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      const name = btn.getAttribute('data-apply-theme'); // 'nico' | 'default'
-      applyTheme(name);
-      closeModal();
-      return;
-    }
-  }, true); // <- CAPTURA = true
-
-  // 5) Cerrar con Escape
-  document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape' && modal && modal.classList.contains('is-open')) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      closeModal();
-    }
-  }, true);
-})();
 </script>
+
 
 <footer class="site-footer">
     <p>Esta web ha sido realizada por 

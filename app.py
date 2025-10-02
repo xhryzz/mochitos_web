@@ -1218,49 +1218,42 @@ def logout():
     return redirect('/')
 
 # ======= Web Push: claves y suscripciones =======
-@app.route('/push/vapid-public')
+@app.get("/push/vapid-public")
 def push_vapid_public():
-    # Devuelve la clave pública en base64url como espera la API JS
+    # Devuelve base64url del punto público (tú guardas HEX en env)
     key_b64url = get_vapid_public_base64url()
+    if not key_b64url:
+        return jsonify({"error":"vapid_public_missing"}), 500
     return jsonify({"vapidPublicKey": key_b64url})
-
 @app.route('/push/subscribe', methods=['POST'])
+@app.post("/push/subscribe")
 def push_subscribe():
-    if 'username' not in session:
-        return jsonify({"ok": False, "error": "not_logged"}), 401
+    if "username" not in session:
+        return jsonify({"error":"unauthenticated"}), 401
+    user = session["username"]
+    sub = request.get_json(silent=True) or {}
+    endpoint = sub.get("endpoint")
+    p256dh = (sub.get("keys") or {}).get("p256dh")
+    auth   = (sub.get("keys") or {}).get("auth")
+    if not (endpoint and p256dh and auth):
+        return jsonify({"error":"invalid_subscription"}), 400
+
+    conn = get_db_connection()
     try:
-        user = session['username']
-        sub = request.get_json(force=True, silent=False)
-
-        endpoint = sub.get('endpoint', '').strip()
-        keys = sub.get('keys', {}) or {}
-        p256dh = (keys.get('p256dh') or '').strip()
-        auth   = (keys.get('auth') or '').strip()
-
-        if not endpoint or not p256dh or not auth:
-            return jsonify({"ok": False, "error": "bad_payload"}), 400
-
-        conn = get_db_connection()
         with conn.cursor() as c:
             c.execute("""
                 INSERT INTO push_subscriptions (username, endpoint, p256dh, auth, created_at)
                 VALUES (%s,%s,%s,%s,%s)
-                ON CONFLICT (endpoint) DO UPDATE SET
-                    username=EXCLUDED.username,
+                ON CONFLICT (endpoint) DO UPDATE
+                SET username=EXCLUDED.username,
                     p256dh=EXCLUDED.p256dh,
                     auth=EXCLUDED.auth,
                     created_at=EXCLUDED.created_at
             """, (user, endpoint, p256dh, auth, datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")))
             conn.commit()
-
-        send_discord("Push subscribed", {"user": user})
-        return jsonify({"ok": True})
-    except Exception as e:
-        print(f"[push_subscribe] {e}")
-        return jsonify({"ok": False, "error": "server_error"}), 500
     finally:
-        if 'conn' in locals():
-            conn.close()
+        conn.close()
+    return jsonify({"ok": True})
 
 @app.route('/push/unsubscribe', methods=['POST'])
 def push_unsubscribe():
@@ -1316,6 +1309,25 @@ def server_error(_):
 def service_worker():
     return send_file(os.path.join(app.root_path, 'static', 'sw.js'),
                      mimetype='application/javascript')
+
+# --- Service Worker en la raíz ---
+from flask import make_response
+
+@app.route("/sw.js")
+def sw():
+    # Si tu sw.js está en static/, servimos ese mismo fichero en la raíz
+    try:
+        resp = send_file(os.path.join(app.static_folder, "sw.js"))
+    except Exception:
+        # fallback por si tu estructura es distinta:
+        resp = send_file("static/sw.js")
+    resp = make_response(resp)
+    # Evita que se quede cacheado eternamente en algunos proxies
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    resp.mimetype = "application/javascript"
+    return resp
 
 
 # ======= WSGI / Run =======

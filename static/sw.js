@@ -1,37 +1,30 @@
-// static/sw.js
-self.addEventListener("install", () => self.skipWaiting());
-self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
-
-self.addEventListener("push", (event) => {
-  let data = {};
-  try { data = event.data ? event.data.json() : {}; } catch(e){}
-  const title = data.title || "Notificación";
-  const body  = data.body  || "";
-  const extra = data.data  || {};
-
-  const options = {
-    body,
-    icon: "/favicon.ico",
-    badge: "/favicon.ico",
-    data: extra,
-    vibrate: [100, 50, 100],
-    actions: [
-      { action: "open", title: "Abrir" },
-      { action: "dismiss", title: "Cerrar" }
-    ]
-  };
-
-  event.waitUntil(self.registration.showNotification(title, options));
+self.addEventListener('install', (e) => {
+  self.skipWaiting();
+});
+self.addEventListener('activate', (e) => {
+  e.waitUntil(self.clients.claim());
 });
 
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-  if (event.action === "dismiss") return;
-  const url = "/";
-  event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
-      for (const w of wins) { if ("focus" in w) { w.focus(); return; } }
-      if (clients.openWindow) return clients.openWindow(url);
+self.addEventListener('push', (e) => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; } catch {}
+  const title = data.title || '💌 Nuevo aviso';
+  const options = {
+    body: data.body || 'Tienes una notificación',
+    icon: '/static/icons/icon-192.png',
+    badge: '/static/icons/badge-72.png',
+    data: data.data && data.data.url ? data.data.url : '/'
+  };
+  e.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || e.notification.data || '/';
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      const client = list.find(c => c.url === url);
+      return client ? client.focus() : clients.openWindow(url);
     })
   );
 });

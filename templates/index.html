@@ -1879,6 +1879,12 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
 
 <script>
+  
+  if (!window.isSecureContext && location.hostname !== 'localhost') {
+  document.getElementById('enablePushBtn')?.addEventListener('click', () => {
+    showToast?.('error','Necesitas HTTPS para activar notificaciones');
+  });
+}
 // =====================
 // TOASTS (Flash + helper)
 // =====================
@@ -2659,7 +2665,9 @@ function urlBase64ToUint8Array(base64String){
   if (!('serviceWorker' in navigator)) return;
   try {
     // OJO: raíz, no /static
-    const reg = await navigator.serviceWorker.register('/sw.js');
+    const reg = await // ❌ incorrecto (apunta a /static/sw.js)
+navigator.serviceWorker.register("/static/sw.js");
+
     // Espera a que esté listo
     await navigator.serviceWorker.ready;
     console.log('[SW] listo', reg.scope);
@@ -2680,7 +2688,9 @@ async function enablePush(){
     let reg = await navigator.serviceWorker.getRegistration('/');
     if (!reg) {
       try {
-        reg = await navigator.serviceWorker.register('/sw.js');
+        reg = await // ❌ incorrecto (apunta a /static/sw.js)
+navigator.serviceWorker.register("/static/sw.js");
+
       } catch (e) {
         console.error('Registro SW falló:', e);
         showToast?.('error','No se pudo registrar el Service Worker');

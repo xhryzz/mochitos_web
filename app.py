@@ -224,7 +224,6 @@ QUESTIONS = [
     "¿Qué emoji usarías para describir nuestra relación?",
     "¿Si solo pudieras besarme o abrazarme por un mes, qué eliges?",
 ]
-
 RELATION_START = date(2025, 8, 2)
 INTIM_PIN = os.environ.get('INTIM_PIN', '6969')
 
@@ -647,35 +646,50 @@ def index():
                         broadcast("travel_update", {"type":"photo_add","id":int(travel_id)})
                     return redirect('/')
 
-                                # 8) Wishlist add
+                # 8) Wishlist add
                 if 'product_name' in request.form and 'edit_wishlist_item' not in request.path:
                     product_name = request.form['product_name'].strip()
                     product_link = request.form.get('product_link','').strip()
                     notes = request.form.get('wishlist_notes','').strip()
-                    product_size = request.form.get('product_size','').strip()   # 👈 nuevo campo
                     priority = request.form.get('priority','media').strip()
                     is_gift = bool(request.form.get('is_gift'))
-
-                    if priority not in ('alta','media','baja'):
-                        priority = 'media'
-
+                    if priority not in ('alta','media','baja'): priority='media'
                     if product_name:
-                        c.execute("""INSERT INTO wishlist 
-                                        (product_name, product_link, notes, size, created_by, created_at, is_purchased, priority, is_gift)
-                                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                                  (product_name, product_link, notes, product_size, user,
-                                   datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        c.execute("""INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift)
+                                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+                                  (product_name, product_link, notes, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                                    False, priority, is_gift))
-                        conn.commit()
-                        flash("Producto añadido a la lista 🛍️","success")
-                        send_discord("Wishlist added", {
-                            "user":user,"name":product_name,
-                            "priority":priority,"is_gift":is_gift,
-                            "size":product_size
-                        })
+                        conn.commit(); flash("Producto añadido a la lista 🛍️","success")
+                        send_discord("Wishlist added", {"user":user,"name":product_name,"priority":priority,"is_gift":is_gift})
                         broadcast("wishlist_update", {"type":"add"})
                     return redirect('/')
 
+                # INTIMIDAD
+                if 'intim_unlock_pin' in request.form:
+                    pin_try = request.form.get('intim_pin','').strip()
+                    if pin_try == INTIM_PIN:
+                        session['intim_unlocked'] = True; flash("Módulo Intimidad desbloqueado ✅","success")
+                        send_discord("Intimidad unlock OK", {"user": user})
+                    else:
+                        session.pop('intim_unlocked', None); flash("PIN incorrecto ❌","error")
+                        send_discord("Intimidad unlock FAIL", {"user": user})
+                    return redirect('/')
+                if 'intim_lock' in request.form:
+                    session.pop('intim_unlocked', None); flash("Módulo Intimidad ocultado 🔒","info"); return redirect('/')
+                if 'intim_register' in request.form:
+                    if not session.get('intim_unlocked'):
+                        flash("Debes desbloquear con PIN para registrar.","error"); return redirect('/')
+                    place = (request.form.get('intim_place') or '').strip()
+                    notes = (request.form.get('intim_notes') or '').strip()
+                    now_txt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    with conn.cursor() as c2:
+                        c2.execute("""INSERT INTO intimacy_events (username, ts, place, notes) VALUES (%s,%s,%s,%s)""",
+                                   (user, now_txt, place or None, notes or None))
+                        conn.commit()
+                    flash("Momento registrado ❤️","success")
+                    send_discord("Intimidad registered", {"user":user,"place":place,"notes_len":len(notes)})
+                    broadcast("intim_update", {"type":"add"})
+                    return redirect('/')
 
             # ------------ Consultas para render ------------
             c.execute("SELECT username, answer, created_at, updated_at FROM answers WHERE question_id=%s", (question_id,))
@@ -700,18 +714,14 @@ def index():
             for tr_id, pid, url, up in all_ph:
                 travel_photos_dict.setdefault(tr_id, []).append({'id': pid, 'url': url, 'uploaded_by': up})
 
-            c.execute("""SELECT id, product_name, product_link, notes, size, created_by, created_at, is_purchased,
-                                COALESCE(priority,'media') AS priority, 
-                                COALESCE(is_gift,false) AS is_gift
+            # Wishlist
+            c.execute("""SELECT id, product_name, product_link, notes, created_by, created_at, is_purchased,
+                                COALESCE(priority,'media') AS priority, COALESCE(is_gift,false) AS is_gift
                          FROM wishlist
                          ORDER BY is_purchased ASC,
-                                  CASE COALESCE(priority,'media') 
-                                       WHEN 'alta' THEN 0 
-                                       WHEN 'media' THEN 1 
-                                       ELSE 2 END,
+                                  CASE COALESCE(priority,'media') WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,
                                   created_at DESC""")
             wishlist_items = c.fetchall()
-
 
             banner_file = get_banner()
             profile_pictures = get_profile_pictures()
@@ -833,31 +843,21 @@ def edit_wishlist_item():
         product_name = request.form['product_name'].strip()
         product_link = request.form.get('product_link','').strip()
         notes = request.form.get('notes','').strip()
-        product_size = request.form.get('product_size','').strip()   # 👈 nuevo campo
         priority = request.form.get('priority','media').strip()
         is_gift = bool(request.form.get('is_gift'))
-
-        if priority not in ('alta','media','baja'):
-            priority='media'
-
+        if priority not in ('alta','media','baja'): priority='media'
         if product_name:
             conn = get_db_connection()
             with conn.cursor() as c:
-                c.execute("""UPDATE wishlist 
-                             SET product_name=%s, product_link=%s, notes=%s, size=%s, priority=%s, is_gift=%s 
-                             WHERE id=%s""",
-                          (product_name, product_link, notes, product_size, priority, is_gift, item_id))
-                conn.commit()
-                flash("Producto actualizado ✅","success")
+                c.execute("""UPDATE wishlist SET product_name=%s, product_link=%s, notes=%s, priority=%s, is_gift=%s WHERE id=%s""",
+                          (product_name, product_link, notes, priority, is_gift, item_id))
+                conn.commit(); flash("Producto actualizado ✅","success")
                 broadcast("wishlist_update", {"type":"edit","id":int(item_id)})
         return redirect('/')
     except Exception as e:
-        print(f"Error en edit_wishlist_item: {e}")
-        flash("No se pudo actualizar el producto.","error")
-        return redirect('/')
+        print(f"Error en edit_wishlist_item: {e}"); flash("No se pudo actualizar el producto.","error"); return redirect('/')
     finally:
         if 'conn' in locals(): conn.close()
-
 
 @app.route('/toggle_wishlist_status', methods=['POST'])
 def toggle_wishlist_status():

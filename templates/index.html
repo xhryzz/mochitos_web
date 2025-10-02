@@ -798,6 +798,106 @@
 .priority-chip, .gift-chip, .size-chip{ margin: 4px 0 8px; }
 .wishlist-link{ margin-bottom: 8px; }
 .wishlist-size{ margin: 6px 0 8px; }
+/* ================================
+   WISHLIST — mismo alto, sin scroll
+   ================================ */
+:root{
+  /* ajusta la altura a tu gusto */
+  --wish-h: 340px;
+}
+
+/* Asegura que todas las celdas estiren al mismo alto */
+.wishlist-grid{ align-items: stretch; }
+
+/* Tarjeta con layout en filas fijas: badge, contenido, meta, acciones */
+.wishlist-card{
+  height: var(--wish-h);
+  display: grid;
+  grid-template-rows: auto 1fr auto auto; /* status/top, contenido, meta, acciones */
+  gap: 8px;
+  overflow: hidden;             /* nada se sale de la tarjeta */
+  position: relative;
+}
+
+/* Si existe .wishlist-main de intentos anteriores, lo “normalizamos” */
+.wishlist-card .wishlist-main{
+  overflow: visible !important; /* sin scroll interno */
+  min-height: 0;
+  display: block;
+}
+
+/* Cabecera (chips) y máscara de regalo compactas */
+.priority-chip, .gift-chip, .size-chip{ margin: 2px 0 6px; }
+.wishlist-card.locked .gift-mask{
+  min-height: 110px;           /* fija para que cuadre */
+  margin: 6px 0 8px;
+}
+
+/* Zona de contenido: recortes elegantes para que todo cuadre */
+.wishlist-product{
+  margin: 6px 0 4px;
+  font-size: 1.1rem;
+  line-height: 1.25rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;       /* máximo 2 líneas de título */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Enlace: una línea como mucho */
+.wishlist-link{
+  margin: 0 0 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Talla: una sola línea también */
+.wishlist-size{
+  margin: 4px 0 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Notas: hasta 3 líneas */
+.wishlist-notes{
+  margin: 6px 0 0;
+  color: #555;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;       /* ajusta si quieres 2/3/4 líneas */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Footer pegado y consistente */
+.wishlist-meta{
+  margin-top: 0;               /* lo maneja la rejilla */
+}
+.wishlist-actions{
+  margin-top: 4px;
+}
+
+/* Alturas coherentes de los badges “Deseado/Comprado” para que no empujen */
+.wishlist-status{
+  top: 12px; right: 12px;
+  padding: 4px 10px;
+  font-size: .78rem;
+}
+
+/* Evita que algo “rompa” el alto con saltos de línea locos */
+.wishlist-card *{
+  word-break: break-word;
+}
+
+/* Tooltip con el contenido completo (opcional y útil) */
+.wishlist-notes[title],
+.wishlist-link[title],
+.wishlist-product[title],
+.wishlist-size[title]{ cursor: help; }
+
 
     </style>
 </head>

@@ -977,6 +977,9 @@
 
       <a href="/logout" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
 
+      <button id="enablePushBtn" style="position:fixed; right:16px; bottom:16px; z-index:1000;">
+  🔔 Activar notificaciones
+</button>
       <!-- BANNER -->
       <div class="section banner animate-in">
         {% if banner_file %}
@@ -2612,8 +2615,10 @@ async function setupPush() {
 
     // 3) VAPID pública desde el backend
     const r = await fetch("/push/vapid-public");
-    const { key } = await r.json();
-    if (!key) { console.warn("VAPID pública no configurada"); return; }
+const data = await r.json();
+const key = data.vapidPublicKey || data.key; // admite ambos por si acaso
+if (!key) { console.warn("VAPID pública no configurada"); return; }
+
 
     // 4) suscripción (o reutiliza la existente)
     const appServerKey = urlBase64ToUint8Array(key);
@@ -2654,7 +2659,28 @@ document.addEventListener("DOMContentLoaded", () => {
     setupPush();
   {% endif %}
 });
+
+document.addEventListener("DOMContentLoaded", () => {
+  {% if session.username %}
+    const btn = document.getElementById('enablePushBtn');
+    if (btn) {
+      // muestra el botón si aún no está concedido
+      if (Notification.permission === 'granted') btn.style.display = 'none';
+      btn.addEventListener('click', async () => {
+        await setupPush();
+        if (Notification.permission === 'granted') {
+          btn.style.display = 'none';
+        }
+      });
+    }
+    // si quieres seguir auto-intentando en navegadores permisivos:
+    setupPush();
+  {% endif %}
+});
+
+
 </script>
+
 
 
 <footer class="site-footer">

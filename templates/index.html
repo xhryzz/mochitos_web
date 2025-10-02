@@ -806,6 +806,74 @@
   :root{ --wl-h: 340px; }
 }
 
+/* ===== Wishlist fix: altura visible sin cortes ===== */
+:root{
+  /* Altura común más generosa y fluida según ancho */
+  --wl-h: clamp(320px, 35vw, 380px);
+}
+
+/* Mantén las filas iguales, pero más altas */
+.wishlist-grid{
+  grid-auto-rows: var(--wl-h);
+  align-items: stretch;
+}
+
+/* Tarjeta: aseguramos hueco al pie y sin recortes */
+.wishlist-card{
+  height: var(--wl-h);
+  padding-bottom: 14px;          /* hueco extra abajo */
+  overflow: hidden;
+}
+
+/* Notas más compactas (2 líneas) para ganar aire */
+.wishlist-notes{
+  -webkit-line-clamp: 2;
+  margin-top: 8px;
+}
+
+/* Chips un poco más pequeños */
+.priority-chip,
+.gift-chip{
+  padding: 4px 8px;
+  font-size: .76rem;
+  margin: 0 0 6px 0;
+}
+
+/* Enlace compacto (chip) */
+.wishlist-link{
+  padding: 6px 10px;
+}
+
+/* Meta y acciones: menos separación */
+.wishlist-meta{
+  padding-top: 8px;
+  margin-top: auto !important;
+  border-top: 1px dashed #eee;
+}
+.wishlist-actions{
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 6px;
+}
+.icon-btn{ width: 32px; height: 32px; border-radius: 9px; }
+
+/* “Regalo” sin altura mínima alta para que no empuje */
+.wishlist-card.locked .gift-mask{
+  min-height: 0;
+  padding: 14px;
+}
+
+/* Ajustes por breakpoint: más altura cuando hay menos ancho */
+@media (max-width: 992px){
+  :root{ --wl-h: clamp(340px, 42vw, 410px); }
+}
+@media (max-width: 768px){
+  :root{ --wl-h: 420px; } /* móviles: más alto para que quepa todo */
+}
+@media (max-width: 576px){
+  :root{ --wl-h: 440px; }
+}
+
     </style>
 </head>
 

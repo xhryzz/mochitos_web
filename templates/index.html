@@ -637,268 +637,6 @@
 }
 
 
-  /* ================================
-     WISHLIST: Tarjetas a igual altura
-     ================================ */
-
-  :root{
-    /* Alto fijo (responsivo) de cada tarjeta */
-    --wish-h: clamp(280px, 34vh, 330px);
-  }
-
-  /* Que las celdas de grid estiren los items */
-  .wishlist-grid{
-    align-items: stretch;
-  }
-
-  /* Tarjeta con layout en columna y alto fijo */
-  .wishlist-card{
-    height: var(--wish-h);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;                 /* oculta exceso */
-    position: relative;
-  }
-
-  /* Badge de estado se mantiene visible */
-  .wishlist-status{
-    z-index: 1;
-  }
-
-  /* El contenido superior (chips + título + enlace + talla + notas)
-     irá “comprimiéndose” si falta espacio */
-  .wishlist-card > *:not(.wishlist-meta):not(.wishlist-actions){
-    /* nada especial aquí: dejamos flujo normal */
-  }
-
-  /* Empuja el bloque meta (y lo que venga detrás) al fondo */
-  .wishlist-meta{
-    margin-top: auto;                 /* footer pegado al fondo */
-  }
-
-  /* Botonera: pequeño respiro cuando está al fondo */
-  .wishlist-actions{
-    margin-top: 10px;
-    flex-wrap: nowrap;
-  }
-
-  /* Título recortado a 2 líneas */
-  .wishlist-product{
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
-    min-height: calc(1.3rem * 2 + 4px); /* mantiene altura fija del título */
-    margin-bottom: 8px;
-  }
-
-  /* Enlace en una sola línea con puntos suspensivos */
-  .wishlist-link{
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-    margin-bottom: 8px;
-  }
-
-  /* Talla discreta; no crece en vertical */
-  .wishlist-size{
-    margin-top: 6px;
-    margin-bottom: 8px;
-  }
-
-  /* Notas recortadas a 3 líneas */
-  .wishlist-notes{
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;   /* <= cambia a 2 o 4 si prefieres */
-    overflow: hidden;
-    margin-bottom: 10px;
-  }
-
-  /* Cuando el contenido está oculto por regalo, centrado pero sin romper el alto */
-  .wishlist-card.locked .gift-mask{
-    min-height: auto;        /* deja que el flex gestione el espacio */
-  }
-
-  /* Comprados siguen iguales, solo respetan el alto */
-  .wishlist-card.purchased{
-    /* ya tienes estilo; se mantiene */
-  }
-
-  /* Accesibilidad visual en hover sin romper el alto fijo */
-  .wishlist-card:hover{
-    transform: translateY(-6px);
-  }
-
-  /* Ajustes finos en chips para que no “salten” */
-  .priority-chip, .gift-chip, .size-chip{
-    margin-top: 4px;
-    margin-bottom: 8px;
-  }
-
-  /* Evita que imágenes de avatar crezcan y desplacen el footer */
-  .wishlist-meta .user-avatar{
-    flex-shrink: 0;
-  }
-
-  /* Si alguna tarjeta se queda sin notas/enlace/talla, el meta igualmente
-     se queda al fondo por el margin-top:auto */
-
-     /* ================================
-   WISHLIST — tarjetas mismo alto, sin cortar contenido
-   ================================ */
-:root{
-  /* alto fijo de la tarjeta (ajústalo a tu gusto) */
-  --wish-h: clamp(280px, 34vh, 330px);
-}
-
-/* todas las celdas estiran a mismo alto */
-.wishlist-grid{ align-items: stretch; }
-
-/* tarjeta en columna con alto fijo */
-.wishlist-card{
-  height: var(--wish-h);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;     /* nada se sale de la tarjeta */
-  position: relative;
-}
-
-/* área central que crece/scrolla si hay mucho contenido */
-.wishlist-main{
-  flex: 1 1 auto;
-  min-height: 0;        /* IMPORTANTE para que flex permita el scroll interno */
-  overflow: auto;       /* aparece scroll solo si hace falta */
-  padding-right: 2px;   /* evita que el scroll tape texto */
-}
-
-/* footer (meta + acciones) pegado abajo */
-.wishlist-meta{ margin-top: auto; }
-.wishlist-actions{ margin-top: 10px; }
-
-/* quita recortes previos por line-clamp si los tenías */
-.wishlist-product,
-.wishlist-notes{
-  display: block !important;
-  -webkit-line-clamp: unset !important;
-  -webkit-box-orient: unset !important;
-  overflow: visible !important;
-}
-
-/* si hay máscara de regalo, que no fuerce altura extra */
-.wishlist-card.locked .gift-mask{ min-height: auto; }
-
-/* scrollbar finita (opcional) */
-.wishlist-main::-webkit-scrollbar{ width: 8px; }
-.wishlist-main::-webkit-scrollbar-thumb{ background: #e8e8ef; border-radius: 8px; }
-.wishlist-main:hover::-webkit-scrollbar-thumb{ background: #d3d3e0; }
-
-/* micro-ajustes para que nada “salte” */
-.priority-chip, .gift-chip, .size-chip{ margin: 4px 0 8px; }
-.wishlist-link{ margin-bottom: 8px; }
-.wishlist-size{ margin: 6px 0 8px; }
-/* ================================
-   WISHLIST — mismo alto, sin scroll
-   ================================ */
-:root{
-  /* ajusta la altura a tu gusto */
-  --wish-h: 340px;
-}
-
-/* Asegura que todas las celdas estiren al mismo alto */
-.wishlist-grid{ align-items: stretch; }
-
-/* Tarjeta con layout en filas fijas: badge, contenido, meta, acciones */
-.wishlist-card{
-  height: var(--wish-h);
-  display: grid;
-  grid-template-rows: auto 1fr auto auto; /* status/top, contenido, meta, acciones */
-  gap: 8px;
-  overflow: hidden;             /* nada se sale de la tarjeta */
-  position: relative;
-}
-
-/* Si existe .wishlist-main de intentos anteriores, lo “normalizamos” */
-.wishlist-card .wishlist-main{
-  overflow: visible !important; /* sin scroll interno */
-  min-height: 0;
-  display: block;
-}
-
-/* Cabecera (chips) y máscara de regalo compactas */
-.priority-chip, .gift-chip, .size-chip{ margin: 2px 0 6px; }
-.wishlist-card.locked .gift-mask{
-  min-height: 110px;           /* fija para que cuadre */
-  margin: 6px 0 8px;
-}
-
-/* Zona de contenido: recortes elegantes para que todo cuadre */
-.wishlist-product{
-  margin: 6px 0 4px;
-  font-size: 1.1rem;
-  line-height: 1.25rem;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;       /* máximo 2 líneas de título */
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Enlace: una línea como mucho */
-.wishlist-link{
-  margin: 0 0 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Talla: una sola línea también */
-.wishlist-size{
-  margin: 4px 0 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Notas: hasta 3 líneas */
-.wishlist-notes{
-  margin: 6px 0 0;
-  color: #555;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;       /* ajusta si quieres 2/3/4 líneas */
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Footer pegado y consistente */
-.wishlist-meta{
-  margin-top: 0;               /* lo maneja la rejilla */
-}
-.wishlist-actions{
-  margin-top: 4px;
-}
-
-/* Alturas coherentes de los badges “Deseado/Comprado” para que no empujen */
-.wishlist-status{
-  top: 12px; right: 12px;
-  padding: 4px 10px;
-  font-size: .78rem;
-}
-
-/* Evita que algo “rompa” el alto con saltos de línea locos */
-.wishlist-card *{
-  word-break: break-word;
-}
-
-/* Tooltip con el contenido completo (opcional y útil) */
-.wishlist-notes[title],
-.wishlist-link[title],
-.wishlist-product[title],
-.wishlist-size[title]{ cursor: help; }
-
-
     </style>
 </head>
 
@@ -1483,89 +1221,88 @@
         {% set oculto_para_mi = (is_gift and not soy_creador) %}
 
         <div class="wishlist-card {% if oculto_para_mi %}locked{% endif %}">
-  <div class="wishlist-status status-wanted">Deseado</div>
+          <div class="wishlist-status status-wanted">Deseado</div>
 
-  <div class="wishlist-main">
-    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-      <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
-        <i class="fas fa-flag"></i> {{ pri|capitalize }}
-      </div>
-      {% if is_gift %}
-        <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
-      {% endif %}
-    </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
+              <i class="fas fa-flag"></i> {{ pri|capitalize }}
+            </div>
+            {% if is_gift %}
+              <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
+            {% endif %}
+            {# ⚠️ Quitado el chip de talla de la cabecera #}
+          </div>
 
-    {% if oculto_para_mi %}
-      <div class="gift-mask">
-        🎁 <div>¡Esto es un regalo para ti!</div>
-        <small>Los detalles están ocultos para mantener la sorpresa.</small>
-      </div>
-    {% else %}
-      <h3 class="wishlist-product">{{ product_name }}</h3>
+          {% if oculto_para_mi %}
+            <div class="gift-mask">
+              🎁 <div>¡Esto es un regalo para ti!</div>
+              <small>Los detalles están ocultos para mantener la sorpresa.</small>
+            </div>
+          {% else %}
+            <h3 class="wishlist-product">{{ product_name }}</h3>
 
-      {% if product_link %}
-        <a href="{{ product_link }}" target="_blank" class="wishlist-link">
-          <i class="fas fa-link"></i> Ver producto
-        </a>
-        {% if (size or '')|trim %}
-          <div class="wishlist-size"><strong>Talla:</strong> {{ size }}</div>
-        {% endif %}
-      {% endif %}
+            {% if product_link %}
+              <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+                <i class="fas fa-link"></i> Ver producto
+              </a>
+              {# 👇 Talla debajo del enlace #}
+              {% if (size or '')|trim %}
+                <div class="wishlist-size"><strong>Talla:</strong> {{ size }}</div>
+              {% endif %}
+            {% endif %}
 
-      {% if notes %}
-        <p class="wishlist-notes">{{ notes }}</p>
-      {% endif %}
-    {% endif %}
-  </div> <!-- /wishlist-main -->
+            {% if notes %}
+              <p class="wishlist-notes">{{ notes }}</p>
+            {% endif %}
+          {% endif %}
 
-  <div class="wishlist-meta">
-    <span>
-      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-        {% if profile_pictures.get(created_by) %}
-          <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
-        {% else %}
-          {{ created_by[0]|upper }}
-        {% endif %}
-      </div>
-      Creado por {{ created_by }}
-    </span>
-    <span>{{ created_at[:10] }}</span>
-  </div>
+          <div class="wishlist-meta">
+            <span>
+              <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                {% if profile_pictures.get(created_by) %}
+                  <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
+                {% else %}
+                  {{ created_by[0]|upper }}
+                {% endif %}
+              </div>
+              Creado por {{ created_by }}
+            </span>
+            <span>{{ created_at[:10] }}</span>
+          </div>
 
-  {% if not oculto_para_mi %}
-  <div class="wishlist-actions">
-    <form method="POST" action="/toggle_wishlist_status">
-      <input type="hidden" name="item_id" value="{{ id }}">
-      <button type="submit" class="icon-btn" title="Marcar como comprado">
-        <i class="fas fa-check"></i>
-      </button>
-    </form>
+          {% if not oculto_para_mi %}
+          <div class="wishlist-actions">
+            <form method="POST" action="/toggle_wishlist_status">
+              <input type="hidden" name="item_id" value="{{ id }}">
+              <button type="submit" class="icon-btn" title="Marcar como comprado">
+                <i class="fas fa-check"></i>
+              </button>
+            </form>
 
-    <button class="icon-btn" title="Editar"
-            onclick='openEditModal(
-              {{ id }},
-              {{ product_name|tojson }},
-              {{ product_link|tojson }},
-              {{ (notes or "")|tojson }},
-              {{ pri|tojson }},
-              {{ is_gift|tojson }},
-              {{ (size or "")|tojson }}
-            )'>
-      <i class="fas fa-edit"></i>
-    </button>
+            <button class="icon-btn" title="Editar"
+                    onclick='openEditModal(
+                      {{ id }},
+                      {{ product_name|tojson }},
+                      {{ product_link|tojson }},
+                      {{ (notes or "")|tojson }},
+                      {{ pri|tojson }},
+                      {{ is_gift|tojson }},
+                      {{ (size or "")|tojson }}
+                    )'>
+              <i class="fas fa-edit"></i>
+            </button>
 
-    {% if created_by == username %}
-    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
-      <input type="hidden" name="item_id" value="{{ id }}">
-      <button type="submit" class="icon-btn" title="Eliminar">
-        <i class="fas fa-trash"></i>
-      </button>
-    </form>
-    {% endif %}
-  </div>
-  {% endif %}
-</div>
-
+            {% if created_by == username %}
+            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm("¿Estás seguro de que quieres eliminar este producto?");">
+              <input type="hidden" name="item_id" value="{{ id }}">
+              <button type="submit" class="icon-btn" title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </form>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
       {% else %}
         <p>No hay productos en tu lista de deseos. ¡Añade el primero!</p>
       {% endfor %}
@@ -1581,89 +1318,88 @@
         {% set oculto_para_mi = (is_gift and not soy_creador) %}
 
         <div class="wishlist-card purchased {% if oculto_para_mi %}locked{% endif %}">
-  <div class="wishlist-status status-purchased">Comprado</div>
+          <div class="wishlist-status status-purchased">Comprado</div>
 
-  <div class="wishlist-main">
-    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-      <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
-        <i class="fas fa-flag"></i> {{ pri|capitalize }}
-      </div>
-      {% if is_gift %}
-        <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
-      {% endif %}
-    </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <div class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
+              <i class="fas fa-flag"></i> {{ pri|capitalize }}
+            </div>
+            {% if is_gift %}
+              <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
+            {% endif %}
+            {# ⚠️ Quitado el chip de talla de la cabecera #}
+          </div>
 
-    {% if oculto_para_mi %}
-      <div class="gift-mask">
-        🎁 <div>¡Esto es (o era) un regalo para ti!</div>
-        <small>Detalles ocultos para mantener la sorpresa.</small>
-      </div>
-    {% else %}
-      <h3 class="wishlist-product">{{ product_name }}</h3>
+          {% if oculto_para_mi %}
+            <div class="gift-mask">
+              🎁 <div>¡Esto es (o era) un regalo para ti!</div>
+              <small>Detalles ocultos para mantener la sorpresa.</small>
+            </div>
+          {% else %}
+            <h3 class="wishlist-product">{{ product_name }}</h3>
 
-      {% if product_link %}
-        <a href="{{ product_link }}" target="_blank" class="wishlist-link">
-          <i class="fas fa-link"></i> Ver producto
-        </a>
-        {% if (size or '')|trim %}
-          <div class="wishlist-size"><strong>Talla:</strong> {{ size }}</div>
-        {% endif %}
-      {% endif %}
+            {% if product_link %}
+              <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+                <i class="fas fa-link"></i> Ver producto
+              </a>
+              {# 👇 Talla debajo del enlace #}
+              {% if (size or '')|trim %}
+                <div class="wishlist-size"><strong>Talla:</strong> {{ size }}</div>
+              {% endif %}
+            {% endif %}
 
-      {% if notes %}
-        <p class="wishlist-notes">{{ notes }}</p>
-      {% endif %}
-    {% endif %}
-  </div> <!-- /wishlist-main -->
+            {% if notes %}
+              <p class="wishlist-notes">{{ notes }}</p>
+            {% endif %}
+          {% endif %}
 
-  <div class="wishlist-meta">
-    <span>
-      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-        {% if profile_pictures.get(created_by) %}
-          <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
-        {% else %}
-          {{ created_by[0]|upper }}
-        {% endif %}
-      </div>
-      Creado por {{ created_by }}
-    </span>
-    <span>{{ created_at[:10] }}</span>
-  </div>
+          <div class="wishlist-meta">
+            <span>
+              <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                {% if profile_pictures.get(created_by) %}
+                  <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
+                {% else %}
+                  {{ created_by[0]|upper }}
+                {% endif %}
+              </div>
+              Creado por {{ created_by }}
+            </span>
+            <span>{{ created_at[:10] }}</span>
+          </div>
 
-  {% if not oculto_para_mi %}
-  <div class="wishlist-actions">
-    <form method="POST" action="/toggle_wishlist_status">
-      <input type="hidden" name="item_id" value="{{ id }}">
-      <button type="submit" class="icon-btn" title="Marcar como no comprado">
-        <i class="fas fa-undo"></i>
-      </button>
-    </form>
+          {% if not oculto_para_mi %}
+          <div class="wishlist-actions">
+            <form method="POST" action="/toggle_wishlist_status">
+              <input type="hidden" name="item_id" value="{{ id }}">
+              <button type="submit" class="icon-btn" title="Marcar como no comprado">
+                <i class="fas fa-undo"></i>
+              </button>
+            </form>
 
-    <button class="icon-btn" title="Editar"
-            onclick='openEditModal(
-              {{ id }},
-              {{ product_name|tojson }},
-              {{ product_link|tojson }},
-              {{ (notes or "")|tojson }},
-              {{ pri|tojson }},
-              {{ is_gift|tojson }},
-              {{ (size or "")|tojson }}
-            )'>
-      <i class="fas fa-edit"></i>
-    </button>
+            <button class="icon-btn" title="Editar"
+                    onclick='openEditModal(
+                      {{ id }},
+                      {{ product_name|tojson }},
+                      {{ product_link|tojson }},
+                      {{ (notes or "")|tojson }},
+                      {{ pri|tojson }},
+                      {{ is_gift|tojson }},
+                      {{ (size or "")|tojson }}
+                    )'>
+              <i class="fas fa-edit"></i>
+            </button>
 
-    {% if created_by == username %}
-    <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
-      <input type="hidden" name="item_id" value="{{ id }}">
-      <button type="submit" class="icon-btn" title="Eliminar">
-        <i class="fas fa-trash"></i>
-      </button>
-    </form>
-    {% endif %}
-  </div>
-  {% endif %}
-</div>
-
+            {% if created_by == username %}
+            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm("¿Estás seguro de que quieres eliminar este producto?");">
+              <input type="hidden" name="item_id" value="{{ id }}">
+              <button type="submit" class="icon-btn" title="Eliminar">
+                <i class="fas fa-trash"></i>
+              </button>
+            </form>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
       {% else %}
         <p>No hay productos comprados todavía.</p>
       {% endfor %}

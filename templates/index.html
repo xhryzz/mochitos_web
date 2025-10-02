@@ -872,6 +872,117 @@
   .wishlist-card{ min-height: 280px; }
 }
 
+
+/* =========================
+   THEME SWITCHER (UI + THEMES)
+   ========================= */
+
+/* Botón flotante del selector (junto al de perfil) */
+.theme-icon{
+  position: fixed;
+  top: 30px; left: 92px; /* a la derecha del perfil (50px + margen) */
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  background: white;
+  color: var(--primary-color);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem;
+  box-shadow: var(--shadow);
+  z-index: 1000; cursor: pointer;
+  transition: all .3s;
+}
+.theme-icon:hover{ background: var(--primary-color); color: #fff; transform: translateY(-3px) rotate(-15deg); }
+
+/* Modal del selector (reutiliza .modal genérico) */
+.theme-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
+  gap:14px;
+}
+.theme-card{
+  border:1px solid rgba(0,0,0,.08);
+  border-radius:14px;
+  background:#fff;
+  padding:14px;
+  box-shadow:0 8px 20px rgba(0,0,0,.06);
+}
+.theme-card h4{
+  margin:0 0 8px 0; font-size:1.05rem; color:#333;
+  display:flex; align-items:center; gap:8px;
+}
+.theme-swatches{
+  display:grid; grid-template-columns: repeat(5, 1fr);
+  gap:6px; margin: 10px 0 12px 0;
+}
+.theme-swatch{
+  height:28px; border-radius:8px; border:1px solid rgba(0,0,0,.05);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+}
+.theme-meta{
+  font-size:.9rem; color:#666;
+}
+
+/* Botón “Aplicar tema” dentro de las cards */
+.theme-actions{
+  display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;
+}
+.theme-actions .btn-outline{
+  border-radius:12px; padding:10px 12px; font-weight:800;
+  background:#fff; color: var(--primary-color);
+  border:1px solid rgba(0,0,0,.08);
+  box-shadow:0 6px 16px rgba(0,0,0,.06);
+  cursor:pointer; transition:.2s;
+}
+.theme-actions .btn-outline:hover{
+  transform: translateY(-2px);
+  background: var(--primary-color); color:#fff;
+  box-shadow:0 12px 24px rgba(232,67,147,.25);
+}
+
+/* ==============
+   THEME: NICO ☕
+   ============== */
+/* Se aplica sobre <html data-theme="nico"> */
+:root[data-theme="nico"]{
+  /* Paleta café */
+  --primary-color: #6f4e37;    /* Coffee */
+  --secondary-color: #b08968;  /* Latte */
+  --accent-color: #d4a373;     /* Caramel */
+  --light-pink: #f6efe7;       /* Fondo claro cálido */
+  --dark-text: #2b2b2b;
+  --light-text: #fdfcf9;
+
+  /* Fondo de tarjeta ligeramente cálido */
+  --card-bg: rgba(255, 253, 250, .96);
+
+  /* Sombra un poquito más profunda y difusa */
+  --shadow: 0 18px 36px rgba(40, 30, 20, 0.12);
+
+  /* Gradiente café */
+  --gradient: linear-gradient(135deg, #6f4e37 0%, #b08968 50%, #d4a373 100%);
+
+  /* Estados/etiquetas */
+  --visited-color: #7da453;   /* verde oliva */
+  --wishlist-color: #b08968;  /* latte */
+  --purchased-color: #a7a7a7;
+}
+
+/* Ajustes de fondo general en Nico */
+:root[data-theme="nico"] body{
+  background: linear-gradient(135deg, #f6efe7 0%, #ede3d8 100%);
+}
+:root[data-theme="nico"] body::before{
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%236f4e37' fill-opacity='0.05' d='M0,224L48,213.3C96,203,192,181,288,160C384,139,480,117,576,122.7C672,128,768,160,864,170.7C960,181,1056,171,1152,165.3C1248,160,1344,160,1392,160L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
+}
+
+/* Botones y pills se benefician del nuevo --gradient automáticamente */
+/* Opcional: banner overlay algo menos rosa en Nico (ya usa variables) */
+
+/* Acentos específicos útiles (opcional) */
+:root[data-theme="nico"] .site-footer{
+  background: linear-gradient(135deg, #6f4e37, #b08968);
+}
+
     </style>
 </head>
 
@@ -996,6 +1107,11 @@
       <div class="settings-icon" id="settingsIcon">
         <i class="fas fa-user-cog"></i>
       </div>
+      <!-- SELECTOR DE TEMAS (botón flotante) -->
+<div class="theme-icon" id="themeIcon" title="Cambiar tema">
+  <i class="fas fa-palette"></i>
+</div>
+
 
         <!-- MODAL EDITAR EVENTO INTIMIDAD -->
   <div id="editIntimModal" class="modal">
@@ -1022,6 +1138,58 @@
       </div>
     </div>
   </div>
+
+  <!-- MODAL: Selector de temas -->
+<div id="themeModal" class="modal" aria-hidden="true">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Elige un tema</h2>
+      <span class="close-modal" aria-label="Cerrar">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div class="theme-grid">
+
+        <!-- Tema actual (por defecto) -->
+        <div class="theme-card">
+          <h4><i class="fas fa-sun"></i> Actual</h4>
+          <div class="theme-swatches">
+            <div class="theme-swatch" style="background:#e84393"></div>
+            <div class="theme-swatch" style="background:#fd79a8"></div>
+            <div class="theme-swatch" style="background:#a29bfe"></div>
+            <div class="theme-swatch" style="background:#ffe8f3"></div>
+            <div class="theme-swatch" style="background:#2d3436"></div>
+          </div>
+          <div class="theme-meta">Rosa/violeta, vibrante y luminoso.</div>
+          <div class="theme-actions">
+            <button class="btn-outline" data-apply-theme="default">
+              <i class="fas fa-check"></i> Aplicar
+            </button>
+          </div>
+        </div>
+
+        <!-- Tema Nico (café/marrón) -->
+        <div class="theme-card">
+          <h4><i class="fas fa-mug-hot"></i> Nico</h4>
+          <div class="theme-swatches">
+            <div class="theme-swatch" style="background:#6f4e37"></div>
+            <div class="theme-swatch" style="background:#b08968"></div>
+            <div class="theme-swatch" style="background:#d4a373"></div>
+            <div class="theme-swatch" style="background:#f6efe7"></div>
+            <div class="theme-swatch" style="background:#2b2b2b"></div>
+          </div>
+          <div class="theme-meta">Tonos café, cálido y elegante.</div>
+          <div class="theme-actions">
+            <button class="btn-outline" data-apply-theme="nico">
+              <i class="fas fa-check"></i> Aplicar
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
 
       <!-- MODAL PERFIL -->
       <div id="profileModal" class="modal">
@@ -2555,6 +2723,60 @@ window.openEditIntimModal = function(eventId, place, notes) {
   };
 })();
 
+
+
+(function(){
+  const root = document.documentElement;
+  const THEME_KEY = 'cc_theme';
+  const themeIcon   = document.getElementById('themeIcon');
+  const themeModal  = document.getElementById('themeModal');
+
+  // Abrir modal
+  themeIcon?.addEventListener('click', () => {
+    if (themeModal) themeModal.style.display = 'block';
+  });
+
+  // Cerrar modal (usa tu listener global de .close-modal también)
+  themeModal?.querySelector('.close-modal')?.addEventListener('click', () => {
+    themeModal.style.display = 'none';
+  });
+  window.addEventListener('click', (e) => {
+    if (e.target === themeModal) themeModal.style.display = 'none';
+  });
+
+  // Aplicar tema
+  function applyTheme(name){
+    if (name === 'nico') {
+      root.setAttribute('data-theme', 'nico');
+    } else {
+      root.removeAttribute('data-theme'); // vuelve al actual por defecto
+      // Si prefieres data-theme="default", también valdría, pero no es necesario
+    }
+    try { localStorage.setItem(THEME_KEY, name); } catch {}
+    // feedback
+    window.showToast?.('success', `Tema aplicado: ${name === 'nico' ? 'Nico' : 'Actual'}`);
+  }
+
+  // Botones "Aplicar"
+  themeModal?.querySelectorAll('[data-apply-theme]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const name = btn.getAttribute('data-apply-theme');
+      applyTheme(name);
+      setTimeout(()=> themeModal.style.display = 'none', 120);
+    });
+  });
+
+  // Al cargar: restaurar tema
+  document.addEventListener('DOMContentLoaded', () => {
+    let saved = null;
+    try { saved = localStorage.getItem(THEME_KEY); } catch {}
+    if (saved === 'nico') {
+      root.setAttribute('data-theme', 'nico');
+    } else {
+      root.removeAttribute('data-theme');
+    }
+  });
+})();
 </script>
 
 <footer class="site-footer">

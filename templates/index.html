@@ -938,49 +938,171 @@
   background: var(--primary-color); color:#fff;
   box-shadow:0 12px 24px rgba(232,67,147,.25);
 }
+/* ==============  THEME: NICO (tabby cat)  ============== */
+/* Se activa con: <html data-theme="nico"> */
+  :root[data-theme="nico"]{
+  /* Paleta inspirada en el gato: rayas marrón, arena y ojos verdosos */
+  --primary-color:   #7a9a3a;   /* oliva (ojos) */
+  --secondary-color: #8a6b54;   /* marrón medio (rayas) */
+  --accent-color:    #c9ab84;   /* arena/tostado */
+  --light-pink:      #f1e7d6;   /* crema cálido (fondo claro) */
+  --dark-text:       #2b2a28;   /* casi negro suave */
+  --light-text:      #fdfbf5;
 
-/* ==============
-   THEME: NICO ☕
-   ============== */
-/* Se aplica sobre <html data-theme="nico"> */
-:root[data-theme="nico"]{
-  /* Paleta café */
-  --primary-color: #6f4e37;    /* Coffee */
-  --secondary-color: #b08968;  /* Latte */
-  --accent-color: #d4a373;     /* Caramel */
-  --light-pink: #f6efe7;       /* Fondo claro cálido */
-  --dark-text: #2b2b2b;
-  --light-text: #fdfcf9;
+  --card-bg:         rgba(249,245,237,.94); /* crema con un pelín de transparencia */
+  --shadow:          0 20px 40px rgba(43,42,40,.12);
 
-  /* Fondo de tarjeta ligeramente cálido */
-  --card-bg: rgba(255, 253, 250, .96);
+  --gradient: linear-gradient(135deg, #4b3b2e 0%, #8a6b54 45%, #c9ab84 100%);
 
-  /* Sombra un poquito más profunda y difusa */
-  --shadow: 0 18px 36px rgba(40, 30, 20, 0.12);
-
-  /* Gradiente café */
-  --gradient: linear-gradient(135deg, #6f4e37 0%, #b08968 50%, #d4a373 100%);
-
-  /* Estados/etiquetas */
-  --visited-color: #7da453;   /* verde oliva */
-  --wishlist-color: #b08968;  /* latte */
-  --purchased-color: #a7a7a7;
+  --visited-color:   #6b8e23;   /* oliva */
+  --wishlist-color:  #a66a5c;   /* nariz rosada-marrón */
+  --purchased-color: #b8b2a7;   /* gris cálido */
 }
 
-/* Ajustes de fondo general en Nico */
+/* Fondo general tipo “tarde de café” */
 :root[data-theme="nico"] body{
-  background: linear-gradient(135deg, #f6efe7 0%, #ede3d8 100%);
+  background: linear-gradient(135deg, #f6efe2 0%, #e8ddcb 100%);
+  color: var(--dark-text);
 }
 :root[data-theme="nico"] body::before{
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%236f4e37' fill-opacity='0.05' d='M0,224L48,213.3C96,203,192,181,288,160C384,139,480,117,576,122.7C672,128,768,160,864,170.7C960,181,1056,171,1152,165.3C1248,160,1344,160,1392,160L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
+  /* misma onda del layout, pero teñida a marrón suave */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%234b3b2e' fill-opacity='0.05' d='M0,224L48,213.3C96,203,192,181,288,160C384,139,480,117,576,122.7C672,128,768,160,864,170.7C960,181,1056,171,1152,165.3C1248,160,1344,160,1392,160L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
 }
 
-/* Botones y pills se benefician del nuevo --gradient automáticamente */
-/* Opcional: banner overlay algo menos rosa en Nico (ya usa variables) */
+/* Tarjetas más “papel crema” y borde fino */
+:root[data-theme="nico"] .section{
+  background: var(--card-bg);
+  border: 1px solid rgba(75,59,46,.12);
+  box-shadow: 0 18px 34px rgba(43,42,40,.10);
+}
+:root[data-theme="nico"] .section::before{ background: var(--gradient); }
+:root[data-theme="nico"] .section h3{
+  color: var(--secondary-color);
+  border-bottom-color: var(--secondary-color);
+}
+:root[data-theme="nico"] .section h3::after{ background: var(--primary-color); }
 
-/* Acentos específicos útiles (opcional) */
+/* Banner: tono sepia suave + overlay cálido y menos saturación */
+:root[data-theme="nico"] .section.banner img{
+  filter: sepia(.15) saturate(.9) contrast(1.03);
+}
+:root[data-theme="nico"] .banner-overlay h1{
+  -webkit-text-stroke: 1px rgba(255,255,245,.40);
+  text-shadow: 0 2px 12px rgba(0,0,0,.28), 0 8px 28px rgba(75,59,46,.30);
+}
+:root[data-theme="nico"] .banner-overlay h1::after{
+  background: linear-gradient(90deg, var(--secondary-color), var(--primary-color));
+}
+
+/* Inputs: crema y foco oliva */
+:root[data-theme="nico"] input[type="text"],
+:root[data-theme="nico"] input[type="password"],
+:root[data-theme="nico"] input[type="date"],
+:root[data-theme="nico"] input[type="url"],
+:root[data-theme="nico"] input[type="file"],
+:root[data-theme="nico"] textarea,
+:root[data-theme="nico"] select{
+  background:#fbf7ee; border:2px solid #eadfcb;
+}
+:root[data-theme="nico"] input:focus,
+:root[data-theme="nico"] textarea:focus,
+:root[data-theme="nico"] select:focus{
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(122,154,58,.20);
+}
+
+/* Botones: cuero tostado + hover brillante */
+:root[data-theme="nico"] button{
+  background: linear-gradient(135deg,#8a6b54,#c9ab84);
+  color:#fff;
+  box-shadow: 0 6px 18px rgba(138,107,84,.35);
+}
+:root[data-theme="nico"] button::before{
+  background: linear-gradient(90deg,#c0916c,#7a9a3a);
+}
+:root[data-theme="nico"] button:hover{
+  box-shadow: 0 10px 24px rgba(122,154,58,.35);
+}
+
+/* Chips/etiquetas y estados */
+:root[data-theme="nico"] .priority-high{ background:#ffe8e1; border-color:#d4795f; color:#7b3a2c; }
+:root[data-theme="nico"] .priority-mid { background:#fff5da; border-color:#e2bf63; color:#7a641f; }
+:root[data-theme="nico"] .priority-low { background:#eaf6ea; border-color:#86b36e; color:#265a24; }
+
+/* Iconos flotantes */
+:root[data-theme="nico"] .settings-icon,
+:root[data-theme="nico"] .theme-icon{
+  color: var(--secondary-color);
+}
+:root[data-theme="nico"] .settings-icon:hover,
+:root[data-theme="nico"] .theme-icon:hover{
+  background: var(--secondary-color); color:#fff;
+}
+
+/* Wishlist + Travel: bordes laterales y badges con la nueva paleta */
+:root[data-theme="nico"] .wishlist-card:not(.purchased){ border-left-color: var(--wishlist-color); }
+:root[data-theme="nico"] .wishlist-card.purchased{   border-left-color: var(--purchased-color); }
+:root[data-theme="nico"] .status-wanted{   background: var(--wishlist-color); }
+:root[data-theme="nico"] .status-purchased{background: var(--purchased-color); }
+
+:root[data-theme="nico"] .travel-card.visited{  border-left:5px solid var(--visited-color); }
+:root[data-theme="nico"] .travel-card.wishlist{ border-left:5px solid var(--wishlist-color); }
+:root[data-theme="nico"] .status-visited{  background: var(--visited-color); }
+:root[data-theme="nico"] .status-wishlist{ background: var(--wishlist-color); }
+
+/* Tabs activos en marrón/oliva */
+:root[data-theme="nico"] .travel-tab.active,
+:root[data-theme="nico"] .wishlist-tab.active{
+  color: var(--secondary-color);
+  border-bottom-color: var(--secondary-color);
+}
+
+/* Toasts oscuros cálidos */
+:root[data-theme="nico"] .toast{ background:#2b2a28; }
+:root[data-theme="nico"] .toast.info  { border-left-color:#7aa0d6; }
+:root[data-theme="nico"] .toast.success{ border-left-color:#6b8e23; }
+:root[data-theme="nico"] .toast.error  { border-left-color:#c06b5a; }
+
+/* Footer en gradiente tostado */
 :root[data-theme="nico"] .site-footer{
-  background: linear-gradient(135deg, #6f4e37, #b08968);
+  background: linear-gradient(135deg,#4b3b2e,#8a6b54);
+}
+
+/* Mapa: línea oliva */
+:root[data-theme="nico"] .leaflet-pane svg path.leaflet-interactive{
+  stroke: var(--visited-color) !important;
+}
+
+/* Modal: vidrio cálido */
+:root[data-theme="nico"] .modal-content{
+  background: #fffaf0;
+  border:1px solid rgba(75,59,46,.12);
+  box-shadow: 0 24px 50px rgba(43,42,40,.18);
+}
+
+/* Links discretos */
+:root[data-theme="nico"] .wishlist-link{ color: var(--secondary-color); }
+:root[data-theme="nico"] .wishlist-link:hover{ color: var(--primary-color); }
+
+/* Botones redondos (acciones) en marrón/oliva */
+:root[data-theme="nico"] .icon-btn{
+  color: var(--secondary-color);
+}
+:root[data-theme="nico"] .icon-btn:hover{
+  background: var(--secondary-color); color:#fff;
+  box-shadow: 0 12px 26px rgba(138,107,84,.28);
+}
+
+/* Contadores “Nosotros” en el nuevo gradiente */
+:root[data-theme="nico"] .counter-item{ background: var(--gradient); }
+
+/* Count-down chip */
+:root[data-theme="nico"] .dq-countdown-card{
+  border-left-color: var(--primary-color);
+}
+:root[data-theme="nico"] .dq-countdown-title{ color: var(--secondary-color); }
+:root[data-theme="nico"] .dq-countdown-time{
+  background:#f5efe2; border-color:#efe3cc; color:#2b2a28;
 }
 
 
@@ -2732,276 +2854,107 @@ window.openEditIntimModal = function(eventId, place, notes) {
   };
 })();
 
-
-
-(function(){
-  const root = document.documentElement;
-  const THEME_KEY = 'cc_theme';
-  const themeIcon   = document.getElementById('themeIcon');
-  const themeModal  = document.getElementById('themeModal');
-
-  // Abrir modal
-  themeIcon?.addEventListener('click', () => {
-    if (themeModal) themeModal.style.display = 'block';
-  });
-
-  // Cerrar modal (usa tu listener global de .close-modal también)
-  themeModal?.querySelector('.close-modal')?.addEventListener('click', () => {
-    themeModal.style.display = 'none';
-  });
-  window.addEventListener('click', (e) => {
-    if (e.target === themeModal) themeModal.style.display = 'none';
-  });
-
-  // Aplicar tema
-  function applyTheme(name){
-    if (name === 'nico') {
-      root.setAttribute('data-theme', 'nico');
-    } else {
-      root.removeAttribute('data-theme'); // vuelve al actual por defecto
-      // Si prefieres data-theme="default", también valdría, pero no es necesario
-    }
-    try { localStorage.setItem(THEME_KEY, name); } catch {}
-    // feedback
-    window.showToast?.('success', `Tema aplicado: ${name === 'nico' ? 'Nico' : 'Actual'}`);
-  }
-
-  // Botones "Aplicar"
-  themeModal?.querySelectorAll('[data-apply-theme]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const name = btn.getAttribute('data-apply-theme');
-      applyTheme(name);
-      setTimeout(()=> themeModal.style.display = 'none', 120);
-    });
-  });
-
-  // Al cargar: restaurar tema
-  document.addEventListener('DOMContentLoaded', () => {
-    let saved = null;
-    try { saved = localStorage.getItem(THEME_KEY); } catch {}
-    if (saved === 'nico') {
-      root.setAttribute('data-theme', 'nico');
-    } else {
-      root.removeAttribute('data-theme');
-    }
-  });
-})();
-
-/* Fix seguro para abrir/cerrar el modal de temas aunque otros listeners fallen */
-(function(){
-  const root = document.documentElement;
-  const THEME_KEY = 'cc_theme';
-  const modal = document.getElementById('themeModal');
-
-  // Abrir al clicar el icono o su <i> hijo
-  document.addEventListener('click', (e) => {
-    if (e.target.closest('#themeIcon')) {
-      if (modal) modal.style.display = 'block';
-    }
-  });
-
-  // Cerrar con la X y clic fuera
-  document.addEventListener('click', (e) => {
-    if (!modal) return;
-    if (e.target.matches('#themeModal .close-modal')) modal.style.display = 'none';
-    if (e.target === modal) modal.style.display = 'none';
-  });
-
-  // Aplicar tema (botones dentro del modal)
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('#themeModal [data-apply-theme]');
-    if (!btn) return;
-    const name = btn.getAttribute('data-apply-theme');
-    if (name === 'nico') {
-      root.setAttribute('data-theme', 'nico');
-    } else {
-      root.removeAttribute('data-theme');
-    }
-    try { localStorage.setItem(THEME_KEY, name); } catch {}
-    window.showToast?.('success', `Tema aplicado: ${name === 'nico' ? 'Nico' : 'Actual'}`);
-    setTimeout(()=> { if (modal) modal.style.display = 'none'; }, 120);
-  });
-
-  // Restaurar al cargar
-  (function restoreTheme(){
-    let saved = null;
-    try { saved = localStorage.getItem(THEME_KEY); } catch {}
-    if (saved === 'nico') root.setAttribute('data-theme','nico');
-    else root.removeAttribute('data-theme');
-  })();
-})();
-
-// ====== FIX: abrir/cerrar el modal de temas de forma segura ======
-(function () {
-  const modal = document.getElementById('themeModal');
-
-  // 1) Asegura una clase que fuerce la visibilidad del modal
-  const style = document.createElement('style');
-  style.textContent = `
-    /* Fuerza apertura con clase (gana a la regla .modal { display:none }) */
-    #themeModal.is-open { display: block !important; }
-  `;
-  document.head.appendChild(style);
-
-  // 2) Abrir al click en el icono (soporta clic en el <div> o en su <i>)
-  document.addEventListener('click', (e) => {
-    if (e.target.closest('#themeIcon')) {
-      if (!modal) return;
-      modal.classList.add('is-open');
-      modal.removeAttribute('aria-hidden'); // por si alguna regla CSS usa [aria-hidden]
-    }
-  });
-
-  // 3) Cerrar con la X
-  document.addEventListener('click', (e) => {
-    if (!modal) return;
-    if (e.target.matches('#themeModal .close-modal')) {
-      modal.classList.remove('is-open');
-      modal.setAttribute('aria-hidden', 'true');
-    }
-  });
-
-  // 4) Cerrar al click fuera del contenido
-  window.addEventListener('click', (e) => {
-    if (!modal) return;
-    if (e.target === modal) {
-      modal.classList.remove('is-open');
-      modal.setAttribute('aria-hidden', 'true');
-    }
-  });
-
-  // 5) (Debug) Si quieres comprobar que se está abriendo:
-  // document.addEventListener('click', e => {
-  //   if (e.target.closest('#themeIcon')) {
-  //     console.log('Abriendo modal de tema…', getComputedStyle(modal).display);
-  //     setTimeout(() => console.log('Display tras abrir:', getComputedStyle(modal).display), 0);
-  //   }
-  // });
-})();
-
-
-
-
-/* ===== Selector de tema: apertura + aplicar (delegado) ===== */
+/* ================================
+   Selector de tema — versión única
+   (abrir/cerrar/aplicar + persistencia)
+   ================================ */
 (function () {
   const root  = document.documentElement;
-  const modal = document.getElementById('themeModal');
   const KEY   = 'cc_theme';
+  const modal = document.getElementById('themeModal');
 
-  function openTheme()  { if (modal){ modal.classList.add('is-open');  modal.removeAttribute('aria-hidden'); } }
-  function closeTheme() { if (modal){ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); } }
+  // 0) Asegura una regla CSS que fuerce la visibilidad con la clase
+  (function ensureCSS(){
+    const s = document.createElement('style');
+    s.textContent = `
+      #themeModal.is-open { display:block !important; }
+    `;
+    document.head.appendChild(s);
+  })();
 
-  document.addEventListener('click', (e) => {
-    // 1) Abrir (icono paleta o su <i>)
-    if (e.target.closest('#themeIcon')) { openTheme(); return; }
+  // 1) Aplicar tema + persistir
+  function applyTheme(name){
+    if (name === 'nico') root.setAttribute('data-theme','nico');
+    else root.removeAttribute('data-theme'); // vuelve al tema “Actual”
+    try{ localStorage.setItem(KEY, name); }catch{}
+    (window.showToast || console.log)('success', `Tema aplicado: ${name === 'nico' ? 'Nico' : 'Actual'}`);
+  }
 
-    // 2) Cerrar con la X
-    if (e.target.matches('#themeModal .close-modal')) { closeTheme(); return; }
+  // 2) Abrir / cerrar modal
+  function openModal(){
+    if (!modal) return;
+    modal.classList.add('is-open');
+    modal.removeAttribute('aria-hidden');
+  }
+  function closeModal(){
+    if (!modal) return;
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden','true');
+  }
 
-    // 3) Cerrar clic fuera del contenido
-    if (e.target === modal) { closeTheme(); return; }
-
-    // 4) APLICAR TEMA (botones con data-apply-theme)
-    const applyBtn = e.target.closest('[data-apply-theme]');
-    if (applyBtn) {
-      const name = applyBtn.getAttribute('data-apply-theme'); // "nico" o "default"
-      if (name === 'nico') root.setAttribute('data-theme', 'nico');
-      else root.removeAttribute('data-theme');
-
-      try { localStorage.setItem(KEY, name); } catch {}
-      // feedback opcional
-      window.showToast?.('success', `Tema aplicado: ${name === 'nico' ? 'Nico' : 'Actual'}`);
-
-      // Evita burbujas raras y cierra
-      e.preventDefault();
-      e.stopPropagation();
-      closeTheme();
-    }
-  });
-
-  // 5) Restaurar al cargar
-  (function restore(){
+  // 3) Restaurar tema guardado al cargar
+  document.addEventListener('DOMContentLoaded', () => {
     let saved = null;
     try { saved = localStorage.getItem(KEY); } catch {}
     if (saved === 'nico') root.setAttribute('data-theme','nico');
     else root.removeAttribute('data-theme');
-  })();
-})();
+  });
 
-
-/* --- PARCHE DURO: abrir modal y aplicar tema, pase lo que pase --- */
-(function () {
-  const root  = document.documentElement;
-
-  // 1) ABRIR MODAL (click en el botón de paleta)
-  document.addEventListener('click', function (e) {
-    const hit = e.target.closest('#themeIcon');
-    if (!hit) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation(); // <- clave: que nadie más consuma el click
-
-    const m = document.getElementById('themeModal');
-    if (m) {
-      m.classList.add('is-open');
-      m.style.display = 'block';
-      m.removeAttribute('aria-hidden');
-    } else {
-      console.warn('No existe #themeModal');
+  // 4) Delegación EN CAPTURA (gana a otros listeners que consumen el click)
+  document.addEventListener('click', function(e){
+    // Abrir: click en el botón de paleta (div o su <i>)
+    if (e.target.closest('#themeIcon')) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      openModal();
+      return;
     }
-  }, true); // <- CAPTURA
 
-  // 2) CERRAR MODAL (X o clic fuera)
-  document.addEventListener('click', function (e) {
-    const m = document.getElementById('themeModal');
-    if (!m) return;
+    // Si el modal no existe o no está abierto, no seguimos
+    if (!modal || !modal.classList.contains('is-open')) return;
 
-    // clic en la X
+    // Cerrar con la X
     if (e.target.matches('#themeModal .close-modal')) {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
-      m.classList.remove('is-open');
-      m.style.display = 'none';
-      m.setAttribute('aria-hidden', 'true');
+      closeModal();
       return;
     }
 
-    // clic en el backdrop
-    if (e.target === m) {
+    // Cerrar clic en el backdrop
+    if (e.target === modal) {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
-      m.classList.remove('is-open');
-      m.style.display = 'none';
-      m.setAttribute('aria-hidden', 'true');
+      closeModal();
+      return;
     }
-  }, true); // <- CAPTURA
 
-  // 3) APLICAR TEMA (click en los botones con data-apply-theme)
-  document.addEventListener('click', function (e) {
+    // Aplicar tema (botones dentro del modal con data-apply-theme)
     const btn = e.target.closest('#themeModal [data-apply-theme]');
-    if (!btn) return;
+    if (btn) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      const name = btn.getAttribute('data-apply-theme'); // 'nico' | 'default'
+      applyTheme(name);
+      closeModal();
+      return;
+    }
+  }, true); // <- CAPTURA = true
 
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-
-    const name = btn.getAttribute('data-apply-theme'); // "nico" o "default"
-    if (name === 'nico') root.setAttribute('data-theme', 'nico');
-    else root.removeAttribute('data-theme');
-
-    try { localStorage.setItem('cc_theme', name); } catch {}
-
-    const m = document.getElementById('themeModal');
-    if (m) { m.classList.remove('is-open'); m.style.display = 'none'; m.setAttribute('aria-hidden', 'true'); }
-
-    // feedback opcional
-    (window.showToast || console.log)('success', `Tema aplicado: ${name === 'nico' ? 'Nico' : 'Actual'}`);
-  }, true); // <- CAPTURA
+  // 5) Cerrar con Escape
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && modal && modal.classList.contains('is-open')) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      closeModal();
+    }
+  }, true);
 })();
-
 </script>
 
 <footer class="site-footer">

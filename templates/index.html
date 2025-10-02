@@ -2928,6 +2928,80 @@ window.openEditIntimModal = function(eventId, place, notes) {
   })();
 })();
 
+
+/* --- PARCHE DURO: abrir modal y aplicar tema, pase lo que pase --- */
+(function () {
+  const root  = document.documentElement;
+
+  // 1) ABRIR MODAL (click en el botón de paleta)
+  document.addEventListener('click', function (e) {
+    const hit = e.target.closest('#themeIcon');
+    if (!hit) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation(); // <- clave: que nadie más consuma el click
+
+    const m = document.getElementById('themeModal');
+    if (m) {
+      m.classList.add('is-open');
+      m.style.display = 'block';
+      m.removeAttribute('aria-hidden');
+    } else {
+      console.warn('No existe #themeModal');
+    }
+  }, true); // <- CAPTURA
+
+  // 2) CERRAR MODAL (X o clic fuera)
+  document.addEventListener('click', function (e) {
+    const m = document.getElementById('themeModal');
+    if (!m) return;
+
+    // clic en la X
+    if (e.target.matches('#themeModal .close-modal')) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      m.classList.remove('is-open');
+      m.style.display = 'none';
+      m.setAttribute('aria-hidden', 'true');
+      return;
+    }
+
+    // clic en el backdrop
+    if (e.target === m) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      m.classList.remove('is-open');
+      m.style.display = 'none';
+      m.setAttribute('aria-hidden', 'true');
+    }
+  }, true); // <- CAPTURA
+
+  // 3) APLICAR TEMA (click en los botones con data-apply-theme)
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('#themeModal [data-apply-theme]');
+    if (!btn) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    const name = btn.getAttribute('data-apply-theme'); // "nico" o "default"
+    if (name === 'nico') root.setAttribute('data-theme', 'nico');
+    else root.removeAttribute('data-theme');
+
+    try { localStorage.setItem('cc_theme', name); } catch {}
+
+    const m = document.getElementById('themeModal');
+    if (m) { m.classList.remove('is-open'); m.style.display = 'none'; m.setAttribute('aria-hidden', 'true'); }
+
+    // feedback opcional
+    (window.showToast || console.log)('success', `Tema aplicado: ${name === 'nico' ? 'Nico' : 'Actual'}`);
+  }, true); // <- CAPTURA
+})();
+
 </script>
 
 <footer class="site-footer">

@@ -1331,270 +1331,93 @@ if __name__ == '__main__':
 
 
 @app.get("/push/debug")
-@app.get("/push/debug/")
 def push_debug_page():
     html = '''
 <!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Activar notificaciones — Debug</title>
+<title>Debug Push</title>
 <style>
-:root{
-  --bg:#0f1216; --card:#141922; --muted:#93a1b1; --ok:#16a34a; --warn:#d97706; --err:#ef4444; --pri:#2563eb;
-  --txt:#e5e7eb; --br:14px;
-}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial}
-.wrap{max-width:900px;margin:0 auto;padding:18px}
-h1{font-size:24px;margin:6px 0 14px}
-p{color:var(--muted)}
-.card{background:var(--card);padding:16px;border-radius:var(--br);margin:12px 0}
-.badge{display:inline-block;padding:2px 8px;border-radius:999px;font:12px/20px system-ui}
-.ok{background:#102a17;color:#7ee2a7}
-.warn{background:#2a210f;color:#f5ce89}
-.err{background:#2a1212;color:#f49b9b}
-.muted{background:#1c2330;color:#a9b8c9}
-.btn{padding:10px 14px;border:1px solid #3a475a;border-radius:10px;background:#1c2330;color:#e5e7eb;cursor:pointer}
-.btn:hover{filter:brightness(1.1)}
-.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
-.col-6{grid-column:span 6}
-.col-12{grid-column:span 12}
-@media (max-width:800px){.col-6{grid-column:span 12}}
-pre{background:#0b0e12;color:#d1d5db;padding:12px;border-radius:10px;white-space:pre-wrap}
-.small{font-size:13px;color:var(--muted)}
-.kbd{font:12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;background:#0b0e12;color:#cbd5e1;padding:2px 6px;border-radius:6px;border:1px solid #253144}
-hr{border:none;border-top:1px solid #253144;margin:14px 0}
-a{color:#9ec5ff}
+body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:16px;line-height:1.5}
+button{padding:10px 14px;border-radius:10px;border:1px solid #ccc;cursor:pointer;margin:4px 6px 0 0}
+#log{white-space:pre-wrap;background:#111;color:#eee;padding:12px;border-radius:8px;margin-top:12px;min-height:140px;border-radius:8px}
 </style>
-
-<div class="wrap">
-  <h1>🔧 Activar notificaciones (iPhone PWA)</h1>
-  <p>Haz estos pasos <b>desde la app instalada</b> (icono en pantalla de inicio). No funciona dentro de WhatsApp/Instagram.</p>
-
-  <!-- ESTADO -->
-  <div class="card">
-    <h2 style="margin:0 0 8px">Estado actual</h2>
-    <div class="grid">
-      <div class="col-6">
-        <div>Modo app (standalone):
-          <span id="st-standalone" class="badge muted">comprobando…</span>
-        </div>
-        <div>Notification API:
-          <span id="st-perm" class="badge muted">comprobando…</span>
-        </div>
-        <div>Service Worker:
-          <span id="st-sw" class="badge muted">comprobando…</span>
-        </div>
-      </div>
-      <div class="col-6">
-        <div>PushManager:
-          <span id="st-pm" class="badge muted">comprobando…</span>
-        </div>
-        <div>Suscripción (navegador):
-          <span id="st-sub" class="badge muted">comprobando…</span>
-        </div>
-        <div>Servidor (BD subs):
-          <span id="st-srv" class="badge muted">comprobando…</span>
-        </div>
-      </div>
-    </div>
-    <div class="btn-row">
-      <button class="btn" id="btn-refrescar">🔄 Volver a comprobar</button>
-      <a class="btn" href="/">🏠 Ir a inicio</a>
-    </div>
-  </div>
-
-  <!-- PASO A PASO -->
-  <div class="card">
-    <h2 style="margin:0 0 8px">Paso a paso</h2>
-
-    <ol>
-      <li><b>Registrar Service Worker</b>
-        <div class="btn-row">
-          <button class="btn" id="btn-reg">Registrar SW</button>
-          <button class="btn" id="btn-local">Notificación local (página)</button>
-          <button class="btn" id="btn-local-sw">Notificación local (SW)</button>
-        </div>
-        <p class="small">Si aparece “no controller yet”, cierra la PWA (del selector de apps) y vuelve a abrirla.</p>
-      </li>
-      <hr>
-      <li><b>Pedir permiso del sistema</b>
-        <div class="btn-row">
-          <button class="btn" id="btn-perm">Pedir permiso</button>
-        </div>
-        <p class="small">Debe quedar como <span class="badge ok">granted</span>. Si no sale diálogo, no estás en PWA.</p>
-      </li>
-      <hr>
-      <li><b>Suscribir este dispositivo</b>
-        <div class="btn-row">
-          <button class="btn" id="btn-sub">Suscribir</button>
-          <button class="btn" id="btn-list">Listar subs (servidor)</button>
-        </div>
-        <p class="small">Requiere sesión iniciada. Si responde <span class="kbd">{"error":"unauthenticated"}</span>, inicia sesión en la portada.</p>
-      </li>
-      <hr>
-      <li><b>Probar envío real</b>
-        <div class="btn-row">
-          <button class="btn" id="btn-sendme">Servidor: enviar a mi usuario</button>
-        </div>
-        <p class="small">En iOS, la push aparece con la app en <b>segundo plano</b> (o en el Centro de notificaciones).</p>
-      </li>
-    </ol>
-  </div>
-
-  <!-- LOG -->
-  <div class="card">
-    <h2 style="margin:0 0 8px">Log</h2>
-    <pre id="log">Listo.</pre>
-  </div>
-</div>
-
+<h1>Debug Push</h1>
+<p>Comprueba modo iOS, permiso, SW, suscripción y prueba local.</p>
+<p>
+  <button id="btn-home">Inicio / Login</button>
+  <button id="btn-reg">Registrar SW</button>
+  <button id="btn-perm">Pedir permiso</button>
+  <button id="btn-local">Notificación local (página)</button>
+  <button id="btn-local-sw">Notificación local (SW)</button>
+  <button id="btn-sub">Suscribir</button>
+  <button id="btn-sendme">Servidor: enviar a mi usuario</button>
+  <button id="btn-list">Listar subs (servidor)</button>
+</p>
+<div id="log"></div>
 <script>
-const logEl = document.getElementById('log');
-function log(){ logEl.textContent += "\\n" + Array.from(arguments).join(' '); logEl.scrollTop=logEl.scrollHeight; }
-function badge(el, txt, cls){ el.className='badge ' + cls; el.textContent = txt; }
-function b64ToBytes(s){
-  const pad='='.repeat((4 - s.length % 4) % 4);
-  const b64=(s+pad).replace(/-/g,'+').replace(/_/g,'/');
-  const raw=atob(b64); const arr=new Uint8Array(raw.length);
-  for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i); return arr;
+function log(){ const el=document.getElementById('log'); el.textContent += Array.from(arguments).join(' ')+"\\n"; }
+function b64ToBytes(s){ const pad='='.repeat((4 - s.length % 4) % 4); const b64=(s+pad).replace(/-/g,'+').replace(/_/g,'/'); const raw=atob(b64); const arr=new Uint8Array(raw.length); for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i); return arr; }
+document.getElementById('btn-home').onclick = () => { location.href = '/'; };
+
+async function doSubscribe(){
+  const r = await fetch('/push/vapid-public'); const j = await r.json();
+  if (!j.vapidPublicKey){ log("vapidPublicKey vacío"); return; }
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64ToBytes(j.vapidPublicKey) });
+  const rr = await fetch('/push/subscribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(sub) });
+  const jj = await rr.json().catch(()=>({}));
+  log("subscribe =>", JSON.stringify(jj));
+  return jj;
 }
 
-async function checkStatus(){
-  // Standalone
-  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-  badge(document.getElementById('st-standalone'), standalone ? 'sí' : 'no', standalone ? 'ok' : 'warn');
-
-  // Notification API
-  if (!('Notification' in window)) {
-    badge(document.getElementById('st-perm'), 'no API', 'err');
-  } else {
-    badge(document.getElementById('st-perm'), Notification.permission, (Notification.permission==='granted'?'ok':(Notification.permission==='denied'?'err':'warn')));
-  }
-
-  // SW status
-  if (!('serviceWorker' in navigator)) {
-    badge(document.getElementById('st-sw'), 'no soportado', 'err');
-  } else {
+(async function init(){
+  try{ if('serviceWorker' in navigator){ await navigator.serviceWorker.register('/sw.js'); } }catch(e){ log('register error:', e.message||e); }
+  log("standalone:", window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone);
+  log("Notification.permission:", (window.Notification && Notification.permission) || "no Notification API");
+  if ('serviceWorker' in navigator){
     try{
       const reg = await navigator.serviceWorker.getRegistration('/');
-      badge(document.getElementById('st-sw'), reg ? 'registrado' : 'no registrado', reg ? 'ok' : 'warn');
-    }catch(e){ badge(document.getElementById('st-sw'), 'error', 'err'); }
+      log("SW registered:", !!reg);
+      if (reg) log("SW scope:", reg.scope);
+      await navigator.serviceWorker.ready;
+    }catch(e){ log("SW error:", e.message || e); }
+  } else { log("SW not supported"); }
+  log('PushManager supported:', 'PushManager' in window);
+
+  // Auto flow if ?auto=1
+  const qp = new URLSearchParams(location.search);
+  if (qp.get('auto') === '1') {
+    try{
+      const p = await Notification.requestPermission(); log("requestPermission =>", p);
+      if (p === 'granted'){ await doSubscribe(); const sm = await fetch('/push/send-me'); log("send-me =>", await sm.text()); }
+    }catch(e){ log("auto error:", e.message||e); }
   }
-
-  // PushManager
-  const pm = 'PushManager' in window;
-  badge(document.getElementById('st-pm'), pm ? 'sí' : 'no', pm ? 'ok' : 'err');
-
-  // Subscription (browser)
-  try{
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    badge(document.getElementById('st-sub'), sub ? 'existe' : 'no', sub ? 'ok' : 'warn');
-  }catch(e){
-    badge(document.getElementById('st-sub'), 'error', 'err');
-  }
-
-  // Server list
-  try{
-    const r = await fetch('/push/debug-subs');
-    if (!r.ok){
-      const txt = await r.text();
-      badge(document.getElementById('st-srv'), 'no disponible', 'warn');
-      log('debug-subs =>', txt);
-    } else {
-      const j = await r.json();
-      badge(document.getElementById('st-srv'), (j.count||0) + ' guardadas', (j.count>0?'ok':'warn'));
-      log('debug-subs =>', JSON.stringify(j));
-    }
-  }catch(e){
-    badge(document.getElementById('st-srv'), 'error', 'err');
-    log('debug-subs error =>', e.message||e);
-  }
-}
-
-document.getElementById('btn-refrescar').onclick = checkStatus;
+})();
 
 document.getElementById('btn-reg').onclick = async () => {
-  try{
-    if ('serviceWorker' in navigator){
-      await navigator.serviceWorker.register('/sw.js');
-      log('register => done');
-    } else {
-      log('SW no soportado en este contexto');
-    }
-    await checkStatus();
-  }catch(e){ log('register error:', e.message||e); }
+  try{ await navigator.serviceWorker.register('/sw.js'); log('register => done'); }catch(e){ log('register error:', e.message||e); }
 };
-
 document.getElementById('btn-perm').onclick = async () => {
-  try{
-    if (!('Notification' in window)) { log('Notification API no disponible'); return; }
-    const p = await Notification.requestPermission();
-    log('requestPermission =>', p);
-    await checkStatus();
-  }catch(e){ log('perm error:', e.message || e); }
+  try{ const p = await Notification.requestPermission(); log("requestPermission =>", p); }catch(e){ log("perm error:", e.message || e); }
 };
-
 document.getElementById('btn-local').onclick = async () => {
-  try{
-    const reg = await navigator.serviceWorker.ready;
-    await reg.showNotification('Notificación local 🔔', {
-      body:'Mostrada desde la página',
-      icon:'/static/icons/icon-192.png',
-      badge:'/static/icons/badge-72.png',
-      lang:'es-ES'
-    });
-    log('reg.showNotification OK (mira el Centro de notificaciones si estás en primer plano)');
-  }catch(e){ log('local error:', e.message || e); }
+  try{ const reg = await navigator.serviceWorker.ready;
+       await reg.showNotification("Local OK 🔔", { body:"Si ves esto, el permiso funciona", icon:"/static/icons/icon-192.png", badge:"/static/icons/badge-72.png" });
+       log("reg.showNotification OK (mira el Centro de notificaciones si estás en primer plano)"); }
+  catch(e){ log("local error:", e.message || e); }
 };
-
 document.getElementById('btn-local-sw').onclick = async () => {
-  try{
-    await navigator.serviceWorker.ready;
-    if (navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'LOCAL_TEST' });
-      log('sent LOCAL_TEST to SW');
-    } else {
-      log('no controller yet; cierra y vuelve a abrir la PWA');
-    }
-  }catch(e){ log('local-sw error:', e.message || e); }
+  try{ await navigator.serviceWorker.ready;
+       if (navigator.serviceWorker.controller) { navigator.serviceWorker.controller.postMessage({ type: 'LOCAL_TEST' }); log("sent LOCAL_TEST to SW"); }
+       else { log("no controller yet; cierra y vuelve a abrir la PWA"); } }
+  catch(e){ log("local-sw error:", e.message || e); }
 };
-
 document.getElementById('btn-sub').onclick = async () => {
-  try{
-    const r = await fetch('/push/vapid-public'); const j = await r.json();
-    if (!j.vapidPublicKey){ log('vapidPublicKey vacío'); return; }
-    const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64ToBytes(j.vapidPublicKey) });
-    const rr = await fetch('/push/subscribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(sub) });
-    const jj = await rr.json().catch(()=>({}));
-    log('subscribe =>', JSON.stringify(jj));
-    await checkStatus();
-  }catch(e){ log('subscribe error:', e.message || e); }
+  try{ await doSubscribe(); }catch(e){ log("subscribe error:", e.message || e); }
 };
-
-document.getElementById('btn-sendme').onclick = async () => {
-  try{
-    const r = await fetch('/push/send-me');
-    const t = await r.text();
-    log('send-me =>', t, '\\n(pon la app en segundo plano para ver la notificación en iOS)');
-  }catch(e){ log('send-me error =>', e.message||e); }
-};
-
-document.getElementById('btn-list').onclick = async () => {
-  try{
-    const r = await fetch('/push/debug-subs'); const j = await r.json();
-    log('debug-subs =>', JSON.stringify(j));
-  }catch(e){ log('debug-subs error =>', e.message||e); }
-};
-
-// Arranque
-(async function init(){
-  log('Comprobando estado…');
-  await checkStatus();
-})();
+document.getElementById('btn-sendme').onclick = async () => { const r = await fetch('/push/send-me'); const j = await r.json(); log("send-me =>", JSON.stringify(j)); };
+document.getElementById('btn-list').onclick = async () => { const r = await fetch('/push/debug-subs'); const j = await r.json(); log("debug-subs =>", JSON.stringify(j)); };
 </script>
 '''
     return Response(html, mimetype="text/html")

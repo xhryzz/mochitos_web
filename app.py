@@ -1332,16 +1332,6 @@ if __name__ == '__main__':
 
 
 
-# ---- Service Worker en raíz ----
-from flask import send_from_directory, Response, jsonify, session
-
-@app.route('/sw.js')
-def sw():
-    # Sirve el SW desde /static pero con scope raíz
-    return send_from_directory('static', 'sw.js', mimetype='application/javascript')
-
-
-
 # ---- Página de debug: /push/debug ----
 @app.get("/push/debug")
 def push_debug_page():

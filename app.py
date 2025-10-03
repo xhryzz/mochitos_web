@@ -782,6 +782,348 @@ threading.Thread(target=background_loop, daemon=True).start()
 
 # ========= Rutas =========
 @app.route('/', methods=['GET', 'POST'])
+def index():
+    # LOGIN
+    if 'username' not in session:
+        if request.method == 'POST':
+            username = request.form.get('username','').strip()
+            password = request.form.get('password','').strip()
+            conn = get_db_connection()
+            try:
+                with conn.cursor() as c:
+                    c.execute("SELECT password FROM users WHERE username=%s", (username,))
+                    row = c.fetchone()
+                    if not row:
+                        send_discord("Login FAIL", {"username_intent": username, "reason": "user_not_found"})
+                        return render_template('index.html', error="Usuario o contraseña incorrecta", profile_pictures={})
+                    stored = row[0]
+                    if _is_hashed(stored):
+                        ok = check_password_hash(stored, password); mode="hashed"
+                    else:
+                        ok = (stored == password); mode="plaintext"
+                    if ok:
+                        session['username'] = username
+                        send_discord("Login OK", {"username": username, "mode": mode})
+                        return redirect('/')
+                    else:
+                        send_discord("Login FAIL", {"username_intent": username, "reason":"bad_password","mode":mode})
+                        return render_template('index.html', error="Usuario o contraseña incorrecta", profile_pictures={})
+            finally:
+                conn.close()
+        return render_template('index.html', error=None, profile_pictures={})
+
+    # LOGUEADO
+    user = session['username']
+    question_id, question_text = get_today_question()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # ------------ POST acciones ------------
+            if request.method == 'POST':
+                # 1) Foto perfil
+                if 'update_profile' in request.form and 'profile_picture' in request.files:
+                    file = request.files['profile_picture']
+                    if file and file.filename:
+                        image_data = file.read()
+                        filename = secure_filename(file.filename)
+                        mime_type = file.mimetype
+                        c.execute("""
+                            INSERT INTO profile_pictures (username, image_data, filename, mime_type, uploaded_at)
+                            VALUES (%s,%s,%s,%s,%s)
+                            ON CONFLICT (username) DO UPDATE
+                            SET image_data=EXCLUDED.image_data, filename=EXCLUDED.filename,
+                                mime_type=EXCLUDED.mime_type, uploaded_at=EXCLUDED.uploaded_at
+                        """, (user, image_data, filename, mime_type, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        conn.commit(); flash("Foto de perfil actualizada ✅","success")
+                        send_discord("Profile picture updated", {"user": user, "filename": filename})
+                        cache_invalidate('get_profile_pictures')
+                        broadcast("profile_update", {"user": user})
+                    return redirect('/')
+
+                # 2) Cambio de contraseña
+                if 'change_password' in request.form:
+                    current_password = request.form.get('current_password','').strip()
+                    new_password = request.form.get('new_password','').strip()
+                    confirm_password = request.form.get('confirm_password','').strip()
+                    if not current_password or not new_password or not confirm_password:
+                        flash("Completa todos los campos de contraseña.", "error"); return redirect('/')
+                    if new_password != confirm_password:
+                        flash("La nueva contraseña y la confirmación no coinciden.", "error"); return redirect('/')
+                    if len(new_password) < 4:
+                        flash("La nueva contraseña debe tener al menos 4 caracteres.", "error"); return redirect('/')
+                    c.execute("SELECT password FROM users WHERE username=%s", (user,))
+                    row = c.fetchone()
+                    if not row: flash("Usuario no encontrado.","error"); return redirect('/')
+                    stored = row[0]
+                    valid_current = check_password_hash(stored, current_password) if _is_hashed(stored) else (stored==current_password)
+                    if not valid_current:
+                        flash("La contraseña actual no es correcta.", "error")
+                        send_discord("Change password FAIL", {"user": user, "reason":"wrong_current"}); return redirect('/')
+                    new_hash = generate_password_hash(new_password)
+                    c.execute("UPDATE users SET password=%s WHERE username=%s", (new_hash, user))
+                    conn.commit(); flash("Contraseña cambiada correctamente 🎉","success")
+                    send_discord("Change password OK", {"user": user}); return redirect('/')
+
+                # 3) Responder pregunta
+                if 'answer' in request.form:
+                    answer = request.form['answer'].strip()
+                    if question_id is not None and answer:
+                        now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+                        c.execute("SELECT id, answer, created_at, updated_at FROM answers WHERE question_id=%s AND username=%s",
+                                  (question_id, user))
+                        prev = c.fetchone()
+                        if not prev:
+                            c.execute("""INSERT INTO answers (question_id, username, answer, created_at, updated_at)
+                                         VALUES (%s,%s,%s,%s,%s) ON CONFLICT (question_id, username) DO NOTHING""",
+                                      (question_id, user, answer, now_txt, now_txt))
+                            conn.commit(); send_discord("Answer submitted", {"user":user,"question_id":question_id})
+                        else:
+                            prev_id, prev_text, prev_created, prev_updated = prev
+                            if answer != (prev_text or ""):
+                                if prev_created is None:
+                                    c.execute("""UPDATE answers SET answer=%s, updated_at=%s, created_at=%s WHERE id=%s""",
+                                              (answer, now_txt, prev_updated or now_txt, prev_id))
+                                else:
+                                    c.execute("""UPDATE answers SET answer=%s, updated_at=%s WHERE id=%s""",
+                                              (answer, now_txt, prev_id))
+                                conn.commit(); send_discord("Answer edited", {"user":user,"question_id":question_id})
+                        cache_invalidate('compute_streaks')
+                        broadcast("dq_answer", {"user": user})
+                        try:
+                            push_answer_notice(user)
+                        except Exception as e:
+                            print("[push answer] ", e)
+                    return redirect('/')
+
+                # 4) Meeting date
+                if 'meeting_date' in request.form:
+                    meeting_date = request.form['meeting_date']
+                    c.execute("INSERT INTO meeting (meeting_date) VALUES (%s)", (meeting_date,))
+                    conn.commit(); flash("Fecha actualizada 📅","success")
+                    send_discord("Meeting date updated", {"user": user, "date": meeting_date})
+                    broadcast("meeting_update", {"date": meeting_date}); return redirect('/')
+
+                # 5) Banner
+                if 'banner' in request.files:
+                    file = request.files['banner']
+                    if file and file.filename:
+                        image_data = file.read()
+                        filename = secure_filename(file.filename)
+                        mime_type = file.mimetype
+                        c.execute("INSERT INTO banner (image_data, filename, mime_type, uploaded_at) VALUES (%s,%s,%s,%s)",
+                                  (image_data, filename, mime_type, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        conn.commit(); flash("Banner actualizado 🖼️","success")
+                        send_discord("Banner updated", {"user": user, "filename": filename})
+                        cache_invalidate('get_banner')
+                        broadcast("banner_update", {"by": user})
+                    return redirect('/')
+
+                # 6) Nuevo viaje
+                if 'travel_destination' in request.form:
+                    destination = request.form['travel_destination'].strip()
+                    description = request.form.get('travel_description','').strip()
+                    travel_date = request.form.get('travel_date','')
+                    is_visited = 'travel_visited' in request.form
+                    if destination:
+                        c.execute("""INSERT INTO travels (destination, description, travel_date, is_visited, created_by, created_at)
+                                     VALUES (%s,%s,%s,%s,%s,%s)""",
+                                  (destination, description, travel_date, is_visited, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        conn.commit(); flash("Viaje añadido ✈️","success")
+                        send_discord("Travel added", {"user": user, "dest": destination, "visited": is_visited})
+                        broadcast("travel_update", {"type":"add"})
+                    return redirect('/')
+
+                # 7) Foto de viaje (URL)
+                if 'travel_photo_url' in request.form:
+                    travel_id = request.form.get('travel_id')
+                    image_url = request.form['travel_photo_url'].strip()
+                    if image_url and travel_id:
+                        c.execute("""INSERT INTO travel_photos (travel_id, image_url, uploaded_by, uploaded_at)
+                                     VALUES (%s,%s,%s,%s)""",
+                                  (travel_id, image_url, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        conn.commit(); flash("Foto añadida 📸","success")
+                        send_discord("Travel photo added", {"user": user, "travel_id": travel_id})
+                        broadcast("travel_update", {"type":"photo_add","id":int(travel_id)})
+                    return redirect('/')
+
+                # 8) Wishlist add
+                if 'product_name' in request.form and 'edit_wishlist_item' not in request.path:
+                    product_name = request.form['product_name'].strip()
+                    product_link = request.form.get('product_link','').strip()
+                    notes = request.form.get('wishlist_notes','').strip()
+                    product_size = request.form.get('size','').strip()
+                    priority = request.form.get('priority','media').strip()
+                    is_gift = bool(request.form.get('is_gift'))
+                    if priority not in ('alta','media','baja'): priority='media'
+                    if product_name:
+                        c.execute("""INSERT INTO wishlist (product_name, product_link, notes, size, created_by, created_at, is_purchased, priority, is_gift)
+                                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                                  (product_name, product_link, notes, product_size, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                   False, priority, is_gift))
+                        conn.commit(); flash("Producto añadido a la lista 🛍️","success")
+                        send_discord("Wishlist added", {"user":user,"name":product_name,"priority":priority,"is_gift":is_gift,"size":product_size})
+                        broadcast("wishlist_update", {"type":"add"})
+                        try:
+                            push_wishlist_notice(user, is_gift)
+                        except Exception as e:
+                            print("[push wishlist] ", e)
+                    return redirect('/')
+
+                # INTIMIDAD
+                if 'intim_unlock_pin' in request.form:
+                    pin_try = request.form.get('intim_pin','').strip()
+                    if pin_try == INTIM_PIN:
+                        session['intim_unlocked'] = True; flash("Módulo Intimidad desbloqueado ✅","success")
+                        send_discord("Intimidad unlock OK", {"user": user})
+                    else:
+                        session.pop('intim_unlocked', None); flash("PIN incorrecto ❌","error")
+                        send_discord("Intimidad unlock FAIL", {"user": user})
+                    return redirect('/')
+
+                if 'intim_lock' in request.form:
+                    session.pop('intim_unlocked', None); flash("Módulo Intimidad ocultado 🔒","info"); return redirect('/')
+
+                if 'intim_register' in request.form:
+                    if not session.get('intim_unlocked'):
+                        flash("Debes desbloquear con PIN para registrar.","error"); return redirect('/')
+                    place = (request.form.get('intim_place') or '').strip()
+                    notes = (request.form.get('intim_notes') or '').strip()
+                    now_txt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    with conn.cursor() as c2:
+                        c2.execute("""INSERT INTO intimacy_events (username, ts, place, notes) VALUES (%s,%s,%s,%s)""",
+                                   (user, now_txt, place or None, notes or None))
+                        conn.commit()
+                    flash("Momento registrado ❤️","success")
+                    send_discord("Intimidad registered", {"user":user,"place":place,"notes_len":len(notes)})
+                    broadcast("intim_update", {"type":"add"})
+                    return redirect('/')
+
+            # ------------ Consultas para render ------------
+            # Respuestas del día
+            c.execute("SELECT username, answer, created_at, updated_at FROM answers WHERE question_id=%s", (question_id,))
+            ans_rows = c.fetchall()
+
+            # Viajes + fotos
+            c.execute("""
+                SELECT id, destination, description, travel_date, is_visited, created_by
+                FROM travels
+                ORDER BY is_visited, travel_date DESC
+            """)
+            travels = c.fetchall()
+
+            c.execute("SELECT travel_id, id, image_url, uploaded_by FROM travel_photos ORDER BY id DESC")
+            all_ph = c.fetchall()
+
+            # Wishlist (sin blindaje aún)
+            c.execute("""
+                SELECT
+                    id,
+                    product_name,
+                    product_link,
+                    notes,
+                    created_by,
+                    created_at,
+                    is_purchased,
+                    COALESCE(priority,'media') AS priority,
+                    COALESCE(is_gift,false)   AS is_gift,
+                    size
+                FROM wishlist
+                ORDER BY
+                    is_purchased ASC,
+                    CASE COALESCE(priority,'media')
+                        WHEN 'alta' THEN 0
+                        WHEN 'media' THEN 1
+                        ELSE 2
+                    END,
+                    created_at DESC
+            """)
+            wl_rows = c.fetchall()
+
+        # --- Procesamiento Python *fuera* del cursor ---
+        # Respuestas
+        answers = [(r[0], r[1]) for r in ans_rows]
+        answers_created_at = {r[0]: r[2] for r in ans_rows}
+        answers_updated_at = {r[0]: r[3] for r in ans_rows}
+        answers_edited = {r[0]: (r[2] is not None and r[3] is not None and r[2] != r[3]) for r in ans_rows}
+
+        other_user = 'mochita' if user == 'mochito' else 'mochito'
+        dict_ans = {u: a for (u, a) in answers}
+        user_answer, other_answer = dict_ans.get(user), dict_ans.get(other_user)
+        show_answers = (user_answer is not None) and (other_answer is not None)
+
+        # Fotos de viajes agrupadas
+        travel_photos_dict = {}
+        for tr_id, pid, url, up in all_ph:
+            travel_photos_dict.setdefault(tr_id, []).append({'id': pid, 'url': url, 'uploaded_by': up})
+
+        # Blindaje wishlist (regalos ocultos al no-creador)
+        safe_items = []
+        for (wid, product_name, product_link, notes, created_by, created_at,
+             is_purchased, priority, is_gift, size) in wl_rows:
+
+            priority = priority or 'media'
+            is_gift  = bool(is_gift)
+
+            if is_gift and created_by != user:
+                safe_items.append((
+                    wid,
+                    "🎁 Regalo oculto",
+                    None,
+                    None,
+                    created_by,
+                    created_at,
+                    is_purchased,
+                    priority,
+                    True,
+                    None
+                ))
+            else:
+                safe_items.append((
+                    wid, product_name, product_link, notes,
+                    created_by, created_at, is_purchased,
+                    priority, is_gift, size
+                ))
+        wishlist_items = safe_items
+
+        # Recursos cacheados
+        banner_file = get_banner()
+        profile_pictures = get_profile_pictures()
+
+    finally:
+        conn.close()
+
+    # Stats + render
+    current_streak, best_streak = compute_streaks()
+    intim_unlocked = bool(session.get('intim_unlocked'))
+    intim_stats = get_intim_stats()
+    intim_events = get_intim_events(200) if intim_unlocked else []
+
+    return render_template('index.html',
+                           question=question_text,
+                           show_answers=show_answers,
+                           answers=answers,
+                           answers_edited=answers_edited,
+                           answers_created_at=answers_created_at,
+                           answers_updated_at=answers_updated_at,
+                           user_answer=user_answer,
+                           other_user=other_user,
+                           other_answer=other_answer,
+                           days_together=days_together(),
+                           days_until_meeting=days_until_meeting(),
+                           travels=travels,
+                           travel_photos_dict=travel_photos_dict,
+                           wishlist_items=wishlist_items,
+                           username=user,
+                           banner_file=banner_file,
+                           profile_pictures=profile_pictures,
+                           error=None,
+                           current_streak=current_streak,
+                           best_streak=best_streak,
+                           intim_unlocked=intim_unlocked,
+                           intim_stats=intim_stats,
+                           intim_events=intim_events
+                           )
+
 
 # ======= Rutas REST extra (con broadcast) =======
 @app.route('/delete_travel', methods=['POST'])

@@ -12,18 +12,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="manifest" href="/static/manifest.webmanifest">
-
-<!-- iOS PWA -->
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Mochitos">
-
-<!-- Apple Touch Icons -->
-<link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon-180.png?v=5">
-<link rel="apple-touch-icon" sizes="167x167" href="/static/icons/apple-touch-icon-167.png?v=5">
-<link rel="apple-touch-icon" sizes="152x152" href="/static/icons/apple-touch-icon-152.png?v=5">
-<link rel="apple-touch-icon" sizes="120x120" href="/static/icons/apple-touch-icon-120.png?v=5">
-
 <meta name="theme-color" content="#e84393">
 
 <!-- iOS PWA hints -->
@@ -1531,7 +1519,7 @@
 
           {% if not oculto_para_mi %}
           <div class="wishlist-actions">
-            <form method="POST" action="/toggle_wishlist_status">
+            <form method="POST" action="/toggle_wishlist_item">
               <input type="hidden" name="item_id" value="{{ id }}">
               <button type="submit" class="icon-btn" title="Marcar como comprado">
                 <i class="fas fa-check"></i>
@@ -1628,7 +1616,7 @@
 
           {% if not oculto_para_mi %}
           <div class="wishlist-actions">
-            <form method="POST" action="/toggle_wishlist_status">
+            <form method="POST" action="/toggle_wishlist_item">
               <input type="hidden" name="item_id" value="{{ id }}">
               <button type="submit" class="icon-btn" title="Marcar como no comprado">
                 <i class="fas fa-undo"></i>
@@ -2892,4 +2880,3 @@ document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
 
 </body>
 </html>
-

@@ -2835,53 +2835,80 @@ document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
     </p>
 </footer>
 
-<div id="noti-status" style="position:fixed;left:12px;right:12px;bottom:12px;background:#111;color:#fff;padding:10px;border-radius:10px;opacity:.9;display:none;z-index:9999;font:14px system-ui"></div>
+<div id="noti-status" style="position:fixed;left:12px;right:12px;bottom:12px;background:#111;color:#fff;padding:10px;border-radius:10px;opacity:.95;display:none;z-index:9999;font:14px system-ui"></div>
 
 <script>
 (function(){
-  function log(s){ try{const el=document.getElementById('noti-status'); if(!el) return; el.style.display='block'; el.textContent=s; setTimeout(()=>{el.style.display='none';}, 4500);}catch(e){} }
-  window.activarNotificaciones = async function activarNotificaciones(){
-    try {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        log('Tu navegador no soporta notificaciones.'); return;
+  function toast(msg){
+    var el = document.getElementById('noti-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = 'block';
+    clearTimeout(window.__notiTimer);
+    window.__notiTimer = setTimeout(()=>{ el.style.display='none'; }, 4500);
+  }
+  function b64ToBytes(s){
+    const pad='='.repeat((4 - s.length % 4) % 4);
+    const b64=(s+pad).replace(/-/g,'+').replace(/_/g,'/');
+    const raw=atob(b64); const arr=new Uint8Array(raw.length);
+    for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
+    return arr;
+  }
+  async function activarNotificaciones(){
+    try{
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)){
+        toast('Este navegador no soporta notificaciones.');
+        return;
       }
-      // Pide permiso si aún no está concedido
-      let perm = (window.Notification && Notification.permission) || 'default';
-      if (perm !== 'granted') {
-        perm = await Notification.requestPermission();
-        log('Permiso: ' + perm);
-        if (perm !== 'granted') return;
-      }
-
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted'){ toast('Permiso denegado.'); return; }
       const r = await fetch('/push/vapid-public');
-      let j = {}; try{ j = await r.json(); }catch(e){}
-      const vapidPublicKey = j && j.vapidPublicKey;
-      if (!vapidPublicKey) { log('VAPID pública no configurada en servidor.'); return; }
-
-      function b64ToBytes(s){ const pad='='.repeat((4 - s.length % 4) % 4);
-        const b64=(s+pad).replace(/-/g,'+').replace(/_/g,'/');
-        const raw=atob(b64); const arr=new Uint8Array(raw.length);
-        for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i); return arr; }
-
+      const j = await r.json().catch(()=>({}));
+      const vapid = j && j.vapidPublicKey;
+      if (!vapid){ toast('Falta configurar la clave VAPID pública.'); return; }
       const reg = await navigator.serviceWorker.ready;
       let sub = await reg.pushManager.getSubscription();
-      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(vapidPublicKey) });
-
-      const rr = await fetch('/push/subscribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(sub) });
+      if (!sub){
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: b64ToBytes(vapid)
+        });
+      }
+      const rr = await fetch('/push/subscribe', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(sub)
+      });
       const jj = await rr.json().catch(()=>({}));
-      if (jj && jj.ok) log('¡Notificaciones activadas!');
-      else log('Error al suscribir: ' + JSON.stringify(jj||{}));
-    } catch (e) {
-      log('Error: ' + (e.message || e));
+      if (jj && jj.ok) toast('¡Notificaciones activadas!');
+      else toast('Error al suscribir: ' + JSON.stringify(jj || {}));
+    }catch(e){
+      toast('Error: ' + (e.message || e));
     }
   }
+  async function notificacionDePrueba(){
+    try{
+      const r = await fetch('/push/send-me');
+      const j = await r.json().catch(()=>({}));
+      if (j && j.ok) toast('¡Enviada notificación de prueba! (pon la app en segundo plano)');
+      else toast('No se pudo enviar: ' + JSON.stringify(j || {}));
+    }catch(e){
+      toast('Error: ' + (e.message || e));
+    }
+  }
+  window.activarNotificaciones = activarNotificaciones;
+  window.notificacionDePrueba = notificacionDePrueba;
 })();
 </script>
 
 
 {% if username in ('mochito','mochita') %}
 <a href="/push/debug" class="debug-fab" aria-label="Debug push">🔧 Debug</a>
-<style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:#111;color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>
+<style>
+  .debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;
+    padding:10px 12px;background:#111;color:#fff;border-radius:999px;
+    text-decoration:none;opacity:.85;font:600 14px system-ui;}
+</style>
 {% endif %}
 
 </body>

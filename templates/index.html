@@ -2617,7 +2617,7 @@ async function setupPush() {
     }
 
     // 1) registra el SW
-    const reg = await navigator.serviceWorker.register("/static/sw.js");
+    const reg = await navigator.serviceWorker.register("/sw.js");
 
     // 2) permiso de notificaciones
     let perm = Notification.permission;
@@ -2673,7 +2673,7 @@ function urlBase64ToUint8Array(base64String){
   try {
     // OJO: raíz, no /static
     const reg = await // ❌ incorrecto (apunta a /static/sw.js)
-navigator.serviceWorker.register("/static/sw.js");
+navigator.serviceWorker.register("/sw.js");
 
     // Espera a que esté listo
     await navigator.serviceWorker.ready;
@@ -2696,7 +2696,7 @@ async function enablePush(){
     if (!reg) {
       try {
         reg = await // ❌ incorrecto (apunta a /static/sw.js)
-navigator.serviceWorker.register("/static/sw.js");
+navigator.serviceWorker.register("/sw.js");
 
       } catch (e) {
         console.error('Registro SW falló:', e);

@@ -1308,6 +1308,21 @@ def server_error(_):
 # --- Service Worker en la raíz ---
 from flask import make_response
 
+
+    from flask import make_response, send_file
+    import os
+    try:
+        resp = send_file(os.path.join(app.static_folder, "sw.js"))
+    except Exception:
+        resp = send_file("static/sw.js")
+    resp = make_response(resp)
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    resp.mimetype = "application/javascript"
+    return resp
+
+
 @app.route("/sw.js")
 def sw():
     from flask import make_response, send_file
@@ -1322,3 +1337,110 @@ def sw():
     resp.headers["Expires"] = "0"
     resp.mimetype = "application/javascript"
     return resp
+
+
+@app.get("/push/debug")
+def push_debug_page():
+    html = '''
+<!doctype html>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Debug Push</title>
+<style>
+body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:16px;line-height:1.5}
+button{padding:10px 14px;border-radius:10px;border:1px solid #ccc;cursor:pointer;margin:4px 6px 0 0}
+#log{white-space:pre-wrap;background:#111;color:#eee;padding:12px;border-radius:8px;margin-top:12px;min-height:140px}
+</style>
+<h1>Debug Push</h1>
+<p>Comprueba modo iOS, permiso, SW, suscripción y prueba local.</p>
+<p>
+  <button id="btn-home">Inicio / Login</button>
+  <button id="btn-reg">Registrar SW</button>
+  <button id="btn-perm">Pedir permiso</button>
+  <button id="btn-local">Notificación local (página)</button>
+  <button id="btn-local-sw">Notificación local (SW)</button>
+  <button id="btn-sub">Suscribir</button>
+  <button id="btn-sendme">Servidor: enviar a mi usuario</button>
+  <button id="btn-list">Listar subs (servidor)</button>
+</p>
+<div id="log"></div>
+<script>
+function log(){ const el=document.getElementById('log'); el.textContent += Array.from(arguments).join(' ')+"\\n"; }
+function b64ToBytes(s){ const pad='='.repeat((4 - s.length % 4) % 4); const b64=(s+pad).replace(/-/g,'+').replace(/_/g,'/'); const raw=atob(b64); const arr=new Uint8Array(raw.length); for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i); return arr; }
+document.getElementById('btn-home').onclick = () => { location.href = '/'; };
+(async function init(){
+  try{ if('serviceWorker' in navigator){ await navigator.serviceWorker.register('/sw.js'); } }catch(e){ log('register error:', e.message||e); }
+  log("standalone:", window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone);
+  log("Notification.permission:", (window.Notification && Notification.permission) || "no Notification API");
+  if ('serviceWorker' in navigator){
+    try{
+      const reg = await navigator.serviceWorker.getRegistration('/');
+      log("SW registered:", !!reg);
+      if (reg) log("SW scope:", reg.scope);
+      await navigator.serviceWorker.ready;
+    }catch(e){ log("SW error:", e.message || e); }
+  } else { log("SW not supported"); }
+  log('PushManager supported:', 'PushManager' in window);
+})();
+document.getElementById('btn-reg').onclick = async () => {
+  try{ await navigator.serviceWorker.register('/sw.js'); log('register => done'); }catch(e){ log('register error:', e.message||e); }
+};
+document.getElementById('btn-perm').onclick = async () => {
+  try{ const p = await Notification.requestPermission(); log("requestPermission =>", p); }catch(e){ log("perm error:", e.message || e); }
+};
+document.getElementById('btn-local').onclick = async () => {
+  try{ const reg = await navigator.serviceWorker.ready;
+       await reg.showNotification("Local OK 🔔", { body:"Si ves esto, el permiso funciona", icon:"/static/icons/icon-192.png", badge:"/static/icons/badge-72.png" });
+       log("reg.showNotification OK (mira el Centro de notificaciones si estás en primer plano)"); }
+  catch(e){ log("local error:", e.message || e); }
+};
+document.getElementById('btn-local-sw').onclick = async () => {
+  try{ await navigator.serviceWorker.ready;
+       if (navigator.serviceWorker.controller) { navigator.serviceWorker.controller.postMessage({ type: 'LOCAL_TEST' }); log("sent LOCAL_TEST to SW"); }
+       else { log("no controller yet; cierra y vuelve a abrir la PWA"); } }
+  catch(e){ log("local-sw error:", e.message || e); }
+};
+document.getElementById('btn-sub').onclick = async () => {
+  try{
+    const r = await fetch('/push/vapid-public'); const j = await r.json();
+    if (!j.vapidPublicKey){ log("vapidPublicKey vacío"); return; }
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64ToBytes(j.vapidPublicKey) });
+    const rr = await fetch('/push/subscribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(sub) });
+    const jj = await rr.json().catch(()=>({}));
+    log("subscribe =>", JSON.stringify(jj));
+  }catch(e){ log("subscribe error:", e.message || e); }
+};
+document.getElementById('btn-sendme').onclick = async () => { const r = await fetch('/push/send-me'); const j = await r.json(); log("send-me =>", JSON.stringify(j)); };
+document.getElementById('btn-list').onclick = async () => { const r = await fetch('/push/debug-subs'); const j = await r.json(); log("debug-subs =>", JSON.stringify(j)); };
+</script>
+'''
+    return Response(html, mimetype="text/html")
+
+@app.get("/push/debug-subs")
+def push_debug_subs():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "not_logged"}), 401
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute("SELECT username, endpoint, created_at FROM push_subscriptions ORDER BY created_at DESC LIMIT 50")
+                rows = c.fetchall()
+        finally:
+            conn.close()
+        out = [{"user": r[0], "endpoint_last8": (r[1][-8:] if r[1] else ""), "created_at": str(r[2])} for r in rows]
+        return jsonify({"ok": True, "count": len(out), "subs": out})
+    except Exception as e:
+        return jsonify({"ok": False, "error": "no_db_or_table", "detail": str(e)}), 500
+
+@app.get("/push/send-me")
+def push_send_me():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "not_logged"}), 401
+    user = session['username']
+    try:
+        ok = send_push_to(user, "Prueba a tu usuario 🔔", "Esto es un test dirigido a tu usuario de sesión.")
+        return jsonify({"ok": bool(ok), "user": user})
+    except Exception as e:
+        return jsonify({"ok": False, "error": "send_failed", "detail": str(e)}), 500

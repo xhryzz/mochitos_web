@@ -2835,45 +2835,53 @@ document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
     </p>
 </footer>
 
+<div id="noti-status" style="position:fixed;left:12px;right:12px;bottom:12px;background:#111;color:#fff;padding:10px;border-radius:10px;opacity:.9;display:none;z-index:9999;font:14px system-ui"></div>
 
 <script>
-async function activarNotificaciones() {
-  try {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      alert('Tu navegador no soporta notificaciones.');
-      return;
+(function(){
+  function log(s){ try{const el=document.getElementById('noti-status'); if(!el) return; el.style.display='block'; el.textContent=s; setTimeout(()=>{el.style.display='none';}, 4500);}catch(e){} }
+  window.activarNotificaciones = async function activarNotificaciones(){
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        log('Tu navegador no soporta notificaciones.'); return;
+      }
+      // Pide permiso si aún no está concedido
+      let perm = (window.Notification && Notification.permission) || 'default';
+      if (perm !== 'granted') {
+        perm = await Notification.requestPermission();
+        log('Permiso: ' + perm);
+        if (perm !== 'granted') return;
+      }
+
+      const r = await fetch('/push/vapid-public');
+      let j = {}; try{ j = await r.json(); }catch(e){}
+      const vapidPublicKey = j && j.vapidPublicKey;
+      if (!vapidPublicKey) { log('VAPID pública no configurada en servidor.'); return; }
+
+      function b64ToBytes(s){ const pad='='.repeat((4 - s.length % 4) % 4);
+        const b64=(s+pad).replace(/-/g,'+').replace(/_/g,'/');
+        const raw=atob(b64); const arr=new Uint8Array(raw.length);
+        for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i); return arr; }
+
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(vapidPublicKey) });
+
+      const rr = await fetch('/push/subscribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(sub) });
+      const jj = await rr.json().catch(()=>({}));
+      if (jj && jj.ok) log('¡Notificaciones activadas!');
+      else log('Error al suscribir: ' + JSON.stringify(jj||{}));
+    } catch (e) {
+      log('Error: ' + (e.message || e));
     }
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') { alert('Permiso denegado.'); return; }
-    const r = await fetch('/push/vapid-public');
-    const j = await r.json();
-    const vapidPublicKey = j.vapidPublicKey;
-    if (!vapidPublicKey) { alert('VAPID pública no configurada.'); return; }
-    function b64ToBytes(s){ const pad='='.repeat((4 - s.length % 4) % 4);
-      const b64=(s+pad).replace(/-/g,'+').replace(/_/g,'/');
-      const raw=atob(b64); const arr=new Uint8Array(raw.length);
-      for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i); return arr; }
-    const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) { sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(vapidPublicKey) }); }
-    const rr = await fetch('/push/subscribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(sub) });
-    const jj = await rr.json().catch(()=>({}));
-    if (jj.ok) alert('¡Notificaciones activadas!');
-    else alert('Error al suscribir: ' + JSON.stringify(jj));
-  } catch (e) {
-    alert('Error: ' + (e.message || e));
   }
-}
+})();
 </script>
 
 
 {% if username in ('mochito','mochita') %}
 <a href="/push/debug" class="debug-fab" aria-label="Debug push">🔧 Debug</a>
-<style>
-  .debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;
-    padding:10px 12px;background:#111;color:#fff;border-radius:999px;
-    text-decoration:none;opacity:.85;font:600 14px system-ui;}
-</style>
+<style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:#111;color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>
 {% endif %}
 
 </body>

@@ -1358,6 +1358,19 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #ccc;cursor:pointer
 function log(){ const el=document.getElementById('log'); el.textContent += Array.from(arguments).join(' ')+"\\n"; }
 function b64ToBytes(s){ const pad='='.repeat((4 - s.length % 4) % 4); const b64=(s+pad).replace(/-/g,'+').replace(/_/g,'/'); const raw=atob(b64); const arr=new Uint8Array(raw.length); for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i); return arr; }
 document.getElementById('btn-home').onclick = () => { location.href = '/'; };
+
+async function doSubscribe(){
+  const r = await fetch('/push/vapid-public'); const j = await r.json();
+  if (!j.vapidPublicKey){ log("vapidPublicKey vacío"); return; }
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64ToBytes(j.vapidPublicKey) });
+  const rr = await fetch('/push/subscribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(sub) });
+  const jj = await rr.json().catch(()=>({}));
+  log("subscribe =>", JSON.stringify(jj));
+  return jj;
+}
+
 (async function init(){
   try{ if('serviceWorker' in navigator){ await navigator.serviceWorker.register('/sw.js'); } }catch(e){ log('register error:', e.message||e); }
   log("standalone:", window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone);
@@ -1371,7 +1384,17 @@ document.getElementById('btn-home').onclick = () => { location.href = '/'; };
     }catch(e){ log("SW error:", e.message || e); }
   } else { log("SW not supported"); }
   log('PushManager supported:', 'PushManager' in window);
+
+  // Auto flow if ?auto=1
+  const qp = new URLSearchParams(location.search);
+  if (qp.get('auto') === '1') {
+    try{
+      const p = await Notification.requestPermission(); log("requestPermission =>", p);
+      if (p === 'granted'){ await doSubscribe(); const sm = await fetch('/push/send-me'); log("send-me =>", await sm.text()); }
+    }catch(e){ log("auto error:", e.message||e); }
+  }
 })();
+
 document.getElementById('btn-reg').onclick = async () => {
   try{ await navigator.serviceWorker.register('/sw.js'); log('register => done'); }catch(e){ log('register error:', e.message||e); }
 };
@@ -1391,47 +1414,10 @@ document.getElementById('btn-local-sw').onclick = async () => {
   catch(e){ log("local-sw error:", e.message || e); }
 };
 document.getElementById('btn-sub').onclick = async () => {
-  try{
-    const r = await fetch('/push/vapid-public'); const j = await r.json();
-    if (!j.vapidPublicKey){ log("vapidPublicKey vacío"); return; }
-    const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64ToBytes(j.vapidPublicKey) });
-    const rr = await fetch('/push/subscribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(sub) });
-    const jj = await rr.json().catch(()=>({}));
-    log("subscribe =>", JSON.stringify(jj));
-  }catch(e){ log("subscribe error:", e.message || e); }
+  try{ await doSubscribe(); }catch(e){ log("subscribe error:", e.message || e); }
 };
 document.getElementById('btn-sendme').onclick = async () => { const r = await fetch('/push/send-me'); const j = await r.json(); log("send-me =>", JSON.stringify(j)); };
 document.getElementById('btn-list').onclick = async () => { const r = await fetch('/push/debug-subs'); const j = await r.json(); log("debug-subs =>", JSON.stringify(j)); };
 </script>
 '''
     return Response(html, mimetype="text/html")
-
-@app.get("/push/debug-subs")
-def push_debug_subs():
-    if 'username' not in session:
-        return jsonify({"ok": False, "error": "not_logged"}), 401
-    try:
-        conn = get_db_connection()
-        try:
-            with conn.cursor() as c:
-                c.execute("SELECT username, endpoint, created_at FROM push_subscriptions ORDER BY created_at DESC LIMIT 50")
-                rows = c.fetchall()
-        finally:
-            conn.close()
-        out = [{"user": r[0], "endpoint_last8": (r[1][-8:] if r[1] else ""), "created_at": str(r[2])} for r in rows]
-        return jsonify({"ok": True, "count": len(out), "subs": out})
-    except Exception as e:
-        return jsonify({"ok": False, "error": "no_db_or_table", "detail": str(e)}), 500
-
-@app.get("/push/send-me")
-def push_send_me():
-    if 'username' not in session:
-        return jsonify({"ok": False, "error": "not_logged"}), 401
-    user = session['username']
-    try:
-        ok = send_push_to(user, "Prueba a tu usuario 🔔", "Esto es un test dirigido a tu usuario de sesión.")
-        return jsonify({"ok": bool(ok), "user": user})
-    except Exception as e:
-        return jsonify({"ok": False, "error": "send_failed", "detail": str(e)}), 500

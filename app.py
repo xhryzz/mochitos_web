@@ -1323,8 +1323,7 @@ from flask import make_response
     return resp
 
 
-@app.route("/sw.js")
-def sw():
+
     from flask import make_response, send_file
     import os
     try:
@@ -1444,3 +1443,15 @@ def push_send_me():
         return jsonify({"ok": bool(ok), "user": user})
     except Exception as e:
         return jsonify({"ok": False, "error": "send_failed", "detail": str(e)}), 500
+
+@app.route('/sw.js')
+def sw():
+    import os
+    try:
+        resp = send_file(os.path.join(app.static_folder, 'sw.js'), mimetype='application/javascript')
+    except Exception:
+        resp = send_file('static/sw.js', mimetype='application/javascript')
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp

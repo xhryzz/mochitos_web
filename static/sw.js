@@ -15,12 +15,13 @@ self.addEventListener('message', (event) => {
 });
 
 // Push real desde el servidor
+// Push real desde el servidor
 self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch(e){}
   const titulo = data.title || 'Notificación';
-  const deQuien = data.de || data.from || ''; // "from" -> "de"
-  const cuerpo = data.body || (deQuien ? ('de ' + deQuien) : 'Tienes una novedad');
+  // usa exactamente el body que mande el servidor, sin añadir "de ..."
+  const cuerpo = data.body || 'Tienes una novedad';
   const icono  = data.icon  || '/static/icons/icon-192.png';
   const badge  = data.badge || '/static/icons/badge-72.png';
   const url    = data.url   || '/';
@@ -35,6 +36,7 @@ self.addEventListener('push', (event) => {
     })
   );
 });
+
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();

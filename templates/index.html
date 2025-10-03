@@ -2835,8 +2835,6 @@ document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
     </p>
 </footer>
 
-<div id="noti-status" style="position:fixed;left:12px;right:12px;bottom:12px;background:#111;color:#fff;padding:10px;border-radius:10px;opacity:.9;display:none;z-index:9999;font:14px system-ui"></div>
-
 <script>
 (function(){
   function log(s){ try{const el=document.getElementById('noti-status'); if(!el) return; el.style.display='block'; el.textContent=s; setTimeout(()=>{el.style.display='none';}, 4500);}catch(e){} }
@@ -2883,6 +2881,19 @@ document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
 <a href="/push/debug" class="debug-fab" aria-label="Debug push">🔧 Debug</a>
 <style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:#111;color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>
 {% endif %}
+
+
+<div style="margin:20px 0; padding:14px; border:1px solid #eee; border-radius:12px; font:15px system-ui">
+  <h3 style="margin:0 0 8px 0">🔧 Activar notificaciones (iPhone)</h3>
+  <ol style="margin:0 0 10px 22px; padding:0; line-height:1.5">
+    <li>Abre el <b>panel de debug</b> y pulsa <b>Registrar SW</b>.</li>
+    <li>Pulsa <b>Pedir permiso</b> y acepta.</li>
+    <li>Pulsa <b>Suscribir</b> (guarda tu suscripción).</li>
+    <li>Opcional: pulsa <b>Servidor: enviar a mi usuario</b> y pon la app en <b>segundo plano</b>.</li>
+  </ol>
+  <a href="/push/debug" style="display:inline-block;padding:10px 14px;border-radius:10px;border:1px solid #ccc;text-decoration:none">Abrir panel de debug</a>
+  <p style="margin:10px 0 0 0; color:#666">Recuerda: hazlo desde la app instalada en pantalla de inicio (PWA), no desde WhatsApp/Instagram.</p>
+</div>
 
 </body>
 </html>

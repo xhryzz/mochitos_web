@@ -1455,9 +1455,19 @@ def push_send_me():
     resp.headers['Expires'] = '0'
     return resp
 
+
+    import os
+    try:
+        resp = send_file(os.path.join(app.static_folder, 'sw.js'), mimetype='application/javascript')
+    except Exception:
+        resp = send_file('static/sw.js', mimetype='application/javascript')
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp
+
 @app.route('/sw.js')
 def sw():
-    import os
     try:
         resp = send_file(os.path.join(app.static_folder, 'sw.js'), mimetype='application/javascript')
     except Exception:

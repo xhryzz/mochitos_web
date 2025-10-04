@@ -397,15 +397,53 @@ def _parse_dt(txt: str):
     except: return None
 
 # --- CAMBIO: usar "hoy" en Madrid para toda la lógica de día ---
-def europe_madrid_now():
-    return datetime.now(pytz.timezone("Europe/Madrid"))
+# --- Tiempo en Madrid: robusto con 3 niveles (zoneinfo -> pytz -> fallback CET/CEST) ---
+
+def _eu_last_sunday(year: int, month: int) -> date:
+    """Último domingo del mes (para reglas DST europeas)."""
+    if month == 12:
+        next_month = date(year + 1, 1, 1)
+    else:
+        next_month = date(year, month + 1, 1)
+    d = next_month - timedelta(days=1)
+    while d.weekday() != 6:  # 0=lunes ... 6=domingo
+        d -= timedelta(days=1)
+    return d
+
+def _europe_madrid_now_fallback() -> datetime:
+    """
+    Fallback sin dependencias: calcula CET/CEST contra UTC.
+    DST en Europa: de las 01:00 UTC del último domingo de marzo
+                   a las 01:00 UTC del último domingo de octubre.
+    """
+    utc_now = datetime.utcnow()
+    y = utc_now.year
+    start_dst_utc = datetime(y, 3, _eu_last_sunday(y, 3).day, 1, 0, 0)   # entra DST (CEST, UTC+2)
+    end_dst_utc   = datetime(y, 10, _eu_last_sunday(y, 10).day, 1, 0, 0) # sale DST (CET,  UTC+1)
+    offset_hours = 2 if start_dst_utc <= utc_now < end_dst_utc else 1
+    return utc_now + timedelta(hours=offset_hours)
+
+def europe_madrid_now() -> datetime:
+    """Devuelve 'ahora' en Europe/Madrid. No revienta si faltan datos de zona horaria."""
+    # 1) zoneinfo (stdlib)
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("Europe/Madrid"))
+    except Exception:
+        pass
+    # 2) pytz
+    try:
+        return datetime.now(pytz.timezone("Europe/Madrid"))
+    except Exception:
+        # 3) Fallback CET/CEST
+        return _europe_madrid_now_fallback()
 
 def today_madrid() -> date:
     return europe_madrid_now().date()
 
-def seconds_until_next_midnight_madrid():
+def seconds_until_next_midnight_madrid() -> float:
     now = europe_madrid_now()
-    nxt = now.replace(hour=0,minute=0,second=0,microsecond=0) + timedelta(days=1)
+    nxt = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
     return (nxt - now).total_seconds()
 
 def get_intim_stats():

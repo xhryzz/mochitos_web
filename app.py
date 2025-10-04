@@ -396,8 +396,20 @@ def _parse_dt(txt: str):
     try: return datetime.strptime(txt, "%Y-%m-%d %H:%M:%S")
     except: return None
 
+# --- CAMBIO: usar "hoy" en Madrid para toda la lógica de día ---
+def europe_madrid_now():
+    return datetime.now(pytz.timezone("Europe/Madrid"))
+
+def today_madrid() -> date:
+    return europe_madrid_now().date()
+
+def seconds_until_next_midnight_madrid():
+    now = europe_madrid_now()
+    nxt = now.replace(hour=0,minute=0,second=0,microsecond=0) + timedelta(days=1)
+    return (nxt - now).total_seconds()
+
 def get_intim_stats():
-    today = date.today()
+    today = today_madrid()  # CAMBIO: antes date.today()
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
@@ -438,8 +450,11 @@ def get_intim_events(limit: int = 200):
     finally:
         conn.close()
 
-def get_today_question():
-    today_str = date.today().isoformat()
+# --- CAMBIO: aceptar 'today' y usar fecha de Madrid ---
+def get_today_question(today: date | None = None):
+    if today is None:
+        today = today_madrid()
+    today_str = today.isoformat()
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
@@ -457,8 +472,11 @@ def get_today_question():
     finally:
         conn.close()
 
-def days_together(): return (date.today() - RELATION_START).days
+# --- CAMBIO: usar hoy en Madrid ---
+def days_together(): 
+    return (today_madrid() - RELATION_START).days
 
+# --- CAMBIO: usar hoy en Madrid ---
 def days_until_meeting():
     conn = get_db_connection()
     try:
@@ -467,7 +485,7 @@ def days_until_meeting():
             row = c.fetchone()
             if row:
                 meeting_date = datetime.strptime(row[0], "%Y-%m-%d").date()
-                return max((meeting_date - date.today()).days, 0)
+                return max((meeting_date - today_madrid()).days, 0)
             return None
     finally:
         conn.close()
@@ -498,6 +516,7 @@ def get_profile_pictures():
     finally:
         conn.close()
 
+# --- CAMBIO: streaks comparan contra hoy en Madrid ---
 @ttl_cache(seconds=8)
 def compute_streaks():
     conn = get_db_connection()
@@ -525,7 +544,7 @@ def compute_streaks():
         if compl[i] == compl[i-1] + timedelta(days=1): run += 1
         else: run = 1
         best = max(best, run)
-    today = date.today()
+    today = today_madrid()  # CAMBIO
     latest = None
     for d in sorted(set(compl), reverse=True):
         if d <= today: latest = d; break
@@ -702,14 +721,6 @@ def state_set(key: str, value: str):
         conn.close()
 
 # ========= Background scheduler (recordatorios) =========
-def europe_madrid_now():
-    return datetime.now(pytz.timezone("Europe/Madrid"))
-
-def seconds_until_next_midnight_madrid():
-    now = europe_madrid_now()
-    nxt = now.replace(hour=0,minute=0,second=0,microsecond=0) + timedelta(days=1)
-    return (nxt - now).total_seconds()
-
 def background_loop():
     """Bucles de 45–60s para:
        - crear pregunta del día a medianoche y notificar a ambos
@@ -725,7 +736,7 @@ def background_loop():
             # 1) Asegurar pregunta de hoy + notificación “cambio de pregunta” (una vez/día)
             last_dq_push = state_get("last_dq_push_date", "")
             if str(today) != last_dq_push:
-                qid, qtext = get_today_question()   # crea si falta
+                qid, qtext = get_today_question(today)   # CAMBIO: pasar fecha local
                 push_daily_new_question()
                 state_set("last_dq_push_date", str(today))
                 cache_invalidate('compute_streaks')
@@ -749,7 +760,7 @@ def background_loop():
 
             # 3) Últimas 3 horas para responder si falta
             try:
-                qid, _ = get_today_question()
+                qid, _ = get_today_question(today)  # CAMBIO: usar la misma fecha local
             except Exception:
                 qid = None
             if qid:
@@ -814,7 +825,7 @@ def index():
 
     # LOGUEADO
     user = session['username']
-    question_id, question_text = get_today_question()
+    question_id, question_text = get_today_question()  # usa fecha de Madrid por defecto
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
@@ -1808,4 +1819,3 @@ def push_list():
     except Exception as e:
         print(f"[push_list] {e}")
         return jsonify({"ok": False, "error": "server_error"}), 500
-

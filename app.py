@@ -1,6 +1,3 @@
-tengo esta web, los dias no bajan los de vernos no se porque, y la pregunta ya son las 00:00 y no ha cambiado : 
-
-te passo el app.py, si te hace falta el html dimelo
 
 # app.py — con Web Push y notificaciones
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash, Response
@@ -1812,3 +1809,4 @@ def push_list():
     except Exception as e:
         print(f"[push_list] {e}")
         return jsonify({"ok": False, "error": "server_error"}), 500
+

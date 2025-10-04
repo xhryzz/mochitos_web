@@ -1,4 +1,8 @@
-# app.py — con Web Push y notificaciones (lazy init DB + /healthz)
+tengo esta web, los dias no bajan los de vernos no se porque, y la pregunta ya son las 00:00 y no ha cambiado : 
+
+te passo el app.py, si te hace falta el html dimelo
+
+# app.py — con Web Push y notificaciones
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash, Response
 import psycopg2, psycopg2.extras
 from psycopg2.pool import SimpleConnectionPool
@@ -10,17 +14,13 @@ from base64 import b64encode
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 
+
 # Web Push
 from pywebpush import webpush, WebPushException
 import pytz
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
-
-# Healthcheck rápido (no toca DB)
-@app.get("/healthz")
-def healthz():
-    return "ok", 200
 
 # ======= Opciones de app =======
 app.config['TEMPLATES_AUTO_RELOAD'] = False
@@ -195,6 +195,7 @@ def get_db_connection():
             _ = c.fetchone()
     return wrapped
 
+
 # ========= SSE =========
 _subscribers_lock = threading.Lock()
 _subscribers: set[queue.Queue] = set()
@@ -362,7 +363,7 @@ def init_db():
         # App state para flags de notificaciones ya enviadas
         c.execute('''CREATE TABLE IF NOT EXISTS app_state (
             key TEXT PRIMARY KEY, value TEXT)''')
-        # Push subscriptions
+        # Push subscriptions (si no la creaste manualmente, la crea aquí)
         c.execute('''CREATE TABLE IF NOT EXISTS push_subscriptions (
             id SERIAL PRIMARY KEY,
             username TEXT NOT NULL,
@@ -392,79 +393,15 @@ def init_db():
         c.execute("CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions (username)")
         conn.commit()
 
-# --- Lazy init de la DB: evita bloquear el arranque del worker ---
-_DB_READY = False
-_DB_LOCK = threading.Lock()
-def ensure_db_ready():
-    """Inicializa las tablas si no existen; se ejecuta una sola vez cuando hace falta."""
-    global _DB_READY
-    if _DB_READY:
-        return
-    with _DB_LOCK:
-        if _DB_READY:
-            return
-        init_db()
-        _DB_READY = True
-
-# (IMPORTANTE) No llamamos a init_db() aquí para no bloquear el arranque
+init_db()
 
 # ========= Helpers =========
 def _parse_dt(txt: str):
     try: return datetime.strptime(txt, "%Y-%m-%d %H:%M:%S")
     except: return None
 
-# --- CAMBIO: usar "hoy" en Madrid para toda la lógica de día ---
-# --- Tiempo en Madrid: robusto con 3 niveles (zoneinfo -> pytz -> fallback CET/CEST) ---
-
-def _eu_last_sunday(year: int, month: int) -> date:
-    """Último domingo del mes (para reglas DST europeas)."""
-    if month == 12:
-        next_month = date(year + 1, 1, 1)
-    else:
-        next_month = date(year, month + 1, 1)
-    d = next_month - timedelta(days=1)
-    while d.weekday() != 6:  # 0=lunes ... 6=domingo
-        d -= timedelta(days=1)
-    return d
-
-def _europe_madrid_now_fallback() -> datetime:
-    """
-    Fallback sin dependencias: calcula CET/CEST contra UTC.
-    DST en Europa: de las 01:00 UTC del último domingo de marzo
-                   a las 01:00 UTC del último domingo de octubre.
-    """
-    utc_now = datetime.utcnow()
-    y = utc_now.year
-    start_dst_utc = datetime(y, 3, _eu_last_sunday(y, 3).day, 1, 0, 0)   # entra DST (CEST, UTC+2)
-    end_dst_utc   = datetime(y, 10, _eu_last_sunday(y, 10).day, 1, 0, 0) # sale DST (CET,  UTC+1)
-    offset_hours = 2 if start_dst_utc <= utc_now < end_dst_utc else 1
-    return utc_now + timedelta(hours=offset_hours)
-
-def europe_madrid_now() -> datetime:
-    """Devuelve 'ahora' en Europe/Madrid. No revienta si faltan datos de zona horaria."""
-    # 1) zoneinfo (stdlib)
-    try:
-        from zoneinfo import ZoneInfo
-        return datetime.now(ZoneInfo("Europe/Madrid"))
-    except Exception:
-        pass
-    # 2) pytz
-    try:
-        return datetime.now(pytz.timezone("Europe/Madrid"))
-    except Exception:
-        # 3) Fallback CET/CEST
-        return _europe_madrid_now_fallback()
-
-def today_madrid() -> date:
-    return europe_madrid_now().date()
-
-def seconds_until_next_midnight_madrid() -> float:
-    now = europe_madrid_now()
-    nxt = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
-    return (nxt - now).total_seconds()
-
 def get_intim_stats():
-    today = today_madrid()  # CAMBIO: antes date.today()
+    today = date.today()
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
@@ -505,11 +442,8 @@ def get_intim_events(limit: int = 200):
     finally:
         conn.close()
 
-# --- CAMBIO: aceptar 'today' y usar fecha de Madrid ---
-def get_today_question(today: date | None = None):
-    if today is None:
-        today = today_madrid()
-    today_str = today.isoformat()
+def get_today_question():
+    today_str = date.today().isoformat()
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
@@ -527,11 +461,8 @@ def get_today_question(today: date | None = None):
     finally:
         conn.close()
 
-# --- CAMBIO: usar hoy en Madrid ---
-def days_together(): 
-    return (today_madrid() - RELATION_START).days
+def days_together(): return (date.today() - RELATION_START).days
 
-# --- CAMBIO: usar hoy en Madrid ---
 def days_until_meeting():
     conn = get_db_connection()
     try:
@@ -540,7 +471,7 @@ def days_until_meeting():
             row = c.fetchone()
             if row:
                 meeting_date = datetime.strptime(row[0], "%Y-%m-%d").date()
-                return max((meeting_date - today_madrid()).days, 0)
+                return max((meeting_date - date.today()).days, 0)
             return None
     finally:
         conn.close()
@@ -571,7 +502,6 @@ def get_profile_pictures():
     finally:
         conn.close()
 
-# --- CAMBIO: streaks comparan contra hoy en Madrid ---
 @ttl_cache(seconds=8)
 def compute_streaks():
     conn = get_db_connection()
@@ -599,7 +529,7 @@ def compute_streaks():
         if compl[i] == compl[i-1] + timedelta(days=1): run += 1
         else: run = 1
         best = max(best, run)
-    today = today_madrid()  # CAMBIO
+    today = date.today()
     latest = None
     for d in sorted(set(compl), reverse=True):
         if d <= today: latest = d; break
@@ -684,15 +614,18 @@ def send_push_to(user: str, title: str, body: str | None = None, data: dict | No
         ok = send_push_raw(sub, payload) or ok
     return ok
 
+
 def send_push_both(title: str, body: str, data: dict | None = None):
     send_push_to('mochito', title, body, data)
     send_push_to('mochita', title, body, data)
 
 # ---- Plantillas de notificaciones (ES) + planificador de avisos de encuentro ----
+
 def push_wishlist_notice(creator: str, is_gift: bool):
     """Aviso al otro cuando se añade deseo/regalo a la lista (solo título)."""
     other = 'mochita' if creator == 'mochito' else 'mochito'
     title = "Nuevo regalo en la lista" if is_gift else "Nuevo deseo en la lista"
+    # Sin body -> lo quitamos
     send_push_to(other, title, None)
 
 def push_answer_notice(responder: str):
@@ -712,6 +645,7 @@ def push_meeting_countdown(dleft: int):
     """Avisos 3/2/1 días antes (solo título)."""
     title = f"¡Quedan {dleft} día{'s' if dleft != 1 else ''} para veros!"
     send_push_both(title, None)
+
 
 def _meet_times_key(day: date): return f"meet_times::{day.isoformat()}"
 def _meet_sent_key(day: date, hhmm: str): return f"meet_sent::{day.isoformat()}::{hhmm}"
@@ -772,6 +706,14 @@ def state_set(key: str, value: str):
         conn.close()
 
 # ========= Background scheduler (recordatorios) =========
+def europe_madrid_now():
+    return datetime.now(pytz.timezone("Europe/Madrid"))
+
+def seconds_until_next_midnight_madrid():
+    now = europe_madrid_now()
+    nxt = now.replace(hour=0,minute=0,second=0,microsecond=0) + timedelta(days=1)
+    return (nxt - now).total_seconds()
+
 def background_loop():
     """Bucles de 45–60s para:
        - crear pregunta del día a medianoche y notificar a ambos
@@ -781,16 +723,13 @@ def background_loop():
     print("[bg] scheduler iniciado")
     while True:
         try:
-            # Asegura DB disponible antes de tocar tablas
-            ensure_db_ready()
-
             now = europe_madrid_now()
             today = now.date()
 
             # 1) Asegurar pregunta de hoy + notificación “cambio de pregunta” (una vez/día)
             last_dq_push = state_get("last_dq_push_date", "")
             if str(today) != last_dq_push:
-                qid, qtext = get_today_question(today)   # CAMBIO: pasar fecha local
+                qid, qtext = get_today_question()   # crea si falta
                 push_daily_new_question()
                 state_set("last_dq_push_date", str(today))
                 cache_invalidate('compute_streaks')
@@ -814,7 +753,7 @@ def background_loop():
 
             # 3) Últimas 3 horas para responder si falta
             try:
-                qid, _ = get_today_question(today)  # CAMBIO: usar la misma fecha local
+                qid, _ = get_today_question()
             except Exception:
                 qid = None
             if qid:
@@ -879,11 +818,7 @@ def index():
 
     # LOGUEADO
     user = session['username']
-
-    # Asegura DB para la parte logueada antes de consultar/insertar
-    ensure_db_ready()
-
-    question_id, question_text = get_today_question()  # usa fecha de Madrid por defecto
+    question_id, question_text = get_today_question()
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
@@ -1193,12 +1128,12 @@ def index():
                            intim_events=intim_events
                            )
 
+
 # ======= Rutas REST extra (con broadcast) =======
 @app.route('/delete_travel', methods=['POST'])
 def delete_travel():
     if 'username' not in session: return redirect('/')
     try:
-        ensure_db_ready()
         travel_id = request.form['travel_id']
         conn = get_db_connection()
         with conn.cursor() as c:
@@ -1217,7 +1152,6 @@ def delete_travel():
 def delete_travel_photo():
     if 'username' not in session: return redirect('/')
     try:
-        ensure_db_ready()
         photo_id = request.form['photo_id']
         conn = get_db_connection()
         with conn.cursor() as c:
@@ -1235,7 +1169,6 @@ def delete_travel_photo():
 def toggle_travel_status():
     if 'username' not in session: return redirect('/')
     try:
-        ensure_db_ready()
         travel_id = request.form['travel_id']
         conn = get_db_connection()
         with conn.cursor() as c:
@@ -1257,7 +1190,6 @@ def delete_wishlist_item():
     if 'username' not in session: 
         return redirect('/')
     try:
-        ensure_db_ready()
         item_id = request.form['item_id']
         user = session['username']
         conn = get_db_connection()
@@ -1281,7 +1213,6 @@ def toggle_wishlist_item():
     if 'username' not in session:
         return redirect('/')
     try:
-        ensure_db_ready()
         item_id = request.form['item_id']
         user = session['username']
         conn = get_db_connection()
@@ -1311,7 +1242,6 @@ def edit_wishlist_item():
     if 'username' not in session:
         return redirect('/')
     try:
-        ensure_db_ready()
         item_id      = request.form.get('item_id')
         product_name = (request.form.get('product_name') or '').strip()
         product_link = (request.form.get('product_link') or '').strip()
@@ -1356,7 +1286,6 @@ def update_location():
     if 'username' not in session:
         return redirect('/')
     try:
-        ensure_db_ready()
         user = session['username']
         location_name = (request.form.get('location_name') or '').strip()
         lat = request.form.get('latitude')
@@ -1408,14 +1337,11 @@ def push_vapid_public():
     if not key_b64url:
         return jsonify({"error":"vapid_public_missing"}), 500
     return jsonify({"vapidPublicKey": key_b64url})
-
 @app.route('/push/subscribe', methods=['POST'])
 @app.post("/push/subscribe")
 def push_subscribe():
     if "username" not in session:
         return jsonify({"error":"unauthenticated"}), 401
-    ensure_db_ready()
-
     user = session["username"]
     sub = request.get_json(silent=True) or {}
     endpoint = sub.get("endpoint")
@@ -1446,7 +1372,6 @@ def push_unsubscribe():
     if 'username' not in session:
         return jsonify({"ok": False, "error": "not_logged"}), 401
     try:
-        ensure_db_ready()
         payload = request.get_json(force=True, silent=False)
         endpoint = (payload.get('endpoint') or '').strip()
         if not endpoint:
@@ -1464,9 +1389,9 @@ def push_test():
     if 'username' not in session:
         return jsonify({"ok": False, "error": "not_logged"}), 401
     try:
+        who = request.values.get('who', 'both')  # 'mochito' | 'mochita' | 'both'
         title = request.values.get('title', 'Prueba de notificación 🔔')
         body  = request.values.get('body',  'Esto es un test desde el servidor.')
-        who = request.values.get('who', 'both')  # 'mochito' | 'mochita' | 'both'
 
         if who == 'both':
             send_push_both(title, body)
@@ -1490,6 +1415,8 @@ def server_error(_):
     # Intenta no revelar trazas al usuario final
     return render_template('500.html'), 500
 
+
+
 # --- Service Worker en la raíz ---
 from flask import make_response
 
@@ -1508,10 +1435,12 @@ def sw():
     resp.mimetype = "application/javascript"
     return resp
 
+
 # ======= WSGI / Run =======
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
+
 
 @app.get("/push/debug")
 def push_debug_page():
@@ -1869,6 +1798,7 @@ document.getElementById('btn-copy').onclick = async ()=>{
 </script>
 </body>
 </html>
+
 '''
     return html
 
@@ -1877,7 +1807,6 @@ def push_list():
     if 'username' not in session:
         return jsonify({"ok": False, "error": "not_logged"}), 401
     try:
-        ensure_db_ready()
         subs = get_subscriptions_for(session['username'])
         return jsonify({"ok": True, "count": len(subs), "subs": subs})
     except Exception as e:

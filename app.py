@@ -1,4 +1,4 @@
-# app.py — con Web Push y notificaciones
+# app.py — con Web Push y notificaciones (lazy init DB + /healthz)
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash, Response
 import psycopg2, psycopg2.extras
 from psycopg2.pool import SimpleConnectionPool
@@ -10,13 +10,17 @@ from base64 import b64encode
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 
-
 # Web Push
 from pywebpush import webpush, WebPushException
 import pytz
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
+
+# Healthcheck rápido (no toca DB)
+@app.get("/healthz")
+def healthz():
+    return "ok", 200
 
 # ======= Opciones de app =======
 app.config['TEMPLATES_AUTO_RELOAD'] = False
@@ -191,7 +195,6 @@ def get_db_connection():
             _ = c.fetchone()
     return wrapped
 
-
 # ========= SSE =========
 _subscribers_lock = threading.Lock()
 _subscribers: set[queue.Queue] = set()
@@ -359,7 +362,7 @@ def init_db():
         # App state para flags de notificaciones ya enviadas
         c.execute('''CREATE TABLE IF NOT EXISTS app_state (
             key TEXT PRIMARY KEY, value TEXT)''')
-        # Push subscriptions (si no la creaste manualmente, la crea aquí)
+        # Push subscriptions
         c.execute('''CREATE TABLE IF NOT EXISTS push_subscriptions (
             id SERIAL PRIMARY KEY,
             username TEXT NOT NULL,
@@ -389,7 +392,21 @@ def init_db():
         c.execute("CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions (username)")
         conn.commit()
 
-init_db()
+# --- Lazy init de la DB: evita bloquear el arranque del worker ---
+_DB_READY = False
+_DB_LOCK = threading.Lock()
+def ensure_db_ready():
+    """Inicializa las tablas si no existen; se ejecuta una sola vez cuando hace falta."""
+    global _DB_READY
+    if _DB_READY:
+        return
+    with _DB_LOCK:
+        if _DB_READY:
+            return
+        init_db()
+        _DB_READY = True
+
+# (IMPORTANTE) No llamamos a init_db() aquí para no bloquear el arranque
 
 # ========= Helpers =========
 def _parse_dt(txt: str):
@@ -667,18 +684,15 @@ def send_push_to(user: str, title: str, body: str | None = None, data: dict | No
         ok = send_push_raw(sub, payload) or ok
     return ok
 
-
 def send_push_both(title: str, body: str, data: dict | None = None):
     send_push_to('mochito', title, body, data)
     send_push_to('mochita', title, body, data)
 
 # ---- Plantillas de notificaciones (ES) + planificador de avisos de encuentro ----
-
 def push_wishlist_notice(creator: str, is_gift: bool):
     """Aviso al otro cuando se añade deseo/regalo a la lista (solo título)."""
     other = 'mochita' if creator == 'mochito' else 'mochito'
     title = "Nuevo regalo en la lista" if is_gift else "Nuevo deseo en la lista"
-    # Sin body -> lo quitamos
     send_push_to(other, title, None)
 
 def push_answer_notice(responder: str):
@@ -698,7 +712,6 @@ def push_meeting_countdown(dleft: int):
     """Avisos 3/2/1 días antes (solo título)."""
     title = f"¡Quedan {dleft} día{'s' if dleft != 1 else ''} para veros!"
     send_push_both(title, None)
-
 
 def _meet_times_key(day: date): return f"meet_times::{day.isoformat()}"
 def _meet_sent_key(day: date, hhmm: str): return f"meet_sent::{day.isoformat()}::{hhmm}"
@@ -768,6 +781,9 @@ def background_loop():
     print("[bg] scheduler iniciado")
     while True:
         try:
+            # Asegura DB disponible antes de tocar tablas
+            ensure_db_ready()
+
             now = europe_madrid_now()
             today = now.date()
 
@@ -863,6 +879,10 @@ def index():
 
     # LOGUEADO
     user = session['username']
+
+    # Asegura DB para la parte logueada antes de consultar/insertar
+    ensure_db_ready()
+
     question_id, question_text = get_today_question()  # usa fecha de Madrid por defecto
     conn = get_db_connection()
     try:
@@ -1173,12 +1193,12 @@ def index():
                            intim_events=intim_events
                            )
 
-
 # ======= Rutas REST extra (con broadcast) =======
 @app.route('/delete_travel', methods=['POST'])
 def delete_travel():
     if 'username' not in session: return redirect('/')
     try:
+        ensure_db_ready()
         travel_id = request.form['travel_id']
         conn = get_db_connection()
         with conn.cursor() as c:
@@ -1197,6 +1217,7 @@ def delete_travel():
 def delete_travel_photo():
     if 'username' not in session: return redirect('/')
     try:
+        ensure_db_ready()
         photo_id = request.form['photo_id']
         conn = get_db_connection()
         with conn.cursor() as c:
@@ -1214,6 +1235,7 @@ def delete_travel_photo():
 def toggle_travel_status():
     if 'username' not in session: return redirect('/')
     try:
+        ensure_db_ready()
         travel_id = request.form['travel_id']
         conn = get_db_connection()
         with conn.cursor() as c:
@@ -1235,6 +1257,7 @@ def delete_wishlist_item():
     if 'username' not in session: 
         return redirect('/')
     try:
+        ensure_db_ready()
         item_id = request.form['item_id']
         user = session['username']
         conn = get_db_connection()
@@ -1258,6 +1281,7 @@ def toggle_wishlist_item():
     if 'username' not in session:
         return redirect('/')
     try:
+        ensure_db_ready()
         item_id = request.form['item_id']
         user = session['username']
         conn = get_db_connection()
@@ -1287,6 +1311,7 @@ def edit_wishlist_item():
     if 'username' not in session:
         return redirect('/')
     try:
+        ensure_db_ready()
         item_id      = request.form.get('item_id')
         product_name = (request.form.get('product_name') or '').strip()
         product_link = (request.form.get('product_link') or '').strip()
@@ -1331,6 +1356,7 @@ def update_location():
     if 'username' not in session:
         return redirect('/')
     try:
+        ensure_db_ready()
         user = session['username']
         location_name = (request.form.get('location_name') or '').strip()
         lat = request.form.get('latitude')
@@ -1382,11 +1408,14 @@ def push_vapid_public():
     if not key_b64url:
         return jsonify({"error":"vapid_public_missing"}), 500
     return jsonify({"vapidPublicKey": key_b64url})
+
 @app.route('/push/subscribe', methods=['POST'])
 @app.post("/push/subscribe")
 def push_subscribe():
     if "username" not in session:
         return jsonify({"error":"unauthenticated"}), 401
+    ensure_db_ready()
+
     user = session["username"]
     sub = request.get_json(silent=True) or {}
     endpoint = sub.get("endpoint")
@@ -1417,6 +1446,7 @@ def push_unsubscribe():
     if 'username' not in session:
         return jsonify({"ok": False, "error": "not_logged"}), 401
     try:
+        ensure_db_ready()
         payload = request.get_json(force=True, silent=False)
         endpoint = (payload.get('endpoint') or '').strip()
         if not endpoint:
@@ -1434,9 +1464,9 @@ def push_test():
     if 'username' not in session:
         return jsonify({"ok": False, "error": "not_logged"}), 401
     try:
-        who = request.values.get('who', 'both')  # 'mochito' | 'mochita' | 'both'
         title = request.values.get('title', 'Prueba de notificación 🔔')
         body  = request.values.get('body',  'Esto es un test desde el servidor.')
+        who = request.values.get('who', 'both')  # 'mochito' | 'mochita' | 'both'
 
         if who == 'both':
             send_push_both(title, body)
@@ -1460,8 +1490,6 @@ def server_error(_):
     # Intenta no revelar trazas al usuario final
     return render_template('500.html'), 500
 
-
-
 # --- Service Worker en la raíz ---
 from flask import make_response
 
@@ -1480,12 +1508,10 @@ def sw():
     resp.mimetype = "application/javascript"
     return resp
 
-
 # ======= WSGI / Run =======
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
-
 
 @app.get("/push/debug")
 def push_debug_page():
@@ -1843,7 +1869,6 @@ document.getElementById('btn-copy').onclick = async ()=>{
 </script>
 </body>
 </html>
-
 '''
     return html
 
@@ -1852,6 +1877,7 @@ def push_list():
     if 'username' not in session:
         return jsonify({"ok": False, "error": "not_logged"}), 401
     try:
+        ensure_db_ready()
         subs = get_subscriptions_for(session['username'])
         return jsonify({"ok": True, "count": len(subs), "subs": subs})
     except Exception as e:

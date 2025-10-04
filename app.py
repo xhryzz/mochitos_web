@@ -1,9 +1,8 @@
-
-# app.py — con Web Push y notificaciones
-from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash, Response
+# app.py — con Web Push y notificaciones (Europe/Madrid fijo a medianoche)
+from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash, Response, make_response
 import psycopg2, psycopg2.extras
 from psycopg2.pool import SimpleConnectionPool
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 import random, os, io, json, time, queue, threading, hashlib, base64, binascii
 from werkzeug.utils import secure_filename
 from contextlib import closing
@@ -11,10 +10,13 @@ from base64 import b64encode
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 
-
 # Web Push
 from pywebpush import webpush, WebPushException
-import pytz
+
+try:
+    import pytz  # opcional (fallback)
+except Exception:
+    pytz = None
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
@@ -27,7 +29,7 @@ app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 # ======= Compresión (si está) =======
 try:
     from flask_compress import Compress
-    app.config['COMPRESS_MIMETYPES'] = ['text/html','text/css','application/json','application/javascript']
+    app.config['COMPRESS_MIMETYPES'] = ['text/html', 'text/css', 'application/json', 'application/javascript']
     app.config['COMPRESS_LEVEL'] = 6
     app.config['COMPRESS_MIN_SIZE'] = 1024
     Compress(app)
@@ -60,38 +62,44 @@ if DISCORD_WEBHOOK:
     t.start()
 
 def send_discord(event: str, payload: dict | None = None):
-    if not DISCORD_WEBHOOK: return
+    if not DISCORD_WEBHOOK:
+        return
     try:
         display_user = None
-        if 'username' in session and session['username'] in ('mochito','mochita'):
+        if 'username' in session and session['username'] in ('mochito', 'mochita'):
             display_user = session['username']
-        embed = {"title": event, "color": 0xE84393, "timestamp": datetime.utcnow().isoformat()+"Z", "fields":[]}
+        embed = {
+            "title": event,
+            "color": 0xE84393,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "fields": []
+        }
         if display_user:
-            embed["fields"].append({"name":"Usuario","value":display_user,"inline":True})
-        try: ruta = f"{request.method} {request.path}"
-        except Exception: ruta="(sin request)"
+            embed["fields"].append({"name": "Usuario", "value": display_user, "inline": True})
+        try:
+            ruta = f"{request.method} {request.path}"
+        except Exception:
+            ruta = "(sin request)"
         embed["fields"] += [
-            {"name":"Ruta","value":ruta,"inline":True},
-            {"name":"IP","value":client_ip() or "?", "inline":True}
+            {"name": "Ruta", "value": ruta, "inline": True},
+            {"name": "IP", "value": client_ip() or "?", "inline": True}
         ]
         if payload:
             raw = json.dumps(payload, ensure_ascii=False)
             for i, ch in enumerate([raw[i:i+1000] for i in range(0, len(raw), 1000)][:3]):
-                embed["fields"].append({"name":"Datos"+(f" ({i+1})" if i else ""), "value":f"```json\n{ch}\n```","inline":False})
-        _DISCORD_Q.put_nowait((DISCORD_WEBHOOK, {"username":"Mochitos Logs","embeds":[embed]}))
+                embed["fields"].append({"name": "Datos" + (f" ({i+1})" if i else ""), "value": f"```json\n{ch}\n```", "inline": False})
+        _DISCORD_Q.put_nowait((DISCORD_WEBHOOK, {"username": "Mochitos Logs", "embeds": [embed]}))
     except Exception as e:
         print(f"[discord] prep error: {e}")
 
-# ========= Config Postgres + POOL (robusto contra sockets/SSL rotos) =========
+# ========= Config Postgres + POOL =========
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
 def _normalize_database_url(url: str) -> str:
     if not url:
         return url
-    # Normaliza el prefijo heroku-style
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
-    # Forzamos sslmode=require en el propio DSN (evita discrepancias)
     if "sslmode=" not in url:
         sep = "&" if "?" in url else "?"
         url = f"{url}{sep}sslmode=require"
@@ -110,7 +118,6 @@ def _init_pool():
         return
     if not DATABASE_URL:
         raise RuntimeError("Falta DATABASE_URL para PostgreSQL")
-    # Pasamos TODO via dsn ya normalizado
     PG_POOL = SimpleConnectionPool(
         1,
         int(os.environ.get("DB_MAX_CONN", "10")),
@@ -130,7 +137,6 @@ class PooledConn:
         self._inited = False
 
     def _reconnect(self):
-        # Devuelve la conexión rota y obtiene una nueva del pool
         try:
             self._pool.putconn(self._conn, close=True)
         except Exception:
@@ -145,7 +151,6 @@ class PooledConn:
         if "cursor_factory" not in k:
             k["cursor_factory"] = psycopg2.extras.DictCursor
 
-        # Inicialización de parámetros de sesión (una vez por conexión viva)
         if not self._inited:
             try:
                 with self._conn.cursor() as c:
@@ -154,7 +159,6 @@ class PooledConn:
                     c.execute("SET statement_timeout = '5s';")
                 self._inited = True
             except (OperationalError, InterfaceError):
-                # Conexión rota: reconecta y vuelve a aplicar los SET
                 self._reconnect()
                 with self._conn.cursor() as c:
                     c.execute("SET application_name = 'mochitos';")
@@ -165,7 +169,6 @@ class PooledConn:
         try:
             return self._conn.cursor(*a, **k)
         except (OperationalError, InterfaceError):
-            # Si al crear el cursor falla (socket/SSL roto), reconecta y devuelve cursor nuevo
             self._reconnect()
             return self._conn.cursor(*a, **k)
 
@@ -176,11 +179,10 @@ class PooledConn:
             pass
 
 def get_db_connection():
-    """Saca una conexión del pool, la 'pingea' y, si falla, la recicla antes de devolverla."""
+    """Saca una conexión del pool y hace ping."""
     _init_pool()
     conn = PG_POOL.getconn()
     wrapped = PooledConn(PG_POOL, conn)
-    # Ping ligero para detectar sockets/SSL rotos antes de usarlos
     try:
         with wrapped.cursor() as c:
             c.execute("SELECT 1;")
@@ -192,6 +194,66 @@ def get_db_connection():
             _ = c.fetchone()
     return wrapped
 
+# ========= Zona horaria Europe/Madrid =========
+def _eu_last_sunday(year: int, month: int) -> date:
+    """Último domingo del mes (para reglas DST europeas)."""
+    if month == 12:
+        next_month = date(year + 1, 1, 1)
+    else:
+        next_month = date(year, month + 1, 1)
+    d = next_month - timedelta(days=1)
+    while d.weekday() != 6:  # 0=lunes ... 6=domingo
+        d -= timedelta(days=1)
+    return d
+
+def _europe_madrid_now_fallback() -> datetime:
+    """
+    Fallback manual CET/CEST: calculado contra UTC.
+    DST en Europa: de las 01:00 UTC del último domingo de marzo
+                   a las 01:00 UTC del último domingo de octubre.
+    """
+    utc_now = datetime.now(timezone.utc)
+    y = utc_now.year
+    start_dst_utc = datetime(y, 3, _eu_last_sunday(y, 3).day, 1, 0, 0, tzinfo=timezone.utc)
+    end_dst_utc   = datetime(y, 10, _eu_last_sunday(y, 10).day, 1, 0, 0, tzinfo=timezone.utc)
+    offset_hours = 2 if start_dst_utc <= utc_now < end_dst_utc else 1
+    # devolvemos naive local para integrarlo con el resto de código
+    return (utc_now + timedelta(hours=offset_hours)).replace(tzinfo=None)
+
+def europe_madrid_now() -> datetime:
+    """
+    Devuelve 'ahora' en Europe/Madrid partiendo SIEMPRE de UTC, para evitar desajustes del contenedor.
+    """
+    utc_now = datetime.now(timezone.utc)
+
+    # 1) zoneinfo (stdlib)
+    try:
+        from zoneinfo import ZoneInfo
+        return utc_now.astimezone(ZoneInfo("Europe/Madrid"))
+    except Exception:
+        pass
+
+    # 2) pytz (si disponible)
+    if pytz:
+        try:
+            tz = pytz.timezone("Europe/Madrid")
+            return tz.fromutc(utc_now.replace(tzinfo=pytz.utc))
+        except Exception:
+            pass
+
+    # 3) Fallback manual CET/CEST
+    return _europe_madrid_now_fallback()
+
+def today_madrid() -> date:
+    return europe_madrid_now().date()
+
+def seconds_until_next_midnight_madrid() -> float:
+    now = europe_madrid_now()
+    nxt = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    return (nxt - now).total_seconds()
+
+def now_madrid_str() -> str:
+    return europe_madrid_now().strftime("%Y-%m-%d %H:%M:%S")
 
 # ========= SSE =========
 _subscribers_lock = threading.Lock()
@@ -200,13 +262,17 @@ _subscribers: set[queue.Queue] = set()
 def broadcast(event_name: str, data: dict):
     with _subscribers_lock:
         for qcli in list(_subscribers):
-            try: qcli.put_nowait({"event": event_name, "data": data})
-            except Exception: pass
+            try:
+                qcli.put_nowait({"event": event_name, "data": data})
+            except Exception:
+                pass
 
 @app.route("/events")
 def sse_events():
     client_q: queue.Queue = queue.Queue(maxsize=200)
-    with _subscribers_lock: _subscribers.add(client_q)
+    with _subscribers_lock:
+        _subscribers.add(client_q)
+
     def gen():
         try:
             yield ":\n\n"
@@ -218,7 +284,9 @@ def sse_events():
                 except queue.Empty:
                     yield f": k {int(time.time())}\n\n"
         finally:
-            with _subscribers_lock: _subscribers.discard(client_q)
+            with _subscribers_lock:
+                _subscribers.discard(client_q)
+
     return Response(gen(), mimetype="text/event-stream", headers={
         "Cache-Control": "no-cache, no-transform",
         "Connection": "keep-alive",
@@ -357,10 +425,10 @@ def init_db():
             filename TEXT, mime_type TEXT, uploaded_at TEXT)''')
         c.execute('''CREATE TABLE IF NOT EXISTS intimacy_events (
             id SERIAL PRIMARY KEY, username TEXT NOT NULL, ts TEXT NOT NULL, place TEXT, notes TEXT)''')
-        # App state para flags de notificaciones ya enviadas
+        # App state
         c.execute('''CREATE TABLE IF NOT EXISTS app_state (
             key TEXT PRIMARY KEY, value TEXT)''')
-        # Push subscriptions (si no la creaste manualmente, la crea aquí)
+        # Push subscriptions
         c.execute('''CREATE TABLE IF NOT EXISTS push_subscriptions (
             id SERIAL PRIMARY KEY,
             username TEXT NOT NULL,
@@ -372,7 +440,7 @@ def init_db():
         try:
             c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochito','1234'))
             c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochita','1234'))
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            now = now_madrid_str()
             c.execute("""INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
                          VALUES (%s,%s,%s,%s,%s) ON CONFLICT (username) DO NOTHING""",
                       ('mochito','Algemesí, Valencia', 39.1925, -0.4353, now))
@@ -394,11 +462,14 @@ init_db()
 
 # ========= Helpers =========
 def _parse_dt(txt: str):
-    try: return datetime.strptime(txt, "%Y-%m-%d %H:%M:%S")
-    except: return None
+    try:
+        return datetime.strptime(txt, "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return None
 
+# --- Lógica dependiente de fecha en Madrid ---
 def get_intim_stats():
-    today = date.today()
+    today = today_madrid()
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
@@ -409,12 +480,13 @@ def get_intim_stats():
     dts = []
     for r in rows:
         dt = _parse_dt(r[0])
-        if dt: dts.append(dt)
+        if dt:
+            dts.append(dt)
     if not dts:
-        return {'today_count':0,'month_total':0,'year_total':0,'days_since_last':None,'last_dt':None,'streak_days':0}
-    today_count = sum(1 for dt in dts if dt.date()==today)
-    month_total = sum(1 for dt in dts if dt.year==today.year and dt.month==today.month)
-    year_total  = sum(1 for dt in dts if dt.year==today.year)
+        return {'today_count': 0, 'month_total': 0, 'year_total': 0, 'days_since_last': None, 'last_dt': None, 'streak_days': 0}
+    today_count = sum(1 for dt in dts if dt.date() == today)
+    month_total = sum(1 for dt in dts if dt.year == today.year and dt.month == today.month)
+    year_total = sum(1 for dt in dts if dt.year == today.year)
     last_dt = max(dts); days_since_last = (today - last_dt.date()).days
     if today_count == 0:
         streak_days = 0
@@ -423,8 +495,8 @@ def get_intim_stats():
         streak_days = 0; cur = today
         while cur in dates_with:
             streak_days += 1; cur = cur - timedelta(days=1)
-    return {'today_count':today_count,'month_total':month_total,'year_total':year_total,
-            'days_since_last':days_since_last,'last_dt':last_dt,'streak_days':streak_days}
+    return {'today_count': today_count, 'month_total': month_total, 'year_total': year_total,
+            'days_since_last': days_since_last, 'last_dt': last_dt, 'streak_days': streak_days}
 
 def get_intim_events(limit: int = 200):
     conn = get_db_connection()
@@ -435,22 +507,26 @@ def get_intim_events(limit: int = 200):
                          WHERE username IN ('mochito','mochita')
                          ORDER BY ts DESC LIMIT %s""", (limit,))
             rows = c.fetchall()
-            return [{'id':r[0],'username':r[1],'ts':r[2],'place':r[3] or '','notes':r[4] or ''} for r in rows]
+            return [{'id': r[0], 'username': r[1], 'ts': r[2], 'place': r[3] or '', 'notes': r[4] or ''} for r in rows]
     finally:
         conn.close()
 
-def get_today_question():
-    today_str = date.today().isoformat()
+def get_today_question(today: date | None = None):
+    if today is None:
+        today = today_madrid()
+    today_str = today.isoformat()
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
             c.execute("SELECT id, question FROM daily_questions WHERE date=%s", (today_str,))
             qrow = c.fetchone()
-            if qrow: return qrow
+            if qrow:
+                return qrow
             c.execute("SELECT question FROM daily_questions")
             used = {row[0] for row in c.fetchall()}
             remaining = [q for q in QUESTIONS if q not in used]
-            if not remaining: return (None, "Ya no hay más preguntas disponibles ❤️")
+            if not remaining:
+                return (None, "Ya no hay más preguntas disponibles ❤️")
             question_text = random.choice(remaining)
             c.execute("INSERT INTO daily_questions (question, date) VALUES (%s,%s) RETURNING id", (question_text, today_str))
             qid = c.fetchone()[0]; conn.commit()
@@ -458,7 +534,8 @@ def get_today_question():
     finally:
         conn.close()
 
-def days_together(): return (date.today() - RELATION_START).days
+def days_together():
+    return (today_madrid() - RELATION_START).days
 
 def days_until_meeting():
     conn = get_db_connection()
@@ -468,7 +545,7 @@ def days_until_meeting():
             row = c.fetchone()
             if row:
                 meeting_date = datetime.strptime(row[0], "%Y-%m-%d").date()
-                return max((meeting_date - date.today()).days, 0)
+                return max((meeting_date - today_madrid()).days, 0)
             return None
     finally:
         conn.close()
@@ -516,24 +593,31 @@ def compute_streaks():
             rows = c.fetchall()
     finally:
         conn.close()
-    if not rows: return 0, 0
+    if not rows:
+        return 0, 0
     def parse_d(dtxt): return datetime.strptime(dtxt, "%Y-%m-%d").date()
-    compl = [parse_d(r[1]) for r in rows if r[2] and int(r[2])>=2]
-    if not compl: return 0, 0
+    compl = [parse_d(r[1]) for r in rows if r[2] and int(r[2]) >= 2]
+    if not compl:
+        return 0, 0
     compl = sorted(compl)
     best = run = 1
     for i in range(1, len(compl)):
-        if compl[i] == compl[i-1] + timedelta(days=1): run += 1
-        else: run = 1
+        if compl[i] == compl[i-1] + timedelta(days=1):
+            run += 1
+        else:
+            run = 1
         best = max(best, run)
-    today = date.today()
+    today = today_madrid()
     latest = None
     for d in sorted(set(compl), reverse=True):
-        if d <= today: latest = d; break
-    if latest is None: return 0, best
+        if d <= today:
+            latest = d; break
+    if latest is None:
+        return 0, best
     cur = 1; d = latest - timedelta(days=1)
     sset = set(compl)
-    while d in sset: cur += 1; d -= timedelta(days=1)
+    while d in sset:
+        cur += 1; d -= timedelta(days=1)
     return cur, best
 
 # ========= Web Push helpers =========
@@ -550,7 +634,7 @@ def hex_to_base64url(hexstr: str) -> str:
         return ""
 
 def get_vapid_public_base64url() -> str:
-    # Web Push JS espera base64url del punto no comprimido (65 bytes). Tú has guardado HEX.
+    # Web Push JS espera base64url del punto público (65 bytes). Guardas HEX en env.
     return hex_to_base64url(VAPID_PUBLIC_KEY_HEX)
 
 def get_subscriptions_for(user: str):
@@ -558,7 +642,7 @@ def get_subscriptions_for(user: str):
     try:
         with conn.cursor() as c:
             c.execute("""SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE username=%s""",(user,))
-            return [{"id":r[0],"endpoint":r[1],"keys":{"p256dh":r[2],"auth":r[3]}} for r in c.fetchall()]
+            return [{"id": r[0], "endpoint": r[1], "keys": {"p256dh": r[2], "auth": r[3]}} for r in c.fetchall()]
     finally:
         conn.close()
 
@@ -590,11 +674,12 @@ def send_push_raw(sub: dict, payload: dict):
         )
         return True
     except WebPushException as e:
-        # si está caducada/410/404, la borramos
         status = getattr(e.response, "status_code", None)
         if status in (404, 410):
-            try: _delete_subscription_by_endpoint(sub["endpoint"])
-            except: pass
+            try:
+                _delete_subscription_by_endpoint(sub["endpoint"])
+            except Exception:
+                pass
         print(f"[push] error: {e}")
         return False
     except Exception as e:
@@ -611,38 +696,29 @@ def send_push_to(user: str, title: str, body: str | None = None, data: dict | No
         ok = send_push_raw(sub, payload) or ok
     return ok
 
-
 def send_push_both(title: str, body: str, data: dict | None = None):
     send_push_to('mochito', title, body, data)
     send_push_to('mochita', title, body, data)
 
 # ---- Plantillas de notificaciones (ES) + planificador de avisos de encuentro ----
-
 def push_wishlist_notice(creator: str, is_gift: bool):
-    """Aviso al otro cuando se añade deseo/regalo a la lista (solo título)."""
     other = 'mochita' if creator == 'mochito' else 'mochito'
     title = "Nuevo regalo en la lista" if is_gift else "Nuevo deseo en la lista"
-    # Sin body -> lo quitamos
     send_push_to(other, title, None)
 
 def push_answer_notice(responder: str):
-    """Aviso al otro cuando su pareja responde la pregunta del día (solo título)."""
     other = 'mochita' if responder == 'mochito' else 'mochito'
     send_push_to(other, "Pregunta del día", None)
 
 def push_daily_new_question():
-    """Aviso a ambos cuando cambia la pregunta diaria (solo título)."""
     send_push_both("Pregunta del día", None)
 
 def push_last_hours(user: str):
-    """Aviso a quien no haya respondido y queden pocas horas (solo título)."""
     send_push_to(user, "Pregunta del día", None)
 
 def push_meeting_countdown(dleft: int):
-    """Avisos 3/2/1 días antes (solo título)."""
     title = f"¡Quedan {dleft} día{'s' if dleft != 1 else ''} para veros!"
     send_push_both(title, None)
-
 
 def _meet_times_key(day: date): return f"meet_times::{day.isoformat()}"
 def _meet_sent_key(day: date, hhmm: str): return f"meet_sent::{day.isoformat()}::{hhmm}"
@@ -672,7 +748,7 @@ def ensure_meet_times(day: date):
 def due_now(now_madrid: datetime, hhmm: str) -> bool:
     """
     ¿Estamos dentro de una ventana ±90s de la hora programada?
-    (el bucle corre cada ~45s, así evitamos perder el tiro)
+    (el bucle corre cada ~45s)
     """
     try:
         hh, mm = map(int, hhmm.split(":"))
@@ -686,7 +762,7 @@ def state_get(key: str, default: str | None = None) -> str | None:
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            c.execute("SELECT value FROM app_state WHERE key=%s",(key,))
+            c.execute("SELECT value FROM app_state WHERE key=%s", (key,))
             row = c.fetchone()
             return row[0] if row else default
     finally:
@@ -697,20 +773,12 @@ def state_set(key: str, value: str):
     try:
         with conn.cursor() as c:
             c.execute("""INSERT INTO app_state (key,value) VALUES (%s,%s)
-                         ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value""",(key,value))
+                         ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value""", (key, value))
             conn.commit()
     finally:
         conn.close()
 
 # ========= Background scheduler (recordatorios) =========
-def europe_madrid_now():
-    return datetime.now(pytz.timezone("Europe/Madrid"))
-
-def seconds_until_next_midnight_madrid():
-    now = europe_madrid_now()
-    nxt = now.replace(hour=0,minute=0,second=0,microsecond=0) + timedelta(days=1)
-    return (nxt - now).total_seconds()
-
 def background_loop():
     """Bucles de 45–60s para:
        - crear pregunta del día a medianoche y notificar a ambos
@@ -723,38 +791,36 @@ def background_loop():
             now = europe_madrid_now()
             today = now.date()
 
-            # 1) Asegurar pregunta de hoy + notificación “cambio de pregunta” (una vez/día)
+            # 1) Pregunta del día + notificación (una vez/día)
             last_dq_push = state_get("last_dq_push_date", "")
             if str(today) != last_dq_push:
-                qid, qtext = get_today_question()   # crea si falta
+                qid, qtext = get_today_question(today)   # usar fecha local
                 push_daily_new_question()
                 state_set("last_dq_push_date", str(today))
                 cache_invalidate('compute_streaks')
 
-            # 2) Recordatorios 3/2/1 días para veros (2–3 veces/día en horas aleatorias entre 09:00 y 23:00)
+            # 2) Recordatorios 3/2/1 días
             try:
                 d = days_until_meeting()
             except Exception:
                 d = None
 
             if d is not None and d in (1, 2, 3):
-                times = ensure_meet_times(today)  # lista de 'HH:MM' para HOY
+                times = ensure_meet_times(today)
                 for hhmm in times:
                     sent_key = _meet_sent_key(today, hhmm)
                     if not state_get(sent_key, "") and due_now(now, hhmm):
                         push_meeting_countdown(d)
                         state_set(sent_key, "1")
             else:
-                # Si no estamos en 1/2/3, limpia programación del día (sin machacar histórico)
                 state_set(_meet_times_key(today), "[]")
 
-            # 3) Últimas 3 horas para responder si falta
+            # 3) Últimas 3 horas para responder
             try:
-                qid, _ = get_today_question()
+                qid, _ = get_today_question(today)
             except Exception:
                 qid = None
             if qid:
-                # ¿Quién respondió?
                 conn = get_db_connection()
                 try:
                     with conn.cursor() as c:
@@ -764,9 +830,8 @@ def background_loop():
                     conn.close()
 
                 secs_left = seconds_until_next_midnight_madrid()
-                # envía recordatorio si quedan <= 3h y no se ha mandado ya hoy a esa persona
-                if secs_left <= 3*3600:
-                    for u in ('mochito','mochita'):
+                if secs_left <= 3 * 3600:
+                    for u in ('mochito', 'mochita'):
                         if u not in have:
                             key = f"late_reminder_{today.isoformat()}_{u}"
                             if not state_get(key, ""):
@@ -776,7 +841,7 @@ def background_loop():
         except Exception as e:
             print(f"[bg] error: {e}")
 
-        time.sleep(45)  # periodo
+        time.sleep(45)
 
 # Lanzar scheduler en segundo plano
 threading.Thread(target=background_loop, daemon=True).start()
@@ -787,8 +852,8 @@ def index():
     # LOGIN
     if 'username' not in session:
         if request.method == 'POST':
-            username = request.form.get('username','').strip()
-            password = request.form.get('password','').strip()
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '').strip()
             conn = get_db_connection()
             try:
                 with conn.cursor() as c:
@@ -799,15 +864,15 @@ def index():
                         return render_template('index.html', error="Usuario o contraseña incorrecta", profile_pictures={})
                     stored = row[0]
                     if _is_hashed(stored):
-                        ok = check_password_hash(stored, password); mode="hashed"
+                        ok = check_password_hash(stored, password); mode = "hashed"
                     else:
-                        ok = (stored == password); mode="plaintext"
+                        ok = (stored == password); mode = "plaintext"
                     if ok:
                         session['username'] = username
                         send_discord("Login OK", {"username": username, "mode": mode})
                         return redirect('/')
                     else:
-                        send_discord("Login FAIL", {"username_intent": username, "reason":"bad_password","mode":mode})
+                        send_discord("Login FAIL", {"username_intent": username, "reason": "bad_password", "mode": mode})
                         return render_template('index.html', error="Usuario o contraseña incorrecta", profile_pictures={})
             finally:
                 conn.close()
@@ -815,7 +880,7 @@ def index():
 
     # LOGUEADO
     user = session['username']
-    question_id, question_text = get_today_question()
+    question_id, question_text = get_today_question()  # usa fecha de Madrid por defecto
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
@@ -834,8 +899,8 @@ def index():
                             ON CONFLICT (username) DO UPDATE
                             SET image_data=EXCLUDED.image_data, filename=EXCLUDED.filename,
                                 mime_type=EXCLUDED.mime_type, uploaded_at=EXCLUDED.uploaded_at
-                        """, (user, image_data, filename, mime_type, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                        conn.commit(); flash("Foto de perfil actualizada ✅","success")
+                        """, (user, image_data, filename, mime_type, now_madrid_str()))
+                        conn.commit(); flash("Foto de perfil actualizada ✅", "success")
                         send_discord("Profile picture updated", {"user": user, "filename": filename})
                         cache_invalidate('get_profile_pictures')
                         broadcast("profile_update", {"user": user})
@@ -843,9 +908,9 @@ def index():
 
                 # 2) Cambio de contraseña
                 if 'change_password' in request.form:
-                    current_password = request.form.get('current_password','').strip()
-                    new_password = request.form.get('new_password','').strip()
-                    confirm_password = request.form.get('confirm_password','').strip()
+                    current_password = request.form.get('current_password', '').strip()
+                    new_password = request.form.get('new_password', '').strip()
+                    confirm_password = request.form.get('confirm_password', '').strip()
                     if not current_password or not new_password or not confirm_password:
                         flash("Completa todos los campos de contraseña.", "error"); return redirect('/')
                     if new_password != confirm_password:
@@ -854,22 +919,23 @@ def index():
                         flash("La nueva contraseña debe tener al menos 4 caracteres.", "error"); return redirect('/')
                     c.execute("SELECT password FROM users WHERE username=%s", (user,))
                     row = c.fetchone()
-                    if not row: flash("Usuario no encontrado.","error"); return redirect('/')
+                    if not row:
+                        flash("Usuario no encontrado.", "error"); return redirect('/')
                     stored = row[0]
-                    valid_current = check_password_hash(stored, current_password) if _is_hashed(stored) else (stored==current_password)
+                    valid_current = check_password_hash(stored, current_password) if _is_hashed(stored) else (stored == current_password)
                     if not valid_current:
                         flash("La contraseña actual no es correcta.", "error")
-                        send_discord("Change password FAIL", {"user": user, "reason":"wrong_current"}); return redirect('/')
+                        send_discord("Change password FAIL", {"user": user, "reason": "wrong_current"}); return redirect('/')
                     new_hash = generate_password_hash(new_password)
                     c.execute("UPDATE users SET password=%s WHERE username=%s", (new_hash, user))
-                    conn.commit(); flash("Contraseña cambiada correctamente 🎉","success")
+                    conn.commit(); flash("Contraseña cambiada correctamente 🎉", "success")
                     send_discord("Change password OK", {"user": user}); return redirect('/')
 
                 # 3) Responder pregunta
                 if 'answer' in request.form:
                     answer = request.form['answer'].strip()
                     if question_id is not None and answer:
-                        now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+                        now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"  # UTC para trazabilidad
                         c.execute("SELECT id, answer, created_at, updated_at FROM answers WHERE question_id=%s AND username=%s",
                                   (question_id, user))
                         prev = c.fetchone()
@@ -877,7 +943,7 @@ def index():
                             c.execute("""INSERT INTO answers (question_id, username, answer, created_at, updated_at)
                                          VALUES (%s,%s,%s,%s,%s) ON CONFLICT (question_id, username) DO NOTHING""",
                                       (question_id, user, answer, now_txt, now_txt))
-                            conn.commit(); send_discord("Answer submitted", {"user":user,"question_id":question_id})
+                            conn.commit(); send_discord("Answer submitted", {"user": user, "question_id": question_id})
                         else:
                             prev_id, prev_text, prev_created, prev_updated = prev
                             if answer != (prev_text or ""):
@@ -887,7 +953,7 @@ def index():
                                 else:
                                     c.execute("""UPDATE answers SET answer=%s, updated_at=%s WHERE id=%s""",
                                               (answer, now_txt, prev_id))
-                                conn.commit(); send_discord("Answer edited", {"user":user,"question_id":question_id})
+                                conn.commit(); send_discord("Answer edited", {"user": user, "question_id": question_id})
                         cache_invalidate('compute_streaks')
                         broadcast("dq_answer", {"user": user})
                         try:
@@ -900,7 +966,7 @@ def index():
                 if 'meeting_date' in request.form:
                     meeting_date = request.form['meeting_date']
                     c.execute("INSERT INTO meeting (meeting_date) VALUES (%s)", (meeting_date,))
-                    conn.commit(); flash("Fecha actualizada 📅","success")
+                    conn.commit(); flash("Fecha actualizada 📅", "success")
                     send_discord("Meeting date updated", {"user": user, "date": meeting_date})
                     broadcast("meeting_update", {"date": meeting_date}); return redirect('/')
 
@@ -912,8 +978,8 @@ def index():
                         filename = secure_filename(file.filename)
                         mime_type = file.mimetype
                         c.execute("INSERT INTO banner (image_data, filename, mime_type, uploaded_at) VALUES (%s,%s,%s,%s)",
-                                  (image_data, filename, mime_type, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                        conn.commit(); flash("Banner actualizado 🖼️","success")
+                                  (image_data, filename, mime_type, now_madrid_str()))
+                        conn.commit(); flash("Banner actualizado 🖼️", "success")
                         send_discord("Banner updated", {"user": user, "filename": filename})
                         cache_invalidate('get_banner')
                         broadcast("banner_update", {"by": user})
@@ -922,16 +988,16 @@ def index():
                 # 6) Nuevo viaje
                 if 'travel_destination' in request.form:
                     destination = request.form['travel_destination'].strip()
-                    description = request.form.get('travel_description','').strip()
-                    travel_date = request.form.get('travel_date','')
+                    description = request.form.get('travel_description', '').strip()
+                    travel_date = request.form.get('travel_date', '')
                     is_visited = 'travel_visited' in request.form
                     if destination:
                         c.execute("""INSERT INTO travels (destination, description, travel_date, is_visited, created_by, created_at)
                                      VALUES (%s,%s,%s,%s,%s,%s)""",
-                                  (destination, description, travel_date, is_visited, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                        conn.commit(); flash("Viaje añadido ✈️","success")
+                                  (destination, description, travel_date, is_visited, user, now_madrid_str()))
+                        conn.commit(); flash("Viaje añadido ✈️", "success")
                         send_discord("Travel added", {"user": user, "dest": destination, "visited": is_visited})
-                        broadcast("travel_update", {"type":"add"})
+                        broadcast("travel_update", {"type": "add"})
                     return redirect('/')
 
                 # 7) Foto de viaje (URL)
@@ -941,29 +1007,29 @@ def index():
                     if image_url and travel_id:
                         c.execute("""INSERT INTO travel_photos (travel_id, image_url, uploaded_by, uploaded_at)
                                      VALUES (%s,%s,%s,%s)""",
-                                  (travel_id, image_url, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                        conn.commit(); flash("Foto añadida 📸","success")
+                                  (travel_id, image_url, user, now_madrid_str()))
+                        conn.commit(); flash("Foto añadida 📸", "success")
                         send_discord("Travel photo added", {"user": user, "travel_id": travel_id})
-                        broadcast("travel_update", {"type":"photo_add","id":int(travel_id)})
+                        broadcast("travel_update", {"type": "photo_add", "id": int(travel_id)})
                     return redirect('/')
 
                 # 8) Wishlist add
                 if 'product_name' in request.form and 'edit_wishlist_item' not in request.path:
                     product_name = request.form['product_name'].strip()
-                    product_link = request.form.get('product_link','').strip()
-                    notes = request.form.get('wishlist_notes','').strip()
-                    product_size = request.form.get('size','').strip()
-                    priority = request.form.get('priority','media').strip()
+                    product_link = request.form.get('product_link', '').strip()
+                    notes = request.form.get('wishlist_notes', '').strip()
+                    product_size = request.form.get('size', '').strip()
+                    priority = request.form.get('priority', 'media').strip()
                     is_gift = bool(request.form.get('is_gift'))
-                    if priority not in ('alta','media','baja'): priority='media'
+                    if priority not in ('alta', 'media', 'baja'): priority = 'media'
                     if product_name:
                         c.execute("""INSERT INTO wishlist (product_name, product_link, notes, size, created_by, created_at, is_purchased, priority, is_gift)
                                      VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                                  (product_name, product_link, notes, product_size, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                  (product_name, product_link, notes, product_size, user, now_madrid_str(),
                                    False, priority, is_gift))
-                        conn.commit(); flash("Producto añadido a la lista 🛍️","success")
-                        send_discord("Wishlist added", {"user":user,"name":product_name,"priority":priority,"is_gift":is_gift,"size":product_size})
-                        broadcast("wishlist_update", {"type":"add"})
+                        conn.commit(); flash("Producto añadido a la lista 🛍️", "success")
+                        send_discord("Wishlist added", {"user": user, "name": product_name, "priority": priority, "is_gift": is_gift, "size": product_size})
+                        broadcast("wishlist_update", {"type": "add"})
                         try:
                             push_wishlist_notice(user, is_gift)
                         except Exception as e:
@@ -972,31 +1038,31 @@ def index():
 
                 # INTIMIDAD
                 if 'intim_unlock_pin' in request.form:
-                    pin_try = request.form.get('intim_pin','').strip()
+                    pin_try = request.form.get('intim_pin', '').strip()
                     if pin_try == INTIM_PIN:
-                        session['intim_unlocked'] = True; flash("Módulo Intimidad desbloqueado ✅","success")
+                        session['intim_unlocked'] = True; flash("Módulo Intimidad desbloqueado ✅", "success")
                         send_discord("Intimidad unlock OK", {"user": user})
                     else:
-                        session.pop('intim_unlocked', None); flash("PIN incorrecto ❌","error")
+                        session.pop('intim_unlocked', None); flash("PIN incorrecto ❌", "error")
                         send_discord("Intimidad unlock FAIL", {"user": user})
                     return redirect('/')
 
                 if 'intim_lock' in request.form:
-                    session.pop('intim_unlocked', None); flash("Módulo Intimidad ocultado 🔒","info"); return redirect('/')
+                    session.pop('intim_unlocked', None); flash("Módulo Intimidad ocultado 🔒", "info"); return redirect('/')
 
                 if 'intim_register' in request.form:
                     if not session.get('intim_unlocked'):
-                        flash("Debes desbloquear con PIN para registrar.","error"); return redirect('/')
+                        flash("Debes desbloquear con PIN para registrar.", "error"); return redirect('/')
                     place = (request.form.get('intim_place') or '').strip()
                     notes = (request.form.get('intim_notes') or '').strip()
-                    now_txt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    now_txt = now_madrid_str()
                     with conn.cursor() as c2:
                         c2.execute("""INSERT INTO intimacy_events (username, ts, place, notes) VALUES (%s,%s,%s,%s)""",
                                    (user, now_txt, place or None, notes or None))
                         conn.commit()
-                    flash("Momento registrado ❤️","success")
-                    send_discord("Intimidad registered", {"user":user,"place":place,"notes_len":len(notes)})
-                    broadcast("intim_update", {"type":"add"})
+                    flash("Momento registrado ❤️", "success")
+                    send_discord("Intimidad registered", {"user": user, "place": place, "notes_len": len(notes)})
+                    broadcast("intim_update", {"type": "add"})
                     return redirect('/')
 
             # ------------ Consultas para render ------------
@@ -1015,7 +1081,7 @@ def index():
             c.execute("SELECT travel_id, id, image_url, uploaded_by FROM travel_photos ORDER BY id DESC")
             all_ph = c.fetchall()
 
-            # Wishlist (sin blindaje aún)
+            # Wishlist (con blindaje de regalos)
             c.execute("""
                 SELECT
                     id,
@@ -1063,7 +1129,7 @@ def index():
              is_purchased, priority, is_gift, size) in wl_rows:
 
             priority = priority or 'media'
-            is_gift  = bool(is_gift)
+            is_gift = bool(is_gift)
 
             if is_gift and created_by != user:
                 safe_items.append((
@@ -1125,11 +1191,11 @@ def index():
                            intim_events=intim_events
                            )
 
-
 # ======= Rutas REST extra (con broadcast) =======
 @app.route('/delete_travel', methods=['POST'])
 def delete_travel():
-    if 'username' not in session: return redirect('/')
+    if 'username' not in session:
+        return redirect('/')
     try:
         travel_id = request.form['travel_id']
         conn = get_db_connection()
@@ -1138,16 +1204,18 @@ def delete_travel():
             c.execute("DELETE FROM travels WHERE id=%s", (travel_id,))
             conn.commit()
         flash("Viaje eliminado 🗑️", "success")
-        broadcast("travel_update", {"type":"delete","id":int(travel_id)})
+        broadcast("travel_update", {"type": "delete", "id": int(travel_id)})
         return redirect('/')
     except Exception as e:
         print(f"Error en delete_travel: {e}"); flash("No se pudo eliminar el viaje.", "error"); return redirect('/')
     finally:
-        if 'conn' in locals(): conn.close()
+        if 'conn' in locals():
+            conn.close()
 
 @app.route('/delete_travel_photo', methods=['POST'])
 def delete_travel_photo():
-    if 'username' not in session: return redirect('/')
+    if 'username' not in session:
+        return redirect('/')
     try:
         photo_id = request.form['photo_id']
         conn = get_db_connection()
@@ -1155,16 +1223,18 @@ def delete_travel_photo():
             c.execute("DELETE FROM travel_photos WHERE id=%s", (photo_id,))
             conn.commit()
         flash("Foto eliminada 🗑️", "success")
-        broadcast("travel_update", {"type":"photo_delete","id":int(photo_id)})
+        broadcast("travel_update", {"type": "photo_delete", "id": int(photo_id)})
         return redirect('/')
     except Exception as e:
         print(f"Error en delete_travel_photo: {e}"); flash("No se pudo eliminar la foto.", "error"); return redirect('/')
     finally:
-        if 'conn' in locals(): conn.close()
+        if 'conn' in locals():
+            conn.close()
 
 @app.route('/toggle_travel_status', methods=['POST'])
 def toggle_travel_status():
-    if 'username' not in session: return redirect('/')
+    if 'username' not in session:
+        return redirect('/')
     try:
         travel_id = request.form['travel_id']
         conn = get_db_connection()
@@ -1175,16 +1245,17 @@ def toggle_travel_status():
             c.execute("UPDATE travels SET is_visited=%s WHERE id=%s", (new_status, travel_id))
             conn.commit()
         flash("Estado del viaje actualizado ✅", "success")
-        broadcast("travel_update", {"type":"toggle","id":int(travel_id),"is_visited":bool(new_status)})
+        broadcast("travel_update", {"type": "toggle", "id": int(travel_id), "is_visited": bool(new_status)})
         return redirect('/')
     except Exception as e:
         print(f"Error en toggle_travel_status: {e}"); flash("No se pudo actualizar el estado del viaje.", "error"); return redirect('/')
     finally:
-        if 'conn' in locals(): conn.close()
+        if 'conn' in locals():
+            conn.close()
 
 @app.route('/delete_wishlist_item', methods=['POST'])
 def delete_wishlist_item():
-    if 'username' not in session: 
+    if 'username' not in session:
         return redirect('/')
     try:
         item_id = request.form['item_id']
@@ -1247,7 +1318,7 @@ def edit_wishlist_item():
         priority     = (request.form.get('priority') or 'media').strip()
         is_gift      = bool(request.form.get('is_gift'))
 
-        if priority not in ('alta','media','baja'):
+        if priority not in ('alta', 'media', 'baja'):
             priority = 'media'
 
         conn = get_db_connection()
@@ -1289,7 +1360,7 @@ def update_location():
         lon = request.form.get('longitude')
         lat = float(lat) if lat not in (None, '') else None
         lon = float(lon) if lon not in (None, '') else None
-        now_txt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now_txt = now_madrid_str()
 
         conn = get_db_connection()
         with conn.cursor() as c:
@@ -1329,23 +1400,22 @@ def logout():
 # ======= Web Push: claves y suscripciones =======
 @app.get("/push/vapid-public")
 def push_vapid_public():
-    # Devuelve base64url del punto público (tú guardas HEX en env)
     key_b64url = get_vapid_public_base64url()
     if not key_b64url:
-        return jsonify({"error":"vapid_public_missing"}), 500
+        return jsonify({"error": "vapid_public_missing"}), 500
     return jsonify({"vapidPublicKey": key_b64url})
-@app.route('/push/subscribe', methods=['POST'])
+
 @app.post("/push/subscribe")
 def push_subscribe():
     if "username" not in session:
-        return jsonify({"error":"unauthenticated"}), 401
+        return jsonify({"error": "unauthenticated"}), 401
     user = session["username"]
     sub = request.get_json(silent=True) or {}
     endpoint = sub.get("endpoint")
     p256dh = (sub.get("keys") or {}).get("p256dh")
     auth   = (sub.get("keys") or {}).get("auth")
     if not (endpoint and p256dh and auth):
-        return jsonify({"error":"invalid_subscription"}), 400
+        return jsonify({"error": "invalid_subscription"}), 400
 
     conn = get_db_connection()
     try:
@@ -1382,7 +1452,6 @@ def push_unsubscribe():
 
 @app.route('/push/test', methods=['POST', 'GET'])
 def push_test():
-    # Permite probar rápidamente el envío de una notificación
     if 'username' not in session:
         return jsonify({"ok": False, "error": "not_logged"}), 401
     try:
@@ -1402,6 +1471,17 @@ def push_test():
         print(f"[push_test] {e}")
         return jsonify({"ok": False, "error": "server_error"}), 500
 
+@app.get('/push/list')
+def push_list():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "not_logged"}), 401
+    try:
+        subs = get_subscriptions_for(session['username'])
+        return jsonify({"ok": True, "count": len(subs), "subs": subs})
+    except Exception as e:
+        print(f"[push_list] {e}")
+        return jsonify({"ok": False, "error": "server_error"}), 500
+
 # ======= Errores simpáticos =======
 @app.errorhandler(404)
 def not_found(_):
@@ -1409,20 +1489,14 @@ def not_found(_):
 
 @app.errorhandler(500)
 def server_error(_):
-    # Intenta no revelar trazas al usuario final
     return render_template('500.html'), 500
 
-
-
 # --- Service Worker en la raíz ---
-from flask import make_response
-
 @app.route("/sw.js")
 def sw():
-    from flask import make_response, send_file
-    import os
+    import os as _os
     try:
-        resp = send_file(os.path.join(app.static_folder, "sw.js"))
+        resp = send_file(_os.path.join(app.static_folder, "sw.js"))
     except Exception:
         resp = send_file("static/sw.js")
     resp = make_response(resp)
@@ -1432,13 +1506,7 @@ def sw():
     resp.mimetype = "application/javascript"
     return resp
 
-
-# ======= WSGI / Run =======
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', '5000'))
-    app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
-
-
+# ======= Página debug de push =======
 @app.get("/push/debug")
 def push_debug_page():
     html = '''
@@ -1449,9 +1517,7 @@ def push_debug_page():
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Activar notificaciones — Guía paso a paso</title>
 <style>
-:root{
-  --brand:#e84393; --ink:#202124; --muted:#5f6368; --ok:#10b981; --warn:#f59e0b; --err:#ef4444; --bg:#fafafa; --card:#fff; --line:#ececec;
-}
+:root{ --brand:#e84393; --ink:#202124; --muted:#5f6368; --ok:#10b981; --warn:#f59e0b; --err:#ef4444; --bg:#fafafa; --card:#fff; --line:#ececec; }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55}
 .container{max-width:960px;margin:24px auto;padding:0 16px}
@@ -1606,14 +1672,12 @@ a.link:hover{text-decoration:underline}
 </div>
 
 <script>
-/* ===== Utilidades ===== */
 function log(){ const el=document.getElementById('log'); el.textContent += Array.from(arguments).join(' ') + "\\n"; el.scrollTop = el.scrollHeight; }
 function b64ToBytes(s){ const pad='='.repeat((4 - s.length % 4) % 4); const b64=(s+pad).replace(/-/g,'+').replace(/_/g,'/'); const raw=atob(b64); const arr=new Uint8Array(raw.length); for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i); return arr; }
 function setDot(id, state){ const el=document.getElementById(id); el.className='dot'; if(state==='ok') el.classList.add('ok'); else if(state==='warn') el.classList.add('warn'); else if(state==='err') el.classList.add('err'); }
 function pctDone(parts){ const sum = parts.reduce((a,b)=>a+(b?1:0),0); return Math.round((sum/parts.length)*100); }
 function setProgress(p){ document.getElementById('progressBar').style.width = p + '%'; }
 
-/* ===== Detección entorno ===== */
 const UA = navigator.userAgent || '';
 const isIOS = /iPad|iPhone|iPod/.test(UA);
 const isSafari = /^((?!chrome|android).)*safari/i.test(UA);
@@ -1627,16 +1691,13 @@ const envText = [
 ].join(' · ');
 document.getElementById('envInfo').textContent = envText;
 
-/* Mostrar ayuda iOS si aplica */
 if(isIOS){
   document.getElementById('iosHowTo').style.display = isStandalone ? 'none' : 'block';
 }
 
-/* Estado inicial */
 setDot('chk-https', isHTTPS ? 'ok' : 'err');
 setDot('chk-standalone', (isIOS ? (isStandalone ? 'ok' : 'warn') : 'ok'));
 
-/* ===== SW auto-registro en carga si es posible ===== */
 (async function autoRegisterSW(){
   try{
     if('serviceWorker' in navigator){
@@ -1654,7 +1715,6 @@ setDot('chk-standalone', (isIOS ? (isStandalone ? 'ok' : 'warn') : 'ok'));
   refreshProgress();
 })();
 
-/* ===== Permiso actual ===== */
 function refreshPermission(){
   if(!('Notification' in window)) { setDot('chk-perm','err'); return; }
   const st = Notification.permission; // default | granted | denied
@@ -1663,7 +1723,6 @@ function refreshPermission(){
   else setDot('chk-perm','warn');
 }
 
-/* ===== Suscripción actual ===== */
 async function hasSubscription(){
   try{
     const reg = await navigator.serviceWorker.ready;
@@ -1675,14 +1734,12 @@ async function refreshSubscriptionDot(){
   setDot('chk-sub', (await hasSubscription()) ? 'ok' : 'warn');
 }
 
-/* ===== Progreso ===== */
 function refreshProgress(){
   const dots = ['chk-https','chk-standalone','chk-sw','chk-perm','chk-sub'];
   const ok = dots.map(id => document.getElementById(id).classList.contains('ok'));
   setProgress(pctDone(ok));
 }
 
-/* ===== Botones ===== */
 document.getElementById('btn-home').onclick = ()=>{ location.href='/'; };
 
 document.getElementById('btn-check-standalone').onclick = ()=>{
@@ -1780,8 +1837,8 @@ document.getElementById('btn-copy').onclick = async ()=>{
   }catch(e){ log('No se pudo copiar:', e.message||e); }
 };
 
-/* ===== Inicial ===== */
 (function init(){
+  const envText = document.getElementById('envInfo').textContent;
   const standaloneMsg = isIOS ? (isStandalone ? 'En modo app ✅' : 'Abierto en Safari ❗️') : 'Modo app no requerido';
   log('Entorno =>', envText);
   log('Standalone =>', standaloneMsg);
@@ -1795,18 +1852,21 @@ document.getElementById('btn-copy').onclick = async ()=>{
 </script>
 </body>
 </html>
-
 '''
     return html
 
-@app.get('/push/list')
-def push_list():
-    if 'username' not in session:
-        return jsonify({"ok": False, "error": "not_logged"}), 401
-    try:
-        subs = get_subscriptions_for(session['username'])
-        return jsonify({"ok": True, "count": len(subs), "subs": subs})
-    except Exception as e:
-        print(f"[push_list] {e}")
-        return jsonify({"ok": False, "error": "server_error"}), 500
+# ======= Debug zona horaria =======
+@app.get("/_debug/tz")
+def _debug_tz():
+    n = europe_madrid_now()
+    return jsonify({
+        "utc": datetime.now(timezone.utc).isoformat(),
+        "madrid": n.isoformat(),
+        "date_madrid": n.date().isoformat(),
+        "secs_to_midnight_madrid": int(seconds_until_next_midnight_madrid())
+    })
 
+# ======= WSGI / Run =======
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', '5000'))
+    app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))

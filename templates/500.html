@@ -1,5 +1,91 @@
 <!doctype html>
-<title>Error del servidor</title>
-<h1>500 — Ups, algo falló</h1>
-<p>Lo estamos revisando.</p>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>500 — Error del servidor</title>
+<style>
+:root{
+  --brand:#e84393; --ink:#202124; --muted:#5f6368; --ok:#10b981; --warn:#f59e0b; --err:#ef4444; --bg:#fafafa; --card:#fff; --line:#ececec;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55}
+.container{max-width:960px;margin:24px auto;padding:0 16px}
+h1{font-size:1.8rem;margin:12px 0 6px}
+.subtitle{color:var(--muted);margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 2px 10px rgba(0,0,0,.03)}
+.card h2{font-size:1.1rem;margin:0 0 8px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+button,a.btn{padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:8px}
+button.primary,a.btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+button.ghost,a.btn.ghost{background:#fff}
+.tip{font-size:.92rem;color:var(--muted);margin-top:6px}
+.hr{height:1px;background:var(--line);margin:14px 0}
+.kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#f3f4f6;border:1px solid #e5e7eb;border-bottom-width:2px;border-radius:6px;padding:2px 6px}
+.big{
+  font-size:56px; font-weight:900; letter-spacing:1px; margin:10px 0 0;
+  background:linear-gradient(90deg,#ff7ab6,var(--brand));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  animation:float 3s ease-in-out infinite;
+}
+@keyframes float{0%{transform:translateY(0)}50%{transform:translateY(-6px)}100%{transform:translateY(0)}}
+.grid{display:grid;gap:12px}
+@media(min-width:880px){ .grid{grid-template-columns:1.1fr .9fr} }
+.small{font-size:.9rem;color:var(--muted)}
+pre.meta{white-space:pre-wrap;background:#111;color:#eee;padding:12px;border-radius:12px;margin:0}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="card" style="text-align:center">
+    <div class="big">500</div>
+    <h1>Uy… algo se ha roto</h1>
+    <p class="subtitle">Ha ocurrido un error inesperado en el servidor.</p>
+    <div class="actions" style="justify-content:center">
+      <button class="primary" onclick="location.reload()">Recargar</button>
+      <a href="/" class="btn ghost">Volver al inicio</a>
+      <a href="mailto:admin@example.com?subject=Error%20500" class="btn ghost">Contactar soporte</a>
+    </div>
+    <p class="tip">Si el problema persiste, envíanos el detalle técnico de abajo.</p>
+  </div>
 
+  <div class="grid">
+    <div class="card">
+      <h2>Pasos rápidos</h2>
+      <ul class="small" style="margin:0 0 8px 18px">
+        <li>Recarga la página (<span class="kbd">Ctrl/Cmd + R</span>).</li>
+        <li>Vuelve al inicio e inténtalo de nuevo.</li>
+        <li>Si estás logueado, cierra sesión y entra otra vez.</li>
+      </ul>
+      <div class="hr"></div>
+      <div class="actions">
+        <button id="btn-copy" class="ghost">Copiar detalle técnico</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Detalle técnico</h2>
+      <pre id="meta" class="meta">Cargando…</pre>
+    </div>
+  </div>
+</div>
+
+<script>
+(function meta(){
+  const info = {
+    error: 500,
+    path: (window.location && window.location.pathname) || '',
+    method: 'GET',
+    time: new Date().toLocaleString('es-ES'),
+    ua: navigator.userAgent
+  };
+  document.getElementById('meta').textContent = JSON.stringify(info,null,2);
+})();
+document.getElementById('btn-copy').onclick = async ()=> {
+  const txt = document.getElementById('meta').textContent;
+  try { await navigator.clipboard.writeText(txt); alert('Detalle copiado ✅'); }
+  catch(e){ alert('No se pudo copiar'); }
+};
+</script>
+</body>
+</html>

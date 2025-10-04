@@ -518,21 +518,36 @@ def get_today_question(today: date | None = None):
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            c.execute("SELECT id, question FROM daily_questions WHERE date=%s", (today_str,))
+            # 👇 Si hay duplicados del mismo día, cogemos la MÁS RECIENTE
+            c.execute("""
+                SELECT id, question
+                FROM daily_questions
+                WHERE TRIM(date) = %s
+                ORDER BY id DESC
+                LIMIT 1
+            """, (today_str,))
             qrow = c.fetchone()
             if qrow:
                 return qrow
+
+            # No existe aún -> creamos una para hoy
             c.execute("SELECT question FROM daily_questions")
             used = {row[0] for row in c.fetchall()}
             remaining = [q for q in QUESTIONS if q not in used]
             if not remaining:
                 return (None, "Ya no hay más preguntas disponibles ❤️")
             question_text = random.choice(remaining)
-            c.execute("INSERT INTO daily_questions (question, date) VALUES (%s,%s) RETURNING id", (question_text, today_str))
-            qid = c.fetchone()[0]; conn.commit()
+            c.execute("""
+                INSERT INTO daily_questions (question, date)
+                VALUES (%s,%s)
+                RETURNING id
+            """, (question_text, today_str))
+            qid = c.fetchone()[0]
+            conn.commit()
             return (qid, question_text)
     finally:
         conn.close()
+
 
 def days_together():
     return (today_madrid() - RELATION_START).days
@@ -961,6 +976,36 @@ def index():
                         except Exception as e:
                             print("[push answer] ", e)
                     return redirect('/')
+
+                # 3-bis) Cambiar la pregunta de HOY (no borramos la fila => no rompe FK)
+                if 'dq_reroll' in request.form:
+                    if question_id is not None:
+                        # vieja pregunta (para excluirla del set usado)
+                        c.execute("SELECT question FROM daily_questions WHERE id=%s", (question_id,))
+                        old_q = (c.fetchone() or [None])[0]
+
+                        # calculamos candidatas
+                        c.execute("SELECT question FROM daily_questions")
+                        used = {row[0] for row in c.fetchall()}
+                        if old_q:
+                            used.discard(old_q)  # permitir reusar el hueco de hoy
+                        remaining = [q for q in QUESTIONS if q not in used]
+
+                        if remaining:
+                            new_q = random.choice(remaining)
+                            # borrar respuestas del día (para empezar limpios)
+                            c.execute("DELETE FROM answers WHERE question_id=%s", (question_id,))
+                            # actualizar SOLO el texto de la pregunta (no tocamos la fila)
+                            c.execute("UPDATE daily_questions SET question=%s WHERE id=%s", (new_q, question_id))
+                            conn.commit()
+                            cache_invalidate('compute_streaks')
+                            flash("Pregunta cambiada para hoy ✅", "success")
+                            send_discord("DQ reroll", {"user": user, "old": old_q, "new": new_q})
+                            broadcast("dq_change", {"id": int(question_id)})
+                        else:
+                            flash("No quedan preguntas disponibles para cambiar 😅", "error")
+                    return redirect('/')
+
 
                 # 4) Meeting date
                 if 'meeting_date' in request.form:

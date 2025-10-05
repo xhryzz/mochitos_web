@@ -1536,6 +1536,13 @@ def not_found(_):
 def server_error(_):
     return render_template('500.html'), 500
 
+
+@app.route('/horario')
+def horario():
+    if 'username' not in session:
+        return redirect('/')
+    return render_template('schedule.html')
+
 # --- Service Worker en la raíz ---
 @app.route("/sw.js")
 def sw():

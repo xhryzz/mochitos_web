@@ -1291,7 +1291,7 @@
       <div class="section animate-in delay-2">
         <h3>Nuestros Horarios</h3>
         <p>Nuestros horarios y activiades (editables).</p>
-        <a href="/templates/schedule.html">
+        <a href="{{ url_for('schedule_page') }}">
           <button style="width: 100%;">
             <i class="fas fa-calendar-alt"></i> Ver Horarios
           </button>
@@ -2880,3 +2880,4 @@ document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
 
 </body>
 </html>
+

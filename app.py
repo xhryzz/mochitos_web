@@ -1,4 +1,3 @@
-
 # app.py — con Web Push y notificaciones (Europe/Madrid fijo a medianoche)
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash, Response, make_response
 import psycopg2, psycopg2.extras
@@ -1537,13 +1536,121 @@ def not_found(_):
 def server_error(_):
     return render_template('500.html'), 500
 
-
+# ======= Horarios (página) =======
 @app.route('/horario', methods=['GET'])
 def schedule_page():
     if 'username' not in session:
         return redirect('/')
     return render_template('schedule.html')
 
+# Alias opcional para compatibilidad con url_for('schedule_page') o enlaces antiguos
+@app.route('/schedule', methods=['GET'])
+def schedule_alias():
+    return redirect('/horario')
+
+# ======= Horarios (API) =======
+@app.get('/api/schedules')
+def api_get_schedules():
+    if 'username' not in session:
+        return jsonify({"error": "unauthenticated"}), 401
+
+    schedules = {"mochito": {}, "mochita": {}}
+    custom_times_sets = {"mochito": set(), "mochita": set()}
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # Actividades
+            c.execute("""SELECT username, day, time, activity, color FROM public.schedules""")
+            for row in c.fetchall():
+                username = row['username']
+                day = row['day']
+                time_ = row['time']
+                activity = row['activity'] or ''
+                color = row['color'] or '#888888'
+                if username not in schedules:
+                    # Si hubiera otros usuarios en la tabla, los ignoramos en el front
+                    continue
+                day_map = schedules[username].setdefault(day, {})
+                day_map[time_] = {"activity": activity, "color": color}
+
+            # Tiempos personalizados
+            c.execute("""SELECT username, time FROM public.schedule_times""")
+            for row in c.fetchall():
+                u = row['username']
+                t = row['time']
+                if u in custom_times_sets:
+                    custom_times_sets[u].add(t)
+    finally:
+        conn.close()
+
+    def sort_hhmm(lst):
+        def key(t):
+            try:
+                h, m = t.split(':')
+                return (int(h), int(m))
+            except Exception:
+                return (0, 0)
+        return sorted(lst, key=key)
+
+    custom_times = {
+        "mochito": sort_hhmm(list(custom_times_sets["mochito"])),
+        "mochita": sort_hhmm(list(custom_times_sets["mochita"]))
+    }
+
+    return jsonify({"schedules": schedules, "customTimes": custom_times})
+
+@app.post('/api/schedules/save')
+def api_save_schedules():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "unauthenticated"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    schedules = payload.get("schedules") or {}
+    custom_times = payload.get("customTimes") or {}
+
+    # Validación mínima
+    if not isinstance(schedules, dict) or not isinstance(custom_times, dict):
+        return jsonify({"ok": False, "error": "bad_payload"}), 400
+
+    users = ("mochito", "mochita")
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            for user in users:
+                # Reemplazo sencillo por usuario
+                c.execute("DELETE FROM public.schedules WHERE username=%s", (user,))
+                us = schedules.get(user) or {}
+                # us: { DAY: { TIME: {activity, color} } }
+                for day, time_map in (us.items()):
+                    time_map = time_map or {}
+                    for t, obj in time_map.items():
+                        activity = (obj or {}).get("activity", "")
+                        color = (obj or {}).get("color", "#888888")
+                        c.execute("""
+                            INSERT INTO public.schedules (username, day, time, activity, color)
+                            VALUES (%s,%s,%s,%s,%s)
+                        """, (user, day, t, activity, color))
+
+                c.execute("DELETE FROM public.schedule_times WHERE username=%s", (user,))
+                for t in (custom_times.get(user) or []):
+                    c.execute("""
+                        INSERT INTO public.schedule_times (username, time)
+                        VALUES (%s,%s)
+                    """, (user, t))
+        conn.commit()
+        send_discord("Schedules saved", {"by": session.get('username', '?')})
+        broadcast("schedule_update", {"by": session.get('username', '?')})
+        return jsonify({"ok": True})
+    except Exception as e:
+        print("[api_save_schedules] error:", e)
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return jsonify({"ok": False, "error": "server_error"}), 500
+    finally:
+        conn.close()
 
 # --- Service Worker en la raíz ---
 @app.route("/sw.js")
@@ -1593,7 +1700,7 @@ button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
 button.ghost{background:#fff}
 button:disabled{opacity:.6;cursor:not-allowed}
 .tip{font-size:.92rem;color:var(--muted);margin-top:6px}
-.hr{height:1px;background:var(--line);margin:14px 0}
+.hr{height:1px;background:#ececec;margin:14px 0}
 .state{display:grid;gap:10px}
 .state .row{display:flex;align-items:center;gap:10px}
 .state .dot{width:10px;height:10px;border-radius:50%;background:#ddd}
@@ -1609,6 +1716,7 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .header-actions{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 0}
 a.link{color:var(--brand);text-decoration:none;border-bottom:1px dotted var(--brand)}
 a.link:hover{text-decoration:underline}
+a.link{color:#e84393}
 .small{font-size:.88rem;color:var(--muted)}
 </style>
 </head>
@@ -1924,5 +2032,3 @@ def _debug_tz():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
-
-

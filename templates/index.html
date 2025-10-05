@@ -883,6 +883,46 @@
 }
 
 
+
+<style>
+/* ===== Price UI ===== */
+.price-card {background:rgba(255,255,255,.6); border:1px solid rgba(0,0,0,.06); border-radius:14px; padding:12px; margin-top:10px; backdrop-filter: blur(6px);}
+.price-row {display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.badge {display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-size:.85rem; line-height:1; border:1px solid transparent;}
+.badge-on {background:rgba(16,185,129,.12); color:#065f46; border-color:rgba(16,185,129,.25);}
+.badge-off{background:rgba(107,114,128,.12); color:#374151; border-color:rgba(107,114,128,.25);}
+.chip {display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:10px; background:rgba(0,0,0,.06); font-size:.9rem;}
+.chip.muted{opacity:.8}
+.btn-check {display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:10px; border:1px solid rgba(0,0,0,.12); background:#fff; cursor:pointer; transition:.15s transform, .15s box-shadow;}
+.btn-check:hover {transform:translateY(-1px); box-shadow:0 6px 18px rgba(0,0,0,.06);}
+.btn-check[disabled] {opacity:.6; cursor:default; transform:none; box-shadow:none;}
+
+.price-down {background:rgba(34,197,94,.14);}
+.price-same {background:rgba(59,130,246,.14);}
+.price-help details {margin-top:6px;}
+.price-help summary {cursor:pointer; opacity:.8;}
+.price-form {display:grid; gap:10px; margin-top:8px;}
+@media (min-width:520px){ .price-form {grid-template-columns:1fr 1fr;} }
+
+.input-wrap {display:flex; flex-direction:column; gap:6px;}
+.input-wrap label {font-size:.9rem; opacity:.9;}
+.input-wrap input[type="number"],
+.input-wrap input[type="text"] {padding:10px 12px; border:1px solid rgba(0,0,0,.12); border-radius:10px; background:#fff;}
+.helper {font-size:.8rem; opacity:.8;}
+
+.switch {display:inline-flex; align-items:center; gap:10px;}
+.switch input {display:none;}
+.switch label {position:relative; display:inline-block; width:54px; height:30px; background:rgba(0,0,0,.14); border-radius:999px; cursor:pointer; transition:.2s background;}
+.switch label::after {content:""; position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.15); transition:.2s transform;}
+.switch input:checked + label {background:linear-gradient(90deg, #22c55e, #16a34a);}
+.switch input:checked + label::after {transform:translateX(24px);}
+.switch-text {font-weight:600;}
+
+.flash {animation: flash .8s ease;}
+@keyframes flash {0%{box-shadow:0 0 0 0 rgba(16,185,129,.5)} 100%{box-shadow:0 0 0 12px rgba(16,185,129,0)}}
+</style>
+
+
     </style>
 </head>
 
@@ -1500,34 +1540,47 @@
             {% endif %}
 
             {% if track_price %}
-              <div class="wishlist-meta" style="margin-top:10px;">
-                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                  <span title="Último precio registrado">
-                    <i class="fas fa-tag"></i>
-                    {% if last_price_cents is not none %}
-                      {{ ((last_price_cents or 0) / 100.0)|round(2) }} {{ (currency or 'EUR') }}
-                    {% else %}
-                      — {{ (currency or 'EUR') }}
-                    {% endif %}
-                  </span>
-                  <span title="Última comprobación">
-                    <i class="fas fa-clock"></i>
-                    {{ last_checked[:16] if last_checked else '—' }}
-                  </span>
-                  {% if alert_drop_percent %}
-                    <span title="Aviso si baja %"><i class="fas fa-bell"></i> −{{ alert_drop_percent }}%</span>
-                  {% endif %}
-                  {% if alert_below_cents %}
-                    <span title="Aviso si baja de"><i class="fas fa-bell"></i> ≤ {{ ((alert_below_cents or 0)/100.0)|round(2) }} {{ (currency or 'EUR') }}</span>
-                  {% endif %}
+  <div class="price-card">
+    <div class="price-row">
+      <span class="badge badge-on">
+        <i class="fas fa-bell"></i> Seguimiento activo
+      </span>
 
-                  <button type="button" class="icon-btn" title="Comprobar ahora"
-                          onclick="priceCheckNow({{ id }}, this)">
-                    <i class="fas fa-sync-alt"></i>
-                  </button>
-                </div>
-              </div>
-            {% endif %}
+      <span class="chip js-last-price" data-curr="{{ (currency or 'EUR') }}" title="Último precio registrado">
+        <i class="fas fa-tag"></i>
+        {% if last_price_cents is not none %}
+          {{ ((last_price_cents or 0) / 100.0)|round(2) }} {{ (currency or 'EUR') }}
+        {% else %}
+          — {{ (currency or 'EUR') }}
+        {% endif %}
+      </span>
+
+      <span class="chip muted" title="Última comprobación">
+        <i class="fas fa-clock"></i>
+        <span class="js-last-checked">{{ last_checked[:16] if last_checked else '—' }}</span>
+      </span>
+
+      {% if alert_drop_percent %}
+        <span class="chip" title="Aviso por porcentaje">
+          <i class="fas fa-percent"></i> −{{ alert_drop_percent }}%
+        </span>
+      {% endif %}
+      {% if alert_below_cents %}
+        <span class="chip" title="Aviso por cantidad">
+          <i class="fas fa-euro-sign"></i>
+          ≤ {{ ((alert_below_cents or 0)/100.0)|round(2) }} {{ (currency or 'EUR') }}
+        </span>
+      {% endif %}
+
+      <button type="button" class="btn-check"
+              title="Comprobar ahora"
+              onclick="priceCheckNow({{ id }}, this)">
+        <i class="fas fa-sync-alt"></i> Comprobar ahora
+      </button>
+    </div>
+  </div>
+{% endif %}
+
           {% endif %}
 
           <div class="wishlist-meta">
@@ -1625,34 +1678,48 @@
             {% endif %}
 
             {% if track_price %}
-              <div class="wishlist-meta" style="margin-top:10px;">
-                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                  <span title="Último precio registrado">
-                    <i class="fas fa-tag"></i>
-                    {% if last_price_cents is not none %}
-                      {{ ((last_price_cents or 0) / 100.0)|round(2) }} {{ (currency or 'EUR') }}
-                    {% else %}
-                      — {{ (currency or 'EUR') }}
-                    {% endif %}
-                  </span>
-                  <span title="Última comprobación">
-                    <i class="fas fa-clock"></i>
-                    {{ last_checked[:16] if last_checked else '—' }}
-                  </span>
-                  {% if alert_drop_percent %}
-                    <span title="Aviso si baja %"><i class="fas fa-bell"></i> −{{ alert_drop_percent }}%</span>
-                  {% endif %}
-                  {% if alert_below_cents %}
-                    <span title="Aviso si baja de"><i class="fas fa-bell"></i> ≤ {{ ((alert_below_cents or 0)/100.0)|round(2) }} {{ (currency or 'EUR') }}</span>
-                  {% endif %}
+  <div class="price-card">
+    <div class="price-row">
+      <span class="badge badge-on">
+        <i class="fas fa-bell"></i> Seguimiento activo
+      </span>
 
-                  <button type="button" class="icon-btn" title="Comprobar ahora"
-                          onclick="priceCheckNow({{ id }}, this)">
-                    <i class="fas fa-sync-alt"></i>
-                  </button>
-                </div>
-              </div>
-            {% endif %}
+      <span class="chip js-last-price" data-curr="{{ (currency or 'EUR') }}" title="Último precio registrado">
+        <i class="fas fa-tag"></i>
+        {% if last_price_cents is not none %}
+          {{ ((last_price_cents or 0) / 100.0)|round(2) }} {{ (currency or 'EUR') }}
+        {% else %}
+          — {{ (currency or 'EUR') }}
+        {% endif %}
+      </span>
+
+      <span class="chip muted" title="Última comprobación">
+        <i class="fas fa-clock"></i>
+        <span class="js-last-checked">{{ last_checked[:16] if last_checked else '—' }}</span>
+      </span>
+
+      {% if alert_drop_percent %}
+        <span class="chip" title="Aviso por porcentaje">
+          <i class="fas fa-percent"></i> −{{ alert_drop_percent }}%
+        </span>
+      {% endif %}
+      {% if alert_below_cents %}
+        <span class="chip" title="Aviso por cantidad">
+          <i class="fas fa-euro-sign"></i>
+          ≤ {{ ((alert_below_cents or 0)/100.0)|round(2) }} {{ (currency or 'EUR') }}
+        </span>
+      {% endif %}
+
+      <button type="button" class="btn-check"
+              title="Comprobar ahora"
+              onclick="priceCheckNow({{ id }}, this)">
+        <i class="fas fa-sync-alt"></i> Comprobar ahora
+      </button>
+    </div>
+  </div>
+{% endif %}
+
+
           {% endif %}
 
           <div class="wishlist-meta">
@@ -1732,14 +1799,43 @@
         </div>
 
         <!-- Seguimiento de precio -->
-        <div style="display:flex; align-items:center; gap:10px; margin: 6px 0 10px 0;">
-          <input type="checkbox" id="track_price" name="track_price" style="width:auto;">
-          <label for="track_price" style="margin:0;">Seguir precio 🔔</label>
-        </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px">
-          <input type="number" step="0.1" min="0" name="alert_drop_percent" placeholder="Avisar si baja (%)">
-          <input type="text"   name="alert_below_price"  placeholder="Avisar si ≤ precio (ej. 49,99 €)">
-        </div>
+        <!-- Seguimiento de precio (bonito + explicativo) -->
+<div class="price-card">
+  <div class="price-row" style="justify-content:space-between;">
+    <div class="switch">
+      <input type="checkbox" id="track_price" name="track_price">
+      <label for="track_price" aria-label="Activar seguimiento de precio"></label>
+      <span class="switch-text">Seguir precio</span>
+    </div>
+    <span class="badge badge-off"><i class="fas fa-bell"></i> Opcional</span>
+  </div>
+
+  <div class="price-help">
+    <details>
+      <summary>¿Cómo funciona?</summary>
+      <ul style="margin:8px 0 0 18px; opacity:.9;">
+        <li>Te avisamos cuando el precio <strong>baje</strong> en la página del enlace.</li>
+        <li>Puedes elegir que avise si baja un <strong>%</strong>, o si es ≤ a una <strong>cantidad</strong>.</li>
+        <li>Si no rellenas nada, simplemente guardaremos el último precio y podrás comprobarlo cuando quieras.</li>
+      </ul>
+    </details>
+  </div>
+
+  <div id="price-config" class="price-form" hidden>
+    <div class="input-wrap">
+      <label for="alert_drop_percent"><i class="fas fa-percent"></i> Avisar si baja (%)</label>
+      <input id="alert_drop_percent" name="alert_drop_percent" type="number" step="0.1" min="0" placeholder="Ej. 10">
+      <div class="helper">Ejemplo: <em>10</em> → avisaremos si baja un 10% respecto al último precio visto.</div>
+    </div>
+
+    <div class="input-wrap">
+      <label for="alert_below_price"><i class="fas fa-euro-sign"></i> Avisar si ≤ precio</label>
+      <input id="alert_below_price" name="alert_below_price" type="text" inputmode="decimal" placeholder="Ej. 49,99">
+      <div class="helper">Puedes usar coma o punto. Ejemplo: <em>49,99</em> o <em>49.99</em>.</div>
+    </div>
+  </div>
+</div>
+
 
         <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
       </form>
@@ -3109,6 +3205,59 @@ document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
 
 })();
 
+
+(function(){
+  // Mostrar/ocultar configuración en el formulario de "Añadir deseo"
+  const tp = document.getElementById('track_price');
+  const cfg = document.getElementById('price-config');
+  if (tp && cfg) {
+    const sync = ()=> { cfg.hidden = !tp.checked; };
+    tp.addEventListener('change', sync); sync();
+  }
+})();
+
+async function priceCheckNow(id, btn){
+  try {
+    const card = btn.closest('.wishlist-card');
+    const priceEl   = card ? card.querySelector('.js-last-price')   : null;
+    const checkedEl = card ? card.querySelector('.js-last-checked') : null;
+
+    btn.disabled = true;
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Comprobando...';
+
+    const form = new FormData();
+    form.append('id', id);
+    const res = await fetch('/price_check_now', { method:'POST', body: form });
+    const data = await res.json();
+
+    // Resultado
+    if (data && data.ok) {
+      if (checkedEl) checkedEl.textContent = 'ahora';
+
+      if (priceEl && typeof data.new === 'number') {
+        const curr = priceEl.dataset.curr || 'EUR';
+        const euros = (data.new/100).toFixed(2).replace('.', ',');
+        priceEl.classList.remove('price-down','price-same');
+        if (typeof data.old === 'number') {
+          if (data.new < data.old) priceEl.classList.add('price-down');
+          else priceEl.classList.add('price-same');
+        }
+        priceEl.innerHTML = '<i class="fas fa-tag"></i> ' + euros + ' ' + curr;
+        priceEl.classList.add('flash');
+        setTimeout(()=>priceEl.classList.remove('flash'), 900);
+      }
+    } else {
+      // Pista visual en error "no_price" u otros
+      btn.innerHTML = '<i class="fas fa-circle-exclamation"></i> Sin precio';
+      setTimeout(()=> btn.innerHTML = originalHTML, 1400);
+    }
+  } catch(e){
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 
 

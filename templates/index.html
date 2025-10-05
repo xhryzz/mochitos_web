@@ -1447,7 +1447,6 @@
   {% endif %}
 </div>
 
-
 <!-- Lista de deseos -->
 <div class="section animate-in delay-3">
   <h3>Nuestra Lista de Deseos</h3>
@@ -1462,7 +1461,7 @@
   <!-- Deseados -->
   <div class="wishlist-content active" id="wanted-tab">
     <div class="wishlist-grid">
-      {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift, size in wishlist_items if not is_purchased %}
+      {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift, size, track_price, last_price_cents, currency, last_checked, alert_drop_percent, alert_below_cents in wishlist_items if not is_purchased %}
         {% set pri = (priority or 'media') %}
         {% set soy_creador = (created_by == username) %}
         {% set oculto_para_mi = (is_gift and not soy_creador) %}
@@ -1477,7 +1476,6 @@
             {% if is_gift %}
               <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
             {% endif %}
-            {# ⚠️ Quitado el chip de talla de la cabecera #}
           </div>
 
           {% if oculto_para_mi %}
@@ -1492,7 +1490,6 @@
               <a href="{{ product_link }}" target="_blank" class="wishlist-link">
                 <i class="fas fa-link"></i> Ver producto
               </a>
-              {# 👇 Talla debajo del enlace #}
               {% if (size or '')|trim %}
                 <div class="wishlist-size"><strong>Talla:</strong> {{ size }}</div>
               {% endif %}
@@ -1500,6 +1497,36 @@
 
             {% if notes %}
               <p class="wishlist-notes">{{ notes }}</p>
+            {% endif %}
+
+            {% if track_price %}
+              <div class="wishlist-meta" style="margin-top:10px;">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                  <span title="Último precio registrado">
+                    <i class="fas fa-tag"></i>
+                    {% if last_price_cents is not none %}
+                      {{ ((last_price_cents or 0) / 100.0)|round(2) }} {{ (currency or 'EUR') }}
+                    {% else %}
+                      — {{ (currency or 'EUR') }}
+                    {% endif %}
+                  </span>
+                  <span title="Última comprobación">
+                    <i class="fas fa-clock"></i>
+                    {{ last_checked[:16] if last_checked else '—' }}
+                  </span>
+                  {% if alert_drop_percent %}
+                    <span title="Aviso si baja %"><i class="fas fa-bell"></i> −{{ alert_drop_percent }}%</span>
+                  {% endif %}
+                  {% if alert_below_cents %}
+                    <span title="Aviso si baja de"><i class="fas fa-bell"></i> ≤ {{ ((alert_below_cents or 0)/100.0)|round(2) }} {{ (currency or 'EUR') }}</span>
+                  {% endif %}
+
+                  <button type="button" class="icon-btn" title="Comprobar ahora"
+                          onclick="priceCheckNow({{ id }}, this)">
+                    <i class="fas fa-sync-alt"></i>
+                  </button>
+                </div>
+              </div>
             {% endif %}
           {% endif %}
 
@@ -1540,7 +1567,7 @@
             </button>
 
             {% if created_by == username %}
-            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm("¿Estás seguro de que quieres eliminar este producto?");">
+            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
               <input type="hidden" name="item_id" value="{{ id }}">
               <button type="submit" class="icon-btn" title="Eliminar">
                 <i class="fas fa-trash"></i>
@@ -1559,7 +1586,7 @@
   <!-- Comprados -->
   <div class="wishlist-content" id="purchased-tab">
     <div class="wishlist-grid">
-      {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift, size in wishlist_items if is_purchased %}
+      {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift, size, track_price, last_price_cents, currency, last_checked, alert_drop_percent, alert_below_cents in wishlist_items if is_purchased %}
         {% set pri = (priority or 'media') %}
         {% set soy_creador = (created_by == username) %}
         {% set oculto_para_mi = (is_gift and not soy_creador) %}
@@ -1574,7 +1601,6 @@
             {% if is_gift %}
               <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
             {% endif %}
-            {# ⚠️ Quitado el chip de talla de la cabecera #}
           </div>
 
           {% if oculto_para_mi %}
@@ -1589,7 +1615,6 @@
               <a href="{{ product_link }}" target="_blank" class="wishlist-link">
                 <i class="fas fa-link"></i> Ver producto
               </a>
-              {# 👇 Talla debajo del enlace #}
               {% if (size or '')|trim %}
                 <div class="wishlist-size"><strong>Talla:</strong> {{ size }}</div>
               {% endif %}
@@ -1597,6 +1622,36 @@
 
             {% if notes %}
               <p class="wishlist-notes">{{ notes }}</p>
+            {% endif %}
+
+            {% if track_price %}
+              <div class="wishlist-meta" style="margin-top:10px;">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                  <span title="Último precio registrado">
+                    <i class="fas fa-tag"></i>
+                    {% if last_price_cents is not none %}
+                      {{ ((last_price_cents or 0) / 100.0)|round(2) }} {{ (currency or 'EUR') }}
+                    {% else %}
+                      — {{ (currency or 'EUR') }}
+                    {% endif %}
+                  </span>
+                  <span title="Última comprobación">
+                    <i class="fas fa-clock"></i>
+                    {{ last_checked[:16] if last_checked else '—' }}
+                  </span>
+                  {% if alert_drop_percent %}
+                    <span title="Aviso si baja %"><i class="fas fa-bell"></i> −{{ alert_drop_percent }}%</span>
+                  {% endif %}
+                  {% if alert_below_cents %}
+                    <span title="Aviso si baja de"><i class="fas fa-bell"></i> ≤ {{ ((alert_below_cents or 0)/100.0)|round(2) }} {{ (currency or 'EUR') }}</span>
+                  {% endif %}
+
+                  <button type="button" class="icon-btn" title="Comprobar ahora"
+                          onclick="priceCheckNow({{ id }}, this)">
+                    <i class="fas fa-sync-alt"></i>
+                  </button>
+                </div>
+              </div>
             {% endif %}
           {% endif %}
 
@@ -1637,7 +1692,7 @@
             </button>
 
             {% if created_by == username %}
-            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm("¿Estás seguro de que quieres eliminar este producto?");">
+            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
               <input type="hidden" name="item_id" value="{{ id }}">
               <button type="submit" class="icon-btn" title="Eliminar">
                 <i class="fas fa-trash"></i>
@@ -1661,6 +1716,7 @@
         <input type="text" name="product_name" placeholder="Nombre del producto" required>
         <input type="url"  name="product_link" placeholder="Enlace (opcional)">
         <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
+
         <!-- Talla -->
         <input type="text" name="size" placeholder="Talla (opcional)" />
 
@@ -1670,18 +1726,27 @@
           <option value="baja">Prioridad: Baja 🟢</option>
         </select>
 
-        <div style="display:flex; align-items:center; gap:10px; margin: 6px 0 16px 0;">
+        <div style="display:flex; align-items:center; gap:10px; margin: 6px 0 10px 0;">
           <input type="checkbox" id="is_gift" name="is_gift" style="width:auto;">
           <label for="is_gift" style="margin:0;">¿Es un regalo (ocultar a la otra persona)? 🎁</label>
         </div>
 
-        
+        <!-- Seguimiento de precio -->
+        <div style="display:flex; align-items:center; gap:10px; margin: 6px 0 10px 0;">
+          <input type="checkbox" id="track_price" name="track_price" style="width:auto;">
+          <label for="track_price" style="margin:0;">Seguir precio 🔔</label>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px">
+          <input type="number" step="0.1" min="0" name="alert_drop_percent" placeholder="Avisar si baja (%)">
+          <input type="text"   name="alert_below_price"  placeholder="Avisar si ≤ precio (ej. 49,99 €)">
+        </div>
 
         <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
       </form>
     </div>
   </div>
 </div>
+
 
       <!-- Viajes -->
       <div class="section animate-in delay-4">
@@ -2870,6 +2935,183 @@ document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
     }
   }
 })();
+
+
+
+
+
+
+(() => {
+  /* ===========================
+     Toasts minimalistas
+  =========================== */
+  const toastHost = document.getElementById('toasts');
+  window.showToast = function (type = 'info', text = '', ms = 3500) {
+    if (!toastHost) return alert(text);
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `
+      <div class="toast-content">
+        <span class="dot" aria-hidden="true"></span>
+        <div class="text">${text}</div>
+        <button class="close" aria-label="Cerrar">&times;</button>
+      </div>
+      <div class="progress"></div>
+    `;
+    toastHost.appendChild(el);
+
+    const close = () => {
+      if (!el) return;
+      el.classList.add('closing');
+      setTimeout(() => el.remove(), 250);
+    };
+
+    el.querySelector('.close')?.addEventListener('click', close);
+    const t = setTimeout(close, ms);
+    // detener cierre si el usuario pasa el ratón
+    el.addEventListener('mouseenter', () => clearTimeout(t), { once: true });
+  };
+
+  /* ===========================
+     Pestañas (Deseados / Comprados / Añadir)
+  =========================== */
+  const tabsWrap = document.getElementById('wishlist-tabs-container');
+  const contents = {
+    wanted: document.getElementById('wanted-tab'),
+    purchased: document.getElementById('purchased-tab'),
+    'add-wishlist': document.getElementById('add-wishlist-tab')
+  };
+
+  function setTab(key) {
+    if (!contents[key]) return;
+    // tabs
+    tabsWrap.querySelectorAll('.wishlist-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === key);
+    });
+    // panels
+    Object.entries(contents).forEach(([k, el]) => {
+      el.classList.toggle('active', k === key);
+    });
+    try { localStorage.setItem('wlTab', key); } catch {}
+  }
+
+  tabsWrap?.addEventListener('click', (e) => {
+    const tab = e.target.closest('.wishlist-tab');
+    if (!tab) return;
+    setTab(tab.dataset.tab);
+  });
+
+  // restaurar pestaña previa
+  const savedTab = (() => { try { return localStorage.getItem('wlTab'); } catch { return null; }})();
+  if (savedTab && contents[savedTab]) setTab(savedTab);
+
+  /* ===========================
+     Modal de edición (wishlist)
+  =========================== */
+  const editModal = document.getElementById('editWishlistModal');
+  const editForm  = document.getElementById('editWishlistForm');
+
+  window.openEditModal = function (id, name, link, notes, priority, isGift, size) {
+    if (!editModal) return;
+    document.getElementById('editItemId').value         = id ?? '';
+    document.getElementById('editProductName').value    = name ?? '';
+    document.getElementById('editProductLink').value    = link ?? '';
+    document.getElementById('editNotes').value          = notes ?? '';
+    document.getElementById('editSize').value           = size ?? '';
+    const sel = document.getElementById('editPriority');
+    if (sel) sel.value = (priority || 'media');
+    const chk = document.getElementById('editIsGift');
+    if (chk) chk.checked = !!isGift;
+
+    editModal.style.display = 'block';
+    // focus first input
+    setTimeout(() => document.getElementById('editProductName')?.focus(), 10);
+  };
+
+  // cerrar modal
+  editModal?.querySelector('.close-modal')?.addEventListener('click', () => editModal.style.display = 'none');
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && editModal?.style.display === 'block') editModal.style.display = 'none'; });
+  window.addEventListener('click', (e) => { if (e.target === editModal) editModal.style.display = 'none'; });
+
+  /* ===========================
+     Comprobar precio ahora
+  =========================== */
+  function formatCents(cents, currency = 'EUR') {
+    if (cents == null || isNaN(cents)) return '—';
+    try {
+      return new Intl.NumberFormat('es-ES', { style: 'currency', currency }).format(cents / 100);
+    } catch {
+      return (cents / 100).toFixed(2) + ' ' + currency;
+    }
+  }
+
+  window.priceCheckNow = async function (id, btn) {
+    let oldHTML = null;
+    try {
+      if (btn) {
+        oldHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+      }
+      const body = new URLSearchParams({ id: String(id) });
+      const res  = await fetch('/price_check_now', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body
+      });
+      const data = await res.json();
+
+      if (!data.ok) {
+        if (data.error === 'no_price') {
+          showToast('error', 'No pude detectar el precio en la página.');
+        } else if (data.error === 'not_found_or_no_link') {
+          showToast('error', 'No encuentro el producto o no tiene enlace.');
+        } else {
+          showToast('error', 'No se pudo comprobar el precio.');
+        }
+        return;
+      }
+
+      const oldC = data.old;
+      const newC = data.new;
+
+      if (oldC != null && newC < oldC) {
+        const pct = Math.round(((oldC - newC) * 1000) / oldC) / 10;
+        showToast('success', `¡Bajada de precio! De ${formatCents(oldC)} a ${formatCents(newC)} (−${pct}%).`);
+      } else if (oldC == null) {
+        showToast('info', `Precio guardado: ${formatCents(newC)}.`);
+      } else {
+        showToast('info', `Sin cambios: ${formatCents(newC)}.`);
+      }
+
+      // recarga para reflejar precio/fecha actualizados en la tarjeta
+      setTimeout(() => location.reload(), 600);
+    } catch (err) {
+      showToast('error', 'Error al comprobar el precio.');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = oldHTML || '<i class="fas fa-sync-alt"></i>';
+      }
+    }
+  };
+
+  /* ===========================
+     SSE (auto-actualiza si otro edita)
+  =========================== */
+  try {
+    const es = new EventSource('/events');
+    es.addEventListener('wishlist_update', () => {
+      showToast('info', 'Lista actualizada. Refrescando…');
+      setTimeout(() => location.reload(), 500);
+    });
+  } catch {}
+
+})();
+
+
+
+
 </script>
 
 

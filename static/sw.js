@@ -15,16 +15,17 @@ self.addEventListener('message', (event) => {
 });
 
 // Push real desde el servidor
-// Push real desde el servidor
 self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch(e){}
+
   const titulo = data.title || 'Notificación';
-  // usa exactamente el body que mande el servidor, sin añadir "de ..."
-  const cuerpo = data.body || 'Tienes una novedad';
+  // No usar fallback genérico: si el server no manda body, lo omitimos
+  const cuerpo = ('body' in data) ? data.body : undefined;
   const icono  = data.icon  || '/static/icons/icon-192.png';
   const badge  = data.badge || '/static/icons/badge-72.png';
   const url    = data.url   || '/';
+  const tag    = data.tag   || undefined;
 
   event.waitUntil(
     self.registration.showNotification(titulo, {
@@ -32,11 +33,11 @@ self.addEventListener('push', (event) => {
       icon: icono,
       badge: badge,
       data: { url },
+      tag,                 // agrupa notificaciones del mismo tipo
       lang: 'es-ES'
     })
   );
 });
-
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();

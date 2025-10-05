@@ -1,4 +1,4 @@
-# app.py — con Web Push y notificaciones (Europe/Madrid fijo a medianoche)
+# app.py — con Web Push, notificaciones (Europe/Madrid a medianoche) y seguimiento de precio
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash, Response, make_response
 import psycopg2, psycopg2.extras
 from psycopg2.pool import SimpleConnectionPool
@@ -9,7 +9,7 @@ from contextlib import closing
 from base64 import b64encode
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
-
+import re  # <-- Seguimiento de precio
 # Web Push
 from pywebpush import webpush, WebPushException
 
@@ -17,6 +17,12 @@ try:
     import pytz  # opcional (fallback)
 except Exception:
     pytz = None
+
+# (opcional) mejor parser HTML para precio
+try:
+    from bs4 import BeautifulSoup
+except Exception:
+    BeautifulSoup = None
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
@@ -196,52 +202,36 @@ def get_db_connection():
 
 # ========= Zona horaria Europe/Madrid =========
 def _eu_last_sunday(year: int, month: int) -> date:
-    """Último domingo del mes (para reglas DST europeas)."""
     if month == 12:
         next_month = date(year + 1, 1, 1)
     else:
         next_month = date(year, month + 1, 1)
     d = next_month - timedelta(days=1)
-    while d.weekday() != 6:  # 0=lunes ... 6=domingo
+    while d.weekday() != 6:
         d -= timedelta(days=1)
     return d
 
 def _europe_madrid_now_fallback() -> datetime:
-    """
-    Fallback manual CET/CEST: calculado contra UTC.
-    DST en Europa: de las 01:00 UTC del último domingo de marzo
-                   a las 01:00 UTC del último domingo de octubre.
-    """
     utc_now = datetime.now(timezone.utc)
     y = utc_now.year
     start_dst_utc = datetime(y, 3, _eu_last_sunday(y, 3).day, 1, 0, 0, tzinfo=timezone.utc)
     end_dst_utc   = datetime(y, 10, _eu_last_sunday(y, 10).day, 1, 0, 0, tzinfo=timezone.utc)
     offset_hours = 2 if start_dst_utc <= utc_now < end_dst_utc else 1
-    # devolvemos naive local para integrarlo con el resto de código
     return (utc_now + timedelta(hours=offset_hours)).replace(tzinfo=None)
 
 def europe_madrid_now() -> datetime:
-    """
-    Devuelve 'ahora' en Europe/Madrid partiendo SIEMPRE de UTC, para evitar desajustes del contenedor.
-    """
     utc_now = datetime.now(timezone.utc)
-
-    # 1) zoneinfo (stdlib)
     try:
         from zoneinfo import ZoneInfo
         return utc_now.astimezone(ZoneInfo("Europe/Madrid"))
     except Exception:
         pass
-
-    # 2) pytz (si disponible)
     if pytz:
         try:
             tz = pytz.timezone("Europe/Madrid")
             return tz.fromutc(utc_now.replace(tzinfo=pytz.utc))
         except Exception:
             pass
-
-    # 3) Fallback manual CET/CEST
     return _europe_madrid_now_fallback()
 
 def today_madrid() -> date:
@@ -456,6 +446,16 @@ def init_db():
         c.execute("CREATE INDEX IF NOT EXISTS idx_wishlist_state_prio ON wishlist (is_purchased, priority, created_at DESC)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_intim_user_ts ON intimacy_events (username, ts DESC)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions (username)")
+
+        # ======= Seguimiento de PRECIO: migraciones =======
+        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS track_price BOOLEAN DEFAULT FALSE""")
+        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS last_price_cents INTEGER""")
+        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS currency TEXT""")
+        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS last_checked TEXT""")
+        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS alert_drop_percent REAL""")
+        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS alert_below_cents INTEGER""")
+        c.execute("""CREATE INDEX IF NOT EXISTS idx_wishlist_track ON wishlist (track_price, is_purchased)""")
+
         conn.commit()
 
 init_db()
@@ -649,7 +649,6 @@ def hex_to_base64url(hexstr: str) -> str:
         return ""
 
 def get_vapid_public_base64url() -> str:
-    # Web Push JS espera base64url del punto público (65 bytes). Guardas HEX en env.
     return hex_to_base64url(VAPID_PUBLIC_KEY_HEX)
 
 def get_subscriptions_for(user: str):
@@ -701,7 +700,6 @@ def send_push_raw(sub: dict, payload: dict):
         print(f"[push] error gen: {e}")
         return False
 
-# === NUEVA: send_push_to con body/url/tag/icon/badge opcionales ===
 def send_push_to(user: str,
                  title: str,
                  body: str | None = None,
@@ -710,10 +708,6 @@ def send_push_to(user: str,
                  tag: str | None = None,
                  icon: str | None = None,
                  badge: str | None = None):
-    """
-    Envia un Web Push a un usuario con campos de payload en top-level:
-    title, body, url, tag, icon, badge. (Además puedes pasar data extra).
-    """
     subs = get_subscriptions_for(user)
     payload = {"title": title}
     if body is not None and body != "": payload["body"] = body
@@ -722,7 +716,6 @@ def send_push_to(user: str,
     if icon:  payload["icon"]  = icon
     if badge: payload["badge"] = badge
     if data:  payload["data"]  = data
-
     ok = False
     for sub in subs:
         ok = send_push_raw(sub, payload) or ok
@@ -799,10 +792,6 @@ def _meet_times_key(day: date): return f"meet_times::{day.isoformat()}"
 def _meet_sent_key(day: date, hhmm: str): return f"meet_sent::{day.isoformat()}::{hhmm}"
 
 def ensure_meet_times(day: date):
-    """
-    Devuelve la lista de horas 'HH:MM' programadas para hoy entre 09:00 y 23:59.
-    Si no existen, crea 2 o 3 aleatorias y las guarda en app_state.
-    """
     key = _meet_times_key(day)
     raw = state_get(key, "")
     try:
@@ -813,18 +802,14 @@ def ensure_meet_times(day: date):
         n = random.choice([2, 3])
         chosen = set()
         while len(chosen) < n:
-            h = random.randint(9, 23)     # 09..23
-            m = random.randint(0, 59)     # 00..59
+            h = random.randint(9, 23)
+            m = random.randint(0, 59)
             chosen.add(f"{h:02d}:{m:02d}")
         times = sorted(chosen)
         state_set(key, json.dumps(times))
     return times
 
 def due_now(now_madrid: datetime, hhmm: str) -> bool:
-    """
-    ¿Estamos dentro de una ventana ±90s de la hora programada?
-    (el bucle corre cada ~45s)
-    """
     try:
         hh, mm = map(int, hhmm.split(":"))
     except Exception:
@@ -832,12 +817,205 @@ def due_now(now_madrid: datetime, hhmm: str) -> bool:
     scheduled = now_madrid.replace(hour=hh, minute=mm, second=0, microsecond=0)
     return abs((now_madrid - scheduled).total_seconds()) <= 90
 
+# ========= Seguimiento de PRECIO: helpers =========
+PRICE_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
+
+def _to_cents_from_str(s: str) -> int | None:
+    if not s: return None
+    s = s.strip()
+    s_plain = re.sub(r"[^\d,.\-]", "", s)
+    if not s_plain: return None
+    if "," in s_plain and "." in s_plain:
+        last = max(s_plain.rfind(","), s_plain.rfind("."))
+        int_part = re.sub(r"[.,]", "", s_plain[:last])
+        frac = s_plain[last+1:last+3].ljust(2,"0")
+        num = f"{int_part}.{frac}"
+    elif "," in s_plain:
+        parts = s_plain.split(",")
+        if len(parts[-1]) in (1,2):
+            num = f"{''.join(parts[:-1])}.{parts[-1].ljust(2,'0')}"
+        else:
+            num = s_plain.replace(",", "")
+    else:
+        num = s_plain
+    try:
+        return int(round(float(num) * 100))
+    except Exception:
+        return None
+
+def _find_in_jsonld(html: str):
+    for m in re.finditer(r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>', html, flags=re.S|re.I):
+        blob = m.group(1)
+        pm = re.search(r'"price"\s*:\s*"?(?P<p>[\d.,]+)"?', blob)
+        cm = re.search(r'"priceCurrency"\s*:\s*"?(?P<c>[A-Z]{3})"?', blob)
+        if pm:
+            cents = _to_cents_from_str(pm.group("p"))
+            curr = (cm.group("c") if cm else None) or ("EUR" if "€" in html else None)
+            if cents: return cents, curr
+    return None, None
+
+def _meta_price(soup):
+    for selector in [
+        ('meta', {'property': 'product:price:amount'}),
+        ('meta', {'property': 'og:price:amount'}),
+        ('meta', {'name': 'twitter:data1'}),
+        ('meta', {'itemprop': 'price'}),
+    ]:
+        tag = soup.find(*selector)
+        val = (tag.get('content') if tag else None)
+        if val:
+            cents = _to_cents_from_str(val)
+            if cents: return cents
+    tag = soup.find(attrs=lambda at: at and any('price' in k for k in at.keys()))
+    if tag:
+        for k,v in tag.attrs.items():
+            if 'price' in k and v:
+                cents = _to_cents_from_str(str(v))
+                if cents: return cents
+    return None
+
+def fetch_price(url: str) -> tuple[int | None, str | None, str | None]:
+    try:
+        resp = requests.get(url, timeout=8, headers={"User-Agent": PRICE_UA})
+        html = resp.text
+        c_jsonld, curr = _find_in_jsonld(html)
+        cents_dom = None
+        soup = BeautifulSoup(html, "html.parser") if BeautifulSoup else None
+        if soup:
+            cents_dom = _meta_price(soup)
+            title = (soup.title.text.strip() if soup.title else None)
+        else:
+            title = None
+        cents_rx = None
+        for pat in [r"€\s*\d[\d\.\,]*", r"\d[\d\.\,]*\s*€", r"\b\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})\b"]:
+            m = re.search(pat, html)
+            if m:
+                cents_rx = _to_cents_from_str(m.group(0)); break
+        price = c_jsonld or cents_dom or cents_rx
+        if price:
+            if not curr:
+                curr = "EUR" if "€" in html else None
+            return price, curr, title
+        return None, None, title
+    except Exception as e:
+        print("[price] fetch error:", e)
+        return None, None, None
+
+def fmt_eur(cents: int | None) -> str:
+    if cents is None: return "—"
+    euros = cents/100.0
+    return f"{euros:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+
+def notify_price_drop(row, old_cents: int, new_cents: int):
+    """Notifica bajada de precio.
+       - Si es regalo (is_gift=True): SOLO al creador.
+       - Si no es regalo: a ambos.
+    """
+    # row es DictRow -> acceder por clave
+    wid         = row['id']
+    pname       = row['product_name']
+    link        = row.get('product_link')
+    created_by  = row.get('created_by')
+    is_gift     = bool(row.get('is_gift'))
+
+    drop = old_cents - new_cents
+    pct = (drop / old_cents) * 100 if old_cents else 0.0
+    title = "⬇️ ¡Bajada de precio!"
+    body  = f"{pname}\nDe {fmt_eur(old_cents)} a {fmt_eur(new_cents)} (−{pct:.1f}%)."
+    tag   = f"price-drop-{wid}"
+
+    try:
+        if is_gift and created_by in ("mochito", "mochita"):
+            # Regalo → notificar SOLO al creador
+            send_push_to(created_by, title=title, body=body, url=link, tag=tag)
+        else:
+            # No es regalo → ambos
+            send_push_both(title=title, body=body, url=link, tag=tag)
+    except Exception as e:
+        print("[push price]", e)
+
+    send_discord("Price drop", {
+        "wid": int(wid),
+        "name": pname,
+        "old": old_cents,
+        "new": new_cents,
+        "pct": round(pct, 1),
+        "is_gift": is_gift,
+        "created_by": created_by
+    })
+
+def sweep_price_checks(max_items: int = 6, min_age_minutes: int = 180):
+    """Consulta algunos items con tracking y actualiza si baja el precio."""
+    now_txt = now_madrid_str()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+              SELECT id, product_name, product_link, created_by,
+                     is_gift,
+                     track_price, last_price_cents, currency, last_checked,
+                     COALESCE(alert_drop_percent, 0) AS alert_pct,
+                     alert_below_cents
+              FROM wishlist
+              WHERE track_price = TRUE AND is_purchased = FALSE
+                    AND product_link IS NOT NULL AND TRIM(product_link) <> ''
+              ORDER BY COALESCE(last_checked, '1970-01-01') ASC
+              LIMIT %s
+            """, (max_items,))
+            rows = c.fetchall()
+
+        for row in rows:
+            wid = row['id']
+            last_checked = _parse_dt(row['last_checked'] or "")
+            if last_checked:
+                from datetime import timedelta as _td
+                if (europe_madrid_now() - last_checked) < _td(minutes=min_age_minutes):
+                    continue
+
+            price_cents, curr, _title = fetch_price(row['product_link'])
+            if not price_cents:
+                with conn.cursor() as c2:
+                    c2.execute("UPDATE wishlist SET last_checked=%s WHERE id=%s", (now_txt, wid))
+                    conn.commit()
+                continue
+
+            old = row['last_price_cents']
+            notify = False
+            if old is None:
+                pass
+            else:
+                if price_cents < old:
+                    drop_pct = (old - price_cents) * 100 / old if old else 0
+                    if row['alert_below_cents'] is not None and price_cents <= int(row['alert_below_cents']):
+                        notify = True
+                    elif row['alert_pct'] and drop_pct < float(row['alert_pct']):
+                        notify = False
+                    else:
+                        notify = True
+
+            with conn.cursor() as c3:
+                c3.execute("""
+                  UPDATE wishlist
+                  SET last_price_cents=%s,
+                      currency=%s,
+                      last_checked=%s
+                  WHERE id=%s
+                """, (price_cents, curr or row['currency'] or "EUR", now_txt, wid))
+                conn.commit()
+
+            if notify and old is not None:
+                notify_price_drop(row, old, price_cents)
+
+    finally:
+        conn.close()
+
 # ========= Background scheduler (recordatorios) =========
 def background_loop():
     """Bucles de 45–60s para:
        - crear pregunta del día a medianoche y notificar a ambos
        - recordatorios 3/2/1 días (2–3 veces entre 09:00 y 23:00)
        - últimas 3h si falta responder
+       - barrido de seguimiento de precios cada ~3h
     """
     print("[bg] scheduler iniciado")
     while True:
@@ -892,6 +1070,21 @@ def background_loop():
                                 push_last_hours(u)
                                 state_set(key, "1")
 
+            # 4) Barrido de precios cada ~3h
+            try:
+                last_sweep = state_get("last_price_sweep", "")
+                do = True
+                if last_sweep:
+                    dt = _parse_dt(last_sweep)
+                    if dt:
+                        from datetime import timedelta as _td
+                        do = (europe_madrid_now() - dt) >= _td(hours=3)
+                if do:
+                    sweep_price_checks(max_items=6, min_age_minutes=180)
+                    state_set("last_price_sweep", now_madrid_str())
+            except Exception as e:
+                print("[bg price sweep]", e)
+
         except Exception as e:
             print(f"[bg] error: {e}")
 
@@ -939,215 +1132,228 @@ def index():
     try:
         with conn.cursor() as c:
             # ------------ POST acciones ------------
-            if request.method == 'POST':
-                # 1) Foto perfil
-                if 'update_profile' in request.form and 'profile_picture' in request.files:
-                    file = request.files['profile_picture']
-                    if file and file.filename:
-                        image_data = file.read()
-                        filename = secure_filename(file.filename)
-                        mime_type = file.mimetype
-                        c.execute("""
-                            INSERT INTO profile_pictures (username, image_data, filename, mime_type, uploaded_at)
-                            VALUES (%s,%s,%s,%s,%s)
-                            ON CONFLICT (username) DO UPDATE
-                            SET image_data=EXCLUDED.image_data, filename=EXCLUDED.filename,
-                                mime_type=EXCLUDED.mime_type, uploaded_at=EXCLUDED.uploaded_at
-                        """, (user, image_data, filename, mime_type, now_madrid_str()))
-                        conn.commit(); flash("Foto de perfil actualizada ✅", "success")
-                        send_discord("Profile picture updated", {"user": user, "filename": filename})
-                        cache_invalidate('get_profile_pictures')
-                        broadcast("profile_update", {"user": user})
-                    return redirect('/')
+            # 1) Foto perfil
+            if request.method == 'POST' and 'update_profile' in request.form and 'profile_picture' in request.files:
+                file = request.files['profile_picture']
+                if file and file.filename:
+                    image_data = file.read()
+                    filename = secure_filename(file.filename)
+                    mime_type = file.mimetype
+                    c.execute("""
+                        INSERT INTO profile_pictures (username, image_data, filename, mime_type, uploaded_at)
+                        VALUES (%s,%s,%s,%s,%s)
+                        ON CONFLICT (username) DO UPDATE
+                        SET image_data=EXCLUDED.image_data, filename=EXCLUDED.filename,
+                            mime_type=EXCLUDED.mime_type, uploaded_at=EXCLUDED.uploaded_at
+                    """, (user, image_data, filename, mime_type, now_madrid_str()))
+                    conn.commit(); flash("Foto de perfil actualizada ✅", "success")
+                    send_discord("Profile picture updated", {"user": user, "filename": filename})
+                    cache_invalidate('get_profile_pictures')
+                    broadcast("profile_update", {"user": user})
+                return redirect('/')
 
-                # 2) Cambio de contraseña
-                if 'change_password' in request.form:
-                    current_password = request.form.get('current_password', '').strip()
-                    new_password = request.form.get('new_password', '').strip()
-                    confirm_password = request.form.get('confirm_password', '').strip()
-                    if not current_password or not new_password or not confirm_password:
-                        flash("Completa todos los campos de contraseña.", "error"); return redirect('/')
-                    if new_password != confirm_password:
-                        flash("La nueva contraseña y la confirmación no coinciden.", "error"); return redirect('/')
-                    if len(new_password) < 4:
-                        flash("La nueva contraseña debe tener al menos 4 caracteres.", "error"); return redirect('/')
-                    c.execute("SELECT password FROM users WHERE username=%s", (user,))
-                    row = c.fetchone()
-                    if not row:
-                        flash("Usuario no encontrado.", "error"); return redirect('/')
-                    stored = row[0]
-                    valid_current = check_password_hash(stored, current_password) if _is_hashed(stored) else (stored == current_password)
-                    if not valid_current:
-                        flash("La contraseña actual no es correcta.", "error")
-                        send_discord("Change password FAIL", {"user": user, "reason": "wrong_current"}); return redirect('/')
-                    new_hash = generate_password_hash(new_password)
-                    c.execute("UPDATE users SET password=%s WHERE username=%s", (new_hash, user))
-                    conn.commit(); flash("Contraseña cambiada correctamente 🎉", "success")
-                    send_discord("Change password OK", {"user": user}); return redirect('/')
+            # 2) Cambio de contraseña
+            if request.method == 'POST' and 'change_password' in request.form:
+                current_password = request.form.get('current_password', '').strip()
+                new_password = request.form.get('new_password', '').strip()
+                confirm_password = request.form.get('confirm_password', '').strip()
+                if not current_password or not new_password or not confirm_password:
+                    flash("Completa todos los campos de contraseña.", "error"); return redirect('/')
+                if new_password != confirm_password:
+                    flash("La nueva contraseña y la confirmación no coinciden.", "error"); return redirect('/')
+                if len(new_password) < 4:
+                    flash("La nueva contraseña debe tener al menos 4 caracteres.", "error"); return redirect('/')
+                c.execute("SELECT password FROM users WHERE username=%s", (user,))
+                row = c.fetchone()
+                if not row:
+                    flash("Usuario no encontrado.", "error"); return redirect('/')
+                stored = row[0]
+                valid_current = check_password_hash(stored, current_password) if _is_hashed(stored) else (stored == current_password)
+                if not valid_current:
+                    flash("La contraseña actual no es correcta.", "error")
+                    send_discord("Change password FAIL", {"user": user, "reason": "wrong_current"}); return redirect('/')
+                new_hash = generate_password_hash(new_password)
+                c.execute("UPDATE users SET password=%s WHERE username=%s", (new_hash, user))
+                conn.commit(); flash("Contraseña cambiado correctamente 🎉", "success")
+                send_discord("Change password OK", {"user": user}); return redirect('/')
 
-                # 3) Responder pregunta
-                if 'answer' in request.form:
-                    answer = request.form['answer'].strip()
-                    if question_id is not None and answer:
-                        now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"  # UTC para trazabilidad
-                        c.execute("SELECT id, answer, created_at, updated_at FROM answers WHERE question_id=%s AND username=%s",
-                                  (question_id, user))
-                        prev = c.fetchone()
-                        if not prev:
-                            c.execute("""INSERT INTO answers (question_id, username, answer, created_at, updated_at)
-                                         VALUES (%s,%s,%s,%s,%s) ON CONFLICT (question_id, username) DO NOTHING""",
-                                      (question_id, user, answer, now_txt, now_txt))
-                            conn.commit(); send_discord("Answer submitted", {"user": user, "question_id": question_id})
-                        else:
-                            prev_id, prev_text, prev_created, prev_updated = prev
-                            if answer != (prev_text or ""):
-                                if prev_created is None:
-                                    c.execute("""UPDATE answers SET answer=%s, updated_at=%s, created_at=%s WHERE id=%s""",
-                                              (answer, now_txt, prev_updated or now_txt, prev_id))
-                                else:
-                                    c.execute("""UPDATE answers SET answer=%s, updated_at=%s WHERE id=%s""",
-                                              (answer, now_txt, prev_id))
-                                conn.commit(); send_discord("Answer edited", {"user": user, "question_id": question_id})
-                        cache_invalidate('compute_streaks')
-                        broadcast("dq_answer", {"user": user})
-                        try:
-                            push_answer_notice(user)
-                        except Exception as e:
-                            print("[push answer] ", e)
-                    return redirect('/')
-
-                # 3-bis) Cambiar la pregunta de HOY (no borramos la fila => no rompe FK)
-                if 'dq_reroll' in request.form:
-                    if question_id is not None:
-                        # vieja pregunta (para excluirla del set usado)
-                        c.execute("SELECT question FROM daily_questions WHERE id=%s", (question_id,))
-                        old_q = (c.fetchone() or [None])[0]
-
-                        # calculamos candidatas
-                        c.execute("SELECT question FROM daily_questions")
-                        used = {row[0] for row in c.fetchall()}
-                        if old_q:
-                            used.discard(old_q)  # permitir reusar el hueco de hoy
-                        remaining = [q for q in QUESTIONS if q not in used]
-
-                        if remaining:
-                            new_q = random.choice(remaining)
-                            # borrar respuestas del día (para empezar limpios)
-                            c.execute("DELETE FROM answers WHERE question_id=%s", (question_id,))
-                            # actualizar SOLO el texto de la pregunta (no tocamos la fila)
-                            c.execute("UPDATE daily_questions SET question=%s WHERE id=%s", (new_q, question_id))
-                            conn.commit()
-                            cache_invalidate('compute_streaks')
-                            flash("Pregunta cambiada para hoy ✅", "success")
-                            send_discord("DQ reroll", {"user": user, "old": old_q, "new": new_q})
-                            broadcast("dq_change", {"id": int(question_id)})
-                        else:
-                            flash("No quedan preguntas disponibles para cambiar 😅", "error")
-                    return redirect('/')
-
-
-                # 4) Meeting date
-                if 'meeting_date' in request.form:
-                    meeting_date = request.form['meeting_date']
-                    c.execute("INSERT INTO meeting (meeting_date) VALUES (%s)", (meeting_date,))
-                    conn.commit(); flash("Fecha actualizada 📅", "success")
-                    send_discord("Meeting date updated", {"user": user, "date": meeting_date})
-                    broadcast("meeting_update", {"date": meeting_date}); return redirect('/')
-
-                # 5) Banner
-                if 'banner' in request.files:
-                    file = request.files['banner']
-                    if file and file.filename:
-                        image_data = file.read()
-                        filename = secure_filename(file.filename)
-                        mime_type = file.mimetype
-                        c.execute("INSERT INTO banner (image_data, filename, mime_type, uploaded_at) VALUES (%s,%s,%s,%s)",
-                                  (image_data, filename, mime_type, now_madrid_str()))
-                        conn.commit(); flash("Banner actualizado 🖼️", "success")
-                        send_discord("Banner updated", {"user": user, "filename": filename})
-                        cache_invalidate('get_banner')
-                        broadcast("banner_update", {"by": user})
-                    return redirect('/')
-
-                # 6) Nuevo viaje
-                if 'travel_destination' in request.form:
-                    destination = request.form['travel_destination'].strip()
-                    description = request.form.get('travel_description', '').strip()
-                    travel_date = request.form.get('travel_date', '')
-                    is_visited = 'travel_visited' in request.form
-                    if destination:
-                        c.execute("""INSERT INTO travels (destination, description, travel_date, is_visited, created_by, created_at)
-                                     VALUES (%s,%s,%s,%s,%s,%s)""",
-                                  (destination, description, travel_date, is_visited, user, now_madrid_str()))
-                        conn.commit(); flash("Viaje añadido ✈️", "success")
-                        send_discord("Travel added", {"user": user, "dest": destination, "visited": is_visited})
-                        broadcast("travel_update", {"type": "add"})
-                    return redirect('/')
-
-                # 7) Foto de viaje (URL)
-                if 'travel_photo_url' in request.form:
-                    travel_id = request.form.get('travel_id')
-                    image_url = request.form['travel_photo_url'].strip()
-                    if image_url and travel_id:
-                        c.execute("""INSERT INTO travel_photos (travel_id, image_url, uploaded_by, uploaded_at)
-                                     VALUES (%s,%s,%s,%s)""",
-                                  (travel_id, image_url, user, now_madrid_str()))
-                        conn.commit(); flash("Foto añadida 📸", "success")
-                        send_discord("Travel photo added", {"user": user, "travel_id": travel_id})
-                        broadcast("travel_update", {"type": "photo_add", "id": int(travel_id)})
-                    return redirect('/')
-
-                # 8) Wishlist add
-                if 'product_name' in request.form and 'edit_wishlist_item' not in request.path:
-                    product_name = request.form['product_name'].strip()
-                    product_link = request.form.get('product_link', '').strip()
-                    notes = request.form.get('wishlist_notes', '').strip()
-                    product_size = request.form.get('size', '').strip()
-                    priority = request.form.get('priority', 'media').strip()
-                    is_gift = bool(request.form.get('is_gift'))
-                    if priority not in ('alta', 'media', 'baja'): priority = 'media'
-                    if product_name:
-                        c.execute("""INSERT INTO wishlist (product_name, product_link, notes, size, created_by, created_at, is_purchased, priority, is_gift)
-                                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                                  (product_name, product_link, notes, product_size, user, now_madrid_str(),
-                                   False, priority, is_gift))
-                        conn.commit(); flash("Producto añadido a la lista 🛍️", "success")
-                        send_discord("Wishlist added", {"user": user, "name": product_name, "priority": priority, "is_gift": is_gift, "size": product_size})
-                        broadcast("wishlist_update", {"type": "add"})
-                        try:
-                            push_wishlist_notice(user, is_gift)
-                        except Exception as e:
-                            print("[push wishlist] ", e)
-                    return redirect('/')
-
-                # INTIMIDAD
-                if 'intim_unlock_pin' in request.form:
-                    pin_try = request.form.get('intim_pin', '').strip()
-                    if pin_try == INTIM_PIN:
-                        session['intim_unlocked'] = True; flash("Módulo Intimidad desbloqueado ✅", "success")
-                        send_discord("Intimidad unlock OK", {"user": user})
+            # 3) Responder pregunta
+            if request.method == 'POST' and 'answer' in request.form:
+                answer = request.form['answer'].strip()
+                if question_id is not None and answer:
+                    now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"  # UTC
+                    c.execute("SELECT id, answer, created_at, updated_at FROM answers WHERE question_id=%s AND username=%s",
+                              (question_id, user))
+                    prev = c.fetchone()
+                    if not prev:
+                        c.execute("""INSERT INTO answers (question_id, username, answer, created_at, updated_at)
+                                     VALUES (%s,%s,%s,%s,%s) ON CONFLICT (question_id, username) DO NOTHING""",
+                                  (question_id, user, answer, now_txt, now_txt))
+                        conn.commit(); send_discord("Answer submitted", {"user": user, "question_id": question_id})
                     else:
-                        session.pop('intim_unlocked', None); flash("PIN incorrecto ❌", "error")
-                        send_discord("Intimidad unlock FAIL", {"user": user})
-                    return redirect('/')
+                        prev_id, prev_text, prev_created, prev_updated = prev
+                        if answer != (prev_text or ""):
+                            if prev_created is None:
+                                c.execute("""UPDATE answers SET answer=%s, updated_at=%s, created_at=%s WHERE id=%s""",
+                                          (answer, now_txt, prev_updated or now_txt, prev_id))
+                            else:
+                                c.execute("""UPDATE answers SET answer=%s, updated_at=%s WHERE id=%s""",
+                                          (answer, now_txt, prev_id))
+                            conn.commit(); send_discord("Answer edited", {"user": user, "question_id": question_id})
+                    cache_invalidate('compute_streaks')
+                    broadcast("dq_answer", {"user": user})
+                    try:
+                        push_answer_notice(user)
+                    except Exception as e:
+                        print("[push answer] ", e)
+                return redirect('/')
 
-                if 'intim_lock' in request.form:
-                    session.pop('intim_unlocked', None); flash("Módulo Intimidad ocultado 🔒", "info"); return redirect('/')
-
-                if 'intim_register' in request.form:
-                    if not session.get('intim_unlocked'):
-                        flash("Debes desbloquear con PIN para registrar.", "error"); return redirect('/')
-                    place = (request.form.get('intim_place') or '').strip()
-                    notes = (request.form.get('intim_notes') or '').strip()
-                    now_txt = now_madrid_str()
-                    with conn.cursor() as c2:
-                        c2.execute("""INSERT INTO intimacy_events (username, ts, place, notes) VALUES (%s,%s,%s,%s)""",
-                                   (user, now_txt, place or None, notes or None))
+            # 3-bis) Cambiar la pregunta de HOY (no borra fila => preserva racha)
+            if request.method == 'POST' and 'dq_reroll' in request.form:
+                if question_id is not None:
+                    c.execute("SELECT question FROM daily_questions WHERE id=%s", (question_id,))
+                    old_q = (c.fetchone() or [None])[0]
+                    c.execute("SELECT question FROM daily_questions")
+                    used = {row[0] for row in c.fetchall()}
+                    if old_q:
+                        used.discard(old_q)
+                    remaining = [q for q in QUESTIONS if q not in used]
+                    if remaining:
+                        new_q = random.choice(remaining)
+                        c.execute("DELETE FROM answers WHERE question_id=%s", (question_id,))
+                        c.execute("UPDATE daily_questions SET question=%s WHERE id=%s", (new_q, question_id))
                         conn.commit()
-                    flash("Momento registrado ❤️", "success")
-                    send_discord("Intimidad registered", {"user": user, "place": place, "notes_len": len(notes)})
-                    broadcast("intim_update", {"type": "add"})
-                    return redirect('/')
+                        cache_invalidate('compute_streaks')
+                        flash("Pregunta cambiada para hoy ✅", "success")
+                        send_discord("DQ reroll", {"user": user, "old": old_q, "new": new_q})
+                        broadcast("dq_change", {"id": int(question_id)})
+                    else:
+                        flash("No quedan preguntas disponibles para cambiar 😅", "error")
+                return redirect('/')
+
+            # 4) Meeting date
+            if request.method == 'POST' and 'meeting_date' in request.form:
+                meeting_date = request.form['meeting_date']
+                c.execute("INSERT INTO meeting (meeting_date) VALUES (%s)", (meeting_date,))
+                conn.commit(); flash("Fecha actualizada 📅", "success")
+                send_discord("Meeting date updated", {"user": user, "date": meeting_date})
+                broadcast("meeting_update", {"date": meeting_date}); return redirect('/')
+
+            # 5) Banner
+            if request.method == 'POST' and 'banner' in request.files:
+                file = request.files['banner']
+                if file and file.filename:
+                    image_data = file.read()
+                    filename = secure_filename(file.filename)
+                    mime_type = file.mimetype
+                    c.execute("INSERT INTO banner (image_data, filename, mime_type, uploaded_at) VALUES (%s,%s,%s,%s)",
+                              (image_data, filename, mime_type, now_madrid_str()))
+                    conn.commit(); flash("Banner actualizado 🖼️", "success")
+                    send_discord("Banner updated", {"user": user, "filename": filename})
+                    cache_invalidate('get_banner')
+                    broadcast("banner_update", {"by": user})
+                return redirect('/')
+
+            # 6) Nuevo viaje
+            if request.method == 'POST' and 'travel_destination' in request.form:
+                destination = request.form['travel_destination'].strip()
+                description = request.form.get('travel_description', '').strip()
+                travel_date = request.form.get('travel_date', '')
+                is_visited = 'travel_visited' in request.form
+                if destination:
+                    c.execute("""INSERT INTO travels (destination, description, travel_date, is_visited, created_by, created_at)
+                                 VALUES (%s,%s,%s,%s,%s,%s)""",
+                              (destination, description, travel_date, is_visited, user, now_madrid_str()))
+                    conn.commit(); flash("Viaje añadido ✈️", "success")
+                    send_discord("Travel added", {"user": user, "dest": destination, "visited": is_visited})
+                    broadcast("travel_update", {"type": "add"})
+                return redirect('/')
+
+            # 7) Foto de viaje (URL)
+            if request.method == 'POST' and 'travel_photo_url' in request.form:
+                travel_id = request.form.get('travel_id')
+                image_url = request.form['travel_photo_url'].strip()
+                if image_url and travel_id:
+                    c.execute("""INSERT INTO travel_photos (travel_id, image_url, uploaded_by, uploaded_at)
+                                 VALUES (%s,%s,%s,%s)""",
+                              (travel_id, image_url, user, now_madrid_str()))
+                    conn.commit(); flash("Foto añadida 📸", "success")
+                    send_discord("Travel photo added", {"user": user, "travel_id": travel_id})
+                    broadcast("travel_update", {"type": "photo_add", "id": int(travel_id)})
+                return redirect('/')
+
+            # 8) Wishlist add (con seguimiento de precio)
+            if request.method == 'POST' and 'product_name' in request.form and 'edit_wishlist_item' not in request.path:
+                product_name = request.form['product_name'].strip()
+                product_link = request.form.get('product_link', '').strip()
+                notes = request.form.get('wishlist_notes', '').strip()
+                product_size = request.form.get('size', '').strip()
+                priority = request.form.get('priority', 'media').strip()
+                is_gift = bool(request.form.get('is_gift'))
+
+                # NUEVO: tracking
+                track_price = bool(request.form.get('track_price'))
+                alert_drop_percent = (request.form.get('alert_drop_percent') or '').strip()
+                alert_below_price  = (request.form.get('alert_below_price')  or '').strip()
+
+                if priority not in ('alta', 'media', 'baja'): priority = 'media'
+                def euros_to_cents(v):
+                    v = (v or '').strip()
+                    if not v: return None
+                    return _to_cents_from_str(v.replace('€',''))
+
+                alert_below_cents = euros_to_cents(alert_below_price)
+                alert_pct = float(alert_drop_percent) if alert_drop_percent else None
+
+                if product_name:
+                    c.execute("""
+                      INSERT INTO wishlist
+                        (product_name, product_link, notes, size, created_by, created_at,
+                         is_purchased, priority, is_gift,
+                         track_price, alert_drop_percent, alert_below_cents)
+                      VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    """, (product_name, product_link, notes, product_size, user, now_madrid_str(),
+                          False, priority, is_gift, track_price, alert_pct, alert_below_cents))
+                    conn.commit(); flash("Producto añadido 🛍️", "success")
+                    send_discord("Wishlist added", {
+                        "user": user, "name": product_name, "priority": priority,
+                        "is_gift": is_gift, "size": product_size, "track_price": track_price
+                    })
+                    broadcast("wishlist_update", {"type": "add"})
+                    try:
+                        push_wishlist_notice(user, is_gift)
+                    except Exception as e:
+                        print("[push wishlist] ", e)
+                return redirect('/')
+
+            # INTIMIDAD
+            if request.method == 'POST' and 'intim_unlock_pin' in request.form:
+                pin_try = request.form.get('intim_pin', '').strip()
+                if pin_try == INTIM_PIN:
+                    session['intim_unlocked'] = True; flash("Módulo Intimidad desbloqueado ✅", "success")
+                    send_discord("Intimidad unlock OK", {"user": user})
+                else:
+                    session.pop('intim_unlocked', None); flash("PIN incorrecto ❌", "error")
+                    send_discord("Intimidad unlock FAIL", {"user": user})
+                return redirect('/')
+
+            if request.method == 'POST' and 'intim_lock' in request.form:
+                session.pop('intim_unlocked', None); flash("Módulo Intimidad ocultado 🔒", "info"); return redirect('/')
+
+            if request.method == 'POST' and 'intim_register' in request.form:
+                if not session.get('intim_unlocked'):
+                    flash("Debes desbloquear con PIN para registrar.", "error"); return redirect('/')
+                place = (request.form.get('intim_place') or '').strip()
+                notes = (request.form.get('intim_notes') or '').strip()
+                now_txt = now_madrid_str()
+                with conn.cursor() as c2:
+                    c2.execute("""INSERT INTO intimacy_events (username, ts, place, notes) VALUES (%s,%s,%s,%s)""",
+                               (user, now_txt, place or None, notes or None))
+                    conn.commit()
+                flash("Momento registrado ❤️", "success")
+                send_discord("Intimidad registered", {"user": user, "place": place, "notes_len": len(notes)})
+                broadcast("intim_update", {"type": "add"})
+                return redirect('/')
 
             # ------------ Consultas para render ------------
             # Respuestas del día
@@ -1165,7 +1371,7 @@ def index():
             c.execute("SELECT travel_id, id, image_url, uploaded_by FROM travel_photos ORDER BY id DESC")
             all_ph = c.fetchall()
 
-            # Wishlist (con blindaje de regalos)
+            # Wishlist (blindaje regalos)
             c.execute("""
                 SELECT
                     id,
@@ -1177,7 +1383,13 @@ def index():
                     is_purchased,
                     COALESCE(priority,'media') AS priority,
                     COALESCE(is_gift,false)   AS is_gift,
-                    size
+                    size,
+                    COALESCE(track_price,false) AS track_price,
+                    last_price_cents,
+                    currency,
+                    last_checked,
+                    alert_drop_percent,
+                    alert_below_cents
                 FROM wishlist
                 ORDER BY
                     is_purchased ASC,
@@ -1210,10 +1422,20 @@ def index():
         # Blindaje wishlist (regalos ocultos al no-creador)
         safe_items = []
         for (wid, product_name, product_link, notes, created_by, created_at,
-             is_purchased, priority, is_gift, size) in wl_rows:
+             is_purchased, priority, is_gift, size,
+             track_price, last_price_cents, currency, last_checked, alert_pct, alert_below_cents) in wl_rows:
 
             priority = priority or 'media'
             is_gift = bool(is_gift)
+            track_price = bool(track_price)
+
+            base_tuple_visible = (
+                wid, product_name, product_link, notes,
+                created_by, created_at, is_purchased,
+                priority, is_gift, size
+            )
+
+            extra_price = (track_price, last_price_cents, currency, last_checked, alert_pct, alert_below_cents)
 
             if is_gift and created_by != user:
                 safe_items.append((
@@ -1226,24 +1448,20 @@ def index():
                     is_purchased,
                     priority,
                     True,
-                    None
+                    None,
+                    False, None, None, None, None, None  # oculta precio
                 ))
             else:
-                safe_items.append((
-                    wid, product_name, product_link, notes,
-                    created_by, created_at, is_purchased,
-                    priority, is_gift, size
-                ))
+                safe_items.append(base_tuple_visible + extra_price)
+
         wishlist_items = safe_items
 
-        # Recursos cacheados
         banner_file = get_banner()
         profile_pictures = get_profile_pictures()
 
     finally:
         conn.close()
 
-    # Stats + render
     current_streak, best_streak = compute_streaks()
     intim_unlocked = bool(session.get('intim_unlocked'))
     intim_stats = get_intim_stats()
@@ -1402,25 +1620,44 @@ def edit_wishlist_item():
         priority     = (request.form.get('priority') or 'media').strip()
         is_gift      = bool(request.form.get('is_gift'))
 
+        # Tracking
+        alert_drop_percent = (request.form.get('alert_drop_percent') or '').strip()
+        alert_below_price  = (request.form.get('alert_below_price')  or '').strip()
+        track_price        = bool(request.form.get('track_price'))
+
         if priority not in ('alta', 'media', 'baja'):
             priority = 'media'
 
+        def euros_to_cents(v):
+            v = (v or '').strip()
+            if not v: return None
+            return _to_cents_from_str(v.replace('€',''))
+
+        alert_below_cents = euros_to_cents(alert_below_price)
+        alert_pct = float(alert_drop_percent) if alert_drop_percent else None
+
         conn = get_db_connection()
         with conn.cursor() as c:
-            c.execute("""UPDATE wishlist SET
-                            product_name=%s,
-                            product_link=%s,
-                            notes=%s,
-                            size=%s,
-                            priority=%s,
-                            is_gift=%s
-                         WHERE id=%s""",
-                      (product_name, product_link, notes, size, priority, is_gift, item_id))
+            c.execute("""
+                UPDATE wishlist SET
+                    product_name=%s,
+                    product_link=%s,
+                    notes=%s,
+                    size=%s,
+                    priority=%s,
+                    is_gift=%s,
+                    track_price=%s,
+                    alert_drop_percent=%s,
+                    alert_below_cents=%s
+                 WHERE id=%s""",
+              (product_name, product_link, notes, size, priority, is_gift,
+               track_price, alert_pct, alert_below_cents, item_id))
             conn.commit()
         flash("Elemento actualizado ✏️", "success")
         send_discord("Wishlist edit", {
             "user": session['username'], "item_id": item_id,
-            "priority": priority, "is_gift": is_gift
+            "priority": priority, "is_gift": is_gift,
+            "track_price": track_price, "alert_pct": alert_pct, "alert_below": alert_below_cents
         })
         broadcast("wishlist_update", {"type": "edit", "id": int(item_id)})
         return redirect('/')
@@ -1566,6 +1803,41 @@ def push_list():
         print(f"[push_list] {e}")
         return jsonify({"ok": False, "error": "server_error"}), 500
 
+# ======= PRECIO: endpoint manual de prueba =======
+@app.post('/price_check_now')
+def price_check_now():
+    if 'username' not in session:
+        return jsonify({"ok":False,"error":"unauthenticated"}), 401
+    try:
+        wid = request.form.get('id')
+        if not wid: return jsonify({"ok":False,"error":"missing id"}), 400
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute("""SELECT id, product_name, product_link, created_by,
+                                    is_gift,
+                                    track_price, last_price_cents, currency,
+                                    alert_drop_percent, alert_below_cents
+                             FROM wishlist WHERE id=%s""", (wid,))
+                row = c.fetchone()
+            if not row or not row['product_link']: return jsonify({"ok":False,"error":"not_found_or_no_link"}), 404
+            price, curr, _ = fetch_price(row['product_link'])
+            if not price:
+                return jsonify({"ok":False,"error":"no_price"}), 200
+            old = row['last_price_cents']
+            with conn.cursor() as c2:
+                c2.execute("""UPDATE wishlist SET last_price_cents=%s, currency=COALESCE(%s,currency), last_checked=%s WHERE id=%s""",
+                           (price, curr, now_madrid_str(), wid))
+                conn.commit()
+            if old is not None and price < old:
+                notify_price_drop(row, old, price)
+            return jsonify({"ok":True,"old":old,"new":price})
+        finally:
+            conn.close()
+    except Exception as e:
+        print("[price_check_now]", e)
+        return jsonify({"ok":False,"error":"server_error"}), 500
+
 # ======= Errores simpáticos =======
 @app.errorhandler(404)
 def not_found(_):
@@ -1582,7 +1854,7 @@ def schedule_page():
         return redirect('/')
     return render_template('schedule.html')
 
-# Alias opcional para compatibilidad con url_for('schedule_page') o enlaces antiguos
+# Alias opcional
 @app.route('/schedule', methods=['GET'])
 def schedule_alias():
     return redirect('/horario')
@@ -1599,7 +1871,6 @@ def api_get_schedules():
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # Actividades
             c.execute("""SELECT username, day, time, activity, color FROM public.schedules""")
             for row in c.fetchall():
                 username = row['username']
@@ -1608,12 +1879,10 @@ def api_get_schedules():
                 activity = row['activity'] or ''
                 color = row['color'] or '#888888'
                 if username not in schedules:
-                    # Si hubiera otros usuarios en la tabla, los ignoramos en el front
                     continue
                 day_map = schedules[username].setdefault(day, {})
                 day_map[time_] = {"activity": activity, "color": color}
 
-            # Tiempos personalizados
             c.execute("""SELECT username, time FROM public.schedule_times""")
             for row in c.fetchall():
                 u = row['username']
@@ -1648,7 +1917,6 @@ def api_save_schedules():
     schedules = payload.get("schedules") or {}
     custom_times = payload.get("customTimes") or {}
 
-    # Validación mínima
     if not isinstance(schedules, dict) or not isinstance(custom_times, dict):
         return jsonify({"ok": False, "error": "bad_payload"}), 400
 
@@ -1657,10 +1925,8 @@ def api_save_schedules():
     try:
         with conn.cursor() as c:
             for user in users:
-                # Reemplazo sencillo por usuario
                 c.execute("DELETE FROM public.schedules WHERE username=%s", (user,))
                 us = schedules.get(user) or {}
-                # us: { DAY: { TIME: {activity, color} } }
                 for day, time_map in (us.items()):
                     time_map = time_map or {}
                     for t, obj in time_map.items():
@@ -1711,348 +1977,12 @@ def sw():
 def push_debug_page():
     html = '''
 <!doctype html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Activar notificaciones — Guía paso a paso</title>
-<style>
-:root{ --brand:#e84393; --ink:#202124; --muted:#5f6368; --ok:#10b981; --warn:#f59e0b; --err:#ef4444; --bg:#fafafa; --card:#fff; --line:#ececec; }
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55}
-.container{max-width:960px;margin:24px auto;padding:0 16px}
-h1{font-size:1.6rem;margin:12px 0 6px}
-.subtitle{color:var(--muted);margin:0 0 14px}
-.badge{display:inline-block;padding:4px 10px;border-radius:999px;background:#f3f4f6;color:#111;font-size:.8rem;margin-right:8px}
-.badge.ok{background:#ecfdf5;color:#065f46}
-.badge.warn{background:#fffbeb;color:#92400e}
-.badge.err{background:#fef2f2;color:#991b1b}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 2px 10px rgba(0,0,0,.03)}
-.card h2{font-size:1.1rem;margin:0 0 8px}
-.grid{display:grid;gap:12px}
-@media(min-width:800px){ .grid{grid-template-columns:1.2fr .8fr} }
-.step{display:flex;gap:12px;align-items:flex-start}
-.step .num{flex:0 0 32px;height:32px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700}
-.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-button{padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer}
-button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
-button.ghost{background:#fff}
-button:disabled{opacity:.6;cursor:not-allowed}
-.tip{font-size:.92rem;color:var(--muted);margin-top:6px}
-.hr{height:1px;background:#ececec;margin:14px 0}
-.state{display:grid;gap:10px}
-.state .row{display:flex;align-items:center;gap:10px}
-.state .dot{width:10px;height:10px;border-radius:50%;background:#ddd}
-.state .dot.ok{background:var(--ok)}
-.state .dot.warn{background:var(--warn)}
-.state .dot.err{background:var(--err)}
-.kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#f3f4f6;border:1px solid #e5e7eb;border-bottom-width:2px;border-radius:6px;padding:2px 6px}
-.progress{height:10px;background:#eee;border-radius:999px;overflow:hidden}
-.progress > span{display:block;height:100%;background:linear-gradient(90deg,var(--brand),#ff7ab6);width:0%;transition:width .3s}
-#log{white-space:pre-wrap;background:#111;color:#eee;padding:12px;border-radius:12px;margin-top:12px;min-height:140px}
-.helper{font-size:.95rem}
-.helper li{margin:.25rem 0}
-.header-actions{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 0}
-a.link{color:var(--brand);text-decoration:none;border-bottom:1px dotted var(--brand)}
-a.link:hover{text-decoration:underline}
-a.link{color:#e84393}
-.small{font-size:.88rem;color:var(--muted)}
-</style>
-</head>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Activar notificaciones — Guía paso a paso</title></head>
 <body>
-<div class="container">
-  <h1>🔔 Activar notificaciones</h1>
-  <p class="subtitle">Sigue estos pasos. Te marcamos en verde lo que ya está OK. Al final puedes enviarte una prueba.</p>
-
-  <div class="card">
-    <div class="progress"><span id="progressBar" style="width:0%"></span></div>
-    <div class="state" style="margin-top:10px">
-      <div class="row"><span id="chk-https" class="dot"></span> <b>HTTPS</b> (obligatorio)</div>
-      <div class="row"><span id="chk-standalone" class="dot"></span> <b>Modo app</b> (iOS: desde “Pantalla de inicio”)</div>
-      <div class="row"><span id="chk-sw" class="dot"></span> <b>Service Worker</b> registrado</div>
-      <div class="row"><span id="chk-perm" class="dot"></span> <b>Permiso de notificaciones</b></div>
-      <div class="row"><span id="chk-sub" class="dot"></span> <b>Dispositivo suscrito</b></div>
-    </div>
-  </div>
-
-  <div class="grid">
-    <!-- PASOS -->
-    <div>
-      <div class="card">
-        <div class="step">
-          <div class="num">1</div>
-          <div>
-            <h2>Instala como app (iPhone/iPad)</h2>
-            <div class="tip" id="iosTip">
-              En iOS, las <b>push</b> solo funcionan si abres la web desde el icono en <b>Pantalla de inicio</b>.
-            </div>
-            <ul class="helper" id="iosHowTo" style="display:none">
-              <li>Abre en Safari ➜ pulsa <span class="kbd">Compartir</span> ➜ <span class="kbd">Añadir a pantalla de inicio</span>.</li>
-              <li>Abre la app desde el icono y vuelve a esta pantalla.</li>
-            </ul>
-            <div class="actions">
-              <button id="btn-check-standalone" class="ghost">Comprobar estado</button>
-              <button id="btn-home" class="ghost">Ir al inicio</button>
-            </div>
-            <div class="tip small" id="envInfo"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="step">
-          <div class="num">2</div>
-          <div>
-            <h2>Registrar Service Worker</h2>
-            <p class="helper">Es quien recibe las push en segundo plano.</p>
-            <div class="actions">
-              <button id="btn-reg" class="primary">Registrar SW</button>
-              <button id="btn-local-sw" class="ghost">Probar notificación (SW)</button>
-            </div>
-            <div class="tip">Si falla: comprueba que <code>/sw.js</code> existe y no está cacheado.</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="step">
-          <div class="num">3</div>
-          <div>
-            <h2>Dar permiso y suscribirse</h2>
-            <p class="helper">Primero concede permiso al navegador y luego registramos tu endpoint en el servidor.</p>
-            <div class="actions">
-              <button id="btn-perm" class="primary">Conceder permiso</button>
-              <button id="btn-local" class="ghost">Probar notificación (Página)</button>
-              <button id="btn-sub" class="primary">Suscribirme</button>
-            </div>
-            <div class="tip">Si aparece <b>denied</b>, ve a Ajustes del sistema ▶ Notificaciones y habilítalas para esta app.</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="step">
-          <div class="num">4</div>
-          <div>
-            <h2>Probar desde el servidor</h2>
-            <p class="helper">Con todo en verde, envíate una notificación real desde el backend.</p>
-            <div class="actions">
-              <button id="btn-sendme" class="primary">Enviar prueba</button>
-              <button id="btn-list" class="ghost">Listar suscripciones</button>
-            </div>
-            <div class="tip">Si no llega, revisa que la clave VAPID esté bien y que la suscripción exista en DB.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- LATERAL -->
-    <div>
-      <div class="card">
-        <h2>Consejos rápidos</h2>
-        <ul class="helper">
-          <li><b>iOS</b>: usa la app desde <i>Pantalla de inicio</i>, no desde Safari.</li>
-          <li>Comprueba que <b>HTTPS</b> está activo (candado en la barra).</li>
-          <li>Permiso debe quedar en <span class="kbd">granted</span>.</li>
-          <li>Tras suscribirte, en DB debe guardarse tu <span class="kbd">endpoint</span>.</li>
-          <li>La prueba del servidor usa <span class="kbd">/push/test</span> para tu usuario logueado.</li>
-        </ul>
-        <div class="hr"></div>
-        <div class="actions">
-          <button id="btn-copy" class="ghost">Copiar registro</button>
-          <a href="/" class="link">Volver al inicio</a>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Registro</h2>
-        <div id="log">Cargando…</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-function log(){ const el=document.getElementById('log'); el.textContent += Array.from(arguments).join(' ') + "\\n"; el.scrollTop = el.scrollHeight; }
-function b64ToBytes(s){ const pad='='.repeat((4 - s.length % 4) % 4); const b64=(s+pad).replace(/-/g,'+').replace(/_/g,'/'); const raw=atob(b64); const arr=new Uint8Array(raw.length); for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i); return arr; }
-function setDot(id, state){ const el=document.getElementById(id); el.className='dot'; if(state==='ok') el.classList.add('ok'); else if(state==='warn') el.classList.add('warn'); else if(state==='err') el.classList.add('err'); }
-function pctDone(parts){ const sum = parts.reduce((a,b)=>a+(b?1:0),0); return Math.round((sum/parts.length)*100); }
-function setProgress(p){ document.getElementById('progressBar').style.width = p + '%'; }
-
-const UA = navigator.userAgent || '';
-const isIOS = /iPad|iPhone|iPod/.test(UA);
-const isSafari = /^((?!chrome|android).)*safari/i.test(UA);
-const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator.standalone === true);
-const isHTTPS = location.protocol === 'https:';
-const envText = [
-  isIOS ? 'iOS' : (/Android/i.test(UA) ? 'Android' : 'Desktop'),
-  isSafari ? 'Safari' : ( /Chrome/i.test(UA) ? 'Chrome' : 'Navegador'),
-  isStandalone ? 'Standalone' : 'Navegador',
-  isHTTPS ? 'HTTPS' : 'HTTP'
-].join(' · ');
-document.getElementById('envInfo').textContent = envText;
-
-if(isIOS){
-  document.getElementById('iosHowTo').style.display = isStandalone ? 'none' : 'block';
-}
-
-setDot('chk-https', isHTTPS ? 'ok' : 'err');
-setDot('chk-standalone', (isIOS ? (isStandalone ? 'ok' : 'warn') : 'ok'));
-
-(async function autoRegisterSW(){
-  try{
-    if('serviceWorker' in navigator){
-      const reg = await navigator.serviceWorker.register('/sw.js');
-      log('SW registrado (auto):', reg.scope || '(sin scope)');
-      setDot('chk-sw','ok');
-    }else{
-      log('Este navegador no soporta Service Worker');
-      setDot('chk-sw','err');
-    }
-  }catch(e){
-    log('Error registrando SW:', e.message||e);
-    setDot('chk-sw','err');
-  }
-  refreshProgress();
-})();
-
-function refreshPermission(){
-  if(!('Notification' in window)) { setDot('chk-perm','err'); return; }
-  const st = Notification.permission; // default | granted | denied
-  if(st === 'granted') setDot('chk-perm','ok');
-  else if(st === 'denied') setDot('chk-perm','err');
-  else setDot('chk-perm','warn');
-}
-
-async function hasSubscription(){
-  try{
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    return !!sub;
-  }catch{ return false; }
-}
-async function refreshSubscriptionDot(){
-  setDot('chk-sub', (await hasSubscription()) ? 'ok' : 'warn');
-}
-
-function refreshProgress(){
-  const dots = ['chk-https','chk-standalone','chk-sw','chk-perm','chk-sub'];
-  const ok = dots.map(id => document.getElementById(id).classList.contains('ok'));
-  setProgress(pctDone(ok));
-}
-
-document.getElementById('btn-home').onclick = ()=>{ location.href='/'; };
-
-document.getElementById('btn-check-standalone').onclick = ()=>{
-  const again = window.matchMedia('(display-mode: standalone)').matches || (window.navigator.standalone === true);
-  setDot('chk-standalone', (isIOS ? (again ? 'ok' : 'warn') : 'ok'));
-  if(isIOS && !again) log('Aún no estás en modo app. Añade a pantalla de inicio y vuelve a abrir desde el icono.');
-  refreshProgress();
-};
-
-document.getElementById('btn-reg').onclick = async ()=>{
-  if(!('serviceWorker' in navigator)){ log('SW no soportado'); setDot('chk-sw','err'); return; }
-  try{
-    const reg = await navigator.serviceWorker.register('/sw.js');
-    log('SW registrado:', reg.scope || '(sin scope)');
-    setDot('chk-sw','ok');
-  }catch(e){ log('Error registrando SW:', e.message||e); setDot('chk-sw','err'); }
-  refreshProgress();
-};
-
-document.getElementById('btn-perm').onclick = async ()=>{
-  if(!('Notification' in window)){ log('Notifications no soportadas'); setDot('chk-perm','err'); return; }
-  try{
-    const perm = await Notification.requestPermission();
-    log('Permiso =>', perm);
-  }catch(e){ log('requestPermission error:', e.message||e); }
-  refreshPermission(); refreshProgress();
-};
-
-document.getElementById('btn-local').onclick = async ()=>{
-  try{
-    if (!('Notification' in window)) { log('Notifications no soportadas'); return; }
-    if (Notification.permission !== 'granted'){ log('Permiso no concedido'); return; }
-    new Notification('Notificación local', { body: 'Mostrada desde la página (Window)' });
-    log('OK: notificación local (Window)');
-  }catch(e){ log('Local notif error:', e.message||e); }
-};
-
-document.getElementById('btn-local-sw').onclick = async ()=>{
-  try{
-    const reg = await navigator.serviceWorker.ready;
-    if (!reg.showNotification){ log('showNotification no disponible en este SW'); return; }
-    await reg.showNotification('Notificación local (SW)', { body: 'Mostrada por el Service Worker' });
-    log('OK: notificación local (SW)');
-  }catch(e){ log('SW notif error:', e.message||e); }
-};
-
-async function doSubscribe(){
-  try{
-    const r = await fetch('/push/vapid-public');
-    const j = await r.json().catch(()=>({}));
-    if (!j.vapidPublicKey){ log("vapidPublicKey vacío / error en backend"); return false; }
-    const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub){
-      sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64ToBytes(j.vapidPublicKey) });
-    }
-    const rr = await fetch('/push/subscribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(sub) });
-    const jj = await rr.json().catch(()=>({}));
-    log("Suscripción =>", JSON.stringify(jj));
-    return !!jj.ok;
-  }catch(e){
-    log('subscribe error:', e.message||e);
-    return false;
-  }
-}
-
-document.getElementById('btn-sub').onclick = async ()=>{
-  const ok = await doSubscribe();
-  await refreshSubscriptionDot(); refreshProgress();
-  if(ok) log('✅ Suscrito correctamente');
-  else log('❌ No se pudo suscribir (revisa claves VAPID y permisos)');
-};
-
-document.getElementById('btn-sendme').onclick = async ()=>{
-  try{
-    const r = await fetch('/push/test', { method:'POST' });
-    const j = await r.json().catch(()=>({}));
-    log('push/test =>', JSON.stringify(j));
-  }catch(e){ log('push/test error:', e.message||e); }
-};
-
-document.getElementById('btn-list').onclick = async ()=>{
-  try{
-    const r = await fetch('/push/list');
-    const j = await r.json().catch(()=>({}));
-    log('push/list =>', JSON.stringify(j));
-  }catch(e){ log('push/list error (¿ruta no implementada?):', e.message||e); }
-};
-
-document.getElementById('btn-copy').onclick = async ()=>{
-  try{
-    const txt = document.getElementById('log').textContent;
-    await navigator.clipboard.writeText(txt);
-    log('📋 Registro copiado al portapapeles');
-  }catch(e){ log('No se pudo copiar:', e.message||e); }
-};
-
-(function init(){
-  const envText = document.getElementById('envInfo').textContent;
-  const standaloneMsg = isIOS ? (isStandalone ? 'En modo app ✅' : 'Abierto en Safari ❗️') : 'Modo app no requerido';
-  log('Entorno =>', envText);
-  log('Standalone =>', standaloneMsg);
-  log('Notification.permission =>', (window.Notification && Notification.permission) ? Notification.permission : 'no soportado');
-  log('serviceWorker =>', 'serviceWorker' in navigator);
-  log('PushManager =>', !!window.PushManager);
-  refreshPermission();
-  refreshSubscriptionDot();
-  refreshProgress();
-})();
-</script>
-</body>
-</html>
+<h1>Activación básica</h1>
+<p>Usa /push/vapid-public, /push/subscribe y /push/test. Esta versión reducida evita ruido en app.py.</p>
+</body></html>
 '''
     return html
 
@@ -2071,3 +2001,4 @@ def _debug_tz():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
+

@@ -701,39 +701,99 @@ def send_push_raw(sub: dict, payload: dict):
         print(f"[push] error gen: {e}")
         return False
 
-def send_push_to(user: str, title: str, body: str | None = None, data: dict | None = None):
+# === NUEVA: send_push_to con body/url/tag/icon/badge opcionales ===
+def send_push_to(user: str,
+                 title: str,
+                 body: str | None = None,
+                 data: dict | None = None,
+                 url: str | None = None,
+                 tag: str | None = None,
+                 icon: str | None = None,
+                 badge: str | None = None):
+    """
+    Envia un Web Push a un usuario con campos de payload en top-level:
+    title, body, url, tag, icon, badge. (Además puedes pasar data extra).
+    """
     subs = get_subscriptions_for(user)
-    payload = {"title": title, "data": data or {}}
-    if body is not None and body != "":
-        payload["body"] = body
+    payload = {"title": title}
+    if body is not None and body != "": payload["body"] = body
+    if url:   payload["url"]   = url
+    if tag:   payload["tag"]   = tag
+    if icon:  payload["icon"]  = icon
+    if badge: payload["badge"] = badge
+    if data:  payload["data"]  = data
+
     ok = False
     for sub in subs:
         ok = send_push_raw(sub, payload) or ok
     return ok
 
-def send_push_both(title: str, body: str, data: dict | None = None):
-    send_push_to('mochito', title, body, data)
-    send_push_to('mochita', title, body, data)
+def send_push_both(title: str, body: str | None = None, **kw):
+    send_push_to('mochito', title, body, **kw)
+    send_push_to('mochita', title, body, **kw)
 
 # ---- Plantillas de notificaciones (ES) + planificador de avisos de encuentro ----
 def push_wishlist_notice(creator: str, is_gift: bool):
     other = 'mochita' if creator == 'mochito' else 'mochito'
-    title = "Nuevo regalo en la lista" if is_gift else "Nuevo deseo en la lista"
-    send_push_to(other, title, None)
+    if is_gift:
+        title = "🎁 Nuevo regalo"
+        body  = "Tu pareja ha añadido un regalo (oculto) a la lista."
+        tag   = "wishlist-gift"
+    else:
+        title = "🛍️ Nuevo deseo"
+        body  = "Se ha añadido un artículo a la lista de deseos."
+        tag   = "wishlist-item"
+    send_push_to(other, title, body, url="/#wishlist", tag=tag)
 
 def push_answer_notice(responder: str):
     other = 'mochita' if responder == 'mochito' else 'mochito'
-    send_push_to(other, "Pregunta del día", None)
+    who   = "tu pareja" if responder in ("mochito", "mochita") else responder
+    send_push_to(other,
+                 title="Pregunta del día",
+                 body=f"{who} ha respondido la pregunta de hoy. ¡Mírala! 💬",
+                 url="/#pregunta",
+                 tag="dq-answer")
 
 def push_daily_new_question():
-    send_push_both("Pregunta del día", None)
+    send_push_both(title="Nueva pregunta del día",
+                   body="Ya puedes responder la pregunta de hoy. ¡Mantén la racha! 🔥",
+                   url="/#pregunta",
+                   tag="dq-new")
 
 def push_last_hours(user: str):
-    send_push_to(user, "Pregunta del día", None)
+    send_push_to(user,
+                 title="Últimas horas para contestar",
+                 body="Te quedan pocas horas para responder la pregunta de hoy.",
+                 url="/#pregunta",
+                 tag="dq-last-hours")
 
 def push_meeting_countdown(dleft: int):
-    title = f"¡Quedan {dleft} día{'s' if dleft != 1 else ''} para veros!"
-    send_push_both(title, None)
+    title = f"¡Queda {dleft} día para veros!" if dleft == 1 else f"¡Quedan {dleft} días para veros!"
+    send_push_both(title=title,
+                   body="Abre el contador y planead los detalles 💖",
+                   url="/#contador",
+                   tag="meeting-countdown")
+
+# ========= App state helpers =========
+def state_get(key: str, default: str | None = None) -> str | None:
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT value FROM app_state WHERE key=%s", (key,))
+            row = c.fetchone()
+            return row[0] if row else default
+    finally:
+        conn.close()
+
+def state_set(key: str, value: str):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""INSERT INTO app_state (key,value) VALUES (%s,%s)
+                         ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value""", (key, value))
+            conn.commit()
+    finally:
+        conn.close()
 
 def _meet_times_key(day: date): return f"meet_times::{day.isoformat()}"
 def _meet_sent_key(day: date, hhmm: str): return f"meet_sent::{day.isoformat()}::{hhmm}"
@@ -771,27 +831,6 @@ def due_now(now_madrid: datetime, hhmm: str) -> bool:
         return False
     scheduled = now_madrid.replace(hour=hh, minute=mm, second=0, microsecond=0)
     return abs((now_madrid - scheduled).total_seconds()) <= 90
-
-# ========= App state helpers =========
-def state_get(key: str, default: str | None = None) -> str | None:
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT value FROM app_state WHERE key=%s", (key,))
-            row = c.fetchone()
-            return row[0] if row else default
-    finally:
-        conn.close()
-
-def state_set(key: str, value: str):
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""INSERT INTO app_state (key,value) VALUES (%s,%s)
-                         ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value""", (key, value))
-            conn.commit()
-    finally:
-        conn.close()
 
 # ========= Background scheduler (recordatorios) =========
 def background_loop():

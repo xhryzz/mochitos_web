@@ -884,7 +884,6 @@
 
 
 
-<style>
 /* ===== Price UI ===== */
 .price-card {background:rgba(255,255,255,.6); border:1px solid rgba(0,0,0,.06); border-radius:14px; padding:12px; margin-top:10px; backdrop-filter: blur(6px);}
 .price-row {display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
@@ -920,7 +919,95 @@
 
 .flash {animation: flash .8s ease;}
 @keyframes flash {0%{box-shadow:0 0 0 0 rgba(16,185,129,.5)} 100%{box-shadow:0 0 0 12px rgba(16,185,129,0)}}
-</style>
+
+/* -------- Gift chip en tarjetas (se ve como un botoncito pill) -------- */
+.gift-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:.5rem;
+  padding:.4rem .8rem;
+  border-radius:999px;
+  font-weight:700;
+  letter-spacing:.2px;
+  color:#fff;
+  background: linear-gradient(135deg, var(--gift-start, #ff7ab6), var(--gift-end, #ff4d8d));
+  box-shadow: 0 6px 14px rgba(255,77,141,.35), inset 0 0 0 1px rgba(255,255,255,.2);
+  position:relative;
+  transition: transform .15s ease, box-shadow .2s ease, filter .2s ease;
+}
+.gift-chip::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  background:
+    radial-gradient(120px 80px at -20% 0%, rgba(255,255,255,.35), transparent 40%),
+    radial-gradient(120px 80px at 120% 100%, rgba(255,255,255,.18), transparent 40%);
+  pointer-events:none;
+}
+.gift-chip:hover{ transform: translateY(-1px); box-shadow: 0 10px 20px rgba(255,77,141,.45), inset 0 0 0 1px rgba(255,255,255,.25); }
+.gift-chip:active{ transform: translateY(0); filter: brightness(.95); }
+
+/* -------- Toggle de regalo en el formulario (el checkbox se “disfraza” de botón) -------- */
+.wishlist-form .gift-toggle-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin: 6px 0 14px 0;
+}
+
+/* Ocultamos el checkbox real */
+.wishlist-form #is_gift{
+  position:absolute;
+  opacity:0;
+  width:0;
+  height:0;
+}
+
+/* El label parece un botón */
+.wishlist-form label[for="is_gift"]{
+  cursor:pointer;
+  user-select:none;
+  display:inline-flex;
+  align-items:center;
+  gap:.6rem;
+  padding:.55rem .9rem;
+  border-radius:999px;
+  font-weight:700;
+  color:#fff;
+  background: linear-gradient(135deg, var(--gift-start, #ff7ab6), var(--gift-end, #ff4d8d));
+  box-shadow: 0 6px 14px rgba(255,77,141,.35), inset 0 0 0 1px rgba(255,255,255,.2);
+  transition: transform .15s ease, box-shadow .2s ease, filter .2s ease, opacity .2s ease;
+  position:relative;
+}
+.wishlist-form label[for="is_gift"]::before{
+  content: "🎁";
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* Estado activo cuando está marcado */
+.wishlist-form #is_gift:checked + label{
+  box-shadow: 0 12px 26px rgba(255,77,141,.5), inset 0 0 0 1px rgba(255,255,255,.25);
+  transform: translateY(-1px);
+}
+.wishlist-form #is_gift:checked + label::after{
+  content: " ¡Activado!";
+  font-weight:800;
+}
+
+/* Accesibilidad foco */
+.wishlist-form #is_gift:focus-visible + label,
+.wishlist-form label[for="is_gift"]:focus{
+  outline: 2px solid rgba(255,77,141,.8);
+  outline-offset: 2px;
+}
+
+/* Opcional: adapta a modo café si usas tema “Nico” */
+:root[data-theme="nico"]{
+  --gift-start: #d0a676; /* café con leche (tu brand) */
+  --gift-end:   #b98b5b;
+}
 
 
     </style>
@@ -1515,7 +1602,9 @@
               <i class="fas fa-flag"></i> {{ pri|capitalize }}
             </div>
             {% if is_gift %}
-              <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
+              <div class="gift-chip" title="Marcado como regalo">
+                <i class="fas fa-gift"></i> Regalo
+              </div>
             {% endif %}
           </div>
 
@@ -1538,36 +1627,6 @@
 
             {% if notes %}
               <p class="wishlist-notes">{{ notes }}</p>
-            {% endif %}
-
-            {% if track_price %}
-              <div class="wishlist-meta" style="margin-top:10px;">
-                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                  <span title="Último precio registrado">
-                    <i class="fas fa-tag"></i>
-                    {% if last_price_cents is not none %}
-                      {{ ((last_price_cents or 0) / 100.0)|round(2) }} {{ (currency or 'EUR') }}
-                    {% else %}
-                      — {{ (currency or 'EUR') }}
-                    {% endif %}
-                  </span>
-                  <span title="Última comprobación">
-                    <i class="fas fa-clock"></i>
-                    {{ last_checked[:16] if last_checked else '—' }}
-                  </span>
-                  {% if alert_drop_percent %}
-                    <span title="Aviso si baja %"><i class="fas fa-bell"></i> −{{ alert_drop_percent }}%</span>
-                  {% endif %}
-                  {% if alert_below_cents %}
-                    <span title="Aviso si baja de"><i class="fas fa-bell"></i> ≤ {{ ((alert_below_cents or 0)/100.0)|round(2) }} {{ (currency or 'EUR') }}</span>
-                  {% endif %}
-
-                  <button type="button" class="icon-btn" title="Comprobar ahora"
-                          onclick="priceCheckNow({{ id }}, this)">
-                    <i class="fas fa-sync-alt"></i>
-                  </button>
-                </div>
-              </div>
             {% endif %}
           {% endif %}
 
@@ -1608,7 +1667,7 @@
             </button>
 
             {% if created_by == username %}
-            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm("¿Estás seguro de que quieres eliminar este producto?");">
               <input type="hidden" name="item_id" value="{{ id }}">
               <button type="submit" class="icon-btn" title="Eliminar">
                 <i class="fas fa-trash"></i>
@@ -1640,7 +1699,9 @@
               <i class="fas fa-flag"></i> {{ pri|capitalize }}
             </div>
             {% if is_gift %}
-              <div class="gift-chip"><i class="fas fa-gift"></i> Regalo</div>
+              <div class="gift-chip" title="Marcado como regalo">
+                <i class="fas fa-gift"></i> Regalo
+              </div>
             {% endif %}
           </div>
 
@@ -1663,36 +1724,6 @@
 
             {% if notes %}
               <p class="wishlist-notes">{{ notes }}</p>
-            {% endif %}
-
-            {% if track_price %}
-              <div class="wishlist-meta" style="margin-top:10px;">
-                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                  <span title="Último precio registrado">
-                    <i class="fas fa-tag"></i>
-                    {% if last_price_cents is not none %}
-                      {{ ((last_price_cents or 0) / 100.0)|round(2) }} {{ (currency or 'EUR') }}
-                    {% else %}
-                      — {{ (currency or 'EUR') }}
-                    {% endif %}
-                  </span>
-                  <span title="Última comprobación">
-                    <i class="fas fa-clock"></i>
-                    {{ last_checked[:16] if last_checked else '—' }}
-                  </span>
-                  {% if alert_drop_percent %}
-                    <span title="Aviso si baja %"><i class="fas fa-bell"></i> −{{ alert_drop_percent }}%</span>
-                  {% endif %}
-                  {% if alert_below_cents %}
-                    <span title="Aviso si baja de"><i class="fas fa-bell"></i> ≤ {{ ((alert_below_cents or 0)/100.0)|round(2) }} {{ (currency or 'EUR') }}</span>
-                  {% endif %}
-
-                  <button type="button" class="icon-btn" title="Comprobar ahora"
-                          onclick="priceCheckNow({{ id }}, this)">
-                    <i class="fas fa-sync-alt"></i>
-                  </button>
-                </div>
-              </div>
             {% endif %}
           {% endif %}
 
@@ -1733,7 +1764,7 @@
             </button>
 
             {% if created_by == username %}
-            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm("¿Estás seguro de que quieres eliminar este producto?");">
               <input type="hidden" name="item_id" value="{{ id }}">
               <button type="submit" class="icon-btn" title="Eliminar">
                 <i class="fas fa-trash"></i>
@@ -1767,27 +1798,19 @@
           <option value="baja">Prioridad: Baja 🟢</option>
         </select>
 
-        <div style="display:flex; align-items:center; gap:10px; margin: 6px 0 10px 0;">
-          <input type="checkbox" id="is_gift" name="is_gift" style="width:auto;">
-          <label for="is_gift" style="margin:0;">¿Es un regalo (ocultar a la otra persona)? 🎁</label>
+        <!-- Regalo (estilizado como botón) -->
+        <div class="gift-toggle-row">
+          <input type="checkbox" id="is_gift" name="is_gift">
+          <label for="is_gift">¿Es un regalo (ocultar a la otra persona)?</label>
         </div>
 
-        <!-- Seguimiento de precio -->
-        <div style="display:flex; align-items:center; gap:10px; margin: 6px 0 10px 0;">
-          <input type="checkbox" id="track_price" name="track_price" style="width:auto;">
-          <label for="track_price" style="margin:0;">Seguir precio 🔔</label>
-        </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px">
-          <input type="number" step="0.1" min="0" name="alert_drop_percent" placeholder="Avisar si baja (%)">
-          <input type="text"   name="alert_below_price"  placeholder="Avisar si ≤ precio (ej. 49,99 €)">
-        </div>
+        <!-- Precio: eliminado por petición -->
 
         <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
       </form>
     </div>
   </div>
 </div>
-
 
 
       <!-- Viajes -->
@@ -2993,4 +3016,5 @@ document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
 
 </body>
 </html>
+
 

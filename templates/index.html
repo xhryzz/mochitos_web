@@ -1010,6 +1010,17 @@
 }
 
 
+/* Wishlist — barra de orden */
+.wishlist-tools{
+  display:flex; gap:10px; align-items:center; justify-content:flex-end;
+  flex-wrap:wrap; margin:8px 0 6px;
+}
+.wishlist-tools select{
+  border:1px solid #eee; background:#fff; border-radius:10px;
+  padding:8px 12px; font-weight:700; cursor:pointer;
+}
+
+
     </style>
 </head>
 
@@ -1580,6 +1591,15 @@
   <h3>Nuestra Lista de Deseos</h3>
   <p>Cosas que nos gustaría tener o regalarnos mutuamente.</p>
 
+  <div class="wishlist-tools">
+  <span class="chip muted"><i class="fas fa-sort"></i> Ordenar por</span>
+  <select id="wishlist-sort" aria-label="Ordenar lista de deseos">
+    <option value="recent">Más recientes</option>
+    <option value="priority">Prioridad</option>
+  </select>
+</div>
+
+
   <div class="wishlist-tabs" id="wishlist-tabs-container">
     <div class="wishlist-tab active" data-tab="wanted">Deseados</div>
     <div class="wishlist-tab" data-tab="purchased">Comprados</div>
@@ -1594,7 +1614,9 @@
         {% set soy_creador = (created_by == username) %}
         {% set oculto_para_mi = (is_gift and not soy_creador) %}
 
-        <div class="wishlist-card {% if oculto_para_mi %}locked{% endif %}">
+        <div class="wishlist-card {% if oculto_para_mi %}locked{% endif %}"
+     data-created="{{ (created_at or '') }}"
+     data-priority="{{ pri }}">
           <div class="wishlist-status status-wanted">Deseado</div>
 
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -1691,7 +1713,9 @@
         {% set soy_creador = (created_by == username) %}
         {% set oculto_para_mi = (is_gift and not soy_creador) %}
 
-        <div class="wishlist-card purchased {% if oculto_para_mi %}locked{% endif %}">
+        <div class="wishlist-card purchased {% if oculto_para_mi %}locked{% endif %}"
+     data-created="{{ (created_at or '') }}"
+     data-priority="{{ pri }}">
           <div class="wishlist-status status-purchased">Comprado</div>
 
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -2091,6 +2115,66 @@ function setupTabs() {
       if (target) target.classList.add('active');
     });
   });
+
+  function setupWishlistSorting(){
+  const select = document.getElementById('wishlist-sort');
+  if (!select) return;
+
+  // ranking prioridad: alta > media > baja
+  const rank = (p) => ({ 'alta': 3, 'media': 2, 'baja': 1 }[(p||'').toLowerCase()] || 0);
+
+  // parsea "YYYY-MM-DD HH:MM:SS" a timestamp
+  const ts = (s) => {
+    if (!s) return 0;
+    const iso = s.replace(' ', 'T'); // "2025-10-06T19:37:00"
+    const t = Date.parse(iso);
+    return Number.isFinite(t) ? t : 0;
+  };
+
+  function sortGrids(mode){
+    ['wanted-tab','purchased-tab'].forEach(tabId=>{
+      const grid = document.querySelector(`#${tabId} .wishlist-grid`);
+      if (!grid) return;
+      const cards = Array.from(grid.querySelectorAll('.wishlist-card'));
+
+      cards.sort((a,b)=>{
+        const A = { p: rank(a.dataset.priority), t: ts(a.dataset.created) };
+        const B = { p: rank(b.dataset.priority), t: ts(b.dataset.created) };
+        if (mode === 'priority'){
+          if (B.p !== A.p) return B.p - A.p;   // alta primero
+          return B.t - A.t;                    // desempate: más nuevo
+        } else {
+          if (B.t !== A.t) return B.t - A.t;   // más reciente primero
+          return B.p - A.p;                    // desempate: mayor prioridad
+        }
+      });
+
+      // re-inyecta en el DOM en el nuevo orden
+      cards.forEach(c => grid.appendChild(c));
+    });
+  }
+
+  function apply(){
+    const mode = select.value || 'recent';
+    sortGrids(mode);
+    try{ localStorage.setItem('wishlist_sort', mode); }catch(e){}
+  }
+
+  // restaurar preferencia guardada
+  try{
+    const saved = localStorage.getItem('wishlist_sort');
+    if (saved) select.value = saved;
+  }catch(e){}
+
+  select.addEventListener('change', apply);
+  apply(); // aplicar al cargar
+}
+
+// Llama al setup en tu DOMContentLoaded existente:
+document.addEventListener('DOMContentLoaded', function(){
+  // ... lo que ya tienes ...
+  setupWishlistSorting();
+});
 
   // Travel
   document.querySelectorAll('#travel-tabs-container .travel-tab').forEach(tab => {

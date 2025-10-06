@@ -28,6 +28,12 @@ except Exception:
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
 
+@app.before_request
+def _fast_head_for_healthchecks():
+    # Responde en seco a HEAD para no entrar en la vista pesada ni abrir DB
+    if request.method == "HEAD" and request.path == "/":
+        return ("", 204)
+
 # ======= Opciones de app =======
 app.config['TEMPLATES_AUTO_RELOAD'] = False
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000
@@ -462,11 +468,26 @@ def init_db():
 init_db()
 
 # ========= Helpers =========
+# ========= Helpers =========
 def _parse_dt(txt: str):
+    if not txt:
+        return None
     try:
-        return datetime.strptime(txt, "%Y-%m-%d %H:%M:%S")
+        dt = datetime.strptime(txt.strip(), "%Y-%m-%d %H:%M:%S")  # string local sin tz
     except Exception:
         return None
+    # Adjunta la zona Europe/Madrid para que sea "aware"
+    try:
+        from zoneinfo import ZoneInfo
+        return dt.replace(tzinfo=ZoneInfo("Europe/Madrid"))
+    except Exception:
+        if pytz:
+            try:
+                return pytz.timezone("Europe/Madrid").localize(dt)
+            except Exception:
+                pass
+    return dt  # último recurso (naive) — pero ya no restamos naive con aware en tu código
+
 
 # --- Lógica dependiente de fecha en Madrid ---
 def get_intim_stats():
@@ -2339,6 +2360,5 @@ def _debug_tz():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
-
 
 

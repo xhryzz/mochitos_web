@@ -1021,6 +1021,57 @@
 }
 
 
+/* === Sort toggle bonito === */
+.sort-toggle{
+  position: relative;
+  display: inline-flex;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 999px;
+  padding: 4px;
+  box-shadow: 0 8px 20px rgba(0,0,0,.06);
+}
+.sort-toggle .slider{
+  position: absolute;
+  left: 4px; top: 4px; bottom: 4px;
+  width: 0; /* la ajusta el JS */
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+  box-shadow: 0 10px 24px rgba(232,67,147,.35);
+  transition: transform .25s ease, width .25s ease;
+  z-index: 1;
+}
+.sort-toggle button{
+  position: relative;
+  z-index: 2;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  color: #6b7280;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: color .15s ease, transform .15s ease;
+}
+.sort-toggle button:hover{ transform: translateY(-1px); }
+.sort-toggle button.active{ color: #fff; }
+.sort-toggle:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(162,155,254,.25);
+  border-color: #e9e9f3;
+}
+
+@media (max-width: 480px){
+  .sort-toggle button{ padding: 8px 10px; font-weight: 700; }
+}
+
+
     </style>
 </head>
 
@@ -1592,12 +1643,17 @@
   <p>Cosas que nos gustaría tener o regalarnos mutuamente.</p>
 
   <div class="wishlist-tools">
-  <span class="chip muted"><i class="fas fa-sort"></i> Ordenar por</span>
-  <select id="wishlist-sort" aria-label="Ordenar lista de deseos">
-    <option value="recent">Más recientes</option>
-    <option value="priority">Prioridad</option>
-  </select>
+  <div id="wishlist-sort-toggle" class="sort-toggle" role="group" aria-label="Ordenar lista de deseos" tabindex="0">
+    <div class="slider" aria-hidden="true"></div>
+    <button type="button" data-mode="recent" aria-pressed="true">
+      <i class="fas fa-clock"></i> Recientes
+    </button>
+    <button type="button" data-mode="priority" aria-pressed="false">
+      <i class="fas fa-flag"></i> Prioridad
+    </button>
+  </div>
 </div>
+
 
 
   <div class="wishlist-tabs" id="wishlist-tabs-container">
@@ -3093,6 +3149,57 @@ document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
   // expone helpers por si luego añades/eliminás cards dinámicamente
   window.setupWishlistSorting = setupWishlistSorting;
   window.applyWishlistSort = applyWishlistSort;
+
+
+function setupWishlistSortToggle(){
+  const toggle = document.getElementById('wishlist-sort-toggle');
+  if (!toggle || !window.applyWishlistSort) return;
+  const btns = Array.from(toggle.querySelectorAll('button[data-mode]'));
+  const slider = toggle.querySelector('.slider');
+
+  function positionSlider(){
+    const active = toggle.querySelector('button.active');
+    if (!active || !slider) return;
+    slider.style.width = active.offsetWidth + 'px';
+    slider.style.transform = `translateX(${active.offsetLeft}px)`;
+  }
+
+  function setMode(mode){
+    btns.forEach(b=>{
+      const on = b.dataset.mode === mode;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    positionSlider();
+    window.applyWishlistSort(mode); // ya guarda en localStorage
+  }
+
+  // Init con preferencia guardada o 'recent'
+  let initial = 'recent';
+  try{ initial = localStorage.getItem('wishlist_sort') || initial; }catch(e){}
+  setMode(initial);
+
+  // Eventos
+  btns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  window.addEventListener('resize', positionSlider);
+
+  // Soporte teclado (izq/der)
+  toggle.addEventListener('keydown', (e)=>{
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    const idx = btns.findIndex(b => b.classList.contains('active'));
+    const next = e.key === 'ArrowRight' ? Math.min(btns.length-1, idx+1) : Math.max(0, idx-1);
+    setMode(btns[next].dataset.mode);
+    btns[next].focus();
+  });
+}
+
+// Llama a esta función en tu DOMContentLoaded grande:
+document.addEventListener('DOMContentLoaded', () => {
+  setupWishlistSortToggle();
+});
+
+
 
   // arranca cuando el DOM esté listo
   document.addEventListener('DOMContentLoaded', setupWishlistSorting);

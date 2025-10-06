@@ -1689,7 +1689,9 @@
             </button>
 
             {% if created_by == username %}
-            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm("¿Estás seguro de que quieres eliminar este producto?");">
+            <form method="POST" action="/delete_wishlist_item"
+      onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+
               <input type="hidden" name="item_id" value="{{ id }}">
               <button type="submit" class="icon-btn" title="Eliminar">
                 <i class="fas fa-trash"></i>
@@ -2116,65 +2118,8 @@ function setupTabs() {
     });
   });
 
-  function setupWishlistSorting(){
-  const select = document.getElementById('wishlist-sort');
-  if (!select) return;
+ 
 
-  // ranking prioridad: alta > media > baja
-  const rank = (p) => ({ 'alta': 3, 'media': 2, 'baja': 1 }[(p||'').toLowerCase()] || 0);
-
-  // parsea "YYYY-MM-DD HH:MM:SS" a timestamp
-  const ts = (s) => {
-    if (!s) return 0;
-    const iso = s.replace(' ', 'T'); // "2025-10-06T19:37:00"
-    const t = Date.parse(iso);
-    return Number.isFinite(t) ? t : 0;
-  };
-
-  function sortGrids(mode){
-    ['wanted-tab','purchased-tab'].forEach(tabId=>{
-      const grid = document.querySelector(`#${tabId} .wishlist-grid`);
-      if (!grid) return;
-      const cards = Array.from(grid.querySelectorAll('.wishlist-card'));
-
-      cards.sort((a,b)=>{
-        const A = { p: rank(a.dataset.priority), t: ts(a.dataset.created) };
-        const B = { p: rank(b.dataset.priority), t: ts(b.dataset.created) };
-        if (mode === 'priority'){
-          if (B.p !== A.p) return B.p - A.p;   // alta primero
-          return B.t - A.t;                    // desempate: más nuevo
-        } else {
-          if (B.t !== A.t) return B.t - A.t;   // más reciente primero
-          return B.p - A.p;                    // desempate: mayor prioridad
-        }
-      });
-
-      // re-inyecta en el DOM en el nuevo orden
-      cards.forEach(c => grid.appendChild(c));
-    });
-  }
-
-  function apply(){
-    const mode = select.value || 'recent';
-    sortGrids(mode);
-    try{ localStorage.setItem('wishlist_sort', mode); }catch(e){}
-  }
-
-  // restaurar preferencia guardada
-  try{
-    const saved = localStorage.getItem('wishlist_sort');
-    if (saved) select.value = saved;
-  }catch(e){}
-
-  select.addEventListener('change', apply);
-  apply(); // aplicar al cargar
-}
-
-// Llama al setup en tu DOMContentLoaded existente:
-document.addEventListener('DOMContentLoaded', function(){
-  // ... lo que ya tienes ...
-  setupWishlistSorting();
-});
 
   // Travel
   document.querySelectorAll('#travel-tabs-container .travel-tab').forEach(tab => {
@@ -2606,7 +2551,6 @@ function clearTravelSearch(which) {
 document.addEventListener('DOMContentLoaded', function() {
   createHearts();
   setupTabs();
-  setupWishlistSorting();   // ⬅️ aquí
   initMap();
   setupLocationForm();
   setupUseMyLocation(); // <-- activa el botón de ubicación real
@@ -3087,7 +3031,72 @@ document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
 
 
 
+/* ===== Wishlist: orden por "Más recientes" o "Prioridad" ===== */
+(function(){
+  const RANK = { alta: 3, media: 2, baja: 1 };
 
+  // "YYYY-MM-DD HH:MM:SS[.xxxxx]" -> timestamp seguro
+  function toTs(s){
+    if (!s) return 0;
+    const str = String(s).trim().replace('T',' ');
+    const core = str.slice(0, 19).replace(' ', 'T'); // corta microsegundos y normaliza
+    const t = Date.parse(core);
+    return Number.isFinite(t) ? t : 0;
+  }
+
+  function sortGrid(grid, mode){
+    const cards = Array.from(grid.querySelectorAll('.wishlist-card'));
+    const pos = new Map(cards.map((el, i) => [el, i])); // orden estable
+
+    cards.sort((a, b) => {
+      const A = { p: RANK[(a.dataset.priority||'').toLowerCase()] || 0,
+                  t: toTs(a.dataset.created) };
+      const B = { p: RANK[(b.dataset.priority||'').toLowerCase()] || 0,
+                  t: toTs(b.dataset.created) };
+
+      if (mode === 'priority') {
+        if (B.p !== A.p) return B.p - A.p;   // alta > media > baja
+        if (B.t !== A.t) return B.t - A.t;   // más nuevo primero
+      } else { // 'recent'
+        if (B.t !== A.t) return B.t - A.t;   // más nuevo primero
+        if (B.p !== A.p) return B.p - A.p;   // desempate por prioridad
+      }
+      return pos.get(a) - pos.get(b);
+    });
+
+    cards.forEach(c => grid.appendChild(c));
+  }
+
+  function applyWishlistSort(mode){
+    const m = mode || (document.getElementById('wishlist-sort')?.value || 'recent');
+    ['wanted-tab','purchased-tab'].forEach(tabId => {
+      const grid = document.querySelector(`#${tabId} .wishlist-grid`);
+      if (grid) sortGrid(grid, m);
+    });
+    try { localStorage.setItem('wishlist_sort', m); } catch {}
+  }
+
+  function setupWishlistSorting(){
+    const select = document.getElementById('wishlist-sort');
+    if (!select) return;
+
+    // restaura preferencia guardada
+    try {
+      const saved = localStorage.getItem('wishlist_sort');
+      if (saved) select.value = saved;
+    } catch {}
+
+    select.addEventListener('change', () => applyWishlistSort(select.value));
+    applyWishlistSort(select.value);
+  }
+
+  // expone helpers por si luego añades/eliminás cards dinámicamente
+  window.setupWishlistSorting = setupWishlistSorting;
+  window.applyWishlistSort = applyWishlistSort;
+
+  // arranca cuando el DOM esté listo
+  document.addEventListener('DOMContentLoaded', setupWishlistSorting);
+})();
 
 
 </script>

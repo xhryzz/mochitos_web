@@ -2606,6 +2606,7 @@ function clearTravelSearch(which) {
 document.addEventListener('DOMContentLoaded', function() {
   createHearts();
   setupTabs();
+  setupWishlistSorting();   // ⬅️ aquí
   initMap();
   setupLocationForm();
   setupUseMyLocation(); // <-- activa el botón de ubicación real
@@ -2882,8 +2883,7 @@ function urlBase64ToUint8Array(base64String){
   if (!('serviceWorker' in navigator)) return;
   try {
     // OJO: raíz, no /static
-    const reg = await // ❌ incorrecto (apunta a /static/sw.js)
-navigator.serviceWorker.register("/sw.js");
+const reg = await navigator.serviceWorker.register("/sw.js");
 
     // Espera a que esté listo
     await navigator.serviceWorker.ready;
@@ -2905,8 +2905,8 @@ async function enablePush(){
     let reg = await navigator.serviceWorker.getRegistration('/');
     if (!reg) {
       try {
-        reg = await // ❌ incorrecto (apunta a /static/sw.js)
-navigator.serviceWorker.register("/sw.js");
+        // ✅ Corrígelo
+reg = await navigator.serviceWorker.register("/sw.js");
 
       } catch (e) {
         console.error('Registro SW falló:', e);

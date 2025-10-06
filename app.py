@@ -1974,355 +1974,355 @@ def sw():
     return resp
 
 # ======= Página debug de push =======
-# ======= Página debug de push =======
- @app.get("/push/debug")
- def push_debug_page():
- html = '''
- <!doctype html>
- <html lang="es">
- <head>
- <meta charset="utf-8">
- <meta name="viewport" content="width=device-width,initial-scale=1">
- <title>Activar notificaciones — Guía paso a paso</title>
- <style>
- :root{ --brand:#e84393; --ink:#202124; --muted:#5f6368; --ok:#10b981; --warn:#f59e0b; --err:#ef4444; --bg:#fafafa; --card:#fff; --line:#ececec; }
- *{box-sizing:border-box}
- html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55}
- .container{max-width:960px;margin:24px auto;padding:0 16px}
- h1{font-size:1.6rem;margin:12px 0 6px}
- .subtitle{color:var(--muted);margin:0 0 14px}
- .badge{display:inline-block;padding:4px 10px;border-radius:999px;background:#f3f4f6;color:#111;font-size:.8rem;margin-right:8px}
- .badge.ok{background:#ecfdf5;color:#065f46}
- .badge.warn{background:#fffbeb;color:#92400e}
- .badge.err{background:#fef2f2;color:#991b1b}
- .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 2px 10px rgba(0,0,0,.03)}
- .card h2{font-size:1.1rem;margin:0 0 8px}
- .grid{display:grid;gap:12px}
- @media(min-width:800px){ .grid{grid-template-columns:1.2fr .8fr} }
- .step{display:flex;gap:12px;align-items:flex-start}
- .step .num{flex:0 0 32px;height:32px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700}
- .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
- button{padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer}
- button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
- button.ghost{background:#fff}
- button:disabled{opacity:.6;cursor:not-allowed}
- .tip{font-size:.92rem;color:var(--muted);margin-top:6px}
- .hr{height:1px;background:#ececec;margin:14px 0}
- .state{display:grid;gap:10px}
- .state .row{display:flex;align-items:center;gap:10px}
- .state .dot{width:10px;height:10px;border-radius:50%;background:#ddd}
- .state .dot.ok{background:var(--ok)}
- .state .dot.warn{background:var(--warn)}
- .state .dot.err{background:var(--err)}
- .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#f3f4f6;border:1px solid #e5e7eb;border-bottom-width:2px;border-radius:6px;padding:2px 6px}
- .progress{height:10px;background:#eee;border-radius:999px;overflow:hidden}
- .progress > span{display:block;height:100%;background:linear-gradient(90deg,var(--brand),#ff7ab6);width:0%;transition:width .3s}
- #log{white-space:pre-wrap;background:#111;color:#eee;padding:12px;border-radius:12px;margin-top:12px;min-height:140px}
- .helper{font-size:.95rem}
- .helper li{margin:.25rem 0}
- .header-actions{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 0}
- a.link{color:var(--brand);text-decoration:none;border-bottom:1px dotted var(--brand)}
- a.link:hover{text-decoration:underline}
- a.link{color:#e84393}
- .small{font-size:.88rem;color:var(--muted)}
- </style>
- </head>
- <body>
- <div class="container">
- <h1>🔔 Activar notificaciones</h1>
- <p class="subtitle">Sigue estos pasos. Te marcamos en verde lo que ya está OK. Al final puedes enviarte una prueba.</p>
- 
- <div class="card">
- <div class="progress"><span id="progressBar" style="width:0%"></span></div>
- <div class="state" style="margin-top:10px">
- <div class="row"><span id="chk-https" class="dot"></span> <b>HTTPS</b> (obligatorio)</div>
- <div class="row"><span id="chk-standalone" class="dot"></span> <b>Modo app</b> (iOS: desde “Pantalla de inicio”)</div>
- <div class="row"><span id="chk-sw" class="dot"></span> <b>Service Worker</b> registrado</div>
- <div class="row"><span id="chk-perm" class="dot"></span> <b>Permiso de notificaciones</b></div>
- <div class="row"><span id="chk-sub" class="dot"></span> <b>Dispositivo suscrito</b></div>
- </div>
- </div>
- 
- <div class="grid">
- <!-- PASOS -->
- <div>
- <div class="card">
- <div class="step">
- <div class="num">1</div>
- <div>
- <h2>Instala como app (iPhone/iPad)</h2>
- <div class="tip" id="iosTip">
- En iOS, las <b>push</b> solo funcionan si abres la web desde el icono en <b>Pantalla de inicio</b>.
- </div>
- <ul class="helper" id="iosHowTo" style="display:none">
- <li>Abre en Safari ➜ pulsa <span class="kbd">Compartir</span> ➜ <span class="kbd">Añadir a pantalla de inicio</span>.</li>
- <li>Abre la app desde el icono y vuelve a esta pantalla.</li>
- </ul>
- <div class="actions">
- <button id="btn-check-standalone" class="ghost">Comprobar estado</button>
- <button id="btn-home" class="ghost">Ir al inicio</button>
- </div>
- <div class="tip small" id="envInfo"></div>
- </div>
- </div>
- </div>
- 
- <div class="card">
- <div class="step">
- <div class="num">2</div>
- <div>
- <h2>Registrar Service Worker</h2>
- <p class="helper">Es quien recibe las push en segundo plano.</p>
- <div class="actions">
- <button id="btn-reg" class="primary">Registrar SW</button>
- <button id="btn-local-sw" class="ghost">Probar notificación (SW)</button>
- </div>
- <div class="tip">Si falla: comprueba que <code>/sw.js</code> existe y no está cacheado.</div>
- </div>
- </div>
- </div>
- 
- <div class="card">
- <div class="step">
- <div class="num">3</div>
- <div>
- <h2>Dar permiso y suscribirse</h2>
- <p class="helper">Primero concede permiso al navegador y luego registramos tu endpoint en el servidor.</p>
- <div class="actions">
- <button id="btn-perm" class="primary">Conceder permiso</button>
- <button id="btn-local" class="ghost">Probar notificación (Página)</button>
- <button id="btn-sub" class="primary">Suscribirme</button>
- </div>
- <div class="tip">Si aparece <b>denied</b>, ve a Ajustes del sistema ▶ Notificaciones y habilítalas para esta app.</div>
- </div>
- </div>
- </div>
- 
- <div class="card">
- <div class="step">
- <div class="num">4</div>
- <div>
- <h2>Probar desde el servidor</h2>
- <p class="helper">Con todo en verde, envíate una notificación real desde el backend.</p>
- <div class="actions">
- <button id="btn-sendme" class="primary">Enviar prueba</button>
- <button id="btn-list" class="ghost">Listar suscripciones</button>
- </div>
- <div class="tip">Si no llega, revisa que la clave VAPID esté bien y que la suscripción exista en DB.</div>
- </div>
- </div>
- </div>
- </div>
- 
- <!-- LATERAL -->
- <div>
- <div class="card">
- <h2>Consejos rápidos</h2>
- <ul class="helper">
- <li><b>iOS</b>: usa la app desde <i>Pantalla de inicio</i>, no desde Safari.</li>
- <li>Comprueba que <b>HTTPS</b> está activo (candado en la barra).</li>
- <li>Permiso debe quedar en <span class="kbd">granted</span>.</li>
- <li>Tras suscribirte, en DB debe guardarse tu <span class="kbd">endpoint</span>.</li>
- <li>La prueba del servidor usa <span class="kbd">/push/test</span> para tu usuario logueado.</li>
- </ul>
- <div class="hr"></div>
- <div class="actions">
- <button id="btn-copy" class="ghost">Copiar registro</button>
- <a href="/" class="link">Volver al inicio</a>
- </div>
- </div>
- 
- <div class="card">
- <h2>Registro</h2>
- <div id="log">Cargando…</div>
- </div>
- </div>
- </div>
- </div>
- 
- <script>
- function log(){ const el=document.getElementById('log'); el.textContent += Array.from(arguments).join(' ') + "\\n"; el.scrollTop = el.scrollHeight; }
- function b64ToBytes(s){ const pad='='.repeat((4 - s.length % 4) % 4); const b64=(s+pad).replace(/-/g,'+').replace(/_/g,'/'); const raw=atob(b64); const arr=new Uint8Array(raw.length); for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i); return arr; }
- function setDot(id, state){ const el=document.getElementById(id); el.className='dot'; if(state==='ok') el.classList.add('ok'); else if(state==='warn') el.classList.add('warn'); else if(state==='err') el.classList.add('err'); }
- function pctDone(parts){ const sum = parts.reduce((a,b)=>a+(b?1:0),0); return Math.round((sum/parts.length)*100); }
- function setProgress(p){ document.getElementById('progressBar').style.width = p + '%'; }
- 
- const UA = navigator.userAgent || '';
- const isIOS = /iPad|iPhone|iPod/.test(UA);
- const isSafari = /^((?!chrome|android).)*safari/i.test(UA);
- const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator.standalone === true);
- const isHTTPS = location.protocol === 'https:';
- const envText = [
- isIOS ? 'iOS' : (/Android/i.test(UA) ? 'Android' : 'Desktop'),
- isSafari ? 'Safari' : ( /Chrome/i.test(UA) ? 'Chrome' : 'Navegador'),
- isStandalone ? 'Standalone' : 'Navegador',
- isHTTPS ? 'HTTPS' : 'HTTP'
- ].join(' · ');
- document.getElementById('envInfo').textContent = envText;
- 
- if(isIOS){
- document.getElementById('iosHowTo').style.display = isStandalone ? 'none' : 'block';
- }
- 
- setDot('chk-https', isHTTPS ? 'ok' : 'err');
- setDot('chk-standalone', (isIOS ? (isStandalone ? 'ok' : 'warn') : 'ok'));
- 
- (async function autoRegisterSW(){
- try{
- if('serviceWorker' in navigator){
- const reg = await navigator.serviceWorker.register('/sw.js');
- log('SW registrado (auto):', reg.scope || '(sin scope)');
- setDot('chk-sw','ok');
- }else{
- log('Este navegador no soporta Service Worker');
- setDot('chk-sw','err');
- }
- }catch(e){
- log('Error registrando SW:', e.message||e);
- setDot('chk-sw','err');
- }
- refreshProgress();
- })();
- 
- function refreshPermission(){
- if(!('Notification' in window)) { setDot('chk-perm','err'); return; }
- const st = Notification.permission; // default | granted | denied
- if(st === 'granted') setDot('chk-perm','ok');
- else if(st === 'denied') setDot('chk-perm','err');
- else setDot('chk-perm','warn');
- }
- 
- async function hasSubscription(){
- try{
- const reg = await navigator.serviceWorker.ready;
- const sub = await reg.pushManager.getSubscription();
- return !!sub;
- }catch{ return false; }
- }
- async function refreshSubscriptionDot(){
- setDot('chk-sub', (await hasSubscription()) ? 'ok' : 'warn');
- }
- 
- function refreshProgress(){
- const dots = ['chk-https','chk-standalone','chk-sw','chk-perm','chk-sub'];
- const ok = dots.map(id => document.getElementById(id).classList.contains('ok'));
- setProgress(pctDone(ok));
- }
- 
- document.getElementById('btn-home').onclick = ()=>{ location.href='/'; };
- 
- document.getElementById('btn-check-standalone').onclick = ()=>{
- const again = window.matchMedia('(display-mode: standalone)').matches || (window.navigator.standalone === true);
- setDot('chk-standalone', (isIOS ? (again ? 'ok' : 'warn') : 'ok'));
- if(isIOS && !again) log('Aún no estás en modo app. Añade a pantalla de inicio y vuelve a abrir desde el icono.');
- refreshProgress();
- };
- 
- document.getElementById('btn-reg').onclick = async ()=>{
- if(!('serviceWorker' in navigator)){ log('SW no soportado'); setDot('chk-sw','err'); return; }
- try{
- const reg = await navigator.serviceWorker.register('/sw.js');
- log('SW registrado:', reg.scope || '(sin scope)');
- setDot('chk-sw','ok');
- }catch(e){ log('Error registrando SW:', e.message||e); setDot('chk-sw','err'); }
- refreshProgress();
- };
- 
- document.getElementById('btn-perm').onclick = async ()=>{
- if(!('Notification' in window)){ log('Notifications no soportadas'); setDot('chk-perm','err'); return; }
- try{
- const perm = await Notification.requestPermission();
- log('Permiso =>', perm);
- }catch(e){ log('requestPermission error:', e.message||e); }
- refreshPermission(); refreshProgress();
- };
- 
- document.getElementById('btn-local').onclick = async ()=>{
- try{
- if (!('Notification' in window)) { log('Notifications no soportadas'); return; }
- if (Notification.permission !== 'granted'){ log('Permiso no concedido'); return; }
- new Notification('Notificación local', { body: 'Mostrada desde la página (Window)' });
- log('OK: notificación local (Window)');
- }catch(e){ log('Local notif error:', e.message||e); }
- };
- 
- document.getElementById('btn-local-sw').onclick = async ()=>{
- try{
- const reg = await navigator.serviceWorker.ready;
- if (!reg.showNotification){ log('showNotification no disponible en este SW'); return; }
- await reg.showNotification('Notificación local (SW)', { body: 'Mostrada por el Service Worker' });
- log('OK: notificación local (SW)');
- }catch(e){ log('SW notif error:', e.message||e); }
- };
- 
- async function doSubscribe(){
- try{
- const r = await fetch('/push/vapid-public');
- const j = await r.json().catch(()=>({}));
- if (!j.vapidPublicKey){ log("vapidPublicKey vacío / error en backend"); return false; }
- const reg = await navigator.serviceWorker.ready;
- let sub = await reg.pushManager.getSubscription();
- if (!sub){
- sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64ToBytes(j.vapidPublicKey) });
- }
- const rr = await fetch('/push/subscribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(sub) });
- const jj = await rr.json().catch(()=>({}));
- log("Suscripción =>", JSON.stringify(jj));
- return !!jj.ok;
- }catch(e){
- log('subscribe error:', e.message||e);
- return false;
- }
- }
- 
- document.getElementById('btn-sub').onclick = async ()=>{
- const ok = await doSubscribe();
- await refreshSubscriptionDot(); refreshProgress();
- if(ok) log('✅ Suscrito correctamente');
- else log('❌ No se pudo suscribir (revisa claves VAPID y permisos)');
- };
- 
- document.getElementById('btn-sendme').onclick = async ()=>{
- try{
- const r = await fetch('/push/test', { method:'POST' });
- const j = await r.json().catch(()=>({}));
- log('push/test =>', JSON.stringify(j));
- }catch(e){ log('push/test error:', e.message||e); }
- };
- 
- document.getElementById('btn-list').onclick = async ()=>{
- try{
- const r = await fetch('/push/list');
- const j = await r.json().catch(()=>({}));
- log('push/list =>', JSON.stringify(j));
- }catch(e){ log('push/list error (¿ruta no implementada?):', e.message||e); }
- };
- 
- document.getElementById('btn-copy').onclick = async ()=>{
- try{
- const txt = document.getElementById('log').textContent;
- await navigator.clipboard.writeText(txt);
- log('📋 Registro copiado al portapapeles');
- }catch(e){ log('No se pudo copiar:', e.message||e); }
- };
- 
- (function init(){
- const envText = document.getElementById('envInfo').textContent;
- const standaloneMsg = isIOS ? (isStandalone ? 'En modo app ✅' : 'Abierto en Safari ❗️') : 'Modo app no requerido';
- log('Entorno =>', envText);
- log('Standalone =>', standaloneMsg);
- log('Notification.permission =>', (window.Notification && Notification.permission) ? Notification.permission : 'no soportado');
- log('serviceWorker =>', 'serviceWorker' in navigator);
- log('PushManager =>', !!window.PushManager);
- refreshPermission();
- refreshSubscriptionDot();
- refreshProgress();
- })();
- </script>
- </body>
- </html>
- '''
- return html
+@app.get("/push/debug")
+def push_debug_page():
+    html = '''
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Activar notificaciones — Guía paso a paso</title>
+<style>
+:root{ --brand:#e84393; --ink:#202124; --muted:#5f6368; --ok:#10b981; --warn:#f59e0b; --err:#ef4444; --bg:#fafafa; --card:#fff; --line:#ececec; }
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55}
+.container{max-width:960px;margin:24px auto;padding:0 16px}
+h1{font-size:1.6rem;margin:12px 0 6px}
+.subtitle{color:var(--muted);margin:0 0 14px}
+.badge{display:inline-block;padding:4px 10px;border-radius:999px;background:#f3f4f6;color:#111;font-size:.8rem;margin-right:8px}
+.badge.ok{background:#ecfdf5;color:#065f46}
+.badge.warn{background:#fffbeb;color:#92400e}
+.badge.err{background:#fef2f2;color:#991b1b}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 2px 10px rgba(0,0,0,.03)}
+.card h2{font-size:1.1rem;margin:0 0 8px}
+.grid{display:grid;gap:12px}
+@media(min-width:800px){ .grid{grid-template-columns:1.2fr .8fr} }
+.step{display:flex;gap:12px;align-items:flex-start}
+.step .num{flex:0 0 32px;height:32px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+button{padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer}
+button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+button.ghost{background:#fff}
+button:disabled{opacity:.6;cursor:not-allowed}
+.tip{font-size:.92rem;color:var(--muted);margin-top:6px}
+.hr{height:1px;background:#ececec;margin:14px 0}
+.state{display:grid;gap:10px}
+.state .row{display:flex;align-items:center;gap:10px}
+.state .dot{width:10px;height:10px;border-radius:50%;background:#ddd}
+.state .dot.ok{background:var(--ok)}
+.state .dot.warn{background:var(--warn)}
+.state .dot.err{background:var(--err)}
+.kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#f3f4f6;border:1px solid #e5e7eb;border-bottom-width:2px;border-radius:6px;padding:2px 6px}
+.progress{height:10px;background:#eee;border-radius:999px;overflow:hidden}
+.progress > span{display:block;height:100%;background:linear-gradient(90deg,var(--brand),#ff7ab6);width:0%;transition:width .3s}
+#log{white-space:pre-wrap;background:#111;color:#eee;padding:12px;border-radius:12px;margin-top:12px;min-height:140px}
+.helper{font-size:.95rem}
+.helper li{margin:.25rem 0}
+.header-actions{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 0}
+a.link{color:var(--brand);text-decoration:none;border-bottom:1px dotted var(--brand)}
+a.link:hover{text-decoration:underline}
+a.link{color:#e84393}
+.small{font-size:.88rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🔔 Activar notificaciones</h1>
+<p class="subtitle">Sigue estos pasos. Te marcamos en verde lo que ya está OK. Al final puedes enviarte una prueba.</p>
+
+<div class="card">
+  <div class="progress"><span id="progressBar" style="width:0%"></span></div>
+  <div class="state" style="margin-top:10px">
+    <div class="row"><span id="chk-https" class="dot"></span> <b>HTTPS</b> (obligatorio)</div>
+    <div class="row"><span id="chk-standalone" class="dot"></span> <b>Modo app</b> (iOS: desde “Pantalla de inicio”)</div>
+    <div class="row"><span id="chk-sw" class="dot"></span> <b>Service Worker</b> registrado</div>
+    <div class="row"><span id="chk-perm" class="dot"></span> <b>Permiso de notificaciones</b></div>
+    <div class="row"><span id="chk-sub" class="dot"></span> <b>Dispositivo suscrito</b></div>
+  </div>
+</div>
+
+<div class="grid">
+  <!-- PASOS -->
+  <div>
+    <div class="card">
+      <div class="step">
+        <div class="num">1</div>
+        <div>
+          <h2>Instala como app (iPhone/iPad)</h2>
+          <div class="tip" id="iosTip">
+            En iOS, las <b>push</b> solo funcionan si abres la web desde el icono en <b>Pantalla de inicio</b>.
+          </div>
+          <ul class="helper" id="iosHowTo" style="display:none">
+            <li>Abre en Safari ➜ pulsa <span class="kbd">Compartir</span> ➜ <span class="kbd">Añadir a pantalla de inicio</span>.</li>
+            <li>Abre la app desde el icono y vuelve a esta pantalla.</li>
+          </ul>
+          <div class="actions">
+            <button id="btn-check-standalone" class="ghost">Comprobar estado</button>
+            <button id="btn-home" class="ghost">Ir al inicio</button>
+          </div>
+          <div class="tip small" id="envInfo"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">2</div>
+        <div>
+          <h2>Registrar Service Worker</h2>
+          <p class="helper">Es quien recibe las push en segundo plano.</p>
+          <div class="actions">
+            <button id="btn-reg" class="primary">Registrar SW</button>
+            <button id="btn-local-sw" class="ghost">Probar notificación (SW)</button>
+          </div>
+          <div class="tip">Si falla: comprueba que <code>/sw.js</code> existe y no está cacheado.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">3</div>
+        <div>
+          <h2>Dar permiso y suscribirse</h2>
+          <p class="helper">Primero concede permiso al navegador y luego registramos tu endpoint en el servidor.</p>
+          <div class="actions">
+            <button id="btn-perm" class="primary">Conceder permiso</button>
+            <button id="btn-local" class="ghost">Probar notificación (Página)</button>
+            <button id="btn-sub" class="primary">Suscribirme</button>
+          </div>
+          <div class="tip">Si aparece <b>denied</b>, ve a Ajustes del sistema ▶ Notificaciones y habilítalas para esta app.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">4</div>
+        <div>
+          <h2>Probar desde el servidor</h2>
+          <p class="helper">Con todo en verde, envíate una notificación real desde el backend.</p>
+          <div class="actions">
+            <button id="btn-sendme" class="primary">Enviar prueba</button>
+            <button id="btn-list" class="ghost">Listar suscripciones</button>
+          </div>
+          <div class="tip">Si no llega, revisa que la clave VAPID esté bien y que la suscripción exista en DB.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LATERAL -->
+  <div>
+    <div class="card">
+      <h2>Consejos rápidos</h2>
+      <ul class="helper">
+        <li><b>iOS</b>: usa la app desde <i>Pantalla de inicio</i>, no desde Safari.</li>
+        <li>Comprueba que <b>HTTPS</b> está activo (candado en la barra).</li>
+        <li>Permiso debe quedar en <span class="kbd">granted</span>.</li>
+        <li>Tras suscribirte, en DB debe guardarse tu <span class="kbd">endpoint</span>.</li>
+        <li>La prueba del servidor usa <span class="kbd">/push/test</span> para tu usuario logueado.</li>
+      </ul>
+      <div class="hr"></div>
+      <div class="actions">
+        <button id="btn-copy" class="ghost">Copiar registro</button>
+        <a href="/" class="link">Volver al inicio</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Registro</h2>
+      <div id="log">Cargando…</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+function log(){ const el=document.getElementById('log'); el.textContent += Array.from(arguments).join(' ') + "\\n"; el.scrollTop = el.scrollHeight; }
+function b64ToBytes(s){ const pad='='.repeat((4 - s.length % 4) % 4); const b64=(s+pad).replace(/-/g,'+').replace(/_/g,'/'); const raw=atob(b64); const arr=new Uint8Array(raw.length); for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i); return arr; }
+function setDot(id, state){ const el=document.getElementById(id); el.className='dot'; if(state==='ok') el.classList.add('ok'); else if(state==='warn') el.classList.add('warn'); else if(state==='err') el.classList.add('err'); }
+function pctDone(parts){ const sum = parts.reduce((a,b)=>a+(b?1:0),0); return Math.round((sum/parts.length)*100); }
+function setProgress(p){ document.getElementById('progressBar').style.width = p + '%'; }
+
+const UA = navigator.userAgent || '';
+const isIOS = /iPad|iPhone|iPod/.test(UA);
+const isSafari = /^((?!chrome|android).)*safari/i.test(UA);
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator.standalone === true);
+const isHTTPS = location.protocol === 'https:';
+const envText = [
+  isIOS ? 'iOS' : (/Android/i.test(UA) ? 'Android' : 'Desktop'),
+  isSafari ? 'Safari' : ( /Chrome/i.test(UA) ? 'Chrome' : 'Navegador'),
+  isStandalone ? 'Standalone' : 'Navegador',
+  isHTTPS ? 'HTTPS' : 'HTTP'
+].join(' · ');
+document.getElementById('envInfo').textContent = envText;
+
+if(isIOS){
+  document.getElementById('iosHowTo').style.display = isStandalone ? 'none' : 'block';
+}
+
+setDot('chk-https', isHTTPS ? 'ok' : 'err');
+setDot('chk-standalone', (isIOS ? (isStandalone ? 'ok' : 'warn') : 'ok'));
+
+(async function autoRegisterSW(){
+  try{
+    if('serviceWorker' in navigator){
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      log('SW registrado (auto):', reg.scope || '(sin scope)');
+      setDot('chk-sw','ok');
+    }else{
+      log('Este navegador no soporta Service Worker');
+      setDot('chk-sw','err');
+    }
+  }catch(e){
+    log('Error registrando SW:', e.message||e);
+    setDot('chk-sw','err');
+  }
+  refreshProgress();
+})();
+
+function refreshPermission(){
+  if(!('Notification' in window)) { setDot('chk-perm','err'); return; }
+  const st = Notification.permission; // default | granted | denied
+  if(st === 'granted') setDot('chk-perm','ok');
+  else if(st === 'denied') setDot('chk-perm','err');
+  else setDot('chk-perm','warn');
+}
+
+async function hasSubscription(){
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    return !!sub;
+  }catch{ return false; }
+}
+async function refreshSubscriptionDot(){
+  setDot('chk-sub', (await hasSubscription()) ? 'ok' : 'warn');
+}
+
+function refreshProgress(){
+  const dots = ['chk-https','chk-standalone','chk-sw','chk-perm','chk-sub'];
+  const ok = dots.map(id => document.getElementById(id).classList.contains('ok'));
+  setProgress(pctDone(ok));
+}
+
+document.getElementById('btn-home').onclick = ()=>{ location.href='/'; };
+
+document.getElementById('btn-check-standalone').onclick = ()=>{
+  const again = window.matchMedia('(display-mode: standalone)').matches || (window.navigator.standalone === true);
+  setDot('chk-standalone', (isIOS ? (again ? 'ok' : 'warn') : 'ok'));
+  if(isIOS && !again) log('Aún no estás en modo app. Añade a pantalla de inicio y vuelve a abrir desde el icono.');
+  refreshProgress();
+};
+
+document.getElementById('btn-reg').onclick = async ()=>{
+  if(!('serviceWorker' in navigator)){ log('SW no soportado'); setDot('chk-sw','err'); return; }
+  try{
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    log('SW registrado:', reg.scope || '(sin scope)');
+    setDot('chk-sw','ok');
+  }catch(e){ log('Error registrando SW:', e.message||e); setDot('chk-sw','err'); }
+  refreshProgress();
+};
+
+document.getElementById('btn-perm').onclick = async ()=>{
+  if(!('Notification' in window)){ log('Notifications no soportadas'); setDot('chk-perm','err'); return; }
+  try{
+    const perm = await Notification.requestPermission();
+    log('Permiso =>', perm);
+  }catch(e){ log('requestPermission error:', e.message||e); }
+  refreshPermission(); refreshProgress();
+};
+
+document.getElementById('btn-local').onclick = async ()=>{
+  try{
+    if (!('Notification' in window)) { log('Notifications no soportadas'); return; }
+    if (Notification.permission !== 'granted'){ log('Permiso no concedido'); return; }
+    new Notification('Notificación local', { body: 'Mostrada desde la página (Window)' });
+    log('OK: notificación local (Window)');
+  }catch(e){ log('Local notif error:', e.message||e); }
+};
+
+document.getElementById('btn-local-sw').onclick = async ()=>{
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    if (!reg.showNotification){ log('showNotification no disponible en este SW'); return; }
+    await reg.showNotification('Notificación local (SW)', { body: 'Mostrada por el Service Worker' });
+    log('OK: notificación local (SW)');
+  }catch(e){ log('SW notif error:', e.message||e); }
+};
+
+async function doSubscribe(){
+  try{
+    const r = await fetch('/push/vapid-public');
+    const j = await r.json().catch(()=>({}));
+    if (!j.vapidPublicKey){ log("vapidPublicKey vacío / error en backend"); return false; }
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub){
+      sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64ToBytes(j.vapidPublicKey) });
+    }
+    const rr = await fetch('/push/subscribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(sub) });
+    const jj = await rr.json().catch(()=>({}));
+    log("Suscripción =>", JSON.stringify(jj));
+    return !!jj.ok;
+  }catch(e){
+    log('subscribe error:', e.message||e);
+    return false;
+  }
+}
+
+document.getElementById('btn-sub').onclick = async ()=>{
+  const ok = await doSubscribe();
+  await refreshSubscriptionDot(); refreshProgress();
+  if(ok) log('✅ Suscrito correctamente');
+  else log('❌ No se pudo suscribir (revisa claves VAPID y permisos)');
+};
+
+document.getElementById('btn-sendme').onclick = async ()=>{
+  try{
+    const r = await fetch('/push/test', { method:'POST' });
+    const j = await r.json().catch(()=>({}));
+    log('push/test =>', JSON.stringify(j));
+  }catch(e){ log('push/test error:', e.message||e); }
+};
+
+document.getElementById('btn-list').onclick = async ()=>{
+  try{
+    const r = await fetch('/push/list');
+    const j = await r.json().catch(()=>({}));
+    log('push/list =>', JSON.stringify(j));
+  }catch(e){ log('push/list error (¿ruta no implementada?):', e.message||e); }
+};
+
+document.getElementById('btn-copy').onclick = async ()=>{
+  try{
+    const txt = document.getElementById('log').textContent;
+    await navigator.clipboard.writeText(txt);
+    log('📋 Registro copiado al portapapeles');
+  }catch(e){ log('No se pudo copiar:', e.message||e); }
+};
+
+(function init(){
+  const envText = document.getElementById('envInfo').textContent;
+  const standaloneMsg = isIOS ? (isStandalone ? 'En modo app ✅' : 'Abierto en Safari ❗️') : 'Modo app no requerido';
+  log('Entorno =>', envText);
+  log('Standalone =>', standaloneMsg);
+  log('Notification.permission =>', (window.Notification && Notification.permission) ? Notification.permission : 'no soportado');
+  log('serviceWorker =>', 'serviceWorker' in navigator);
+  log('PushManager =>', !!window.PushManager);
+  refreshPermission();
+  refreshSubscriptionDot();
+  refreshProgress();
+})();
+</script>
+</body>
+</html>
+'''
+    return html
+
 
 # ======= Debug zona horaria =======
 @app.get("/_debug/tz")
@@ -2339,5 +2339,6 @@ def _debug_tz():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
+
 
 

@@ -896,6 +896,42 @@ def _meta_price(soup):
                 if cents: return cents
     return None
 
+
+# ======== Presencia (DB) ========
+_presence_ready = False
+_presence_lock = threading.Lock()
+
+def ensure_presence_table():
+    global _presence_ready
+    if _presence_ready:
+        return
+    with _presence_lock:
+        if _presence_ready:
+            return
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute("""
+                CREATE TABLE IF NOT EXISTS user_presence (
+                    username    text PRIMARY KEY,
+                    last_seen   timestamptz NOT NULL,
+                    device      text,
+                    user_agent  text
+                );
+                """)
+                conn.commit()
+            _presence_ready = True
+        finally:
+            conn.close()
+
+def other_of(u: str) -> str:
+    # Ajusta si algún día cambian los nombres
+    if u == 'mochito': return 'mochita'
+    if u == 'mochita': return 'mochito'
+    # fallback (si entráis con otros aliases, podéis pasar ?user= en GET)
+    return 'mochita'
+
+
 def fetch_price(url: str) -> tuple[int | None, str | None, str | None]:
     try:
         resp = requests.get(url, timeout=8, headers={"User-Agent": PRICE_UA})
@@ -2355,6 +2391,78 @@ def _debug_tz():
         "date_madrid": n.date().isoformat(),
         "secs_to_midnight_madrid": int(seconds_until_next_midnight_madrid())
     })
+
+
+@app.post("/presence/ping")
+def presence_ping():
+    if 'username' not in session:
+        return jsonify(ok=False, error="unauthorized"), 401
+    ensure_presence_table()
+    u = session['username']
+    now = europe_madrid_now()
+    ua = request.headers.get('User-Agent', '')[:300]
+    device = None
+    try:
+        data = request.get_json(silent=True) or {}
+        device = (data.get('device') or '')[:80]
+    except Exception:
+        pass
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO user_presence (username, last_seen, device, user_agent)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (username)
+                DO UPDATE SET last_seen = EXCLUDED.last_seen,
+                              device    = EXCLUDED.device,
+                              user_agent= EXCLUDED.user_agent;
+            """, (u, now, device, ua))
+            conn.commit()
+    finally:
+        conn.close()
+
+    # (Opcional) avisar por SSE a quien esté escuchando
+    try:
+        broadcast("presence", {"kind":"presence","user":u,"ts":now.isoformat()})
+    except Exception:
+        pass
+
+    return jsonify(ok=True)
+
+@app.get("/presence/other")
+def presence_other():
+    if 'username' not in session:
+        return jsonify(ok=False, error="unauthorized"), 401
+    ensure_presence_table()
+    me = session['username']
+    other = request.args.get('user') or other_of(me)
+
+    last_seen = None
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT last_seen FROM user_presence WHERE username=%s;", (other,))
+            row = c.fetchone()
+            if row:
+                last_seen = row['last_seen']
+    finally:
+        conn.close()
+
+    now = europe_madrid_now()
+    online_threshold_sec = int(os.environ.get("PRESENCE_ONLINE_WINDOW", "70"))
+    online = False
+    ago_seconds = None
+
+    if last_seen:
+        ago = (now - last_seen).total_seconds()
+        ago_seconds = max(0, int(ago))
+        online = ago_seconds <= online_threshold_sec
+
+    return jsonify(ok=True, user=other, online=online,
+                   last_seen=(last_seen.isoformat() if last_seen else None),
+                   ago_seconds=ago_seconds)
 
 # ======= WSGI / Run =======
 if __name__ == '__main__':

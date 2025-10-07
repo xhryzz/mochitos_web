@@ -1071,6 +1071,43 @@
   .sort-toggle button{ padding: 8px 10px; font-weight: 700; }
 }
 
+/* ===== Presencia (chip) ===== */
+.presence-chip{
+  position: fixed;
+  top: 30px;
+  left: 90px;           /* al lado del icono de ajustes (izquierda) */
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 999px;
+  padding: 8px 12px;
+  box-shadow: 0 10px 20px rgba(0,0,0,.08);
+  z-index: 1000;
+}
+.presence-chip .avatar-mini{
+  width: 24px; height: 24px; border-radius: 50%;
+  overflow: hidden; display: inline-flex; align-items:center; justify-content:center;
+  background: var(--gradient); color:#fff; font-weight: 800; font-size:.9rem;
+}
+.presence-chip .avatar-mini img{ width:100%; height:100%; object-fit: cover; }
+.presence-name{ font-weight: 700; color:#555; }
+.presence-dot{
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #9ca3af;           /* gris por defecto */
+  box-shadow: 0 0 0 2px rgba(0,0,0,.04) inset;
+}
+.presence-dot.online{ background: #22c55e; } /* verde */
+.presence-text{
+  font-weight: 700;
+  color: #374151;                 /* En línea */
+}
+.presence-text.offline{ color: #6b7280; } /* Última vez ... en gris */
+@media (max-width: 600px){
+  .presence-chip{ left: 82px; padding: 6px 10px; gap: 6px; }
+  .presence-name{ display:none; } /* ahorra espacio en móvil */
+}
 
     </style>
 </head>
@@ -1198,6 +1235,21 @@
       <div class="settings-icon" id="settingsIcon">
         <i class="fas fa-user-cog"></i>
       </div>
+
+      <!-- PRESENCIA (chip junto al icono de perfil) -->
+<div id="presenceChip" class="presence-chip" aria-live="polite" title="Estado en tiempo real">
+  <div class="avatar-mini">
+    {% if profile_pictures.get(other_user) %}
+      <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+    {% else %}
+      <span>{{ other_user[0]|upper }}</span>
+    {% endif %}
+  </div>
+  <span class="presence-name">{{ other_user }}:</span>
+  <span class="presence-dot" id="presenceDot" aria-hidden="true"></span>
+  <span class="presence-text" id="presenceText">Comprobando…</span>
+</div>
+
 
         <!-- MODAL EDITAR EVENTO INTIMIDAD -->
   <div id="editIntimModal" class="modal">
@@ -3033,7 +3085,73 @@ document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
 })();
 
 
+// ======== PRESENCIA (frontend) ========
+(function(){
+  // Quién soy y quién es "el/la otr@" (ya lo usas en tus plantillas)
+  const ME   = {{ (session.username or '') | tojson }};
+  const OTHER = {{ (other_user or '') | tojson }};
 
+  // Dónde pintamos
+  const dotEl  = document.getElementById('presenceDot');
+  const textEl = document.getElementById('presenceText');
+
+  if (!ME || !OTHER || !dotEl || !textEl) return;
+
+  function timeAgo(sec){
+    sec = Math.max(0, Math.floor(sec));
+    if (sec < 60) return 'hace unos segundos';
+    const m = Math.floor(sec/60);
+    if (m < 60) return `hace ${m} min`;
+    const h = Math.floor(m/60);
+    if (h < 24) return `hace ${h} h`;
+    const d = Math.floor(h/24);
+    return `hace ${d} día${d!==1?'s':''}`;
+  }
+
+  async function pingPresence(){
+    try{
+      // No bloquea la UI
+      navigator.sendBeacon
+        ? navigator.sendBeacon('/presence/ping', new Blob([JSON.stringify({device:'web'})], {type:'application/json'}))
+        : fetch('/presence/ping',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({device:'web'})});
+    }catch(_){}
+  }
+
+  async function refreshPresence(){
+    try{
+      const r = await fetch('/presence/other', {headers:{'Accept':'application/json'}});
+      if (!r.ok) throw new Error('HTTP '+r.status);
+      const j = await r.json();
+      const online = !!j.online;
+      dotEl.classList.toggle('online', online);
+      textEl.classList.toggle('offline', !online);
+      if (online){
+        textEl.textContent = 'En línea';
+      }else{
+        if (j.ago_seconds != null){
+          textEl.textContent = 'Última vez ' + timeAgo(j.ago_seconds);
+        }else{
+          textEl.textContent = 'Sin datos';
+        }
+      }
+    }catch(e){
+      // Si falla, no molestamos: dejamos el último estado
+    }
+  }
+
+  // Arranque
+  document.addEventListener('visibilitychange', ()=> {
+    if (!document.hidden){ pingPresence(); refreshPresence(); }
+  });
+
+  // Primeras llamadas
+  pingPresence();
+  refreshPresence();
+
+  // Intervalos (ajusta a gusto)
+  setInterval(pingPresence, 25*1000);  // cada 25s enviamos latido
+  setInterval(refreshPresence, 7*1000); // cada 7s consultamos estado del otro
+})();
 
 </script>
 

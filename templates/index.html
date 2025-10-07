@@ -3113,22 +3113,28 @@ document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
     return `hace ${d} día${d!==1?'s':''}`;
   }
 
-  async function pingPresence(){
-    try{
-      const body = JSON.stringify({ device: 'web' });
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon('/presence/ping', new Blob([body], { type: 'application/json' }));
-      } else {
-        await fetch('/presence/ping', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body
-        });
-      }
-    }catch(e){
-      console.warn('[presence] ping error:', e);
-    }
+ async function pingPresence(){
+  try{
+    await fetch('/presence/ping', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ device: 'web' }),
+      keepalive: true  // importante en cambios de pestaña
+    });
+  }catch(e){
+    console.warn('[presence] ping error:', e);
   }
+}
+
+// Opcional: también al cerrar pestaña, usa sendBeacon
+window.addEventListener('beforeunload', () => {
+  try{
+    if (navigator.sendBeacon){
+      navigator.sendBeacon('/presence/ping',
+        new Blob([JSON.stringify({device:'unload'})], {type:'application/json'}));
+    }
+  }catch(_){}
+});
 
   async function refreshPresence(){
     try{
@@ -3366,6 +3372,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </body>
 </html>
-
 
 

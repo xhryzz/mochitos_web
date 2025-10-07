@@ -1,5 +1,5 @@
-# app.py — con Web Push, notificaciones (Europe/Madrid a medianoche), seguimiento de precio
-# y PRESENCIA tipo WhatsApp (en línea / última vez)
+
+# app.py — con Web Push, notificaciones (Europe/Madrid a medianoche) y seguimiento de precio
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash, Response, make_response
 import psycopg2, psycopg2.extras
 from psycopg2.pool import SimpleConnectionPool
@@ -433,16 +433,6 @@ def init_db():
             p256dh TEXT NOT NULL,
             auth TEXT NOT NULL,
             created_at TEXT)''')
-
-        # ======= Presencia (tipo WhatsApp) =======
-        c.execute('''CREATE TABLE IF NOT EXISTS presence (
-            username   TEXT PRIMARY KEY,
-            last_ping  TEXT,
-            is_online  BOOLEAN DEFAULT FALSE,
-            last_seen  TEXT,
-            device     TEXT
-        )''')
-
         # Seed básico
         try:
             c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochito','1234'))
@@ -478,6 +468,7 @@ def init_db():
 init_db()
 
 # ========= Helpers =========
+# ========= Helpers =========
 def _parse_dt(txt: str):
     if not txt:
         return None
@@ -495,7 +486,8 @@ def _parse_dt(txt: str):
                 return pytz.timezone("Europe/Madrid").localize(dt)
             except Exception:
                 pass
-    return dt  # último recurso (naive)
+    return dt  # último recurso (naive) — pero ya no restamos naive con aware en tu código
+
 
 # --- Lógica dependiente de fecha en Madrid ---
 def get_intim_stats():
@@ -548,6 +540,7 @@ def get_today_question(today: date | None = None):
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
+            # 👇 Si hay duplicados del mismo día, cogemos la MÁS RECIENTE
             c.execute("""
                 SELECT id, question
                 FROM daily_questions
@@ -558,6 +551,8 @@ def get_today_question(today: date | None = None):
             qrow = c.fetchone()
             if qrow:
                 return qrow
+
+            # No existe aún -> creamos una para hoy
             c.execute("SELECT question FROM daily_questions")
             used = {row[0] for row in c.fetchall()}
             remaining = [q for q in QUESTIONS if q not in used]
@@ -574,6 +569,7 @@ def get_today_question(today: date | None = None):
             return (qid, question_text)
     finally:
         conn.close()
+
 
 def days_together():
     return (today_madrid() - RELATION_START).days
@@ -793,71 +789,6 @@ def push_meeting_countdown(dleft: int):
                    url="/#contador",
                    tag="meeting-countdown")
 
-# ========= Presencia (tipo WhatsApp) =========
-PRESENCE_TTL_SECS = 70  # si no hay ping en ~70s, consideramos offline
-
-def _presence_row_to_status(row):
-    """Convierte una fila de DB en estado calculado (online por TTL)."""
-    now = europe_madrid_now()
-    if not row:
-        return {"online": False, "last_seen": None}
-    last_ping_dt = _parse_dt(row.get("last_ping") or "")
-    online_flag = bool(row.get("is_online"))
-    online = False
-    if last_ping_dt and online_flag:
-        try:
-            online = (now - last_ping_dt).total_seconds() < PRESENCE_TTL_SECS
-        except Exception:
-            online = False
-    last_seen = row.get("last_seen") or row.get("last_ping")
-    return {"online": online, "last_seen": last_seen}
-
-def presence_set(user: str, online: bool, device: str | None = None):
-    """Marca online/offline y emite SSE."""
-    now_txt = now_madrid_str()
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            if online:
-                c.execute("""
-                    INSERT INTO presence (username, last_ping, is_online, device)
-                    VALUES (%s,%s,TRUE,%s)
-                    ON CONFLICT (username) DO UPDATE
-                      SET last_ping=EXCLUDED.last_ping,
-                          is_online=TRUE,
-                          device=EXCLUDED.device
-                """, (user, now_txt, (device or "")[:200]))
-            else:
-                c.execute("""
-                    INSERT INTO presence (username, last_ping, is_online, last_seen, device)
-                    VALUES (%s,%s,FALSE,%s,%s)
-                    ON CONFLICT (username) DO UPDATE
-                      SET is_online=FALSE,
-                          last_seen=EXCLUDED.last_seen,
-                          device=EXCLUDED.device
-                """, (user, now_txt, now_txt, (device or "")[:200]))
-            conn.commit()
-    finally:
-        conn.close()
-    broadcast("presence", {"user": user, "online": bool(online), "last_seen": now_txt})
-
-def presence_status_for(users=("mochito", "mochita")) -> dict:
-    """Devuelve estados calculados de presencia para la pareja."""
-    res = {u: {"online": False, "last_seen": None} for u in users}
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""SELECT username, last_ping, is_online, last_seen, device
-                         FROM presence
-                         WHERE username = ANY(%s)""", (list(users),))
-            for r in c.fetchall():
-                row = {"username": r["username"], "last_ping": r["last_ping"],
-                       "is_online": r["is_online"], "last_seen": r["last_seen"], "device": r["device"]}
-                res[r["username"]] = _presence_row_to_status(row)
-    finally:
-        conn.close()
-    return res
-
 # ========= App state helpers =========
 def state_get(key: str, default: str | None = None) -> str | None:
     conn = get_db_connection()
@@ -1002,6 +933,7 @@ def notify_price_drop(row, old_cents: int, new_cents: int):
        - Si es regalo (is_gift=True): SOLO al creador.
        - Si no es regalo: a ambos.
     """
+    # row es DictRow -> acceder por clave
     wid         = row['id']
     pname       = row['product_name']
     link        = row.get('product_link')
@@ -1016,8 +948,10 @@ def notify_price_drop(row, old_cents: int, new_cents: int):
 
     try:
         if is_gift and created_by in ("mochito", "mochita"):
+            # Regalo → notificar SOLO al creador
             send_push_to(created_by, title=title, body=body, url=link, tag=tag)
         else:
+            # No es regalo → ambos
             send_push_both(title=title, body=body, url=link, tag=tag)
     except Exception as e:
         print("[push price]", e)
@@ -1163,535 +1097,1268 @@ def background_loop():
                 last_sweep = state_get("last_price_sweep", "")
                 do = True
                 if last_sweep:
-                    last = _parse_dt(last_sweep)
-                    if last:
-                        # si hace menos de 3 horas que pasamos el sweep, saltamos
-                        if (now - last).total_seconds() < 3 * 3600:
-                            do = False
+                    dt = _parse_dt(last_sweep)
+                    if dt:
+                        from datetime import timedelta as _td
+                        do = (europe_madrid_now() - dt) >= _td(hours=3)
                 if do:
-                    try:
-                        sweep_price_checks()
-                    finally:
-                        state_set("last_price_sweep", now_madrid_str())
+                    sweep_price_checks(max_items=6, min_age_minutes=180)
+                    state_set("last_price_sweep", now_madrid_str())
             except Exception as e:
-                print("[bg] error en sweep:", e)
-
+                print("[bg price sweep]", e)
 
         except Exception as e:
-            # nunca debemos romper el bucle
-            print("[bg] loop error:", e)
+            print(f"[bg] error: {e}")
 
-        # espera entre 45 y 60s (aleatorio) para no sincronizar con otros workers
-        time.sleep(random.randint(45, 60))
+        time.sleep(45)
 
-# ======= Lanzar background una única vez por proceso =======
-_BG_STARTED = False
-def start_background_once():
-    global _BG_STARTED
-    if _BG_STARTED:
-        return
-    _BG_STARTED = True
-    th = threading.Thread(target=background_loop, daemon=True)
-    th.start()
+# Lanzar scheduler en segundo plano
+threading.Thread(target=background_loop, daemon=True).start()
 
-# arranca salvo que se fuerce a desactivar
-if not os.environ.get("DISABLE_BG"):
-    start_background_once()
+# ========= Rutas =========
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    # LOGIN
+    if 'username' not in session:
+        if request.method == 'POST':
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '').strip()
+            conn = get_db_connection()
+            try:
+                with conn.cursor() as c:
+                    c.execute("SELECT password FROM users WHERE username=%s", (username,))
+                    row = c.fetchone()
+                    if not row:
+                        send_discord("Login FAIL", {"username_intent": username, "reason": "user_not_found"})
+                        return render_template('index.html', error="Usuario o contraseña incorrecta", profile_pictures={})
+                    stored = row[0]
+                    if _is_hashed(stored):
+                        ok = check_password_hash(stored, password); mode = "hashed"
+                    else:
+                        ok = (stored == password); mode = "plaintext"
+                    if ok:
+                        session['username'] = username
+                        send_discord("Login OK", {"username": username, "mode": mode})
+                        return redirect('/')
+                    else:
+                        send_discord("Login FAIL", {"username_intent": username, "reason": "bad_password", "mode": mode})
+                        return render_template('index.html', error="Usuario o contraseña incorrecta", profile_pictures={})
+            finally:
+                conn.close()
+        return render_template('index.html', error=None, profile_pictures={})
 
-# ========= Auth helpers / decoradores =========
-def current_user() -> str | None:
-    u = session.get("username")
-    if u in ("mochito", "mochita"):
-        return u
-    return u
-
-def require_user(fn):
-    from functools import wraps
-    @wraps(fn)
-    def wrapped(*a, **k):
-        if not current_user():
-            return jsonify({"ok": False, "error": "auth_required"}), 401
-        return fn(*a, **k)
-    return wrapped
-
-# ========= Rutas básicas =========
-@app.get("/")
-def home():
-    # Sirve tu plantilla (templates/index.html)
-    return render_template("index.html")
-
-@app.get("/api/status")
-def api_status():
-    return jsonify({
-        "ok": True,
-        "now_madrid": now_madrid_str(),
-        "user": current_user(),
-        "vapid_key": get_vapid_public_base64url(),
-    })
-
-@app.get("/schedule")
-@require_user
-def schedule_page():
-    # pon aquí tu página de horarios real cuando la tengas
-    return "<h1>Horarios</h1><p>Página en construcción.</p>"
-
-
-
-@app.get("/healthz")
-def healthz():
-    return ("ok", 200, {"Cache-Control": "no-store"})
-
-# ========= Login / Logout =========
-@app.post("/login")
-def login():
-    data = request.get_json(silent=True) or request.form or {}
-    username = (data.get("username") or "").strip()
-    password = (data.get("password") or "")
-    if not username or not password:
-        return jsonify({"ok": False, "error": "missing_credentials"}), 400
-
+    # LOGUEADO
+    user = session['username']
+    question_id, question_text = get_today_question()  # usa fecha de Madrid por defecto
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            c.execute("SELECT password FROM users WHERE username=%s", (username,))
-            row = c.fetchone()
+            # ------------ POST acciones ------------
+            # 1) Foto perfil
+            if request.method == 'POST' and 'update_profile' in request.form and 'profile_picture' in request.files:
+                file = request.files['profile_picture']
+                if file and file.filename:
+                    image_data = file.read()
+                    filename = secure_filename(file.filename)
+                    mime_type = file.mimetype
+                    c.execute("""
+                        INSERT INTO profile_pictures (username, image_data, filename, mime_type, uploaded_at)
+                        VALUES (%s,%s,%s,%s,%s)
+                        ON CONFLICT (username) DO UPDATE
+                        SET image_data=EXCLUDED.image_data, filename=EXCLUDED.filename,
+                            mime_type=EXCLUDED.mime_type, uploaded_at=EXCLUDED.uploaded_at
+                    """, (user, image_data, filename, mime_type, now_madrid_str()))
+                    conn.commit(); flash("Foto de perfil actualizada ✅", "success")
+                    send_discord("Profile picture updated", {"user": user, "filename": filename})
+                    cache_invalidate('get_profile_pictures')
+                    broadcast("profile_update", {"user": user})
+                return redirect('/')
+
+            # 2) Cambio de contraseña
+            if request.method == 'POST' and 'change_password' in request.form:
+                current_password = request.form.get('current_password', '').strip()
+                new_password = request.form.get('new_password', '').strip()
+                confirm_password = request.form.get('confirm_password', '').strip()
+                if not current_password or not new_password or not confirm_password:
+                    flash("Completa todos los campos de contraseña.", "error"); return redirect('/')
+                if new_password != confirm_password:
+                    flash("La nueva contraseña y la confirmación no coinciden.", "error"); return redirect('/')
+                if len(new_password) < 4:
+                    flash("La nueva contraseña debe tener al menos 4 caracteres.", "error"); return redirect('/')
+                c.execute("SELECT password FROM users WHERE username=%s", (user,))
+                row = c.fetchone()
+                if not row:
+                    flash("Usuario no encontrado.", "error"); return redirect('/')
+                stored = row[0]
+                valid_current = check_password_hash(stored, current_password) if _is_hashed(stored) else (stored == current_password)
+                if not valid_current:
+                    flash("La contraseña actual no es correcta.", "error")
+                    send_discord("Change password FAIL", {"user": user, "reason": "wrong_current"}); return redirect('/')
+                new_hash = generate_password_hash(new_password)
+                c.execute("UPDATE users SET password=%s WHERE username=%s", (new_hash, user))
+                conn.commit(); flash("Contraseña cambiado correctamente 🎉", "success")
+                send_discord("Change password OK", {"user": user}); return redirect('/')
+
+            # 3) Responder pregunta
+            if request.method == 'POST' and 'answer' in request.form:
+                answer = request.form['answer'].strip()
+                if question_id is not None and answer:
+                    now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"  # UTC
+                    c.execute("SELECT id, answer, created_at, updated_at FROM answers WHERE question_id=%s AND username=%s",
+                              (question_id, user))
+                    prev = c.fetchone()
+                    if not prev:
+                        c.execute("""INSERT INTO answers (question_id, username, answer, created_at, updated_at)
+                                     VALUES (%s,%s,%s,%s,%s) ON CONFLICT (question_id, username) DO NOTHING""",
+                                  (question_id, user, answer, now_txt, now_txt))
+                        conn.commit(); send_discord("Answer submitted", {"user": user, "question_id": question_id})
+                    else:
+                        prev_id, prev_text, prev_created, prev_updated = prev
+                        if answer != (prev_text or ""):
+                            if prev_created is None:
+                                c.execute("""UPDATE answers SET answer=%s, updated_at=%s, created_at=%s WHERE id=%s""",
+                                          (answer, now_txt, prev_updated or now_txt, prev_id))
+                            else:
+                                c.execute("""UPDATE answers SET answer=%s, updated_at=%s WHERE id=%s""",
+                                          (answer, now_txt, prev_id))
+                            conn.commit(); send_discord("Answer edited", {"user": user, "question_id": question_id})
+                    cache_invalidate('compute_streaks')
+                    broadcast("dq_answer", {"user": user})
+                    try:
+                        push_answer_notice(user)
+                    except Exception as e:
+                        print("[push answer] ", e)
+                return redirect('/')
+
+            # 3-bis) Cambiar la pregunta de HOY (no borra fila => preserva racha)
+            if request.method == 'POST' and 'dq_reroll' in request.form:
+                if question_id is not None:
+                    c.execute("SELECT question FROM daily_questions WHERE id=%s", (question_id,))
+                    old_q = (c.fetchone() or [None])[0]
+                    c.execute("SELECT question FROM daily_questions")
+                    used = {row[0] for row in c.fetchall()}
+                    if old_q:
+                        used.discard(old_q)
+                    remaining = [q for q in QUESTIONS if q not in used]
+                    if remaining:
+                        new_q = random.choice(remaining)
+                        c.execute("DELETE FROM answers WHERE question_id=%s", (question_id,))
+                        c.execute("UPDATE daily_questions SET question=%s WHERE id=%s", (new_q, question_id))
+                        conn.commit()
+                        cache_invalidate('compute_streaks')
+                        flash("Pregunta cambiada para hoy ✅", "success")
+                        send_discord("DQ reroll", {"user": user, "old": old_q, "new": new_q})
+                        broadcast("dq_change", {"id": int(question_id)})
+                    else:
+                        flash("No quedan preguntas disponibles para cambiar 😅", "error")
+                return redirect('/')
+
+            # 4) Meeting date
+            if request.method == 'POST' and 'meeting_date' in request.form:
+                meeting_date = request.form['meeting_date']
+                c.execute("INSERT INTO meeting (meeting_date) VALUES (%s)", (meeting_date,))
+                conn.commit(); flash("Fecha actualizada 📅", "success")
+                send_discord("Meeting date updated", {"user": user, "date": meeting_date})
+                broadcast("meeting_update", {"date": meeting_date}); return redirect('/')
+
+            # 5) Banner
+            if request.method == 'POST' and 'banner' in request.files:
+                file = request.files['banner']
+                if file and file.filename:
+                    image_data = file.read()
+                    filename = secure_filename(file.filename)
+                    mime_type = file.mimetype
+                    c.execute("INSERT INTO banner (image_data, filename, mime_type, uploaded_at) VALUES (%s,%s,%s,%s)",
+                              (image_data, filename, mime_type, now_madrid_str()))
+                    conn.commit(); flash("Banner actualizado 🖼️", "success")
+                    send_discord("Banner updated", {"user": user, "filename": filename})
+                    cache_invalidate('get_banner')
+                    broadcast("banner_update", {"by": user})
+                return redirect('/')
+
+            # 6) Nuevo viaje
+            if request.method == 'POST' and 'travel_destination' in request.form:
+                destination = request.form['travel_destination'].strip()
+                description = request.form.get('travel_description', '').strip()
+                travel_date = request.form.get('travel_date', '')
+                is_visited = 'travel_visited' in request.form
+                if destination:
+                    c.execute("""INSERT INTO travels (destination, description, travel_date, is_visited, created_by, created_at)
+                                 VALUES (%s,%s,%s,%s,%s,%s)""",
+                              (destination, description, travel_date, is_visited, user, now_madrid_str()))
+                    conn.commit(); flash("Viaje añadido ✈️", "success")
+                    send_discord("Travel added", {"user": user, "dest": destination, "visited": is_visited})
+                    broadcast("travel_update", {"type": "add"})
+                return redirect('/')
+
+            # 7) Foto de viaje (URL)
+            if request.method == 'POST' and 'travel_photo_url' in request.form:
+                travel_id = request.form.get('travel_id')
+                image_url = request.form['travel_photo_url'].strip()
+                if image_url and travel_id:
+                    c.execute("""INSERT INTO travel_photos (travel_id, image_url, uploaded_by, uploaded_at)
+                                 VALUES (%s,%s,%s,%s)""",
+                              (travel_id, image_url, user, now_madrid_str()))
+                    conn.commit(); flash("Foto añadida 📸", "success")
+                    send_discord("Travel photo added", {"user": user, "travel_id": travel_id})
+                    broadcast("travel_update", {"type": "photo_add", "id": int(travel_id)})
+                return redirect('/')
+
+            # 8) Wishlist add (con seguimiento de precio)
+            if request.method == 'POST' and 'product_name' in request.form and 'edit_wishlist_item' not in request.path:
+                product_name = request.form['product_name'].strip()
+                product_link = request.form.get('product_link', '').strip()
+                notes = request.form.get('wishlist_notes', '').strip()
+                product_size = request.form.get('size', '').strip()
+                priority = request.form.get('priority', 'media').strip()
+                is_gift = bool(request.form.get('is_gift'))
+
+                # NUEVO: tracking
+                track_price = bool(request.form.get('track_price'))
+                alert_drop_percent = (request.form.get('alert_drop_percent') or '').strip()
+                alert_below_price  = (request.form.get('alert_below_price')  or '').strip()
+
+                if priority not in ('alta', 'media', 'baja'): priority = 'media'
+                def euros_to_cents(v):
+                    v = (v or '').strip()
+                    if not v: return None
+                    return _to_cents_from_str(v.replace('€',''))
+
+                alert_below_cents = euros_to_cents(alert_below_price)
+                alert_pct = float(alert_drop_percent) if alert_drop_percent else None
+
+                if product_name:
+                    c.execute("""
+                      INSERT INTO wishlist
+                        (product_name, product_link, notes, size, created_by, created_at,
+                         is_purchased, priority, is_gift,
+                         track_price, alert_drop_percent, alert_below_cents)
+                      VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    """, (product_name, product_link, notes, product_size, user, now_madrid_str(),
+                          False, priority, is_gift, track_price, alert_pct, alert_below_cents))
+                    conn.commit(); flash("Producto añadido 🛍️", "success")
+                    send_discord("Wishlist added", {
+                        "user": user, "name": product_name, "priority": priority,
+                        "is_gift": is_gift, "size": product_size, "track_price": track_price
+                    })
+                    broadcast("wishlist_update", {"type": "add"})
+                    try:
+                        push_wishlist_notice(user, is_gift)
+                    except Exception as e:
+                        print("[push wishlist] ", e)
+                return redirect('/')
+
+            # INTIMIDAD
+            if request.method == 'POST' and 'intim_unlock_pin' in request.form:
+                pin_try = request.form.get('intim_pin', '').strip()
+                if pin_try == INTIM_PIN:
+                    session['intim_unlocked'] = True; flash("Módulo Intimidad desbloqueado ✅", "success")
+                    send_discord("Intimidad unlock OK", {"user": user})
+                else:
+                    session.pop('intim_unlocked', None); flash("PIN incorrecto ❌", "error")
+                    send_discord("Intimidad unlock FAIL", {"user": user})
+                return redirect('/')
+
+            if request.method == 'POST' and 'intim_lock' in request.form:
+                session.pop('intim_unlocked', None); flash("Módulo Intimidad ocultado 🔒", "info"); return redirect('/')
+
+            if request.method == 'POST' and 'intim_register' in request.form:
+                if not session.get('intim_unlocked'):
+                    flash("Debes desbloquear con PIN para registrar.", "error"); return redirect('/')
+                place = (request.form.get('intim_place') or '').strip()
+                notes = (request.form.get('intim_notes') or '').strip()
+                now_txt = now_madrid_str()
+                with conn.cursor() as c2:
+                    c2.execute("""INSERT INTO intimacy_events (username, ts, place, notes) VALUES (%s,%s,%s,%s)""",
+                               (user, now_txt, place or None, notes or None))
+                    conn.commit()
+                flash("Momento registrado ❤️", "success")
+                send_discord("Intimidad registered", {"user": user, "place": place, "notes_len": len(notes)})
+                broadcast("intim_update", {"type": "add"})
+                return redirect('/')
+
+            # ------------ Consultas para render ------------
+            # Respuestas del día
+            c.execute("SELECT username, answer, created_at, updated_at FROM answers WHERE question_id=%s", (question_id,))
+            ans_rows = c.fetchall()
+
+            # Viajes + fotos
+            c.execute("""
+                SELECT id, destination, description, travel_date, is_visited, created_by
+                FROM travels
+                ORDER BY is_visited, travel_date DESC
+            """)
+            travels = c.fetchall()
+
+            c.execute("SELECT travel_id, id, image_url, uploaded_by FROM travel_photos ORDER BY id DESC")
+            all_ph = c.fetchall()
+
+            # Wishlist (blindaje regalos)
+            c.execute("""
+                SELECT
+                    id,
+                    product_name,
+                    product_link,
+                    notes,
+                    created_by,
+                    created_at,
+                    is_purchased,
+                    COALESCE(priority,'media') AS priority,
+                    COALESCE(is_gift,false)   AS is_gift,
+                    size,
+                    COALESCE(track_price,false) AS track_price,
+                    last_price_cents,
+                    currency,
+                    last_checked,
+                    alert_drop_percent,
+                    alert_below_cents
+                FROM wishlist
+                ORDER BY
+                    is_purchased ASC,
+                    CASE COALESCE(priority,'media')
+                        WHEN 'alta' THEN 0
+                        WHEN 'media' THEN 1
+                        ELSE 2
+                    END,
+                    created_at DESC
+            """)
+            wl_rows = c.fetchall()
+
+        # --- Procesamiento Python *fuera* del cursor ---
+        # Respuestas
+        answers = [(r[0], r[1]) for r in ans_rows]
+        answers_created_at = {r[0]: r[2] for r in ans_rows}
+        answers_updated_at = {r[0]: r[3] for r in ans_rows}
+        answers_edited = {r[0]: (r[2] is not None and r[3] is not None and r[2] != r[3]) for r in ans_rows}
+
+        other_user = 'mochita' if user == 'mochito' else 'mochito'
+        dict_ans = {u: a for (u, a) in answers}
+        user_answer, other_answer = dict_ans.get(user), dict_ans.get(other_user)
+        show_answers = (user_answer is not None) and (other_answer is not None)
+
+        # Fotos de viajes agrupadas
+        travel_photos_dict = {}
+        for tr_id, pid, url, up in all_ph:
+            travel_photos_dict.setdefault(tr_id, []).append({'id': pid, 'url': url, 'uploaded_by': up})
+
+        # Blindaje wishlist (regalos ocultos al no-creador)
+        safe_items = []
+        for (wid, product_name, product_link, notes, created_by, created_at,
+             is_purchased, priority, is_gift, size,
+             track_price, last_price_cents, currency, last_checked, alert_pct, alert_below_cents) in wl_rows:
+
+            priority = priority or 'media'
+            is_gift = bool(is_gift)
+            track_price = bool(track_price)
+
+            base_tuple_visible = (
+                wid, product_name, product_link, notes,
+                created_by, created_at, is_purchased,
+                priority, is_gift, size
+            )
+
+            extra_price = (track_price, last_price_cents, currency, last_checked, alert_pct, alert_below_cents)
+
+            if is_gift and created_by != user:
+                safe_items.append((
+                    wid,
+                    "🎁 Regalo oculto",
+                    None,
+                    None,
+                    created_by,
+                    created_at,
+                    is_purchased,
+                    priority,
+                    True,
+                    None,
+                    False, None, None, None, None, None  # oculta precio
+                ))
+            else:
+                safe_items.append(base_tuple_visible + extra_price)
+
+        wishlist_items = safe_items
+
+        banner_file = get_banner()
+        profile_pictures = get_profile_pictures()
+
     finally:
         conn.close()
 
-    if not row:
-        return jsonify({"ok": False, "error": "not_found"}), 404
+    current_streak, best_streak = compute_streaks()
+    intim_unlocked = bool(session.get('intim_unlocked'))
+    intim_stats = get_intim_stats()
+    intim_events = get_intim_events(200) if intim_unlocked else []
 
-    stored = row[0]
+    return render_template('index.html',
+                           question=question_text,
+                           show_answers=show_answers,
+                           answers=answers,
+                           answers_edited=answers_edited,
+                           answers_created_at=answers_created_at,
+                           answers_updated_at=answers_updated_at,
+                           user_answer=user_answer,
+                           other_user=other_user,
+                           other_answer=other_answer,
+                           days_together=days_together(),
+                           days_until_meeting=days_until_meeting(),
+                           travels=travels,
+                           travel_photos_dict=travel_photos_dict,
+                           wishlist_items=wishlist_items,
+                           username=user,
+                           banner_file=banner_file,
+                           profile_pictures=profile_pictures,
+                           error=None,
+                           current_streak=current_streak,
+                           best_streak=best_streak,
+                           intim_unlocked=intim_unlocked,
+                           intim_stats=intim_stats,
+                           intim_events=intim_events
+                           )
+
+# ======= Rutas REST extra (con broadcast) =======
+@app.route('/delete_travel', methods=['POST'])
+def delete_travel():
+    if 'username' not in session:
+        return redirect('/')
     try:
-        if _is_hashed(stored):
-            valid = check_password_hash(stored, password)
-        else:
-            valid = (stored == password)
-    except Exception:
-        valid = False
+        travel_id = request.form['travel_id']
+        conn = get_db_connection()
+        with conn.cursor() as c:
+            c.execute("DELETE FROM travel_photos WHERE travel_id=%s", (travel_id,))
+            c.execute("DELETE FROM travels WHERE id=%s", (travel_id,))
+            conn.commit()
+        flash("Viaje eliminado 🗑️", "success")
+        broadcast("travel_update", {"type": "delete", "id": int(travel_id)})
+        return redirect('/')
+    except Exception as e:
+        print(f"Error en delete_travel: {e}"); flash("No se pudo eliminar el viaje.", "error"); return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
-    if not valid:
-        send_discord("Login fallo", {"user": username})
-        return jsonify({"ok": False, "error": "invalid_credentials"}), 401
+@app.route('/delete_travel_photo', methods=['POST'])
+def delete_travel_photo():
+    if 'username' not in session:
+        return redirect('/')
+    try:
+        photo_id = request.form['photo_id']
+        conn = get_db_connection()
+        with conn.cursor() as c:
+            c.execute("DELETE FROM travel_photos WHERE id=%s", (photo_id,))
+            conn.commit()
+        flash("Foto eliminada 🗑️", "success")
+        broadcast("travel_update", {"type": "photo_delete", "id": int(photo_id)})
+        return redirect('/')
+    except Exception as e:
+        print(f"Error en delete_travel_photo: {e}"); flash("No se pudo eliminar la foto.", "error"); return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
-    session["username"] = username
-    presence_set(username, True, device=request.headers.get("User-Agent"))
-    send_discord("Login ok", {"user": username})
-    return jsonify({"ok": True, "user": username})
+@app.route('/toggle_travel_status', methods=['POST'])
+def toggle_travel_status():
+    if 'username' not in session:
+        return redirect('/')
+    try:
+        travel_id = request.form['travel_id']
+        conn = get_db_connection()
+        with conn.cursor() as c:
+            c.execute("SELECT is_visited FROM travels WHERE id=%s", (travel_id,))
+            current_status = c.fetchone()[0]
+            new_status = not current_status
+            c.execute("UPDATE travels SET is_visited=%s WHERE id=%s", (new_status, travel_id))
+            conn.commit()
+        flash("Estado del viaje actualizado ✅", "success")
+        broadcast("travel_update", {"type": "toggle", "id": int(travel_id), "is_visited": bool(new_status)})
+        return redirect('/')
+    except Exception as e:
+        print(f"Error en toggle_travel_status: {e}"); flash("No se pudo actualizar el estado del viaje.", "error"); return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
-@app.post("/logout")
-@require_user
+@app.route('/delete_wishlist_item', methods=['POST'])
+def delete_wishlist_item():
+    if 'username' not in session:
+        return redirect('/')
+    try:
+        item_id = request.form['item_id']
+        user = session['username']
+        conn = get_db_connection()
+        with conn.cursor() as c:
+            c.execute("DELETE FROM wishlist WHERE id=%s", (item_id,))
+            conn.commit()
+        flash("Elemento eliminado de la lista 🗑️", "success")
+        send_discord("Wishlist delete", {"user": user, "item_id": item_id})
+        broadcast("wishlist_update", {"type": "delete", "id": int(item_id)})
+        return redirect('/')
+    except Exception as e:
+        print(f"Error en delete_wishlist_item: {e}")
+        flash("No se pudo eliminar el elemento.", "error")
+        return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/toggle_wishlist_item', methods=['POST'])
+def toggle_wishlist_item():
+    if 'username' not in session:
+        return redirect('/')
+    try:
+        item_id = request.form['item_id']
+        user = session['username']
+        conn = get_db_connection()
+        with conn.cursor() as c:
+            c.execute("SELECT is_purchased FROM wishlist WHERE id=%s", (item_id,))
+            row = c.fetchone()
+            if not row:
+                flash("Elemento no encontrado.", "error")
+                return redirect('/')
+            new_state = not bool(row[0])
+            c.execute("UPDATE wishlist SET is_purchased=%s WHERE id=%s", (new_state, item_id))
+            conn.commit()
+        flash("Estado del elemento actualizado ✅", "success")
+        send_discord("Wishlist toggle", {"user": user, "item_id": item_id, "is_purchased": bool(new_state)})
+        broadcast("wishlist_update", {"type": "toggle", "id": int(item_id), "is_purchased": bool(new_state)})
+        return redirect('/')
+    except Exception as e:
+        print(f"Error en toggle_wishlist_item: {e}")
+        flash("No se pudo actualizar el estado del elemento.", "error")
+        return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/edit_wishlist_item', methods=['POST'])
+def edit_wishlist_item():
+    if 'username' not in session:
+        return redirect('/')
+    try:
+        item_id      = request.form.get('item_id')
+        product_name = (request.form.get('product_name') or '').strip()
+        product_link = (request.form.get('product_link') or '').strip()
+        notes        = (request.form.get('wishlist_notes') or '').strip()
+        size         = (request.form.get('size') or '').strip()
+        priority     = (request.form.get('priority') or 'media').strip()
+        is_gift      = bool(request.form.get('is_gift'))
+
+        # Tracking
+        alert_drop_percent = (request.form.get('alert_drop_percent') or '').strip()
+        alert_below_price  = (request.form.get('alert_below_price')  or '').strip()
+        track_price        = bool(request.form.get('track_price'))
+
+        if priority not in ('alta', 'media', 'baja'):
+            priority = 'media'
+
+        def euros_to_cents(v):
+            v = (v or '').strip()
+            if not v: return None
+            return _to_cents_from_str(v.replace('€',''))
+
+        alert_below_cents = euros_to_cents(alert_below_price)
+        alert_pct = float(alert_drop_percent) if alert_drop_percent else None
+
+        conn = get_db_connection()
+        with conn.cursor() as c:
+            c.execute("""
+                UPDATE wishlist SET
+                    product_name=%s,
+                    product_link=%s,
+                    notes=%s,
+                    size=%s,
+                    priority=%s,
+                    is_gift=%s,
+                    track_price=%s,
+                    alert_drop_percent=%s,
+                    alert_below_cents=%s
+                 WHERE id=%s""",
+              (product_name, product_link, notes, size, priority, is_gift,
+               track_price, alert_pct, alert_below_cents, item_id))
+            conn.commit()
+        flash("Elemento actualizado ✏️", "success")
+        send_discord("Wishlist edit", {
+            "user": session['username'], "item_id": item_id,
+            "priority": priority, "is_gift": is_gift,
+            "track_price": track_price, "alert_pct": alert_pct, "alert_below": alert_below_cents
+        })
+        broadcast("wishlist_update", {"type": "edit", "id": int(item_id)})
+        return redirect('/')
+    except Exception as e:
+        print(f"Error en edit_wishlist_item: {e}")
+        flash("No se pudo editar el elemento.", "error")
+        return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+# ======= Ubicación del usuario =======
+@app.route('/update_location', methods=['POST'])
+def update_location():
+    if 'username' not in session:
+        return redirect('/')
+    try:
+        user = session['username']
+        location_name = (request.form.get('location_name') or '').strip()
+        lat = request.form.get('latitude')
+        lon = request.form.get('longitude')
+        lat = float(lat) if lat not in (None, '') else None
+        lon = float(lon) if lon not in (None, '') else None
+        now_txt = now_madrid_str()
+
+        conn = get_db_connection()
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
+                VALUES (%s,%s,%s,%s,%s)
+                ON CONFLICT (username) DO UPDATE
+                SET location_name=EXCLUDED.location_name,
+                    latitude=EXCLUDED.latitude,
+                    longitude=EXCLUDED.longitude,
+                    updated_at=EXCLUDED.updated_at
+            """, (user, location_name, lat, lon, now_txt))
+            conn.commit()
+        flash("Ubicación actualizada 📍", "success")
+        send_discord("Location updated", {"user": user, "name": location_name, "lat": lat, "lon": lon})
+        broadcast("location_update", {"user": user})
+        return redirect('/')
+    except Exception as e:
+        print(f"Error en update_location: {e}")
+        flash("No se pudo actualizar la ubicación.", "error")
+        return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+# ======= Logout =======
+@app.route('/logout')
 def logout():
-    u = current_user()
     try:
-        presence_set(u, False, device=request.headers.get("User-Agent"))
+        user = session.get('username')
+        session.clear()
+        send_discord("Logout", {"user": user})
     except Exception:
         pass
-    session.pop("username", None)
-    return jsonify({"ok": True})
+    return redirect('/')
 
-# ========= Presencia (tipo WhatsApp) =========
-@app.post("/api/presence/ping")
-@require_user
-def api_presence_ping():
-    u = current_user()
-    dev = (request.get_json(silent=True) or {}).get("device") or request.headers.get("User-Agent")
-    presence_set(u, True, device=str(dev)[:200])
-    return jsonify({"ok": True, "status": presence_status_for()})
+# ======= Web Push: claves y suscripciones =======
+@app.get("/push/vapid-public")
+def push_vapid_public():
+    key_b64url = get_vapid_public_base64url()
+    if not key_b64url:
+        return jsonify({"error": "vapid_public_missing"}), 500
+    return jsonify({"vapidPublicKey": key_b64url})
 
-@app.post("/api/presence/offline")
-@require_user
-def api_presence_offline():
-    u = current_user()
-    presence_set(u, False, device=request.headers.get("User-Agent"))
-    return jsonify({"ok": True})
+@app.post("/push/subscribe")
+def push_subscribe():
+    if "username" not in session:
+        return jsonify({"error": "unauthenticated"}), 401
+    user = session["username"]
+    sub = request.get_json(silent=True) or {}
+    endpoint = sub.get("endpoint")
+    p256dh = (sub.get("keys") or {}).get("p256dh")
+    auth   = (sub.get("keys") or {}).get("auth")
+    if not (endpoint and p256dh and auth):
+        return jsonify({"error": "invalid_subscription"}), 400
 
-@app.get("/api/presence/status")
-@require_user
-def api_presence_status():
-    return jsonify({"ok": True, "status": presence_status_for()})
-
-# ========= Push (Web Push) =========
-@app.get("/api/push/public_key")
-def api_push_pubkey():
-    return jsonify({"ok": True, "key": get_vapid_public_base64url()})
-
-@app.post("/api/push/subscribe")
-@require_user
-def api_push_subscribe():
-    u = current_user()
-    data = request.get_json(force=True)
-    endpoint = (data.get("endpoint") or "").strip()
-    keys = data.get("keys") or {}
-    p256dh = (keys.get("p256dh") or "").strip()
-    authk  = (keys.get("auth") or "").strip()
-    if not (endpoint and p256dh and authk):
-        return jsonify({"ok": False, "error": "bad_subscription"}), 400
-
-    now_txt = now_madrid_str()
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
             c.execute("""
-              INSERT INTO push_subscriptions (username, endpoint, p256dh, auth, created_at)
-              VALUES (%s,%s,%s,%s,%s)
-              ON CONFLICT (endpoint) DO UPDATE
+                INSERT INTO push_subscriptions (username, endpoint, p256dh, auth, created_at)
+                VALUES (%s,%s,%s,%s,%s)
+                ON CONFLICT (endpoint) DO UPDATE
                 SET username=EXCLUDED.username,
                     p256dh=EXCLUDED.p256dh,
                     auth=EXCLUDED.auth,
                     created_at=EXCLUDED.created_at
-            """, (u, endpoint, p256dh, authk, now_txt))
-            conn.commit()
-    finally:
-        conn.close()
-    send_discord("Push subscribe", {"user": u, "endpoint": endpoint[:60]+"..."})
-    return jsonify({"ok": True})
-
-@app.post("/api/push/unsubscribe")
-@require_user
-def api_push_unsubscribe():
-    data = request.get_json(force=True)
-    endpoint = (data.get("endpoint") or "").strip()
-    if not endpoint:
-        return jsonify({"ok": False, "error": "missing_endpoint"}), 400
-    _delete_subscription_by_endpoint(endpoint)
-    return jsonify({"ok": True})
-
-# ========= Pregunta del día / respuestas =========
-@app.get("/api/dq/today")
-@require_user
-def api_dq_today():
-    qid, qtext = get_today_question()
-    cur, best = compute_streaks()
-    return jsonify({"ok": True, "question_id": qid, "question": qtext, "streak_current": cur, "streak_best": best})
-
-@app.post("/api/dq/answer")
-@require_user
-def api_dq_answer():
-    u = current_user()
-    data = request.get_json(force=True)
-    qid = int(data.get("question_id") or 0)
-    ans = (data.get("answer") or "").strip()
-    if not (qid and ans):
-        return jsonify({"ok": False, "error": "missing_fields"}), 400
-    now_txt = now_madrid_str()
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-              INSERT INTO answers (question_id, username, answer, created_at, updated_at)
-              VALUES (%s,%s,%s,%s,%s)
-              ON CONFLICT (question_id, username) DO UPDATE
-                SET answer=EXCLUDED.answer, updated_at=EXCLUDED.updated_at
-            """, (qid, u, ans, now_txt, now_txt))
-            conn.commit()
-    finally:
-        conn.close()
-    push_answer_notice(u)
-    cache_invalidate('compute_streaks')
-    broadcast("answer", {"user": u, "question_id": qid})
-    return jsonify({"ok": True})
-
-# ========= Intimidad (con PIN) =========
-@app.get("/api/intim/list")
-@require_user
-def api_intim_list():
-    return jsonify({"ok": True, "events": get_intim_events(200), "stats": get_intim_stats()})
-
-@app.post("/api/intim/add")
-@require_user
-def api_intim_add():
-    data = request.get_json(force=True)
-    pin = str(data.get("pin") or "")
-    if pin != str(INTIM_PIN):
-        return jsonify({"ok": False, "error": "bad_pin"}), 403
-    u = current_user()
-    ts = (data.get("ts") or now_madrid_str())
-    place = (data.get("place") or "").strip()[:120]
-    notes = (data.get("notes") or "").strip()[:500]
-
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""INSERT INTO intimacy_events (username, ts, place, notes)
-                         VALUES (%s,%s,%s,%s)""", (u, ts, place, notes))
-            conn.commit()
-    finally:
-        conn.close()
-    broadcast("intim", {"user": u, "ts": ts})
-    send_discord("Intim add", {"user": u, "ts": ts, "place": place})
-    return jsonify({"ok": True, "stats": get_intim_stats()})
-
-# ========= Wishlist + tracking de precio =========
-@app.get("/api/wishlist/list")
-@require_user
-def api_wishlist_list():
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-              SELECT id, product_name, product_link, notes, created_by, created_at,
-                     is_purchased, is_gift, priority, size,
-                     track_price, last_price_cents, currency, last_checked,
-                     alert_drop_percent, alert_below_cents
-              FROM wishlist
-              ORDER BY is_purchased ASC, created_at DESC, id DESC
-            """)
-            rows = [dict(r) for r in c.fetchall()]
-    finally:
-        conn.close()
-    return jsonify({"ok": True, "items": rows})
-
-@app.post("/api/wishlist/add")
-@require_user
-def api_wishlist_add():
-    u = current_user()
-    d = request.get_json(force=True)
-    name = (d.get("product_name") or "").strip()
-    if not name:
-        return jsonify({"ok": False, "error": "missing_name"}), 400
-    link = (d.get("product_link") or "").strip()
-    notes = (d.get("notes") or "").strip()
-    is_gift = bool(d.get("is_gift"))
-    priority = (d.get("priority") or "media")
-    size = (d.get("size") or "").strip()
-    track_price = bool(d.get("track_price"))
-
-    now_txt = now_madrid_str()
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-              INSERT INTO wishlist (product_name, product_link, notes, created_by, created_at,
-                                    is_purchased, is_gift, priority, size, track_price)
-              VALUES (%s,%s,%s,%s,%s, FALSE, %s, %s, %s, %s)
-              RETURNING id
-            """, (name, link, notes, u, now_txt, is_gift, priority, size, track_price))
-            wid = c.fetchone()[0]
-            conn.commit()
-    finally:
-        conn.close()
-
-    push_wishlist_notice(u, is_gift=is_gift)
-    send_discord("Wishlist add", {"by": u, "name": name, "gift": is_gift})
-    return jsonify({"ok": True, "id": wid})
-
-@app.post("/api/wishlist/purchased")
-@require_user
-def api_wishlist_purchased():
-    d = request.get_json(force=True)
-    wid = int(d.get("id") or 0)
-    flag = bool(d.get("is_purchased"))
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("UPDATE wishlist SET is_purchased=%s WHERE id=%s", (flag, wid))
+            """, (user, endpoint, p256dh, auth, datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")))
             conn.commit()
     finally:
         conn.close()
     return jsonify({"ok": True})
 
-@app.post("/api/wishlist/track")
-@require_user
-def api_wishlist_track():
-    d = request.get_json(force=True)
-    wid = int(d.get("id") or 0)
-    track = bool(d.get("track_price"))
-    conn = get_db_connection()
+@app.route('/push/unsubscribe', methods=['POST'])
+def push_unsubscribe():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "not_logged"}), 401
     try:
-        with conn.cursor() as c:
-            c.execute("UPDATE wishlist SET track_price=%s WHERE id=%s", (track, wid))
-            conn.commit()
-    finally:
-        conn.close()
-    return jsonify({"ok": True})
+        payload = request.get_json(force=True, silent=False)
+        endpoint = (payload.get('endpoint') or '').strip()
+        if not endpoint:
+            return jsonify({"ok": False, "error": "bad_payload"}), 400
+        _delete_subscription_by_endpoint(endpoint)
+        send_discord("Push unsubscribed", {"user": session['username']})
+        return jsonify({"ok": True})
+    except Exception as e:
+        print(f"[push_unsubscribe] {e}")
+        return jsonify({"ok": False, "error": "server_error"}), 500
 
-@app.post("/api/wishlist/alerts")
-@require_user
-def api_wishlist_alerts():
-    d = request.get_json(force=True)
-    wid = int(d.get("id") or 0)
-    pct = d.get("alert_drop_percent")
-    below = d.get("alert_below_cents")
-    conn = get_db_connection()
+@app.route('/push/test', methods=['POST', 'GET'])
+def push_test():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "not_logged"}), 401
     try:
-        with conn.cursor() as c:
-            c.execute("""
-              UPDATE wishlist
-                 SET alert_drop_percent=%s,
-                     alert_below_cents=%s
-               WHERE id=%s
-            """, (pct, below, wid))
-            conn.commit()
-    finally:
-        conn.close()
-    return jsonify({"ok": True})
+        who = request.values.get('who', 'both')  # 'mochito' | 'mochita' | 'both'
+        title = request.values.get('title', 'Prueba de notificación 🔔')
+        body  = request.values.get('body',  'Esto es un test desde el servidor.')
 
-@app.post("/api/wishlist/check")
-@require_user
-def api_wishlist_check_one():
-    d = request.get_json(force=True)
-    wid = int(d.get("id") or 0)
-    if not wid:
-        return jsonify({"ok": False, "error": "missing_id"}), 400
+        if who == 'both':
+            send_push_both(title, body)
+        elif who in ('mochito','mochita'):
+            send_push_to(who, title, body)
+        else:
+            return jsonify({"ok": False, "error": "bad_who"}), 400
 
-    conn = get_db_connection()
+        return jsonify({"ok": True})
+    except Exception as e:
+        print(f"[push_test] {e}")
+        return jsonify({"ok": False, "error": "server_error"}), 500
+
+@app.get('/push/list')
+def push_list():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "not_logged"}), 401
     try:
-        with conn.cursor() as c:
-            c.execute("""
-              SELECT id, product_name, product_link, created_by,
-                     is_gift, last_price_cents, currency
-                FROM wishlist
-               WHERE id=%s
-            """, (wid,))
-            row = c.fetchone()
-            if not row:
-                return jsonify({"ok": False, "error": "not_found"}), 404
-            row = dict(row)
-    finally:
-        conn.close()
+        subs = get_subscriptions_for(session['username'])
+        return jsonify({"ok": True, "count": len(subs), "subs": subs})
+    except Exception as e:
+        print(f"[push_list] {e}")
+        return jsonify({"ok": False, "error": "server_error"}), 500
 
-    price_cents, curr, _title = fetch_price(row["product_link"])
-    now_txt = now_madrid_str()
-
-    conn = get_db_connection()
+# ======= PRECIO: endpoint manual de prueba =======
+@app.post('/price_check_now')
+def price_check_now():
+    if 'username' not in session:
+        return jsonify({"ok":False,"error":"unauthenticated"}), 401
     try:
-        with conn.cursor() as c:
-            c.execute("""
-              UPDATE wishlist
-                 SET last_price_cents=%s,
-                     currency=%s,
-                     last_checked=%s
-               WHERE id=%s
-            """, (price_cents, curr or row["currency"] or "EUR", now_txt, wid))
-            conn.commit()
-    finally:
-        conn.close()
-
-    old = row.get("last_price_cents")
-    if price_cents is not None and old is not None and price_cents < old:
+        wid = request.form.get('id')
+        if not wid: return jsonify({"ok":False,"error":"missing id"}), 400
+        conn = get_db_connection()
         try:
-            notify_price_drop(row, old, price_cents)
-        except Exception as e:
-            print("[manual notify drop]", e)
+            with conn.cursor() as c:
+                c.execute("""SELECT id, product_name, product_link, created_by,
+                                    is_gift,
+                                    track_price, last_price_cents, currency,
+                                    alert_drop_percent, alert_below_cents
+                             FROM wishlist WHERE id=%s""", (wid,))
+                row = c.fetchone()
+            if not row or not row['product_link']: return jsonify({"ok":False,"error":"not_found_or_no_link"}), 404
+            price, curr, _ = fetch_price(row['product_link'])
+            if not price:
+                return jsonify({"ok":False,"error":"no_price"}), 200
+            old = row['last_price_cents']
+            with conn.cursor() as c2:
+                c2.execute("""UPDATE wishlist SET last_price_cents=%s, currency=COALESCE(%s,currency), last_checked=%s WHERE id=%s""",
+                           (price, curr, now_madrid_str(), wid))
+                conn.commit()
+            if old is not None and price < old:
+                notify_price_drop(row, old, price)
+            return jsonify({"ok":True,"old":old,"new":price})
+        finally:
+            conn.close()
+    except Exception as e:
+        print("[price_check_now]", e)
+        return jsonify({"ok":False,"error":"server_error"}), 500
 
-    return jsonify({"ok": True, "price_cents": price_cents, "currency": curr or "EUR"})
+# ======= Errores simpáticos =======
+@app.errorhandler(404)
+def not_found(_):
+    return render_template('404.html'), 404
 
-# ========= Utilidades varias =========
-@app.post("/api/meeting/set")
-@require_user
-def api_meeting_set():
-    d = request.get_json(force=True)
-    date_txt = (d.get("meeting_date") or "").strip()
-    try:
-        _ = datetime.strptime(date_txt, "%Y-%m-%d").date()
-    except Exception:
-        return jsonify({"ok": False, "error": "bad_date"}), 400
+@app.errorhandler(500)
+def server_error(_):
+    return render_template('500.html'), 500
+
+# ======= Horarios (página) =======
+@app.route('/horario', methods=['GET'])
+def schedule_page():
+    if 'username' not in session:
+        return redirect('/')
+    return render_template('schedule.html')
+
+# Alias opcional
+@app.route('/schedule', methods=['GET'])
+def schedule_alias():
+    return redirect('/horario')
+
+# ======= Horarios (API) =======
+@app.get('/api/schedules')
+def api_get_schedules():
+    if 'username' not in session:
+        return jsonify({"error": "unauthenticated"}), 401
+
+    schedules = {"mochito": {}, "mochita": {}}
+    custom_times_sets = {"mochito": set(), "mochita": set()}
+
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            c.execute("INSERT INTO meeting (meeting_date) VALUES (%s)", (date_txt,))
-            conn.commit()
+            c.execute("""SELECT username, day, time, activity, color FROM public.schedules""")
+            for row in c.fetchall():
+                username = row['username']
+                day = row['day']
+                time_ = row['time']
+                activity = row['activity'] or ''
+                color = row['color'] or '#888888'
+                if username not in schedules:
+                    continue
+                day_map = schedules[username].setdefault(day, {})
+                day_map[time_] = {"activity": activity, "color": color}
+
+            c.execute("""SELECT username, time FROM public.schedule_times""")
+            for row in c.fetchall():
+                u = row['username']
+                t = row['time']
+                if u in custom_times_sets:
+                    custom_times_sets[u].add(t)
     finally:
         conn.close()
-    send_discord("Meeting set", {"date": date_txt})
-    return jsonify({"ok": True, "days_left": days_until_meeting()})
 
-@app.get("/api/stats")
-@require_user
-def api_stats():
-    qid, qtext = get_today_question()
-    cur, best = compute_streaks()
-    stats = get_intim_stats()
+    def sort_hhmm(lst):
+        def key(t):
+            try:
+                h, m = t.split(':')
+                return (int(h), int(m))
+            except Exception:
+                return (0, 0)
+        return sorted(lst, key=key)
+
+    custom_times = {
+        "mochito": sort_hhmm(list(custom_times_sets["mochito"])),
+        "mochita": sort_hhmm(list(custom_times_sets["mochita"]))
+    }
+
+    return jsonify({"schedules": schedules, "customTimes": custom_times})
+
+@app.post('/api/schedules/save')
+def api_save_schedules():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "unauthenticated"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    schedules = payload.get("schedules") or {}
+    custom_times = payload.get("customTimes") or {}
+
+    if not isinstance(schedules, dict) or not isinstance(custom_times, dict):
+        return jsonify({"ok": False, "error": "bad_payload"}), 400
+
+    users = ("mochito", "mochita")
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            for user in users:
+                c.execute("DELETE FROM public.schedules WHERE username=%s", (user,))
+                us = schedules.get(user) or {}
+                for day, time_map in (us.items()):
+                    time_map = time_map or {}
+                    for t, obj in time_map.items():
+                        activity = (obj or {}).get("activity", "")
+                        color = (obj or {}).get("color", "#888888")
+                        c.execute("""
+                            INSERT INTO public.schedules (username, day, time, activity, color)
+                            VALUES (%s,%s,%s,%s,%s)
+                        """, (user, day, t, activity, color))
+
+                c.execute("DELETE FROM public.schedule_times WHERE username=%s", (user,))
+                for t in (custom_times.get(user) or []):
+                    c.execute("""
+                        INSERT INTO public.schedule_times (username, time)
+                        VALUES (%s,%s)
+                    """, (user, t))
+        conn.commit()
+        send_discord("Schedules saved", {"by": session.get('username', '?')})
+        broadcast("schedule_update", {"by": session.get('username', '?')})
+        return jsonify({"ok": True})
+    except Exception as e:
+        print("[api_save_schedules] error:", e)
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return jsonify({"ok": False, "error": "server_error"}), 500
+    finally:
+        conn.close()
+
+# --- Service Worker en la raíz ---
+@app.route("/sw.js")
+def sw():
+    import os as _os
+    try:
+        resp = send_file(_os.path.join(app.static_folder, "sw.js"))
+    except Exception:
+        resp = send_file("static/sw.js")
+    resp = make_response(resp)
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    resp.mimetype = "application/javascript"
+    return resp
+
+# ======= Página debug de push =======
+@app.get("/push/debug")
+def push_debug_page():
+    html = '''
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Activar notificaciones — Guía paso a paso</title>
+<style>
+:root{ --brand:#e84393; --ink:#202124; --muted:#5f6368; --ok:#10b981; --warn:#f59e0b; --err:#ef4444; --bg:#fafafa; --card:#fff; --line:#ececec; }
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55}
+.container{max-width:960px;margin:24px auto;padding:0 16px}
+h1{font-size:1.6rem;margin:12px 0 6px}
+.subtitle{color:var(--muted);margin:0 0 14px}
+.badge{display:inline-block;padding:4px 10px;border-radius:999px;background:#f3f4f6;color:#111;font-size:.8rem;margin-right:8px}
+.badge.ok{background:#ecfdf5;color:#065f46}
+.badge.warn{background:#fffbeb;color:#92400e}
+.badge.err{background:#fef2f2;color:#991b1b}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 2px 10px rgba(0,0,0,.03)}
+.card h2{font-size:1.1rem;margin:0 0 8px}
+.grid{display:grid;gap:12px}
+@media(min-width:800px){ .grid{grid-template-columns:1.2fr .8fr} }
+.step{display:flex;gap:12px;align-items:flex-start}
+.step .num{flex:0 0 32px;height:32px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+button{padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer}
+button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+button.ghost{background:#fff}
+button:disabled{opacity:.6;cursor:not-allowed}
+.tip{font-size:.92rem;color:var(--muted);margin-top:6px}
+.hr{height:1px;background:#ececec;margin:14px 0}
+.state{display:grid;gap:10px}
+.state .row{display:flex;align-items:center;gap:10px}
+.state .dot{width:10px;height:10px;border-radius:50%;background:#ddd}
+.state .dot.ok{background:var(--ok)}
+.state .dot.warn{background:var(--warn)}
+.state .dot.err{background:var(--err)}
+.kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#f3f4f6;border:1px solid #e5e7eb;border-bottom-width:2px;border-radius:6px;padding:2px 6px}
+.progress{height:10px;background:#eee;border-radius:999px;overflow:hidden}
+.progress > span{display:block;height:100%;background:linear-gradient(90deg,var(--brand),#ff7ab6);width:0%;transition:width .3s}
+#log{white-space:pre-wrap;background:#111;color:#eee;padding:12px;border-radius:12px;margin-top:12px;min-height:140px}
+.helper{font-size:.95rem}
+.helper li{margin:.25rem 0}
+.header-actions{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 0}
+a.link{color:var(--brand);text-decoration:none;border-bottom:1px dotted var(--brand)}
+a.link:hover{text-decoration:underline}
+a.link{color:#e84393}
+.small{font-size:.88rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🔔 Activar notificaciones</h1>
+<p class="subtitle">Sigue estos pasos. Te marcamos en verde lo que ya está OK. Al final puedes enviarte una prueba.</p>
+
+<div class="card">
+  <div class="progress"><span id="progressBar" style="width:0%"></span></div>
+  <div class="state" style="margin-top:10px">
+    <div class="row"><span id="chk-https" class="dot"></span> <b>HTTPS</b> (obligatorio)</div>
+    <div class="row"><span id="chk-standalone" class="dot"></span> <b>Modo app</b> (iOS: desde “Pantalla de inicio”)</div>
+    <div class="row"><span id="chk-sw" class="dot"></span> <b>Service Worker</b> registrado</div>
+    <div class="row"><span id="chk-perm" class="dot"></span> <b>Permiso de notificaciones</b></div>
+    <div class="row"><span id="chk-sub" class="dot"></span> <b>Dispositivo suscrito</b></div>
+  </div>
+</div>
+
+<div class="grid">
+  <!-- PASOS -->
+  <div>
+    <div class="card">
+      <div class="step">
+        <div class="num">1</div>
+        <div>
+          <h2>Instala como app (iPhone/iPad)</h2>
+          <div class="tip" id="iosTip">
+            En iOS, las <b>push</b> solo funcionan si abres la web desde el icono en <b>Pantalla de inicio</b>.
+          </div>
+          <ul class="helper" id="iosHowTo" style="display:none">
+            <li>Abre en Safari ➜ pulsa <span class="kbd">Compartir</span> ➜ <span class="kbd">Añadir a pantalla de inicio</span>.</li>
+            <li>Abre la app desde el icono y vuelve a esta pantalla.</li>
+          </ul>
+          <div class="actions">
+            <button id="btn-check-standalone" class="ghost">Comprobar estado</button>
+            <button id="btn-home" class="ghost">Ir al inicio</button>
+          </div>
+          <div class="tip small" id="envInfo"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">2</div>
+        <div>
+          <h2>Registrar Service Worker</h2>
+          <p class="helper">Es quien recibe las push en segundo plano.</p>
+          <div class="actions">
+            <button id="btn-reg" class="primary">Registrar SW</button>
+            <button id="btn-local-sw" class="ghost">Probar notificación (SW)</button>
+          </div>
+          <div class="tip">Si falla: comprueba que <code>/sw.js</code> existe y no está cacheado.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">3</div>
+        <div>
+          <h2>Dar permiso y suscribirse</h2>
+          <p class="helper">Primero concede permiso al navegador y luego registramos tu endpoint en el servidor.</p>
+          <div class="actions">
+            <button id="btn-perm" class="primary">Conceder permiso</button>
+            <button id="btn-local" class="ghost">Probar notificación (Página)</button>
+            <button id="btn-sub" class="primary">Suscribirme</button>
+          </div>
+          <div class="tip">Si aparece <b>denied</b>, ve a Ajustes del sistema ▶ Notificaciones y habilítalas para esta app.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">4</div>
+        <div>
+          <h2>Probar desde el servidor</h2>
+          <p class="helper">Con todo en verde, envíate una notificación real desde el backend.</p>
+          <div class="actions">
+            <button id="btn-sendme" class="primary">Enviar prueba</button>
+            <button id="btn-list" class="ghost">Listar suscripciones</button>
+          </div>
+          <div class="tip">Si no llega, revisa que la clave VAPID esté bien y que la suscripción exista en DB.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LATERAL -->
+  <div>
+    <div class="card">
+      <h2>Consejos rápidos</h2>
+      <ul class="helper">
+        <li><b>iOS</b>: usa la app desde <i>Pantalla de inicio</i>, no desde Safari.</li>
+        <li>Comprueba que <b>HTTPS</b> está activo (candado en la barra).</li>
+        <li>Permiso debe quedar en <span class="kbd">granted</span>.</li>
+        <li>Tras suscribirte, en DB debe guardarse tu <span class="kbd">endpoint</span>.</li>
+        <li>La prueba del servidor usa <span class="kbd">/push/test</span> para tu usuario logueado.</li>
+      </ul>
+      <div class="hr"></div>
+      <div class="actions">
+        <button id="btn-copy" class="ghost">Copiar registro</button>
+        <a href="/" class="link">Volver al inicio</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Registro</h2>
+      <div id="log">Cargando…</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+function log(){ const el=document.getElementById('log'); el.textContent += Array.from(arguments).join(' ') + "\\n"; el.scrollTop = el.scrollHeight; }
+function b64ToBytes(s){ const pad='='.repeat((4 - s.length % 4) % 4); const b64=(s+pad).replace(/-/g,'+').replace(/_/g,'/'); const raw=atob(b64); const arr=new Uint8Array(raw.length); for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i); return arr; }
+function setDot(id, state){ const el=document.getElementById(id); el.className='dot'; if(state==='ok') el.classList.add('ok'); else if(state==='warn') el.classList.add('warn'); else if(state==='err') el.classList.add('err'); }
+function pctDone(parts){ const sum = parts.reduce((a,b)=>a+(b?1:0),0); return Math.round((sum/parts.length)*100); }
+function setProgress(p){ document.getElementById('progressBar').style.width = p + '%'; }
+
+const UA = navigator.userAgent || '';
+const isIOS = /iPad|iPhone|iPod/.test(UA);
+const isSafari = /^((?!chrome|android).)*safari/i.test(UA);
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator.standalone === true);
+const isHTTPS = location.protocol === 'https:';
+const envText = [
+  isIOS ? 'iOS' : (/Android/i.test(UA) ? 'Android' : 'Desktop'),
+  isSafari ? 'Safari' : ( /Chrome/i.test(UA) ? 'Chrome' : 'Navegador'),
+  isStandalone ? 'Standalone' : 'Navegador',
+  isHTTPS ? 'HTTPS' : 'HTTP'
+].join(' · ');
+document.getElementById('envInfo').textContent = envText;
+
+if(isIOS){
+  document.getElementById('iosHowTo').style.display = isStandalone ? 'none' : 'block';
+}
+
+setDot('chk-https', isHTTPS ? 'ok' : 'err');
+setDot('chk-standalone', (isIOS ? (isStandalone ? 'ok' : 'warn') : 'ok'));
+
+(async function autoRegisterSW(){
+  try{
+    if('serviceWorker' in navigator){
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      log('SW registrado (auto):', reg.scope || '(sin scope)');
+      setDot('chk-sw','ok');
+    }else{
+      log('Este navegador no soporta Service Worker');
+      setDot('chk-sw','err');
+    }
+  }catch(e){
+    log('Error registrando SW:', e.message||e);
+    setDot('chk-sw','err');
+  }
+  refreshProgress();
+})();
+
+function refreshPermission(){
+  if(!('Notification' in window)) { setDot('chk-perm','err'); return; }
+  const st = Notification.permission; // default | granted | denied
+  if(st === 'granted') setDot('chk-perm','ok');
+  else if(st === 'denied') setDot('chk-perm','err');
+  else setDot('chk-perm','warn');
+}
+
+async function hasSubscription(){
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    return !!sub;
+  }catch{ return false; }
+}
+async function refreshSubscriptionDot(){
+  setDot('chk-sub', (await hasSubscription()) ? 'ok' : 'warn');
+}
+
+function refreshProgress(){
+  const dots = ['chk-https','chk-standalone','chk-sw','chk-perm','chk-sub'];
+  const ok = dots.map(id => document.getElementById(id).classList.contains('ok'));
+  setProgress(pctDone(ok));
+}
+
+document.getElementById('btn-home').onclick = ()=>{ location.href='/'; };
+
+document.getElementById('btn-check-standalone').onclick = ()=>{
+  const again = window.matchMedia('(display-mode: standalone)').matches || (window.navigator.standalone === true);
+  setDot('chk-standalone', (isIOS ? (again ? 'ok' : 'warn') : 'ok'));
+  if(isIOS && !again) log('Aún no estás en modo app. Añade a pantalla de inicio y vuelve a abrir desde el icono.');
+  refreshProgress();
+};
+
+document.getElementById('btn-reg').onclick = async ()=>{
+  if(!('serviceWorker' in navigator)){ log('SW no soportado'); setDot('chk-sw','err'); return; }
+  try{
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    log('SW registrado:', reg.scope || '(sin scope)');
+    setDot('chk-sw','ok');
+  }catch(e){ log('Error registrando SW:', e.message||e); setDot('chk-sw','err'); }
+  refreshProgress();
+};
+
+document.getElementById('btn-perm').onclick = async ()=>{
+  if(!('Notification' in window)){ log('Notifications no soportadas'); setDot('chk-perm','err'); return; }
+  try{
+    const perm = await Notification.requestPermission();
+    log('Permiso =>', perm);
+  }catch(e){ log('requestPermission error:', e.message||e); }
+  refreshPermission(); refreshProgress();
+};
+
+document.getElementById('btn-local').onclick = async ()=>{
+  try{
+    if (!('Notification' in window)) { log('Notifications no soportadas'); return; }
+    if (Notification.permission !== 'granted'){ log('Permiso no concedido'); return; }
+    new Notification('Notificación local', { body: 'Mostrada desde la página (Window)' });
+    log('OK: notificación local (Window)');
+  }catch(e){ log('Local notif error:', e.message||e); }
+};
+
+document.getElementById('btn-local-sw').onclick = async ()=>{
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    if (!reg.showNotification){ log('showNotification no disponible en este SW'); return; }
+    await reg.showNotification('Notificación local (SW)', { body: 'Mostrada por el Service Worker' });
+    log('OK: notificación local (SW)');
+  }catch(e){ log('SW notif error:', e.message||e); }
+};
+
+async function doSubscribe(){
+  try{
+    const r = await fetch('/push/vapid-public');
+    const j = await r.json().catch(()=>({}));
+    if (!j.vapidPublicKey){ log("vapidPublicKey vacío / error en backend"); return false; }
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub){
+      sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64ToBytes(j.vapidPublicKey) });
+    }
+    const rr = await fetch('/push/subscribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(sub) });
+    const jj = await rr.json().catch(()=>({}));
+    log("Suscripción =>", JSON.stringify(jj));
+    return !!jj.ok;
+  }catch(e){
+    log('subscribe error:', e.message||e);
+    return false;
+  }
+}
+
+document.getElementById('btn-sub').onclick = async ()=>{
+  const ok = await doSubscribe();
+  await refreshSubscriptionDot(); refreshProgress();
+  if(ok) log('✅ Suscrito correctamente');
+  else log('❌ No se pudo suscribir (revisa claves VAPID y permisos)');
+};
+
+document.getElementById('btn-sendme').onclick = async ()=>{
+  try{
+    const r = await fetch('/push/test', { method:'POST' });
+    const j = await r.json().catch(()=>({}));
+    log('push/test =>', JSON.stringify(j));
+  }catch(e){ log('push/test error:', e.message||e); }
+};
+
+document.getElementById('btn-list').onclick = async ()=>{
+  try{
+    const r = await fetch('/push/list');
+    const j = await r.json().catch(()=>({}));
+    log('push/list =>', JSON.stringify(j));
+  }catch(e){ log('push/list error (¿ruta no implementada?):', e.message||e); }
+};
+
+document.getElementById('btn-copy').onclick = async ()=>{
+  try{
+    const txt = document.getElementById('log').textContent;
+    await navigator.clipboard.writeText(txt);
+    log('📋 Registro copiado al portapapeles');
+  }catch(e){ log('No se pudo copiar:', e.message||e); }
+};
+
+(function init(){
+  const envText = document.getElementById('envInfo').textContent;
+  const standaloneMsg = isIOS ? (isStandalone ? 'En modo app ✅' : 'Abierto en Safari ❗️') : 'Modo app no requerido';
+  log('Entorno =>', envText);
+  log('Standalone =>', standaloneMsg);
+  log('Notification.permission =>', (window.Notification && Notification.permission) ? Notification.permission : 'no soportado');
+  log('serviceWorker =>', 'serviceWorker' in navigator);
+  log('PushManager =>', !!window.PushManager);
+  refreshPermission();
+  refreshSubscriptionDot();
+  refreshProgress();
+})();
+</script>
+</body>
+</html>
+'''
+    return html
+
+
+# ======= Debug zona horaria =======
+@app.get("/_debug/tz")
+def _debug_tz():
+    n = europe_madrid_now()
     return jsonify({
-        "ok": True,
-        "today_question": {"id": qid, "question": qtext},
-        "streak": {"current": cur, "best": best},
-        "intim": stats,
-        "days_together": days_together(),
-        "days_until_meeting": days_until_meeting(),
-        "presence": presence_status_for(),
-        "banner": get_banner(),
-        "profiles": get_profile_pictures(),
-        "vapid_public_key": get_vapid_public_base64url()
+        "utc": datetime.now(timezone.utc).isoformat(),
+        "madrid": n.isoformat(),
+        "date_madrid": n.date().isoformat(),
+        "secs_to_midnight_madrid": int(seconds_until_next_midnight_madrid())
     })
 
-@app.post("/api/banner/upload")
-@require_user
-def api_banner_upload():
-    if "file" not in request.files:
-        return jsonify({"ok": False, "error": "no_file"}), 400
-    f = request.files["file"]
-    if not f.filename:
-        return jsonify({"ok": False, "error": "empty_filename"}), 400
-    fn = secure_filename(f.filename)
-    data = f.read()
-    mt = f.mimetype or "application/octet-stream"
-    now_txt = now_madrid_str()
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""INSERT INTO banner (image_data, filename, mime_type, uploaded_at)
-                         VALUES (%s,%s,%s,%s)""", (psycopg2.Binary(data), fn, mt, now_txt))
-            conn.commit()
-    finally:
-        conn.close()
-    cache_invalidate('get_banner')
-    return jsonify({"ok": True})
+# ======= WSGI / Run =======
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', '5000'))
+    app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
 
-@app.post("/api/profile/upload")
-@require_user
-def api_profile_upload():
-    u = current_user()
-    if "file" not in request.files:
-        return jsonify({"ok": False, "error": "no_file"}), 400
-    f = request.files["file"]
-    if not f.filename:
-        return jsonify({"ok": False, "error": "empty_filename"}), 400
-    fn = secure_filename(f.filename)
-    data = f.read()
-    mt = f.mimetype or "application/octet-stream"
-    now_txt = now_madrid_str()
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-              INSERT INTO profile_pictures (username, image_data, filename, mime_type, uploaded_at)
-              VALUES (%s,%s,%s,%s,%s)
-              ON CONFLICT (username) DO UPDATE
-                SET image_data=EXCLUDED.image_data,
-                    filename=EXCLUDED.filename,
-                    mime_type=EXCLUDED.mime_type,
-                    uploaded_at=EXCLUDED.uploaded_at
-            """, (u, psycopg2.Binary(data), fn, mt, now_txt))
-            conn.commit()
-    finally:
-        conn.close()
-    cache_invalidate('get_profile_pictures')
-    return jsonify({"ok": True})
 
-# ========= Endpoint util para probar extracción de precio =========
-@app.post("/api/price/peek")
-@require_user
-def api_price_peek():
-    d = request.get_json(force=True)
-    url = (d.get("url") or "").strip()
-    if not url:
-        return jsonify({"ok": False, "error": "missing_url"}), 400
-    cents, curr, title = fetch_price(url)
-    return jsonify({"ok": True, "cents": cents, "currency": curr, "title": title})
-
-# ========= Main =========
-if __name__ == "__main__":
-    # Evita doble hilo en modo debug
-    if os.environ.get("FLASK_ENV") == "development":
-        # el reloader de werkzeug spawnea 2 procesos; arrancamos solo en el principal
-        if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-            start_background_once()
-    else:
-        start_background_once()
-
-    port = int(os.environ.get("PORT", "5000"))
-    app.run(host="0.0.0.0", port=port)
-
-                   

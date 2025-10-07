@@ -1229,6 +1229,14 @@ def api_status():
         "vapid_key": get_vapid_public_base64url(),
     })
 
+@app.get("/schedule")
+@require_user
+def schedule_page():
+    # pon aquí tu página de horarios real cuando la tengas
+    return "<h1>Horarios</h1><p>Página en construcción.</p>"
+
+
+
 @app.get("/healthz")
 def healthz():
     return ("ok", 200, {"Cache-Control": "no-store"})

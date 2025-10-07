@@ -3402,7 +3402,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dot?.classList.add('ok');
         dot?.classList.remove('err');
       } else {
-        label.textContent = 'Desconectado (hace ' + humanizeAgo(j.ago_seconds) + ')';
+        label.textContent = '(hace ' + humanizeAgo(j.ago_seconds) + ')';
         dot?.classList.add('err');
         dot?.classList.remove('ok');
       }
@@ -3414,7 +3414,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Arrancar y refrescar cada 15s
-  label && (label.textContent = 'Comprobando…');
+  label && (label.textContent = '…');
   refreshOtherPresence();
   setInterval(refreshOtherPresence, 15_000);
     
@@ -3428,6 +3428,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </body>
 </html>
+
 
 
 

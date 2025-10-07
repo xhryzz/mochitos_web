@@ -1072,6 +1072,26 @@
 }
 
 
+  .presence-inline{
+    display:inline-flex; align-items:center; gap:.35rem;
+    margin-left:.5rem; font-size:.95rem;
+  }
+  .presence-inline .presence-label{ font-weight:600; }
+  .presence-inline .presence-text{ opacity:.95; }
+  .presence-inline .presence-text.offline{ color:#6b7280; } /* gris */
+  .presence-inline .presence-text.online{  color:#10b981; } /* verde */
+
+  .presence-dot{
+    width:.55rem; height:.55rem; border-radius:50%;
+    background:#9ca3af;               /* gris por defecto */
+    box-shadow:0 0 0 2px rgba(0,0,0,.06) inset;
+  }
+  .presence-dot.online{ background:#10b981; } /* verde */
+
+  @media (prefers-color-scheme:dark){
+    .presence-inline .presence-text.offline{ color:#9aa0a6; }
+    .presence-dot{ box-shadow:0 0 0 2px rgba(255,255,255,.08) inset; }
+  }
     </style>
 </head>
 
@@ -1198,6 +1218,9 @@
       <div class="settings-icon" id="settingsIcon">
         <i class="fas fa-user-cog"></i>
       </div>
+
+      <span id="presence-inline" class="presence-inline" aria-live="polite"></span>
+
 
         <!-- MODAL EDITAR EVENTO INTIMIDAD -->
   <div id="editIntimModal" class="modal">
@@ -3205,7 +3228,80 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('DOMContentLoaded', setupWishlistSorting);
 })();
 
+(function(){
+  const mount = document.getElementById('presence-inline');
+  if(!mount) return;
 
+  function humanize(dateStr,timeStr){
+    if(!dateStr||!timeStr) return "—";
+    const hhmm = (timeStr||"").slice(0,5);
+    const fmt = new Intl.DateTimeFormat('sv-SE'); // YYYY-MM-DD
+    const today = fmt.format(new Date());
+    const y = new Date(); y.setDate(y.getDate()-1);
+    const yesterday = fmt.format(y);
+    if(dateStr===today)     return `en línea hace poco · ${hhmm}`;
+    if(dateStr===yesterday) return `últ. vez ayer a ${hhmm}`;
+    const [yy,mm,dd] = dateStr.split("-");
+    return `últ. vez ${dd}/${mm} ${hhmm}`;
+  }
+
+  function render(partner, s){
+    const lastTxt = (()=> {
+      if(s.online) return 'En línea';
+      const parts = (s.last_seen||'').split(' ');
+      return humanize(parts[0], parts[1]||'');
+    })();
+    mount.innerHTML = `
+      <span class="presence-dot ${s.online?'online':''}" aria-hidden="true"></span>
+      <span class="presence-label">${partner[0].toUpperCase()+partner.slice(1)}:</span>
+      <span class="presence-text ${s.online?'online':'offline'}">${lastTxt}</span>
+    `;
+  }
+
+  let me = null, partner = null;
+
+  // 1) Saber quién soy para mostrar el estado de la otra persona
+  fetch('/').then(r=>r.json()).then(d=>{
+    me = (d&&d.user)||null;
+    partner = (me==='mochito') ? 'mochita' : 'mochito';
+    return fetch('/api/presence/status');
+  }).then(r=>r.json()).then(d=>{
+    if(d && d.ok){
+      render(partner, d.status[partner] || {online:false,last_seen:null});
+    }
+  }).catch(()=>{});
+
+  // 2) Actualización en vivo (SSE)
+  try{
+    const es = new EventSource('/events');
+    es.addEventListener('presence', ev=>{
+      const msg = JSON.parse(ev.data);
+      if(msg.user === partner){
+        render(partner, {online:!!msg.online, last_seen: msg.last_seen});
+      }
+    });
+  }catch(e){}
+
+  // 3) Mantener tu presencia (para que el estado del otro te llegue correcto)
+  function ping(){
+    fetch('/api/presence/ping',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({device: navigator.userAgent.slice(0,200)})
+    }).catch(()=>{});
+  }
+  ping();
+  setInterval(ping, 30000);
+
+  window.addEventListener('beforeunload', ()=>{
+    if(navigator.sendBeacon){
+      const blob = new Blob([JSON.stringify({})], {type:'application/json'});
+      navigator.sendBeacon('/api/presence/offline', blob);
+    }else{
+      fetch('/api/presence/offline',{method:'POST'});
+    }
+  });
+})();
 </script>
 
 

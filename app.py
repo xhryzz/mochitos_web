@@ -897,7 +897,7 @@ def _meta_price(soup):
     return None
 
 
-# ======== Presencia (DB) ========
+# ======== Presencia (helpers) ========
 _presence_ready = False
 _presence_lock = threading.Lock()
 
@@ -925,11 +925,10 @@ def ensure_presence_table():
             conn.close()
 
 def other_of(u: str) -> str:
-    # Ajusta si algún día cambian los nombres
     if u == 'mochito': return 'mochita'
     if u == 'mochita': return 'mochito'
-    # fallback (si entráis con otros aliases, podéis pasar ?user= en GET)
-    return 'mochita'
+    return 'mochita'  # fallback
+
 
 
 def fetch_price(url: str) -> tuple[int | None, str | None, str | None]:
@@ -2393,6 +2392,7 @@ def _debug_tz():
     })
 
 
+# ======== Presencia (rutas) ========
 @app.post("/presence/ping")
 def presence_ping():
     if 'username' not in session:
@@ -2401,31 +2401,26 @@ def presence_ping():
     u = session['username']
     now = europe_madrid_now()
     ua = request.headers.get('User-Agent', '')[:300]
-    device = None
-    try:
-        data = request.get_json(silent=True) or {}
-        device = (data.get('device') or '')[:80]
-    except Exception:
-        pass
+    payload = request.get_json(silent=True) or {}
+    device = (payload.get('device') or '')[:80]
 
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
             c.execute("""
-                INSERT INTO user_presence (username, last_seen, device, user_agent)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT (username)
-                DO UPDATE SET last_seen = EXCLUDED.last_seen,
-                              device    = EXCLUDED.device,
-                              user_agent= EXCLUDED.user_agent;
+            INSERT INTO user_presence (username, last_seen, device, user_agent)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (username) DO UPDATE
+            SET last_seen = EXCLUDED.last_seen,
+                device    = EXCLUDED.device,
+                user_agent= EXCLUDED.user_agent;
             """, (u, now, device, ua))
             conn.commit()
     finally:
         conn.close()
 
-    # (Opcional) avisar por SSE a quien esté escuchando
     try:
-        broadcast("presence", {"kind":"presence","user":u,"ts":now.isoformat()})
+        broadcast("presence", {"kind": "presence", "user": u, "ts": now.isoformat()})
     except Exception:
         pass
 
@@ -2451,18 +2446,17 @@ def presence_other():
         conn.close()
 
     now = europe_madrid_now()
-    online_threshold_sec = int(os.environ.get("PRESENCE_ONLINE_WINDOW", "70"))
+    online_window = int(os.environ.get("PRESENCE_ONLINE_WINDOW", "70"))
     online = False
     ago_seconds = None
-
     if last_seen:
-        ago = (now - last_seen).total_seconds()
-        ago_seconds = max(0, int(ago))
-        online = ago_seconds <= online_threshold_sec
+        ago_seconds = max(0, int((now - last_seen).total_seconds()))
+        online = ago_seconds <= online_window
 
     return jsonify(ok=True, user=other, online=online,
                    last_seen=(last_seen.isoformat() if last_seen else None),
                    ago_seconds=ago_seconds)
+
 
 # ======= WSGI / Run =======
 if __name__ == '__main__':

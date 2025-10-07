@@ -124,6 +124,32 @@ from psycopg2 import OperationalError, InterfaceError, DatabaseError
 
 PG_POOL = None
 
+
+# ===== Presencia: util para tocar/crear fila inmediatamente =====
+def touch_presence(user: str, device: str = 'page-view'):
+    ensure_presence_table()
+    now = europe_madrid_now()
+    try:
+        ua = (request.headers.get('User-Agent') or '')[:300]
+    except Exception:
+        ua = ''
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO user_presence (username, last_seen, device, user_agent)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (username) DO UPDATE
+                SET last_seen = EXCLUDED.last_seen,
+                    device    = EXCLUDED.device,
+                    user_agent= EXCLUDED.user_agent;
+            """, (user, now, device, ua))
+            conn.commit()
+    finally:
+        conn.close()
+
+
+
 def _init_pool():
     """Crea el pool una sola vez."""
     global PG_POOL
@@ -785,7 +811,7 @@ def push_last_hours(user: str):
 def push_meeting_countdown(dleft: int):
     title = f"¡Queda {dleft} día para veros!" if dleft == 1 else f"¡Quedan {dleft} días para veros!"
     send_push_both(title=title,
-                   body="Abre el contador y planead los detalles 💖",
+                   body="Que ganaaasssss!! ❤️‍🔥",
                    url="/#contador",
                    tag="meeting-countdown")
 
@@ -1183,7 +1209,12 @@ def index():
         return render_template('index.html', error=None, profile_pictures={})
 
     # LOGUEADO
-    user = session['username']
+        user = session['username']
+        # 👉 Marca presencia al cargar la página (crea/actualiza la fila)
+    try:
+        touch_presence(user, device='page-view')
+    except Exception as e:
+        app.logger.warning("touch_presence failed: %s", e)
     question_id, question_text = get_today_question()  # usa fecha de Madrid por defecto
     conn = get_db_connection()
     try:
@@ -2398,29 +2429,29 @@ def presence_ping():
     if 'username' not in session:
         return jsonify(ok=False, error="unauthorized"), 401
     ensure_presence_table()
-    u = session['username']
+    u   = session['username']
     now = europe_madrid_now()
-    ua = request.headers.get('User-Agent', '')[:300]
-    payload = request.get_json(silent=True) or {}
-    device = (payload.get('device') or '')[:80]
+    ua  = (request.headers.get('User-Agent') or '')[:300]
+    data = request.get_json(silent=True) or {}
+    device = (data.get('device') or '')[:80]
 
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
             c.execute("""
-            INSERT INTO user_presence (username, last_seen, device, user_agent)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (username) DO UPDATE
-            SET last_seen = EXCLUDED.last_seen,
-                device    = EXCLUDED.device,
-                user_agent= EXCLUDED.user_agent;
+                INSERT INTO user_presence (username, last_seen, device, user_agent)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (username) DO UPDATE
+                SET last_seen = EXCLUDED.last_seen,
+                    device    = EXCLUDED.device,
+                    user_agent= EXCLUDED.user_agent;
             """, (u, now, device, ua))
             conn.commit()
     finally:
         conn.close()
 
     try:
-        broadcast("presence", {"kind": "presence", "user": u, "ts": now.isoformat()})
+        broadcast("presence", {"kind":"presence","user":u,"ts":now.isoformat()})
     except Exception:
         pass
 
@@ -2431,8 +2462,8 @@ def presence_other():
     if 'username' not in session:
         return jsonify(ok=False, error="unauthorized"), 401
     ensure_presence_table()
-    me = session['username']
-    other = request.args.get('user') or other_of(me)
+    me    = session['username']
+    other = request.args.get('user') or ('mochita' if me=='mochito' else 'mochito')
 
     last_seen = None
     conn = get_db_connection()
@@ -2440,27 +2471,38 @@ def presence_other():
         with conn.cursor() as c:
             c.execute("SELECT last_seen FROM user_presence WHERE username=%s;", (other,))
             row = c.fetchone()
-            if row:
-                last_seen = row['last_seen']
+            if row: last_seen = row['last_seen']
     finally:
         conn.close()
 
     now = europe_madrid_now()
-    online_window = int(os.environ.get("PRESENCE_ONLINE_WINDOW", "70"))
+    window = int(os.environ.get("PRESENCE_ONLINE_WINDOW", "70"))
     online = False
     ago_seconds = None
     if last_seen:
         ago_seconds = max(0, int((now - last_seen).total_seconds()))
-        online = ago_seconds <= online_window
+        online = ago_seconds <= window
 
     return jsonify(ok=True, user=other, online=online,
                    last_seen=(last_seen.isoformat() if last_seen else None),
                    ago_seconds=ago_seconds)
 
 
+@app.get("/presence/_debug_dump")
+def presence_debug_dump():
+    ensure_presence_table()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT username, last_seen FROM user_presence ORDER BY username;")
+            rows = [dict(r) for r in c.fetchall()]
+    finally:
+        conn.close()
+    return jsonify(rows)
+
+
 # ======= WSGI / Run =======
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
-
 

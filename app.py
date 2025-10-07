@@ -1209,12 +1209,13 @@ def index():
         return render_template('index.html', error=None, profile_pictures={})
 
     # LOGUEADO
-        user = session['username']
-        # 👉 Marca presencia al cargar la página (crea/actualiza la fila)
+    user = session.get('username')  # <- mover fuera del if anterior
+    # 👉 Marca presencia al cargar la página (crea/actualiza la fila)
     try:
         touch_presence(user, device='page-view')
     except Exception as e:
         app.logger.warning("touch_presence failed: %s", e)
+
     question_id, question_text = get_today_question()  # usa fecha de Madrid por defecto
     conn = get_db_connection()
     try:
@@ -1239,6 +1240,7 @@ def index():
                     cache_invalidate('get_profile_pictures')
                     broadcast("profile_update", {"user": user})
                 return redirect('/')
+
 
             # 2) Cambio de contraseña
             if request.method == 'POST' and 'change_password' in request.form:

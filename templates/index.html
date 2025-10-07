@@ -3084,21 +3084,26 @@ document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
   });
 })();
 
-
-// ======== PRESENCIA (frontend) ========
+// ======== PRESENCIA (frontend robusto) ========
 (function(){
-  // Quién soy y quién es "el/la otr@" (ya lo usas en tus plantillas)
-  const ME   = {{ (session.username or '') | tojson }};
-  const OTHER = {{ (other_user or '') | tojson }};
-
-  // Dónde pintamos
+  const chip   = document.getElementById('presenceChip');
   const dotEl  = document.getElementById('presenceDot');
   const textEl = document.getElementById('presenceText');
+  if (!chip || !dotEl || !textEl) return;
 
-  if (!ME || !OTHER || !dotEl || !textEl) return;
+  const ME = {{ (session.username or '') | tojson }};
+  // Deriva OTHER si no viene bien del template
+  let OTHER = {{ (other_user if other_user is defined else '') | tojson }};
+  if (!OTHER) OTHER = (ME === 'mochito') ? 'mochita' : 'mochito';
+
+  function setOfflineMessage(msg){
+    dotEl.classList.remove('online');
+    textEl.classList.add('offline');
+    textEl.textContent = msg || 'Sin conexión';
+  }
 
   function timeAgo(sec){
-    sec = Math.max(0, Math.floor(sec));
+    sec = Math.max(0, Math.floor(sec || 0));
     if (sec < 60) return 'hace unos segundos';
     const m = Math.floor(sec/60);
     if (m < 60) return `hace ${m} min`;
@@ -3110,48 +3115,75 @@ document.getElementById('enablePushBtn')?.addEventListener('click', enablePush);
 
   async function pingPresence(){
     try{
-      // No bloquea la UI
-      navigator.sendBeacon
-        ? navigator.sendBeacon('/presence/ping', new Blob([JSON.stringify({device:'web'})], {type:'application/json'}))
-        : fetch('/presence/ping',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({device:'web'})});
-    }catch(_){}
+      const body = JSON.stringify({ device: 'web' });
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon('/presence/ping', new Blob([body], { type: 'application/json' }));
+      } else {
+        await fetch('/presence/ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body
+        });
+      }
+    }catch(e){
+      console.warn('[presence] ping error:', e);
+    }
   }
 
   async function refreshPresence(){
     try{
-      const r = await fetch('/presence/other', {headers:{'Accept':'application/json'}});
-      if (!r.ok) throw new Error('HTTP '+r.status);
+      const r = await fetch('/presence/other', { headers:{ 'Accept':'application/json' }});
+      if (!r.ok) {
+        console.warn('[presence] GET /presence/other ->', r.status);
+        setOfflineMessage('Sin conexión');
+        return;
+      }
       const j = await r.json();
+      if (!j || j.ok === false) {
+        setOfflineMessage('Sin datos');
+        return;
+      }
       const online = !!j.online;
-      dotEl.classList.toggle('online', online);
-      textEl.classList.toggle('offline', !online);
       if (online){
+        dotEl.classList.add('online');
+        textEl.classList.remove('offline');
         textEl.textContent = 'En línea';
-      }else{
-        if (j.ago_seconds != null){
-          textEl.textContent = 'Última vez ' + timeAgo(j.ago_seconds);
-        }else{
-          textEl.textContent = 'Sin datos';
-        }
+      } else {
+        dotEl.classList.remove('online');
+        textEl.classList.add('offline');
+        textEl.textContent = j.ago_seconds != null
+          ? ('Última vez ' + timeAgo(j.ago_seconds))
+          : 'Última vez desconocida';
       }
     }catch(e){
-      // Si falla, no molestamos: dejamos el último estado
+      console.warn('[presence] refresh error:', e);
+      setOfflineMessage('Sin conexión');
     }
   }
 
   // Arranque
-  document.addEventListener('visibilitychange', ()=> {
-    if (!document.hidden){ pingPresence(); refreshPresence(); }
-  });
-
-  // Primeras llamadas
+  if (!ME){ setOfflineMessage('No autenticado'); return; }
   pingPresence();
   refreshPresence();
 
-  // Intervalos (ajusta a gusto)
-  setInterval(pingPresence, 25*1000);  // cada 25s enviamos latido
-  setInterval(refreshPresence, 7*1000); // cada 7s consultamos estado del otro
+  // Reintentos / actualización
+  setInterval(pingPresence, 25_000);
+  setInterval(refreshPresence, 7_000);
+
+  // Al volver de segundo plano
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden){ pingPresence(); refreshPresence(); }
+  });
+
+  // (Opcional) refresco inmediato por SSE
+  if ('EventSource' in window) {
+    try {
+      const es = new EventSource('/events');
+      es.addEventListener('presence', () => refreshPresence());
+    } catch(_){}
+  }
 })();
+
 
 </script>
 
@@ -3334,5 +3366,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </body>
 </html>
+
 
 

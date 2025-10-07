@@ -3362,6 +3362,62 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 
 
+  // El backend ya pasa 'username' a la plantilla:
+  const ME = "{{ username }}";
+  const OTHER = (ME === "mochito") ? "mochita" : "mochito";
+
+  // 1) Mantener mi presencia viva
+  async function pingPresence() {
+    try {
+      await fetch('/presence/ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device: 'web-app' })
+      });
+    } catch (_) {}
+  }
+  // Ping cada 45s (la ventana server por defecto es 70s)
+  pingPresence();
+  setInterval(pingPresence, 45_000);
+
+  // 2) Mostrar estado del OTRO usuario (cambia los selectores a los tuyos)
+  const dot   = document.querySelector('#presenceDot');   // ⬅️ círculo/semáforo
+  const label = document.querySelector('#presenceText');  // ⬅️ texto “En línea/Desconectado/Comprobando…”
+
+  function humanizeAgo(sec){
+    if (sec == null) return 'desconocido';
+    if (sec < 60) return `${sec}s`;
+    const m = Math.floor(sec/60), s = sec%60;
+    return `${m}m ${s}s`;
+    }
+
+  async function refreshOtherPresence() {
+    try {
+      const r = await fetch('/presence/other?user=' + encodeURIComponent(OTHER));
+      const j = await r.json();
+      if (!j.ok) throw new Error('resp not ok');
+
+      if (j.online) {
+        label.textContent = 'En línea';
+        dot?.classList.add('ok');
+        dot?.classList.remove('err');
+      } else {
+        label.textContent = 'Desconectado (hace ' + humanizeAgo(j.ago_seconds) + ')';
+        dot?.classList.add('err');
+        dot?.classList.remove('ok');
+      }
+    } catch (e) {
+      label.textContent = 'Error comprobando…';
+      dot?.classList.remove('ok');
+      dot?.classList.remove('err');
+    }
+  }
+
+  // Arrancar y refrescar cada 15s
+  label && (label.textContent = 'Comprobando…');
+  refreshOtherPresence();
+  setInterval(refreshOtherPresence, 15_000);
+    
 </script>
 
 
@@ -3372,5 +3428,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </body>
 </html>
+
 
 

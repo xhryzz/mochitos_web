@@ -1112,7 +1112,10 @@
 /* Botón Admin: mismo estilo que el del perfil, colocado debajo */
 .admin-icon { top: 92px; } /* 30px (margen superior) + 50px (alto del icono) + 12px (separación) */
 
-
+.tag{display:inline-block;padding:.2rem .55rem;border-radius:.6rem;background:#f3f4f6}
+.tag-muted{background:#f3f4f6;color:#555}
+.tag-today{background:#e6ffed;color:#065f46;font-weight:700}
+.tag-soon{background:#fff7ed;color:#9a3412;font-weight:600}
     </style>
 </head>
 
@@ -1335,26 +1338,36 @@
         </div>
       </div>
 
-      <!-- Contadores -->
-      <div class="section animate-in delay-1">
-        <h3>Nosotros</h3>
-        <div class="counters">
-          <div class="counter-item">
-            <h4>Días juntos</h4>
-            <p>{{ days_together }}</p>
-          </div>
-          {% if days_until_meeting is not none %}
-          <div class="counter-item">
-            <h4>Días hasta vernos</h4>
-            <p>{{ days_until_meeting }}</p>
-          </div>
-          {% endif %}
-        </div>
-        <form method="POST" class="inline-form">
-          <input type="date" name="meeting_date" required>
-          <button type="submit"><i class="fas fa-calendar-alt"></i> Actualizar fecha</button>
-        </form>
-      </div>
+     <!-- Contadores -->
+<div class="section animate-in delay-1">
+  <h3>Nosotros</h3>
+  <div class="counters">
+    <div class="counter-item">
+      <h4>Días juntos</h4>
+      <p>{{ days_together }}</p>
+    </div>
+
+    <div class="counter-item">
+      <h4>Días hasta vernos</h4>
+      {% set d = days_until_meeting %}
+      {% if d is none or d < 0 %}
+        <p class="tag tag-muted">Sin fecha</p>
+      {% elif d == 0 %}
+        <p class="tag tag-today">Hoy nos vemos</p>
+      {% elif d == 1 %}
+        <p class="tag tag-soon">Mañana ❤️</p>
+      {% else %}
+        <p>{{ d }} días</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <form method="POST" class="inline-form">
+    <input type="date" name="meeting_date" required>
+    <button type="submit"><i class="fas fa-calendar-alt"></i> Actualizar fecha</button>
+  </form>
+</div>
+
 
       <!-- INTIMIDAD (discreto) -->
       <div class="section animate-in">

@@ -3,78 +3,285 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Preguntas — Admin</title>
+<title>Banco de Preguntas — Admin</title>
 <style>
-:root{ --brand:#e84393; --bg:#faf7fb; --card:#fff; --ink:#1f2937; --muted:#6b7280; --line:#efefef; }
-*{box-sizing:border-box} html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-.container{max-width:980px;margin:24px auto;padding:0 14px}
-h1{font-size:1.4rem;margin:0 0 10px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 6px 14px rgba(0,0,0,.04)}
+:root{
+  --brand:#e84393; --brand-2:#ff7ab6;
+  --bg:#faf7fb; --card:#ffffff; --ink:#111827; --muted:#6b7280; --line:#ece8ef;
+  --ok:#10b981; --warn:#f59e0b; --err:#ef4444; --inactive:#9ca3af;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.container{max-width:1100px;margin:24px auto;padding:0 14px}
+
+/* Header */
+.topbar{position:sticky;top:0;z-index:5;background:linear-gradient(#faf7fb, rgba(250,247,251,.8));backdrop-filter:saturate(1.2) blur(4px);border-bottom:1px solid var(--line)}
+.topbar .inner{max-width:1100px;margin:0 auto;padding:10px 14px;display:flex;gap:10px;align-items:center;justify-content:space-between}
+h1{font-size:1.25rem;margin:0;display:flex;gap:8px;align-items:center}
+h1 .pill{font-size:.78rem;background:#f3f4f6;color:#111;padding:3px 8px;border-radius:999px}
+a.back{color:var(--brand);text-decoration:none;border-bottom:1px dotted var(--brand)}
+a.back:hover{text-decoration:underline}
+
+/* Cards & controls */
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:14px 0;box-shadow:0 6px 14px rgba(0,0,0,.04)}
 .actions{display:flex;gap:8px;flex-wrap:wrap}
-input[type=text],textarea{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px}
-button{padding:10px 12px;border-radius:10px;border:1px solid #ddd;background:#fff;cursor:pointer}
+button, .btn{padding:10px 12px;border-radius:10px;border:1px solid #ddd;background:#fff;cursor:pointer;font-weight:600}
 button.brand{background:var(--brand);color:#fff;border-color:var(--brand)}
-table{width:100%;border-collapse:collapse;margin-top:10px}
-th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
-.badge{display:inline-block;padding:4px 10px;border-radius:999px;background:#f3f4f6;color:#111;font-size:.78rem;margin-right:8px}
+button.ghost{background:#fff}
+button:disabled{opacity:.6;cursor:not-allowed}
+input[type=text], textarea{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px;background:#fff}
+textarea{min-height:46px;resize:vertical}
+
+/* Filters */
+.toolbar{display:grid;gap:10px}
+@media(min-width:880px){ .toolbar{grid-template-columns:1fr auto} }
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{padding:8px 10px;border:1px solid var(--line);border-radius:999px;background:#fff;color:#111;font-size:.875rem;cursor:pointer}
+.chip.active{border-color:var(--brand);box-shadow:0 0 0 2px rgba(232,67,147,.12)}
+.chip[data-key="pending"].active{background:rgba(16,185,129,.08)}
+.chip[data-key="used"].active{background:rgba(245,158,11,.10)}
+.chip[data-key="inactive"].active{background:rgba(156,163,175,.12)}
+.meta{color:var(--muted);font-size:.92rem}
+
+/* Progress mini */
+.progress{height:8px;background:#eee;border-radius:999px;overflow:hidden}
+.progress>span{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--brand),var(--brand-2));transition:width .35s}
+
+/* Table */
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px}
+table{width:100%;border-collapse:separate;border-spacing:0}
+th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+thead th{position:sticky;top:0;background:#fff;z-index:2}
+tbody tr:hover{background:#fff6fb}
+td.id{white-space:nowrap;color:#374151;font-variant-numeric:tabular-nums}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:.78rem}
+.badge.ok{background:#ecfdf5;color:#065f46}
+.badge.warn{background:#fffbeb;color:#92400e}
+.badge.muted{background:#f3f4f6;color:#374151}
+.badge.inactive{background:#f3f4f6;color:#6b7280;text-decoration:line-through}
+.row-actions{display:flex;gap:6px;flex-wrap:wrap}
+small.time{color:var(--muted)}
+
+/* Utilities */
+hr.sep{border:0;height:1px;background:var(--line);margin:12px 0}
+.kbd{font-family:ui-monospace,Menlo,Consolas,monospace;background:#f3f4f6;border:1px solid #e5e7eb;border-bottom-width:2px;border-radius:6px;padding:2px 6px}
+.right{margin-left:auto}
+.nowrap{white-space:nowrap}
 </style>
 </head>
 <body>
-<div class="container">
-  <h1>Preguntas — Admin</h1>
-  <p><a href="/admin">← Volver al panel</a></p>
 
-  <div class="card">
-    <div class="actions">
-      <form method="post" action="/admin/questions/rotate_now"><button class="brand">Rotar pregunta de HOY</button></form>
-      <form method="post" action="/admin/questions/reset_used"><button>Resetear usadas</button></form>
-      <form method="post" action="/admin/questions/delete_all" onsubmit="return confirm('⚠️ Esto eliminará TODAS las preguntas del banco. ¿Seguro?');">
-        <button>🗑️ Borrar todas</button>
-      </form>
+<div class="topbar">
+  <div class="inner">
+    <div>
+      <a class="back" href="/admin">← Volver al panel</a>
+      <h1>Banco de Preguntas <span class="pill">Admin</span></h1>
     </div>
-    <p>Total: <b>{{ stats.total }}</b> · Pendientes: <b>{{ stats.pend }}</b> · Usadas: <b>{{ stats.used }}</b></p>
-  </div>
-  
-  <div class="card">
-    <form method="post" action="/admin/questions" class="actions">
-      <input type="text" name="text" placeholder="Nueva pregunta…" required>
-      <button class="brand" type="submit">Añadir</button>
-    </form>
-    <form method="post" action="/admin/questions/import" style="margin-top:10px">
-      <textarea name="bulk" rows="4" placeholder="Pega preguntas (una por línea)"></textarea>
-      <div class="actions" style="margin-top:6px"><button type="submit">Importar en bloque</button></div>
-    </form>
-  </div>
-
-  <div class="card">
-    <table>
-      <thead>
-        <tr><th>ID</th><th>Pregunta</th><th>Estado</th><th>Acciones</th></tr>
-      </thead>
-      <tbody>
-      {% for r in rows %}
-        <tr>
-          <td>#{{ r.id }}</td>
-          <td>
-            <form method="post" action="/admin/questions/{{ r.id }}/edit" style="display:flex;gap:6px">
-              <input name="text" value="{{ r.text }}">
-              <button type="submit">Guardar</button>
-            </form>
-          </td>
-          <td>
-            {% if not r.active %}<span class="badge">inactiva</span>{% endif %}
-            {{ 'Usada' if r.used else 'Pendiente' }}
-            {% if r.used_at %}<small> ({{ r.used_at[:16] }})</small>{% endif %}
-          </td>
-          <td style="white-space:nowrap">
-            <form method="post" action="/admin/questions/{{ r.id }}/toggle_used" style="display:inline"><button type="submit">{{ 'Marcar pendiente' if r.used else 'Marcar usada' }}</button></form>
-            <form method="post" action="/admin/questions/{{ r.id }}/delete" style="display:inline" onsubmit="return confirm('¿Desactivar pregunta?');"><button type="submit">Desactivar</button></form>
-          </td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+    <div class="nowrap meta">
+      Total: <b id="count-total">{{ stats.total }}</b> ·
+      Pendientes: <b id="count-pending">{{ stats.pend }}</b> ·
+      Usadas: <b id="count-used">{{ stats.used }}</b>
+    </div>
   </div>
 </div>
+
+<div class="container">
+
+  <!-- Acciones rápidas -->
+  <div class="card">
+    <div class="actions">
+      <form method="post" action="/admin/questions/rotate_now"><button class="brand">🔄 Rotar pregunta de HOY</button></form>
+      <form method="post" action="/admin/questions/reset_used"><button class="ghost">♻️ Resetear usadas</button></form>
+      <form method="post" action="/admin/questions/delete_all" onsubmit="return confirm('⚠️ Esto eliminará TODAS las preguntas del banco. ¿Seguro?');">
+        <button class="ghost">🗑️ Borrar todas</button>
+      </form>
+      <div class="right" style="min-width:200px">
+        <div class="progress" title="Pendientes sobre total">
+          <span id="progressBar" style="width:0%"></span>
+        </div>
+      </div>
+    </div>
+    <div class="meta">Consejo: usa la búsqueda y filtros para editar en lote rápido. Guarda cada fila con su botón <span class="kbd">Guardar</span>.</div>
+  </div>
+
+  <!-- Alta / Import -->
+  <div class="card">
+    <div class="toolbar">
+      <form method="post" action="/admin/questions" class="actions" onsubmit="return !!this.text.value.trim()">
+        <input type="text" name="text" placeholder="Nueva pregunta…" required>
+        <button class="brand" type="submit">➕ Añadir</button>
+      </form>
+      <div class="filters">
+        <span class="chip active" data-key="all">Todas</span>
+        <span class="chip" data-key="pending">Pendientes</span>
+        <span class="chip" data-key="used">Usadas</span>
+        <span class="chip" data-key="inactive">Inactivas</span>
+        <input id="q" type="text" placeholder="Buscar por texto o #id…" style="min-width:240px">
+      </div>
+    </div>
+
+    <form method="post" action="/admin/questions/import" style="margin-top:12px">
+      <textarea name="bulk" rows="3" placeholder="Pega preguntas (una por línea)"></textarea>
+      <div class="actions" style="margin-top:8px">
+        <button type="submit" class="ghost">📥 Importar en bloque</button>
+        <span class="meta">Se ignorarán duplicados automáticamente.</span>
+      </div>
+    </form>
+  </div>
+
+  <!-- Tabla -->
+  <div class="card">
+    <div class="table-wrap">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th style="width:92px">ID</th>
+            <th>Pregunta</th>
+            <th style="width:220px">Estado</th>
+            <th style="width:260px">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+          <tr data-id="{{ r.id }}" data-used="{{ '1' if r.used else '0' }}" data-active="{{ '1' if r.active else '0' }}">
+            <td class="id">#{{ r.id }}</td>
+
+            <td>
+              <form method="post" action="/admin/questions/{{ r.id }}/edit" class="edit-form" style="display:grid;gap:6px">
+                <textarea name="text" oninput="autoSize(this)">{{ r.text }}</textarea>
+                <div class="row-actions">
+                  <button type="submit" class="brand">Guardar</button>
+                  <button type="button" class="ghost" onclick="copyText(this)">Copiar</button>
+                  <span class="meta">Autoajusta mientras escribes</span>
+                </div>
+              </form>
+            </td>
+
+            <td>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                {% if not r.active %}
+                  <span class="badge inactive">Inactiva</span>
+                {% else %}
+                  <span class="badge muted">Activa</span>
+                {% endif %}
+                {% if r.used %}
+                  <span class="badge warn">Usada</span>
+                {% else %}
+                  <span class="badge ok">Pendiente</span>
+                {% endif %}
+              </div>
+              {% if r.used_at %}
+                <small class="time">Usada el {{ r.used_at[:16] }}</small>
+              {% endif %}
+            </td>
+
+            <td class="nowrap">
+              <div class="row-actions">
+                <form method="post" action="/admin/questions/{{ r.id }}/toggle_used">
+                  <button type="submit" class="ghost">{{ 'Marcar pendiente' if r.used else 'Marcar usada' }}</button>
+                </form>
+
+                {% if r.active %}
+                  <form method="post" action="/admin/questions/{{ r.id }}/delete" onsubmit="return confirm('¿Desactivar pregunta #{{ r.id }}?');">
+                    <button type="submit" class="ghost">Desactivar</button>
+                  </form>
+                {% else %}
+                  <button class="ghost" disabled title="No hay endpoint para reactivar">Activar (no disp.)</button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ---- UI helpers ---- */
+function autoSize(el){
+  el.style.height='auto';
+  el.style.height=(el.scrollHeight+2)+'px';
+}
+function copyText(btn){
+  const ta = btn.closest('form').querySelector('textarea');
+  if(!ta) return;
+  navigator.clipboard.writeText(ta.value).then(()=>{
+    btn.textContent='Copiado ✓';
+    setTimeout(()=>btn.textContent='Copiar',900);
+  }).catch(()=>{ btn.textContent='Error'; setTimeout(()=>btn.textContent='Copiar',900); });
+}
+
+/* Auto-size all on load */
+document.querySelectorAll('textarea[name="text"]').forEach(autoSize);
+
+/* ---- Filters & search ---- */
+const chips = document.querySelectorAll('.chip');
+const q = document.getElementById('q');
+const rows = Array.from(document.querySelectorAll('#tbl tbody tr'));
+const countTotal = document.getElementById('count-total');
+const countPending = document.getElementById('count-pending');
+const countUsed = document.getElementById('count-used');
+const progressBar = document.getElementById('progressBar');
+
+function applyProgress(){
+  const t = parseInt(countTotal.textContent||'0',10);
+  const p = parseInt(countPending.textContent||'0',10);
+  const pct = t ? Math.round((p/t)*100) : 0;
+  progressBar.style.width = pct + '%';
+}
+applyProgress();
+
+function activeFilterKey(){
+  const act = document.querySelector('.chip.active');
+  return act ? act.dataset.key : 'all';
+}
+
+function matchesRow(r, key, term){
+  const used = r.dataset.used === '1';
+  const active = r.dataset.active === '1';
+  if(key==='pending' && used) return false;
+  if(key==='used' && !used) return false;
+  if(key==='inactive' && active) return false;
+  // search by id or text
+  if(term){
+    const idText = r.dataset.id || '';
+    const text = r.querySelector('textarea')?.value || r.querySelector('td:nth-child(2)')?.innerText || '';
+    const t = term.toLowerCase();
+    if(!('#'+idText).includes(term) && !text.toLowerCase().includes(t)) return false;
+  }
+  return true;
+}
+
+function refreshTable(){
+  const key = activeFilterKey();
+  const term = (q.value || '').trim();
+  let vis = 0, pend = 0, used = 0;
+  rows.forEach(r=>{
+    const show = matchesRow(r, key, term);
+    r.style.display = show ? '' : 'none';
+    if(show){
+      vis++;
+      if(r.dataset.used==='1') used++; else pend++;
+    }
+  });
+  // Update counts (view-based)
+  document.getElementById('count-used').textContent = used;
+  document.getElementById('count-pending').textContent = pend;
+  document.getElementById('count-total').textContent = vis;
+  applyProgress();
+}
+
+chips.forEach(c=>c.addEventListener('click', ()=>{
+  chips.forEach(x=>x.classList.remove('active'));
+  c.classList.add('active');
+  refreshTable();
+}));
+q.addEventListener('input', refreshTable);
+
+refreshTable();
+</script>
 </body>
 </html>

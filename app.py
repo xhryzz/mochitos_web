@@ -748,12 +748,14 @@ def days_until_meeting():
         with conn.cursor() as c:
             c.execute("SELECT meeting_date FROM meeting ORDER BY id DESC LIMIT 1")
             row = c.fetchone()
-            if row:
-                meeting_date = datetime.strptime(row[0], "%Y-%m-%d").date()
-                return max((meeting_date - today_madrid()).days, 0)
-            return None
+            if not row:
+                return None
+            meeting_date = datetime.strptime(row[0], "%Y-%m-%d").date()
+            # IMPORTANTE: NO recortar a 0; queremos valores negativos el día siguiente
+            return (meeting_date - today_madrid()).days
     finally:
         conn.close()
+
 
 @ttl_cache(seconds=30)
 def get_banner():
@@ -1377,8 +1379,8 @@ def background_loop():
 
 
 
+            d = days_until_meeting()
             if d is not None and d in (1, 2, 3):
-                times = ensure_meet_times(today)
                 for hhmm in times:
                     sent_key = _meet_sent_key(today, hhmm)
                     if not state_get(sent_key, "") and due_now(now, hhmm):

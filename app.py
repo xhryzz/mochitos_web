@@ -270,6 +270,11 @@ def europe_madrid_now() -> datetime:
 def today_madrid() -> date:
     return europe_madrid_now().date()
 
+def within_daily_window(now: datetime | None = None, start_hour: int = 9, end_hour: int = 22) -> bool:
+    n = now or europe_madrid_now()
+    return start_hour <= n.hour < end_hour  # 09:00–21:59
+
+
 def seconds_until_next_midnight_madrid() -> float:
     now = europe_madrid_now()
     nxt = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
@@ -1176,18 +1181,20 @@ def background_loop():
 
             # 💖 Aviso diario "Hoy cumplís X días..."
             try:
-                push_relationship_daily()
+                if within_daily_window(now):
+                    push_relationship_daily()
             except Exception as e:
                 print("[bg rel_daily]", e)
 
             # 💖 Hitos 75/100/150/200/250/300/365 (solo el día exacto)
             try:
-                push_relationship_milestones()
+                if within_daily_window(now):
+                    push_relationship_milestones()
             except Exception as e:
                 print("[bg milestone]", e)
 
-
-
+            # 🔔 Countdown de encuentro (1/2/3 días)
+            d = days_until_meeting()  # <--- FALTA ESTA LÍNEA
             if d is not None and d in (1, 2, 3):
                 times = ensure_meet_times(today)
                 for hhmm in times:
@@ -2590,5 +2597,4 @@ def presence_debug_dump():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
-
 

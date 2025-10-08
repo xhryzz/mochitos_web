@@ -1485,7 +1485,7 @@
             <div class="intim-card">
               <b>Última vez</b><br>
               {% if intim_stats.last_dt %}
-                {{ intim_stats.last_dt.strftime("%Y-%m-%d %H:%M") }} (hace {{ intim_stats.days_since_last }} día{% if intim_stats.days_since_last != 1 %}s{% endif %})
+                {{ intim_stats.last_dt.strftime("%Y-%m-%d %H:%M") }} ({{ intim_stats.days_since_last }} día{% if intim_stats.days_since_last != 1 %}s{% endif %})
               {% else %}
                 Aún no hay registros.
               {% endif %}
@@ -3465,7 +3465,6 @@ function humanizeAgo(seconds){
 
 </body>
 </html>
-
 
 
 

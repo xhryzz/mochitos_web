@@ -3424,7 +3424,8 @@ document.addEventListener('DOMContentLoaded', () => {
         dot?.classList.add('ok');
         dot?.classList.remove('err');
       } else {
-        label.textContent = '(hace ' + humanizeAgo(j.ago_seconds) + ')';
+        label.textContent = '(' + humanizeAgo(j.ago_seconds) + ')';
+
         dot?.classList.add('err');
         dot?.classList.remove('ok');
       }

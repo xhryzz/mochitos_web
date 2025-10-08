@@ -598,7 +598,8 @@ def get_today_question(today: date | None = None):
 
 
 def days_together():
-    return (today_madrid() - RELATION_START).days
+    return max((today_madrid() - RELATION_START).days, 0)
+
 
 def days_until_meeting():
     conn = get_db_connection()
@@ -814,6 +815,65 @@ def push_meeting_countdown(dleft: int):
                    body="Que ganaaasssss!! ❤️‍🔥",
                    url="/#contador",
                    tag="meeting-countdown")
+
+
+
+# --- Nuevas notificaciones románticas ---
+def push_relationship_day(day_count: int):
+    """💖 Notifica días especiales de relación"""
+    title = f"💖 Hoy cumplís {day_count} días juntos"
+    body = "Gracias por estar cada dia a mi lado."
+    tag = f"relationship-{day_count}"
+    send_push_both(title=title, body=body, url="/#contador", tag=tag)
+    send_discord("Relationship milestone", {"days": day_count})
+
+
+def push_relationship_milestones():
+    """Comprueba si hoy se cumple algún hito (75,100,150,200,250,300,365...)"""
+    days = days_together()
+    milestones = [75, 100, 150, 200, 250, 300, 365]
+    if days in milestones:
+        # Evita enviar varias veces el mismo día
+        key = f"milestone_{days}"
+        if not state_get(key, ""):
+            push_relationship_day(days)
+            state_set(key, "1")
+
+
+def push_relationship_daily():
+    """Envía cada día: 'Hoy cumplís X días juntos' (salta si hoy es hito)."""
+    days = days_together()
+    if days <= 0:
+        return  # por si RELATION_START estuviera en el futuro
+
+    milestones = {75, 100, 150, 200, 250, 300, 365}
+    if days in milestones:
+        return  # el hito ya lo anuncia push_relationship_milestones()
+
+    # Evita duplicados el mismo día
+    key = f"rel_daily::{today_madrid().isoformat()}"
+    if not state_get(key, ""):
+        send_push_both(
+            title=f"💖 Hoy cumplís {days} días juntos",
+            body="Un día más, y cada vez mejor 🥰",
+            url="/#contador",
+            tag=f"relationship-day-{days}"
+        )
+        state_set(key, "1")
+
+
+def push_gift_purchased(row):
+    """🎁 Notifica cuando un regalo oculto (is_gift=True) pasa a comprado"""
+    created_by = row.get("created_by")
+    other = other_of(created_by)
+    pname = row.get("product_name", "Regalo")
+    send_push_to(other,
+                 title="🎁 Tu regalo está listo",
+                 body="Tu pareja ha marcado como comprado un regalo 💝",
+                 url="/#wishlist",
+                 tag=f"gift-purchased-{row['id']}")
+    send_discord("Gift purchased", {"id": row["id"], "by": created_by, "name": pname})
+
 
 # ========= App state helpers =========
 def state_get(key: str, default: str | None = None) -> str | None:
@@ -1114,11 +1174,19 @@ def background_loop():
                 state_set("last_dq_push_date", str(today))
                 cache_invalidate('compute_streaks')
 
-            # 2) Recordatorios 3/2/1 días
+            # 💖 Aviso diario "Hoy cumplís X días..."
             try:
-                d = days_until_meeting()
-            except Exception:
-                d = None
+                push_relationship_daily()
+            except Exception as e:
+                print("[bg rel_daily]", e)
+
+            # 💖 Hitos 75/100/150/200/250/300/365 (solo el día exacto)
+            try:
+                push_relationship_milestones()
+            except Exception as e:
+                print("[bg milestone]", e)
+
+
 
             if d is not None and d in (1, 2, 3):
                 times = ensure_meet_times(today)
@@ -1677,14 +1745,29 @@ def toggle_wishlist_item():
         user = session['username']
         conn = get_db_connection()
         with conn.cursor() as c:
-            c.execute("SELECT is_purchased FROM wishlist WHERE id=%s", (item_id,))
+            c.execute("SELECT id, product_name, is_purchased, is_gift, created_by FROM wishlist WHERE id=%s", (item_id,))
             row = c.fetchone()
             if not row:
                 flash("Elemento no encontrado.", "error")
                 return redirect('/')
-            new_state = not bool(row[0])
-            c.execute("UPDATE wishlist SET is_purchased=%s WHERE id=%s", (new_state, item_id))
+
+            wid, pname, current_state, is_gift, created_by = row
+            new_state = not bool(current_state)
+
+            c.execute("UPDATE wishlist SET is_purchased=%s WHERE id=%s", (new_state, wid))
             conn.commit()
+
+            # 🎁 Si es regalo oculto y se marca como comprado → notifica
+            if is_gift and new_state:
+                try:
+                    push_gift_purchased({
+                        "id": wid,
+                        "product_name": pname,
+                        "created_by": created_by
+                    })
+                except Exception as e:
+                    print("[push gift_purchased]", e)
+
         flash("Estado del elemento actualizado ✅", "success")
         send_discord("Wishlist toggle", {"user": user, "item_id": item_id, "is_purchased": bool(new_state)})
         broadcast("wishlist_update", {"type": "toggle", "id": int(item_id), "is_purchased": bool(new_state)})

@@ -1,6 +1,6 @@
 
 # app.py — con Web Push, notificaciones (Europe/Madrid a medianoche) y seguimiento de precio
-from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash, Response, make_response
+from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash, Response, make_response, abort
 import psycopg2, psycopg2.extras
 from psycopg2.pool import SimpleConnectionPool
 from datetime import datetime, date, timedelta, timezone
@@ -473,6 +473,33 @@ def init_db():
         """)
         c.execute("CREATE INDEX IF NOT EXISTS idx_sched_status_when ON scheduled_notifications (status, when_at)")
 
+
+
+        # === Preguntas (banco editable por admin) ===
+        c.execute("""
+        CREATE TABLE IF NOT EXISTS question_bank (
+        id SERIAL PRIMARY KEY,
+        text TEXT UNIQUE NOT NULL,
+        used BOOLEAN NOT NULL DEFAULT FALSE,
+        used_at TEXT,
+        active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TEXT NOT NULL
+        )
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_qbank_used_active ON question_bank (used, active)")
+        c.execute("ALTER TABLE daily_questions ADD COLUMN IF NOT EXISTS bank_id INTEGER")
+
+        # Seed inicial desde QUESTIONS si el banco está vacío
+        c.execute("SELECT COUNT(*) FROM question_bank")
+        if (c.fetchone()[0] or 0) == 0:
+            now = now_madrid_str()
+            for q in QUESTIONS:
+                try:
+                    c.execute("INSERT INTO question_bank (text, created_at) VALUES (%s,%s)", (q, now))
+                except Exception:
+                    pass
+            conn.commit()
+
         # Push subscriptions
         c.execute('''CREATE TABLE IF NOT EXISTS push_subscriptions (
             id SERIAL PRIMARY KEY,
@@ -585,6 +612,27 @@ def require_admin():
     if 'username' not in session or session['username'] != 'mochito':
         abort(403)
 
+def qbank_pick_random(conn) -> dict | None:
+    with conn.cursor() as c:
+        c.execute("""
+            SELECT id, text
+            FROM question_bank
+            WHERE active=TRUE AND used=FALSE
+            ORDER BY RANDOM()
+            LIMIT 1
+        """)
+        row = c.fetchone()
+        return dict(row) if row else None
+
+def qbank_mark_used(conn, qid: int, used: bool):
+    with conn.cursor() as c:
+        if used:
+            c.execute("UPDATE question_bank SET used=TRUE, used_at=%s WHERE id=%s", (now_madrid_str(), qid))
+        else:
+            c.execute("UPDATE question_bank SET used=FALSE, used_at=NULL WHERE id=%s", (qid,))
+    conn.commit()
+
+
 def parse_datetime_local_to_madrid(dt_local: str) -> str | None:
     """Recibe 'YYYY-MM-DDTHH:MM' de <input type='datetime-local'> y lo guarda como texto local 'YYYY-MM-DD HH:MM:SS' Europe/Madrid."""
     if not dt_local:
@@ -603,36 +651,96 @@ def get_today_question(today: date | None = None):
     today_str = today.isoformat()
     conn = get_db_connection()
     try:
+        # ¿Hay ya pregunta para hoy?
         with conn.cursor() as c:
-            # 👇 Si hay duplicados del mismo día, cogemos la MÁS RECIENTE
             c.execute("""
-                SELECT id, question
+                SELECT id, question, bank_id
                 FROM daily_questions
-                WHERE TRIM(date) = %s
+                WHERE TRIM(date)=%s
                 ORDER BY id DESC
                 LIMIT 1
             """, (today_str,))
-            qrow = c.fetchone()
-            if qrow:
-                return qrow
+            row = c.fetchone()
+            if row:
+                return row['id'], row['question']
 
-            # No existe aún -> creamos una para hoy
-            c.execute("SELECT question FROM daily_questions")
-            used = {row[0] for row in c.fetchall()}
-            remaining = [q for q in QUESTIONS if q not in used]
-            if not remaining:
-                return (None, "Ya no hay más preguntas disponibles ❤️")
-            question_text = random.choice(remaining)
+        # No existe aún -> elige del banco (sin usar)
+        picked = qbank_pick_random(conn)
+        if not picked:
+            # Reciclamos: reset a todas las activas
+            with conn.cursor() as c2:
+                c2.execute("UPDATE question_bank SET used=FALSE, used_at=NULL WHERE active=TRUE")
+                conn.commit()
+            picked = qbank_pick_random(conn)
+
+        if not picked:
+            return (None, "Ya no hay más preguntas disponibles ❤️")
+
+        with conn.cursor() as c:
             c.execute("""
-                INSERT INTO daily_questions (question, date)
-                VALUES (%s,%s)
+                INSERT INTO daily_questions (question, date, bank_id)
+                VALUES (%s,%s,%s)
                 RETURNING id
-            """, (question_text, today_str))
+            """, (picked['text'], today_str, picked['id']))
             qid = c.fetchone()[0]
             conn.commit()
-            return (qid, question_text)
+
+        # Marca esa del banco como usada
+        qbank_mark_used(conn, picked['id'], True)
+
+        return qid, picked['text']
     finally:
         conn.close()
+
+
+def reroll_today_question() -> bool:
+    """Cambia la pregunta de HOY sin romper la racha.
+       - La que estaba vuelve al bombo (used=False).
+       - La nueva queda marcada used=True.
+    """
+    today = today_madrid()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT id, bank_id
+                FROM daily_questions
+                WHERE date=%s
+                ORDER BY id DESC
+                LIMIT 1
+            """, (today.isoformat(),))
+            row = c.fetchone()
+            if not row:
+                return False
+            dq_id, old_bank_id = row['id'], row['bank_id']
+
+        # Liberamos la anterior (si había)
+        if old_bank_id:
+            qbank_mark_used(conn, old_bank_id, False)
+
+        newq = qbank_pick_random(conn)
+        if not newq:
+            # Si no hay nueva, restauramos el estado de la vieja
+            if old_bank_id:
+                qbank_mark_used(conn, old_bank_id, True)
+            return False
+
+        with conn.cursor() as c:
+            c.execute("DELETE FROM answers WHERE question_id=%s", (dq_id,))
+            c.execute("UPDATE daily_questions SET question=%s, bank_id=%s WHERE id=%s",
+                      (newq['text'], newq['id'], dq_id))
+            conn.commit()
+
+        qbank_mark_used(conn, newq['id'], True)
+
+        try:
+            broadcast("dq_change", {"id": int(dq_id)})
+        except Exception:
+            pass
+        return True
+    finally:
+        conn.close()
+
 
 
 def days_together():
@@ -1448,26 +1556,15 @@ def index():
 
             # 3-bis) Cambiar la pregunta de HOY (no borra fila => preserva racha)
             if request.method == 'POST' and 'dq_reroll' in request.form:
-                if question_id is not None:
-                    c.execute("SELECT question FROM daily_questions WHERE id=%s", (question_id,))
-                    old_q = (c.fetchone() or [None])[0]
-                    c.execute("SELECT question FROM daily_questions")
-                    used = {row[0] for row in c.fetchall()}
-                    if old_q:
-                        used.discard(old_q)
-                    remaining = [q for q in QUESTIONS if q not in used]
-                    if remaining:
-                        new_q = random.choice(remaining)
-                        c.execute("DELETE FROM answers WHERE question_id=%s", (question_id,))
-                        c.execute("UPDATE daily_questions SET question=%s WHERE id=%s", (new_q, question_id))
-                        conn.commit()
-                        cache_invalidate('compute_streaks')
-                        flash("Pregunta cambiada para hoy ✅", "success")
-                        send_discord("DQ reroll", {"user": user, "old": old_q, "new": new_q})
-                        broadcast("dq_change", {"id": int(question_id)})
-                    else:
-                        flash("No quedan preguntas disponibles para cambiar 😅", "error")
+                ok = reroll_today_question()
+                if ok:
+                    cache_invalidate('compute_streaks')
+                    flash("Pregunta cambiada para hoy ✅", "success")
+                    send_discord("DQ reroll", {"user": user})
+                else:
+                    flash("No quedan preguntas disponibles para cambiar 😅", "error")
                 return redirect('/')
+
 
             # 4) Meeting date
             if request.method == 'POST' and 'meeting_date' in request.form:
@@ -2827,6 +2924,141 @@ def __reset_pw():
         return jsonify(ok=True)
     finally:
         conn.close()
+
+# === ADMIN: banco de preguntas ===
+
+@app.get("/admin/questions")
+def admin_questions():
+    require_admin()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+              SELECT id, text, used, used_at, active, created_at
+              FROM question_bank
+              ORDER BY active DESC, used, id DESC
+            """)
+            rows = c.fetchall()
+            c.execute("SELECT COUNT(*) FROM question_bank")
+            total = c.fetchone()[0]
+            c.execute("SELECT COUNT(*) FROM question_bank WHERE used=FALSE AND active=TRUE")
+            pend = c.fetchone()[0]
+            c.execute("SELECT COUNT(*) FROM question_bank WHERE used=TRUE")
+            used = c.fetchone()[0]
+    finally:
+        conn.close()
+    return render_template("admin_questions.html",
+                           username=session['username'],
+                           rows=rows,
+                           stats={"total": total, "pend": pend, "used": used})
+
+@app.post("/admin/questions")
+def admin_questions_add():
+    require_admin()
+    text = (request.form.get("text") or "").strip()
+    if text:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute("""
+                    INSERT INTO question_bank (text, created_at)
+                    VALUES (%s,%s)
+                    ON CONFLICT (text) DO NOTHING
+                """, (text, now_madrid_str()))
+                conn.commit()
+        finally:
+            conn.close()
+        flash("Pregunta añadida ✅", "success")
+    return redirect("/admin/questions")
+
+@app.post("/admin/questions/import")
+def admin_questions_import():
+    require_admin()
+    bulk = (request.form.get("bulk") or "")
+    lines = [l.strip() for l in bulk.splitlines() if l.strip()]
+    if lines:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                now = now_madrid_str()
+                for t in lines:
+                    try:
+                        c.execute("INSERT INTO question_bank (text, created_at) VALUES (%s,%s)", (t, now))
+                    except Exception:
+                        pass
+                conn.commit()
+        finally:
+            conn.close()
+        flash(f"Importadas {len(lines)} preguntas ✅", "success")
+    return redirect("/admin/questions")
+
+@app.post("/admin/questions/<int:qid>/edit")
+def admin_questions_edit(qid):
+    require_admin()
+    text = (request.form.get("text") or "").strip()
+    if text:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute("UPDATE question_bank SET text=%s WHERE id=%s", (text, qid))
+                conn.commit()
+        finally:
+            conn.close()
+        flash("Pregunta actualizada ✏️", "success")
+    return redirect("/admin/questions")
+
+@app.post("/admin/questions/<int:qid>/delete")
+def admin_questions_delete(qid):
+    require_admin()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("UPDATE question_bank SET active=FALSE WHERE id=%s", (qid,))
+            conn.commit()
+    finally:
+        conn.close()
+    flash("Pregunta desactivada 🗑️", "info")
+    return redirect("/admin/questions")
+
+@app.post("/admin/questions/<int:qid>/toggle_used")
+def admin_questions_toggle_used(qid):
+    require_admin()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT used FROM question_bank WHERE id=%s", (qid,))
+            row = c.fetchone()
+            if row:
+                new_used = not bool(row['used'])
+                if new_used:
+                    c.execute("UPDATE question_bank SET used=TRUE, used_at=%s WHERE id=%s", (now_madrid_str(), qid))
+                else:
+                    c.execute("UPDATE question_bank SET used=FALSE, used_at=NULL WHERE id=%s", (qid,))
+                conn.commit()
+    finally:
+        conn.close()
+    return redirect("/admin/questions")
+
+@app.post("/admin/questions/reset_used")
+def admin_questions_reset_used():
+    require_admin()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("UPDATE question_bank SET used=FALSE, used_at=NULL WHERE active=TRUE")
+            conn.commit()
+    finally:
+        conn.close()
+    flash("Marcados 'usada' reseteados ✅", "success")
+    return redirect("/admin/questions")
+
+@app.post("/admin/questions/rotate_now")
+def admin_questions_rotate_now():
+    require_admin()
+    ok = reroll_today_question()
+    flash("Pregunta rotada ahora ✅" if ok else "No hay preguntas disponibles para rotar 😅",
+          "success" if ok else "error")
+    return redirect("/admin/questions")
 
 
 # ======= WSGI / Run =======

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Preguntas — Admin</title>
+<style>
+:root{ --brand:#e84393; --bg:#faf7fb; --card:#fff; --ink:#1f2937; --muted:#6b7280; --line:#efefef; }
+*{box-sizing:border-box} html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.container{max-width:980px;margin:24px auto;padding:0 14px}
+h1{font-size:1.4rem;margin:0 0 10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 6px 14px rgba(0,0,0,.04)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+input[type=text],textarea{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px}
+button{padding:10px 12px;border-radius:10px;border:1px solid #ddd;background:#fff;cursor:pointer}
+button.brand{background:var(--brand);color:#fff;border-color:var(--brand)}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
+.badge{display:inline-block;padding:4px 10px;border-radius:999px;background:#f3f4f6;color:#111;font-size:.78rem;margin-right:8px}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Preguntas — Admin</h1>
+  <p><a href="/admin">← Volver al panel</a></p>
+
+  <div class="card">
+    <div class="actions">
+      <form method="post" action="/admin/questions/rotate_now"><button class="brand">Rotar pregunta de HOY</button></form>
+      <form method="post" action="/admin/questions/reset_used"><button>Resetear usadas</button></form>
+    </div>
+    <p>Total: <b>{{ stats.total }}</b> · Pendientes: <b>{{ stats.pend }}</b> · Usadas: <b>{{ stats.used }}</b></p>
+  </div>
+
+  <div class="card">
+    <form method="post" action="/admin/questions" class="actions">
+      <input type="text" name="text" placeholder="Nueva pregunta…" required>
+      <button class="brand" type="submit">Añadir</button>
+    </form>
+    <form method="post" action="/admin/questions/import" style="margin-top:10px">
+      <textarea name="bulk" rows="4" placeholder="Pega preguntas (una por línea)"></textarea>
+      <div class="actions" style="margin-top:6px"><button type="submit">Importar en bloque</button></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Pregunta</th><th>Estado</th><th>Acciones</th></tr>
+      </thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td>#{{ r.id }}</td>
+          <td>
+            <form method="post" action="/admin/questions/{{ r.id }}/edit" style="display:flex;gap:6px">
+              <input name="text" value="{{ r.text }}">
+              <button type="submit">Guardar</button>
+            </form>
+          </td>
+          <td>
+            {% if not r.active %}<span class="badge">inactiva</span>{% endif %}
+            {{ 'Usada' if r.used else 'Pendiente' }}
+            {% if r.used_at %}<small> ({{ r.used_at[:16] }})</small>{% endif %}
+          </td>
+          <td style="white-space:nowrap">
+            <form method="post" action="/admin/questions/{{ r.id }}/toggle_used" style="display:inline"><button type="submit">{{ 'Marcar pendiente' if r.used else 'Marcar usada' }}</button></form>
+            <form method="post" action="/admin/questions/{{ r.id }}/delete" style="display:inline" onsubmit="return confirm('¿Desactivar pregunta?');"><button type="submit">Desactivar</button></form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+</body>
+</html>

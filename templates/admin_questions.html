@@ -28,10 +28,13 @@ th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
     <div class="actions">
       <form method="post" action="/admin/questions/rotate_now"><button class="brand">Rotar pregunta de HOY</button></form>
       <form method="post" action="/admin/questions/reset_used"><button>Resetear usadas</button></form>
+      <form method="post" action="/admin/questions/delete_all" onsubmit="return confirm('⚠️ Esto eliminará TODAS las preguntas del banco. ¿Seguro?');">
+        <button>🗑️ Borrar todas</button>
+      </form>
     </div>
     <p>Total: <b>{{ stats.total }}</b> · Pendientes: <b>{{ stats.pend }}</b> · Usadas: <b>{{ stats.used }}</b></p>
   </div>
-
+  
   <div class="card">
     <form method="post" action="/admin/questions" class="actions">
       <input type="text" name="text" placeholder="Nueva pregunta…" required>

@@ -664,17 +664,11 @@ def get_today_question(today: date | None = None):
             if row:
                 return row['id'], row['question']
 
-        # No existe aún -> elige del banco (sin usar)
+        # No existe aún -> elige del banco (SIN usar)
         picked = qbank_pick_random(conn)
         if not picked:
-            # Reciclamos: reset a todas las activas
-            with conn.cursor() as c2:
-                c2.execute("UPDATE question_bank SET used=FALSE, used_at=NULL WHERE active=TRUE")
-                conn.commit()
-            picked = qbank_pick_random(conn)
-
-        if not picked:
-            return (None, "Ya no hay más preguntas disponibles ❤️")
+            # 🚫 Ya no reciclamos. Si no quedan, avisamos.
+            return (None, "Ya no quedan preguntas sin usar. Añade más en Admin → Preguntas.")
 
         with conn.cursor() as c:
             c.execute("""
@@ -685,12 +679,13 @@ def get_today_question(today: date | None = None):
             qid = c.fetchone()[0]
             conn.commit()
 
-        # Marca esa del banco como usada
+        # Marca esa del banco como usada (desde el momento en que está activa para HOY)
         qbank_mark_used(conn, picked['id'], True)
 
         return qid, picked['text']
     finally:
         conn.close()
+
 
 
 def reroll_today_question() -> bool:
@@ -1313,12 +1308,18 @@ def background_loop():
             today = now.date()
 
             # 1) Pregunta del día + notificación (una vez/día)
+            # 1) Pregunta del día + notificación (una vez/día)
             last_dq_push = state_get("last_dq_push_date", "")
             if str(today) != last_dq_push:
                 qid, qtext = get_today_question(today)   # usar fecha local
-                push_daily_new_question()
-                state_set("last_dq_push_date", str(today))
-                cache_invalidate('compute_streaks')
+                if qid:
+                    push_daily_new_question()
+                    state_set("last_dq_push_date", str(today))
+                    cache_invalidate('compute_streaks')
+                else:
+                    # Opcional: log para saber que no había preguntas sin usar
+                    send_discord("Daily question skipped (empty bank)", {"date": str(today)})
+
 
             # 💖 Aviso diario "Hoy cumplís X días..."
             try:
@@ -3058,6 +3059,20 @@ def admin_questions_rotate_now():
     ok = reroll_today_question()
     flash("Pregunta rotada ahora ✅" if ok else "No hay preguntas disponibles para rotar 😅",
           "success" if ok else "error")
+    return redirect("/admin/questions")
+
+
+@app.post("/admin/questions/delete_all")
+def admin_questions_delete_all():
+    require_admin()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("DELETE FROM question_bank")
+            conn.commit()
+    finally:
+        conn.close()
+    flash("Se han borrado TODAS las preguntas del banco 🗑️", "info")
     return redirect("/admin/questions")
 
 

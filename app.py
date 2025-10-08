@@ -1380,17 +1380,17 @@ def background_loop():
 
 
             d = days_until_meeting()
-                if d is not None and d in (1, 2, 3):
-                    # genera/recupera las horas planificadas para HOY (Europe/Madrid)
-                    times = ensure_meet_times(today)
-                    for hhmm in times:
-                        sent_key = _meet_sent_key(today, hhmm)
-                        if not state_get(sent_key, "") and due_now(now, hhmm):
-                            push_meeting_countdown(d)
-                            state_set(sent_key, "1")
-                else:
-                    # resetea la lista del día para que mañana se regenere
-                    state_set(_meet_times_key(today), json.dumps([]))
+            if d is not None and d in (1, 2, 3):
+                # genera/recupera las horas planificadas para HOY (Europe/Madrid)
+                times = ensure_meet_times(today)
+                for hhmm in times:
+                    sent_key = _meet_sent_key(today, hhmm)
+                    if not state_get(sent_key, "") and due_now(now, hhmm):
+                        push_meeting_countdown(d)
+                        state_set(sent_key, "1")
+            else:
+                # resetea la lista del día para que mañana se regenere
+                state_set(_meet_times_key(today), json.dumps([]))
 
 
             # 3) Últimas 3 horas para responder
@@ -3086,5 +3086,6 @@ def admin_questions_delete_all():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
+
 
 

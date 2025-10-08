@@ -855,7 +855,7 @@ def push_relationship_daily():
     if not state_get(key, ""):
         send_push_both(
             title=f"💖 Hoy cumplís {days} días juntos",
-            body="Un día más, y cada vez mejor 🥰",
+            body="🥰🥰🥰",
             url="/#contador",
             tag=f"relationship-day-{days}"
         )
@@ -2590,4 +2590,5 @@ def presence_debug_dump():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
+
 

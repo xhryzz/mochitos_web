@@ -1112,10 +1112,8 @@
 /* Botón Admin: mismo estilo que el del perfil, colocado debajo */
 .admin-icon { top: 92px; } /* 30px (margen superior) + 50px (alto del icono) + 12px (separación) */
 
-.tag{display:inline-block;padding:.2rem .55rem;border-radius:.6rem;background:#f3f4f6}
-.tag-muted{background:#f3f4f6;color:#555}
-.tag-today{background:#e6ffed;color:#065f46;font-weight:700}
-.tag-soon{background:#fff7ed;color:#9a3412;font-weight:600}
+
+
     </style>
 </head>
 
@@ -1349,15 +1347,15 @@
 
     <div class="counter-item">
       <h4>Días hasta vernos</h4>
-      {% set d = days_until_meeting %}
+      {% set d = days_until_meeting if days_until_meeting is number else none %}
       {% if d is none or d < 0 %}
         <p class="tag tag-muted">Sin fecha</p>
       {% elif d == 0 %}
-        <p class="tag tag-today">Hoy nos vemos</p>
+        <p class="tag tag-today">Hoy nos vemos❤️</p>
       {% elif d == 1 %}
-        <p class="tag tag-soon">Mañana ❤️</p>
+        <p class="tag">1</p>  {# <- sin tag-soon #}
       {% else %}
-        <p>{{ d }} días</p>
+        <p class="tag">{{ d }} días</p>
       {% endif %}
     </div>
   </div>
@@ -3442,6 +3440,21 @@ document.addEventListener('DOMContentLoaded', () => {
   refreshOtherPresence();
   setInterval(refreshOtherPresence, 15_000);
     
+
+
+
+function humanizeAgo(seconds){
+  if (seconds == null) return '—';
+  seconds = Math.max(0, seconds|0);
+  if (seconds < 60) return `hace ${seconds} s`;
+  const m = Math.floor(seconds/60);
+  if (m < 60) return `hace ${m} min`;
+  let h = Math.floor(m/60), mm = m % 60;
+  if (h < 24) return `hace ${h} h${mm?` ${mm} min`:''}`;
+  const d = Math.floor(h/24); h = h % 24;
+  return `hace ${d} d${h?` ${h} h`:''}`;
+}
+
 </script>
 
 

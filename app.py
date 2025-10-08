@@ -270,11 +270,6 @@ def europe_madrid_now() -> datetime:
 def today_madrid() -> date:
     return europe_madrid_now().date()
 
-def within_daily_window(now: datetime | None = None, start_hour: int = 9, end_hour: int = 22) -> bool:
-    n = now or europe_madrid_now()
-    return start_hour <= n.hour < end_hour  # 09:00–21:59
-
-
 def seconds_until_next_midnight_madrid() -> float:
     now = europe_madrid_now()
     nxt = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
@@ -456,6 +451,28 @@ def init_db():
         # App state
         c.execute('''CREATE TABLE IF NOT EXISTS app_state (
             key TEXT PRIMARY KEY, value TEXT)''')
+
+
+                # === ADMIN: notificaciones programadas ===
+        c.execute("""
+        CREATE TABLE IF NOT EXISTS scheduled_notifications (
+            id SERIAL PRIMARY KEY,
+            created_by TEXT NOT NULL,
+            target TEXT NOT NULL CHECK (target IN ('mochito','mochita','both')),
+            title TEXT NOT NULL,
+            body TEXT,
+            url TEXT,
+            tag TEXT,
+            icon TEXT,
+            badge TEXT,
+            when_at TEXT NOT NULL,  -- Europe/Madrid 'YYYY-MM-DD HH:MM:SS'
+            status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sent','cancelled')),
+            created_at TEXT NOT NULL,
+            sent_at TEXT
+        )
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_sched_status_when ON scheduled_notifications (status, when_at)")
+
         # Push subscriptions
         c.execute('''CREATE TABLE IF NOT EXISTS push_subscriptions (
             id SERIAL PRIMARY KEY,
@@ -563,6 +580,22 @@ def get_intim_events(limit: int = 200):
             return [{'id': r[0], 'username': r[1], 'ts': r[2], 'place': r[3] or '', 'notes': r[4] or ''} for r in rows]
     finally:
         conn.close()
+
+def require_admin():
+    if 'username' not in session or session['username'] != 'mochito':
+        abort(403)
+
+def parse_datetime_local_to_madrid(dt_local: str) -> str | None:
+    """Recibe 'YYYY-MM-DDTHH:MM' de <input type='datetime-local'> y lo guarda como texto local 'YYYY-MM-DD HH:MM:SS' Europe/Madrid."""
+    if not dt_local:
+        return None
+    try:
+        naive = datetime.strptime(dt_local.strip(), "%Y-%m-%dT%H:%M")
+        # lo consideramos hora local Madrid (sin tz) y guardamos como texto "local"
+        return naive.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return None
+
 
 def get_today_question(today: date | None = None):
     if today is None:
@@ -860,7 +893,7 @@ def push_relationship_daily():
     if not state_get(key, ""):
         send_push_both(
             title=f"💖 Hoy cumplís {days} días juntos",
-            body="🥰🥰🥰",
+            body="Un día más, y cada vez mejor 🥰",
             url="/#contador",
             tag=f"relationship-day-{days}"
         )
@@ -1181,20 +1214,60 @@ def background_loop():
 
             # 💖 Aviso diario "Hoy cumplís X días..."
             try:
-                if within_daily_window(now):
-                    push_relationship_daily()
+                push_relationship_daily()
             except Exception as e:
                 print("[bg rel_daily]", e)
 
             # 💖 Hitos 75/100/150/200/250/300/365 (solo el día exacto)
             try:
-                if within_daily_window(now):
-                    push_relationship_milestones()
+                push_relationship_milestones()
             except Exception as e:
                 print("[bg milestone]", e)
 
-            # 🔔 Countdown de encuentro (1/2/3 días)
-            d = days_until_meeting()  # <--- FALTA ESTA LÍNEA
+                        # 5) Notificaciones programadas (admin)
+            try:
+                conn = get_db_connection()
+                try:
+                    with conn.cursor() as c:
+                        # Cogemos las 'pending' vencidas
+                        c.execute("""
+                            SELECT id, target, title, body, url, tag, icon, badge, when_at
+                            FROM scheduled_notifications
+                            WHERE status='pending'
+                            ORDER BY when_at ASC
+                            LIMIT 25
+                        """)
+                        rows = c.fetchall()
+
+                    now_local = europe_madrid_now()
+                    for r in rows:
+                        when_dt = _parse_dt(r['when_at'] or "")
+                        if when_dt and when_dt <= now_local:
+                            # enviar
+                            target = r['target']
+                            if target == 'both':
+                                send_push_both(title=r['title'], body=r['body'] or None,
+                                               url=r['url'], tag=r['tag'], icon=r['icon'], badge=r['badge'])
+                            else:
+                                send_push_to(target, title=r['title'], body=r['body'] or None,
+                                             url=r['url'], tag=r['tag'], icon=r['icon'], badge=r['badge'])
+                            # marcar como enviada
+                            with conn.cursor() as c2:
+                                c2.execute("""
+                                   UPDATE scheduled_notifications
+                                   SET status='sent', sent_at=%s
+                                   WHERE id=%s
+                                """, (now_madrid_str(), r['id']))
+                                conn.commit()
+                            send_discord("Admin: push sent (scheduled)", {"id": int(r['id']), "title": r['title']})
+                finally:
+                    conn.close()
+            except Exception as e:
+                print("[bg scheduled push]", e)
+
+
+
+
             if d is not None and d in (1, 2, 3):
                 times = ensure_meet_times(today)
                 for hhmm in times:
@@ -2591,6 +2664,169 @@ def presence_debug_dump():
     finally:
         conn.close()
     return jsonify(rows)
+
+
+# === ADMIN: página y acciones ===
+
+@app.get("/admin")
+def admin_home():
+    require_admin()
+    # Listar próximas programadas (pendientes)
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT id, target, title, body, url, tag, icon, badge, when_at, status, created_at
+                FROM scheduled_notifications
+                WHERE status='pending'
+                ORDER BY when_at ASC
+                LIMIT 50
+            """)
+            pending = c.fetchall()
+            c.execute("""
+                SELECT id, target, title, when_at, sent_at
+                FROM scheduled_notifications
+                WHERE status='sent'
+                ORDER BY sent_at DESC
+                LIMIT 10
+            """)
+            recent = c.fetchall()
+    finally:
+        conn.close()
+    return render_template("admin.html",
+                           username=session['username'],
+                           pending=pending,
+                           recent=recent,
+                           vapid_public_key=get_vapid_public_base64url())
+
+@app.post("/admin/reset_pw")
+def admin_reset_pw():
+    require_admin()
+    user = request.form.get("user")
+    new_password = (request.form.get("new_password") or "").strip()
+    if user not in ("mochito", "mochita") or len(new_password) < 4:
+        flash("Datos inválidos (usuario o contraseña demasiado corta).", "error")
+        return redirect("/admin")
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("UPDATE users SET password=%s WHERE username=%s",
+                      (generate_password_hash(new_password), user))
+            conn.commit()
+        flash(f"Contraseña de {user} cambiada ✅", "success")
+        send_discord("Admin: password reset", {"by":"mochito", "user":user})
+    finally:
+        conn.close()
+    return redirect("/admin")
+
+@app.post("/admin/push/send_now")
+def admin_push_send_now():
+    require_admin()
+    target = request.form.get("target", "both")
+    title  = (request.form.get("title") or "").strip()
+    body   = (request.form.get("body") or "").strip()
+    url    = (request.form.get("url") or "").strip() or None
+    tag    = (request.form.get("tag") or "").strip() or None
+    icon   = (request.form.get("icon") or "").strip() or None
+    badge  = (request.form.get("badge") or "").strip() or None
+
+    if not title:
+        flash("Título requerido.", "error")
+        return redirect("/admin")
+
+    if target == "both":
+        send_push_both(title=title, body=body, url=url, tag=tag, icon=icon, badge=badge)
+    elif target in ("mochito","mochita"):
+        send_push_to(target, title=title, body=body, url=url, tag=tag, icon=icon, badge=badge)
+    else:
+        flash("Destino inválido.", "error"); return redirect("/admin")
+
+    flash("Notificación enviada ✅", "success")
+    send_discord("Admin: push now", {"target":target, "title":title})
+    return redirect("/admin")
+
+@app.post("/admin/push/schedule")
+def admin_push_schedule():
+    require_admin()
+    target = request.form.get("target", "both")
+    title  = (request.form.get("title") or "").strip()
+    body   = (request.form.get("body") or "").strip()
+    when_local = request.form.get("when_local")  # YYYY-MM-DDTHH:MM
+    url    = (request.form.get("url") or "").strip() or None
+    tag    = (request.form.get("tag") or "").strip() or None
+    icon   = (request.form.get("icon") or "").strip() or None
+    badge  = (request.form.get("badge") or "").strip() or None
+
+    when_txt = parse_datetime_local_to_madrid(when_local)
+    if not (title and when_txt and target in ("mochito","mochita","both")):
+        flash("Faltan datos (título/fecha o destino incorrecto).", "error")
+        return redirect("/admin")
+
+    now_txt = now_madrid_str()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO scheduled_notifications
+                (created_by, target, title, body, url, tag, icon, badge, when_at, status, created_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,'pending',%s)
+                RETURNING id
+            """, ('mochito', target, title, body, url, tag, icon, badge, when_txt, now_txt))
+            _new_id = c.fetchone()[0]
+            conn.commit()
+        flash("Notificación programada 📆", "success")
+        send_discord("Admin: push scheduled", {"target":target, "title":title, "when_at":when_txt})
+    finally:
+        conn.close()
+    return redirect("/admin")
+
+@app.post("/admin/push/cancel")
+def admin_push_cancel():
+    require_admin()
+    sid = request.form.get("id")
+    if not sid:
+        flash("Falta ID.", "error")
+        return redirect("/admin")
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("UPDATE scheduled_notifications SET status='cancelled' WHERE id=%s AND status='pending'", (sid,))
+            affected = c.rowcount
+            conn.commit()
+        if affected:
+            flash("Programada cancelada 🛑", "info")
+            send_discord("Admin: push cancelled", {"id": int(sid)})
+        else:
+            flash("No se pudo cancelar (¿ya enviada o inexistente?).", "error")
+    finally:
+        conn.close()
+    return redirect("/admin")
+
+
+ADMIN_RESET_TOKEN = os.environ.get("ADMIN_RESET_TOKEN", "").strip()
+
+@app.get("/__reset_pw")
+def __reset_pw():
+    # Seguridad: si no hay token configurado devolvemos 404 para ocultar
+    if not ADMIN_RESET_TOKEN:
+        return ("Not found", 404)
+    t = request.args.get("token", "")
+    u = request.args.get("u", "")
+    pw = request.args.get("pw", "")
+    if t != ADMIN_RESET_TOKEN:
+        abort(403)
+    if u not in ("mochito","mochita") or len(pw) < 4:
+        return jsonify(ok=False, error="bad_params"), 400
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("UPDATE users SET password=%s WHERE username=%s",
+                      (generate_password_hash(pw), u))
+            conn.commit()
+        send_discord("Admin: reset via token", {"user": u})
+        return jsonify(ok=True)
+    finally:
+        conn.close()
 
 
 # ======= WSGI / Run =======

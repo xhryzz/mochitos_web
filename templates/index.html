@@ -1180,11 +1180,90 @@
 .admin-icon { top: 92px; } /* 30px (margen superior) + 50px (alto del icono) + 12px (separación) */
 
 
+/* ====== CELEBRATION OVERLAY (solo cuando d==0) ====== */
+.celebration {
+  position: fixed; inset: 0; z-index: 99999;
+  display: grid; place-items: center;
+  background: radial-gradient(120% 120% at 50% 20%, rgba(255,255,255,.85), rgba(255,255,255,.65) 40%, rgba(232,67,147,.35) 100%);
+  backdrop-filter: blur(10px);
+  animation: fadeInCelebration .35s ease-out;
+}
+.celebration.hidden { display: none; }
+.celebration-inner{
+  position: relative; text-align: center; padding: clamp(16px, 4vw, 28px);
+  border-radius: 28px;
+  background: rgba(255,255,255,.65);
+  border: 1px solid rgba(255,255,255,.55);
+  box-shadow: 0 30px 60px rgba(232,67,147,.25);
+  backdrop-filter: blur(8px);
+}
+.celebration h2{
+  font-family: 'Dancing Script', cursive;
+  font-size: clamp(2rem, 9vw, 4rem);
+  margin: 0 0 .2em 0;
+  background: linear-gradient(135deg, #e84393, #a29bfe);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: 0 8px 30px rgba(232,67,147,.25);
+}
+.celebration p{
+  margin: .2em 0 1em; font-weight: 700; color: #444;
+  font-size: clamp(1rem, 3.6vw, 1.2rem);
+}
+.celebration .cta {
+  display:inline-flex; gap:10px; align-items:center; justify-content:center;
+  border:0; padding:12px 18px; border-radius:999px; cursor:pointer;
+  font-weight:800; letter-spacing:.2px; color:#fff;
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+  box-shadow: 0 12px 30px rgba(232,67,147,.35);
+  transition: transform .15s ease, box-shadow .2s ease;
+}
+.celebration .cta:hover{ transform: translateY(-2px); box-shadow: 0 16px 36px rgba(232,67,147,.45); }
+.celebration-canvas { position: absolute; inset: 0; z-index: -1; }
+
+.big-heart{
+  font-size: clamp(48px, 16vw, 120px);
+  line-height: 1;
+  animation: popBeat 1.4s ease-in-out infinite, floatUp 7s ease-in-out infinite;
+  filter: drop-shadow(0 12px 24px rgba(232,67,147,.35));
+}
+@keyframes popBeat{
+  0%,100%{ transform: scale(1); }
+  30%{ transform: scale(1.15); }
+  60%{ transform: scale(0.98); }
+}
+@keyframes floatUp{
+  0%,100%{ transform: translateY(0); opacity: .95; }
+  50%{ transform: translateY(-10px); opacity: 1; }
+}
+@keyframes fadeInCelebration { from{ opacity:0 } to { opacity:1 } }
+@keyframes fadeOutCelebration { to{ opacity:0; transform: scale(.98) translateY(6px) } }
+
+/* botón “Saltar” pequeñito para móvil */
+.skip-mini{
+  position:absolute; top: clamp(10px, 3vw, 16px); right: clamp(10px, 3vw, 16px);
+  background: rgba(0,0,0,.06); color:#374151; border:0; border-radius:999px;
+  padding: 8px 12px; font-weight:800;
+}
+.skip-mini:hover{ background: rgba(0,0,0,.1); }
 
     </style>
 </head>
 
 <body>
+  <!-- ===== CELEBRATION OVERLAY (aparece solo si hoy os veis) ===== -->
+<div id="celebration" class="celebration hidden" aria-modal="true" role="dialog" aria-label="Hoy nos vemos">
+  <canvas id="celebrationCanvas" class="celebration-canvas"></canvas>
+  <button class="skip-mini" id="celebrationSkip" aria-label="Saltar">Saltar</button>
+  <div class="celebration-inner">
+    <div class="big-heart">❤️</div>
+    <h2>¡Hoy nos vemos!</h2>
+    <p>Prepárate, <b>Christian & Clara</b> — día especial ✨</p>
+    <button class="cta" id="celebrationClose">
+      <i class="fa-solid fa-wand-magic-sparkles"></i> Entrar
+    </button>
+  </div>
+</div>
+
   {% set flash_messages = get_flashed_messages(with_categories=true) %}
 
   <!-- Zona toasts -->
@@ -3564,6 +3643,147 @@ function humanizeAgo(seconds){
   const d = Math.floor(h/24); h = h % 24;
   return `hace ${d} d${h?` ${h} h`:''}`;
 }
+
+/* ===== CELEBRATION logic ===== */
+(function() {
+  // Este valor ya lo calculas en plantilla; caemos a null si no viene
+  const D = (function(){
+    try { return {{ (days_until_meeting if days_until_meeting is number else 'null') }}; }
+    catch(_) { return null; }
+  })();
+
+  // Mostrar solo cuando D==0 (hoy), y solo una vez por día/dispositivo
+  const todayKey = new Date().toISOString().slice(0,10); // YYYY-MM-DD
+  const LS_KEY = 'cc_celebrated_' + todayKey;
+
+  const overlay = document.getElementById('celebration');
+  const canvas  = document.getElementById('celebrationCanvas');
+  const btnOk   = document.getElementById('celebrationClose');
+  const btnSkip = document.getElementById('celebrationSkip');
+
+  if (!overlay || !canvas) return;
+
+  function alreadyShown(){ try { return localStorage.getItem(LS_KEY) === '1'; } catch(_) { return false; } }
+  function markShown(){ try { localStorage.setItem(LS_KEY, '1'); } catch(_) {} }
+
+  function openCelebration(){
+    overlay.classList.remove('hidden');
+    document.documentElement.style.overflow = 'hidden';
+    startParticles(canvas);
+    // autocierre suave por si no tocan nada
+    setTimeout(closeCelebration, 6000);
+  }
+  function closeCelebration(){
+    overlay.style.animation = 'fadeOutCelebration .25s ease-in forwards';
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+      document.documentElement.style.overflow = '';
+      stopParticles();
+      overlay.style.animation = ''; // reset
+    }, 260);
+  }
+
+  btnOk?.addEventListener('click', () => { markShown(); closeCelebration(); });
+  btnSkip?.addEventListener('click', () => { markShown(); closeCelebration(); });
+
+  // Lanza solo si es hoy
+  if (D === 0 && !alreadyShown()){
+    // Espera a que cargue algo de layout para que sea fluida la transición
+    window.addEventListener('load', () => {
+      setTimeout(openCelebration, 120);
+    });
+  }
+
+  /* ====== Partículas (confetti + corazones) sin librerías ====== */
+  let rafId = 0, particles = [], ctx = null, running = false;
+  function rand(min,max){ return Math.random()*(max-min)+min; }
+
+  function makeParticle(w,h){
+    const isHeart = Math.random() < 0.45;
+    const size = isHeart ? rand(10,20) : rand(6,10);
+    const hue = Math.random() < .6
+      ? rand(330, 350) // rosas
+      : rand(250, 270); // lilas
+    const sat = rand(70, 95);
+    return {
+      x: rand(0, w),
+      y: -20,
+      vx: rand(-1.2, 1.2),
+      vy: rand(1.2, 3.2),
+      g: rand(.045,.08),
+      life: rand(60,140),
+      size, hue, sat, isHeart, rot: rand(0,Math.PI*2), vr: rand(-.08,.08)
+    };
+  }
+
+  function drawHeart(c, x, y, s, rot, color){
+    c.save();
+    c.translate(x,y); c.rotate(rot); c.scale(s/16, s/16);
+    c.fillStyle = color;
+    c.beginPath();
+    // corazón vectorial simple
+    c.moveTo(0, 6);
+    c.bezierCurveTo(0, 0, 8, 0, 8, 6);
+    c.bezierCurveTo(8, 12, 0, 14.5, 0, 18);
+    c.bezierCurveTo(0, 14.5, -8, 12, -8, 6);
+    c.bezierCurveTo(-8, 0, 0, 0, 0, 6);
+    c.closePath(); c.fill();
+    c.restore();
+  }
+
+  function startParticles(cv){
+    if (running) return;
+    running = true;
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    function resize(){
+      const rect = cv.getBoundingClientRect();
+      cv.width = Math.floor(rect.width * dpr);
+      cv.height = Math.floor(rect.height * dpr);
+      ctx = cv.getContext('2d');
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // semilla inicial
+    const count = Math.floor((cv.clientWidth * cv.clientHeight) / 14000) + 60; // adaptativo
+    for (let i=0; i<count; i++) particles.push(makeParticle(cv.clientWidth, cv.clientHeight));
+
+    let tick = 0;
+    (function loop(){
+      if (!running) return;
+      rafId = requestAnimationFrame(loop);
+      ctx.clearRect(0,0,cv.clientWidth, cv.clientHeight);
+
+      // emitter más fuerte al principio
+      const burst = tick < 60 ? 10 : 2;
+      for (let i=0;i<burst;i++) particles.push(makeParticle(cv.clientWidth, cv.clientHeight));
+
+      particles = particles.filter(p => p.life > 0 && p.y < cv.clientHeight + 40);
+      for (const p of particles){
+        p.vy += p.g; p.x += p.vx; p.y += p.vy; p.life--; p.rot += p.vr;
+        const color = `hsl(${p.hue} ${p.sat}% ${p.isHeart? 55 : 60}%)`;
+        if (p.isHeart){
+          drawHeart(ctx, p.x, p.y, p.size, p.rot, color);
+        } else {
+          // confetti rectángulo
+          ctx.save();
+          ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+          ctx.fillStyle = color;
+          const w = p.size * 1.2, h = p.size * .5;
+          ctx.fillRect(-w/2, -h/2, w, h);
+          ctx.restore();
+        }
+      }
+      tick++;
+    })();
+  }
+  function stopParticles(){
+    running = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    particles = [];
+  }
+})();
 
 </script>
 

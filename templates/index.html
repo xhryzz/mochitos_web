@@ -1109,6 +1109,10 @@
   .presence-name{ display:none; } /* ahorra espacio en móvil */
 }
 
+/* Botón Admin: mismo estilo que el del perfil, colocado debajo */
+.admin-icon { top: 92px; } /* 30px (margen superior) + 50px (alto del icono) + 12px (separación) */
+
+
     </style>
 </head>
 
@@ -1237,8 +1241,11 @@
       </div>
 
       {% if username == 'mochito' %}
-  <a href="/admin" class="btn">Admin</a>
+  <a href="/admin" class="settings-icon admin-icon" title="Admin" aria-label="Admin">
+    <i class="fas fa-user-shield" aria-hidden="true"></i>
+  </a>
 {% endif %}
+
 
       <!-- PRESENCIA (chip junto al icono de perfil) -->
 <div id="presenceChip" class="presence-chip" aria-live="polite" title="Estado en tiempo real">

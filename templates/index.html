@@ -244,27 +244,94 @@
         .gift-mask small{ display:block; margin-top:6px; color:#6c5ce7; opacity:.8; }
         .wishlist-card.locked .wishlist-actions{ display:none !important; }
 
-        /* Toasts */
-        #toasts{ position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 10px; z-index: 9999; pointer-events: none; }
-        .toast{ pointer-events: auto; min-width: 260px; max-width: 92vw; background: #111827; color: #fff; border-radius: 14px; box-shadow: 0 10px 24px rgba(0,0,0,.25); overflow: hidden; animation: slideIn .25s ease-out; }
-        .toast.info  { border-left: 6px solid #60a5fa; }
-        .toast.success { border-left: 6px solid #34d399; }
-        .toast.error { border-left: 6px solid #f87171; }
-        .toast .toast-content{ display:flex; align-items:center; gap:10px; padding: 12px 14px; }
-        .toast .dot{ width:10px; height:10px; border-radius:999px; background:#9ca3af; }
-        .toast.info .dot{ background:#60a5fa; }
-        .toast.success .dot{ background:#34d399; }
-        .toast.error .dot{ background:#f87171; }
-        .toast .text{ line-height:1.3 }
-        .toast .close{ margin-left:auto; background:transparent; border:0; color:#fff; font-size:18px; cursor:pointer; opacity:.8; }
-        .toast .close:hover{ opacity:1 }
-        .toast .progress{ height: 3px; width: 100%; background: rgba(255,255,255,.15); transition: width linear; }
-        .toast.info .progress{ background: linear-gradient(90deg,#60a5fa,#3b82f6); }
-        .toast.success .progress{ background: linear-gradient(90deg,#34d399,#10b981); }
-        .toast.error .progress{ background: linear-gradient(90deg,#f87171,#ef4444); }
-        .toast.closing{ animation: fadeOut .25s ease-in forwards; }
-        @keyframes slideIn{ from{ transform: translateY(12px); opacity: 0; } to{ transform: translateY(0); opacity: 1; } }
-        @keyframes fadeOut{ to { transform: translateY(6px); opacity: 0; } }
+        /* Toasts — estilo glass + degradado como el sitio */
+#toasts{
+  position: fixed;
+  right: 16px; bottom: 16px;       /* en móvil aparecerán abajo; ver media-query */
+  display: flex; flex-direction: column; gap: 12px;
+  z-index: 9999; pointer-events: none;
+}
+
+.toast{
+  --accent1: var(--primary-color);
+  --accent2: var(--accent-color);
+  --life: 3500ms;
+
+  position: relative; pointer-events: auto;
+  min-width: 280px; max-width: min(92vw, 420px);
+  border-radius: 16px; overflow: hidden;
+
+  background: rgba(255,255,255,.9);
+  border: 1px solid rgba(255,255,255,.6);
+  backdrop-filter: blur(10px);
+  color: var(--dark-text);
+  box-shadow: 0 20px 40px rgba(0,0,0,.12), 0 10px 24px rgba(232,67,147,.12);
+  animation: toast-in .25s ease-out;
+}
+
+/* franja izq con tu gradiente */
+.toast::before{
+  content:"";
+  position:absolute; left:0; top:0; bottom:0; width:6px;
+  background: linear-gradient(180deg, var(--accent1), var(--accent2));
+}
+
+/* variantes */
+.toast.info    { --accent1:#60a5fa; --accent2:#3b82f6; }
+.toast.success { --accent1:#34d399; --accent2:#10b981; }
+.toast.error   { --accent1:#f87171; --accent2:#ef4444; }
+
+/* contenido */
+.toast .toast-content{
+  display:flex; align-items:center; gap:12px;
+  padding: 12px 14px 12px 16px;
+}
+.toast .icon{
+  width: 32px; height: 32px; flex-shrink:0;
+  border-radius: 12px;
+  display:flex; align-items:center; justify-content:center;
+  background: linear-gradient(135deg, var(--accent1), var(--accent2));
+  color:#fff; box-shadow: 0 8px 18px rgba(0,0,0,.12);
+}
+.toast .text{ line-height:1.35; font-weight:600; }
+
+/* acciones opcionales dentro del toast */
+.toast .actions{
+  margin-left:auto; display:flex; gap:8px;
+}
+.toast .btn{
+  border:0; border-radius:10px; padding:8px 10px;
+  font-weight:800; letter-spacing:.2px; cursor:pointer;
+  background:#f3f4f6; color:#374151;
+}
+.toast .btn:hover{ background:#edeef2; }
+
+/* cierre */
+.toast .close{
+  margin-left:auto; background:rgba(0,0,0,.04);
+  border:0; color:#6b7280; font-size:18px; cursor:pointer;
+  width:32px; height:32px; border-radius:10px;
+}
+.toast .close:hover{ background:rgba(0,0,0,.07); color:#374151; }
+
+/* barra de vida */
+.toast .progress{
+  height:3px; width:100%;
+  background: linear-gradient(90deg, var(--accent1), var(--accent2));
+  animation: toastlife var(--life) linear forwards;
+}
+
+/* animaciones */
+@keyframes toast-in{ from{ transform: translateY(12px); opacity:0 } to{ transform: translateY(0); opacity:1 } }
+.toast.closing{ animation: toast-out .22s ease-in forwards; }
+@keyframes toast-out{ to { transform: translateY(6px); opacity:0 } }
+@keyframes toastlife{ from{width:100%} to{width:0%} }
+
+/* en desktop opcional: arriba-derecha (pega a tu logout) */
+@media (min-width: 992px){
+  #toasts{ top: 24px; bottom: auto; right: 24px; }
+}
+
 
         /* Paginación & buscador viajes */
         .pager{ display:flex; gap:8px; justify-content:center; align-items:center; margin-top:16px; flex-wrap:wrap; }
@@ -2187,31 +2254,73 @@
     el.addEventListener('animationend', ()=> el.remove(), { once:true });
   }
 
-  window.showToast = function(category, text){
+  // Básico: showToast(tipo, texto, vidaMs?)
+  window.showToast = function(category, text, lifeMs){
+    const type = (category || 'info');
+    const life = Number.isFinite(lifeMs) ? lifeMs : 3500;
+
+    // Máx 4 visibles
+    while (wrap.childElementCount >= 4) wrap.firstElementChild?.remove();
+
     const el = document.createElement('div');
-    el.className = 'toast ' + (category || 'info');
+    el.className = 'toast ' + type;
+    el.style.setProperty('--life', `${life}ms`);
+    el.setAttribute('role','status');
+    el.setAttribute('aria-live','polite');
     el.innerHTML = `
       <div class="toast-content">
-        <span class="dot"></span>
-        <span class="text">${text}</span>
+        <span class="icon" aria-hidden="true">
+          <i class="fas ${type==='success'?'fa-circle-check':type==='error'?'fa-triangle-exclamation':'fa-circle-info'}"></i>
+        </span>
+        <div class="text"></div>
+        <button class="close" aria-label="Cerrar">&times;</button>
+      </div>
+      <div class="progress"></div>
+    `;
+    el.querySelector('.text').textContent = text || '';
+    el.querySelector('.close').addEventListener('click', () => closeToast(el));
+
+    wrap.appendChild(el);
+    setTimeout(() => closeToast(el), life);
+  };
+
+  // Con botón de acción (opcional)
+  window.showToastAction = function(category, text, actionLabel, onAction, lifeMs){
+    const type = (category || 'info');
+    const life = Number.isFinite(lifeMs) ? lifeMs : 6000;
+
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.style.setProperty('--life', `${life}ms`);
+    el.setAttribute('role','alert');
+    el.innerHTML = `
+      <div class="toast-content">
+        <span class="icon" aria-hidden="true">
+          <i class="fas ${type==='success'?'fa-circle-check':type==='error'?'fa-triangle-exclamation':'fa-circle-info'}"></i>
+        </span>
+        <div class="text">${text||''}</div>
+        <div class="actions">
+          <button class="btn act">${actionLabel||'Ver'}</button>
+        </div>
         <button class="close" aria-label="Cerrar">&times;</button>
       </div>
       <div class="progress"></div>
     `;
     el.querySelector('.close').addEventListener('click', () => closeToast(el));
-    const life = 3500;
-    setTimeout(() => closeToast(el), life);
-    requestAnimationFrame(() => { el.querySelector('.progress').style.width = '0%'; });
+    el.querySelector('.act').addEventListener('click', () => {
+      try { onAction && onAction(); } finally { closeToast(el); }
+    });
     wrap.appendChild(el);
+    setTimeout(() => closeToast(el), life);
   };
 
+  // Renderiza los flash del backend
   if (Array.isArray(msgs)) {
     msgs.forEach(([cat, txt], i) => {
       setTimeout(()=> window.showToast(cat, txt), i * 150);
     });
   }
 })();
-
 
 // =====================
 // Corazones de fondo

@@ -1060,6 +1060,82 @@ def ensure_meet_times(day: date):
         state_set(key, json.dumps(times))
     return times
 
+
+
+def _rel_daily_time_key(day: date) -> str:
+    return f"rel_daily_time::{day.isoformat()}"
+
+def _rel_daily_sent_key(day: date, hhmm: str) -> str:
+    return f"rel_daily_sent::{day.isoformat()}::{hhmm}"
+
+def ensure_rel_daily_time(day: date, now_md: datetime) -> str | None:
+    """
+    Guarda y devuelve una hora HH:MM para el aviso diario de relación,
+    elegida UNA VEZ por día dentro de 09:00–23:59. Si ya pasó la ventana, marca como omitido.
+    Si el servidor arranca después de las 09:00, elige entre 'ahora' y 23:59.
+    """
+    key = _rel_daily_time_key(day)
+    raw = (state_get(key, "") or "").strip()
+    if raw == "-":
+        return None
+    if re.fullmatch(r"\d{2}:\d{2}", raw or ""):
+        return raw
+
+    # Ventana [09:00, 23:59]
+    start_min = 9*60
+    end_min   = 23*60 + 59
+
+    # punto de partida: si es hoy, no programar en el pasado
+    if now_md.date() == day:
+        now_min = now_md.hour*60 + now_md.minute
+        low = max(start_min, now_min)
+    else:
+        low = start_min
+
+    if low > end_min:
+        # ya fuera de ventana → omitir el día
+        state_set(key, "-")
+        return None
+
+    pick = random.randint(low, end_min)
+    hh, mm = divmod(pick, 60)
+    hhmm = f"{hh:02d}:{mm:02d}"
+    state_set(key, hhmm)
+    return hhmm
+
+def maybe_push_relationship_daily_windowed(now_md: datetime):
+    """
+    Envia la notificación diaria 'Hoy cumplís X días…' una vez entre 09:00–23:59.
+    Evita días con hitos (75/100/150/200/250/300/365) porque esos los anuncia otro flujo.
+    """
+    dcount = days_together()
+    if dcount <= 0:
+        return
+
+    milestones = {75, 100, 150, 200, 250, 300, 365}
+    if dcount in milestones:
+        return  # el hito se anuncia por push_relationship_milestones()
+
+    day = now_md.date()
+    hhmm = ensure_rel_daily_time(day, now_md)
+    if not hhmm:
+        return  # omitido hoy o fuera de ventana
+
+    sent_key = _rel_daily_sent_key(day, hhmm)
+    if state_get(sent_key, ""):
+        return  # ya enviada hoy
+
+    if due_now(now_md, hhmm):
+        # Enviar ahora
+        send_push_both(
+            title=f"💖 Hoy cumplís {dcount} días juntos",
+            body="Un día más, y cada vez mejor 🥰",
+            url="/#contador",
+            tag=f"relationship-day-{dcount}"
+        )
+        state_set(sent_key, "1")
+
+
 def due_now(now_madrid: datetime, hhmm: str) -> bool:
     try:
         hh, mm = map(int, hhmm.split(":"))
@@ -1323,11 +1399,12 @@ def background_loop():
                     send_discord("Daily question skipped (empty bank)", {"date": str(today)})
 
 
-            # 💖 Aviso diario "Hoy cumplís X días..."
+            # 💖 Aviso diario "Hoy cumplís X días..." (una vez entre 09:00 y 23:59)
             try:
-                push_relationship_daily()
+                maybe_push_relationship_daily_windowed(now)
             except Exception as e:
-                print("[bg rel_daily]", e)
+                print("[bg rel_daily_window]", e)
+
 
             # 💖 Hitos 75/100/150/200/250/300/365 (solo el día exacto)
             try:

@@ -1281,7 +1281,36 @@
   </div>
 {% else %}
 
+<!-- NAVBAR -->
+<nav class="topnav" role="navigation" aria-label="Navegación principal">
+  <div class="nav-inner">
+    <a class="nav-brand" href="#inicio" data-target="inicio">Christian ❤️ Clara</a>
+
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">
+      ☰ Menú
+    </button>
+
+    <div id="main-nav" class="nav-links">
+      <a class="nav-link active" href="#inicio"     data-target="inicio"><i class="fa-solid fa-house"></i> Inicio</a>
+      <a class="nav-link"        href="#intimidad"  data-target="intimidad"><i class="fa-solid fa-heart"></i> Intimidad</a>
+      <a class="nav-link"        href="#distancia"  data-target="distancia"><i class="fa-solid fa-route"></i> Distancia</a>
+      <a class="nav-link"        href="#horarios"   data-target="horarios"><i class="fa-solid fa-calendar"></i> Horarios</a>
+      <a class="nav-link"        href="#pregunta"   data-target="pregunta"><i class="fa-solid fa-circle-question"></i> Pregunta</a>
+      <a class="nav-link"        href="#wishlist"   data-target="wishlist"><i class="fa-solid fa-gift"></i> Wishlist</a>
+      <a class="nav-link"        href="#viajes"     data-target="viajes"><i class="fa-solid fa-plane-departure"></i> Viajes</a>
+
+      <span class="nav-spacer"></span>
+      <a class="nav-link" href="/logout"><i class="fa-solid fa-right-from-bracket"></i> Salir</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page-section active" id="inicio"></div>
+
+
       <a href="/logout" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
+
+      
       <!-- BANNER -->
       <div class="section banner animate-in">
         {% if banner_file %}
@@ -1433,6 +1462,9 @@
   </form>
 </div>
 
+</div><!-- /#inicio -->
+<div class="page-section" id="intimidad">
+
 
       <!-- INTIMIDAD (discreto) -->
       <div class="section animate-in">
@@ -1573,6 +1605,10 @@
         {% endif %}
       </div>
 
+    </div><!-- /#intimidad -->
+
+    <div class="page-section" id="distancia">
+
       <!-- Mapa de Distancia -->
       <div class="section animate-in delay-2">
         <h3>Distancia</h3>
@@ -1616,6 +1652,9 @@
           </div>
         </div>
       </div>
+    </div><!-- /#distancia -->
+
+    <div class="page-section" id="horarios">
 
       <!-- Horarios -->
       <div class="section animate-in delay-2">
@@ -1627,6 +1666,8 @@
           </button>
         </a>
       </div>
+    </div><!-- /#horarios -->
+    <div class="page-section" id="pregunta">
 
       <!-- Pregunta diaria -->
 <div class="section animate-in delay-2">
@@ -1777,6 +1818,8 @@
   {% endif %}
 </div>
 
+</div><!-- /#pregunta -->
+<div class="page-section" id="wishlist">
 
 <!-- Lista de deseos -->
 <div class="section animate-in delay-3">
@@ -2034,6 +2077,9 @@
     </div>
   </div>
 </div>
+</div><!-- /#wishlist -->
+<div class="page-section" id="viajes">
+</div><!-- /#viajes -->
 
 
       <!-- Viajes -->
@@ -3564,6 +3610,56 @@ function humanizeAgo(seconds){
   const d = Math.floor(h/24); h = h % 24;
   return `hace ${d} d${h?` ${h} h`:''}`;
 }
+
+
+(function(){
+  const NAV = document.getElementById('main-nav');
+  const TOGGLE = document.querySelector('.nav-toggle');
+
+  function showSection(id){
+    // alterna visibilidad
+    document.querySelectorAll('.page-section').forEach(s=>{
+      s.classList.toggle('active', s.id === id);
+    });
+    // resalta enlace activo
+    document.querySelectorAll('.nav-link').forEach(a=>{
+      a.classList.toggle('active', (a.dataset.target === id));
+    });
+    // accesibilidad
+    document.querySelectorAll('.nav-link').forEach(a=>{
+      a.setAttribute('aria-current', a.dataset.target === id ? 'page' : 'false');
+    });
+    // Ajuste Leaflet si mostramos el mapa
+    if (id === 'distancia' && window.map && typeof map.invalidateSize === 'function'){
+      setTimeout(()=> map.invalidateSize(), 120);
+    }
+    // arriba del todo
+    window.scrollTo({top:0, behavior:'instant' in window ? 'instant':'auto'});
+  }
+
+  function currentIdFromHash(){
+    const h = (location.hash || '#inicio').replace('#','').trim();
+    return h || 'inicio';
+  }
+
+  function handleHash(){ showSection( currentIdFromHash() ); }
+
+  // Abrir/cerrar menú móvil
+  TOGGLE?.addEventListener('click', ()=>{
+    const open = NAV.classList.toggle('open');
+    TOGGLE.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  // Cierra menú al navegar
+  NAV?.addEventListener('click', (e)=>{
+    const a = e.target.closest('a.nav-link');
+    if (!a) return;
+    NAV.classList.remove('open');
+    TOGGLE?.setAttribute('aria-expanded','false');
+  });
+
+  window.addEventListener('hashchange', handleHash);
+  document.addEventListener('DOMContentLoaded', handleHash);
+})();
 
 </script>
 

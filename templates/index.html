@@ -1180,6 +1180,23 @@
 .admin-icon { top: 92px; } /* 30px (margen superior) + 50px (alto del icono) + 12px (separación) */
 
 
+/* ===== Películas ===== */
+.movies-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:25px; margin-top:20px; }
+.movie-card{ background:#fff; border-radius:16px; box-shadow:0 8px 25px rgba(0,0,0,.08); border-left:5px solid var(--wishlist-color); display:flex; flex-direction:column; overflow:hidden; }
+.movie-card.watched{ border-left-color: var(--visited-color); }
+.movie-status{ position:absolute; top:12px; right:12px; padding:4px 10px; border-radius:20px; font-size:.78rem; color:#fff; }
+.movie-top{ display:flex; gap:14px; padding:16px; position:relative; }
+.movie-poster{ width:90px; height:130px; border-radius:10px; overflow:hidden; background:#f3f4f6; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.movie-poster img{ width:100%; height:100%; object-fit:cover; display:block; }
+.poster-fallback i{ font-size:28px; color:#9aa0a6; }
+.movie-info{ flex:1; min-width:0; }
+.movie-title{ font-family:'Playfair Display',serif; font-size:1.2rem; margin:4px 0; }
+.movie-meta{ color:#8a8fa3; font-weight:700; margin-bottom:6px; }
+.movie-notes{ color:#555; font-style:italic; margin-top:6px; line-height:1.5; }
+.movie-stars{ display:flex; gap:4px; margin-top:8px; }
+.movie-stars .star{ border:0; background:transparent; cursor:pointer; font-size:18px; line-height:1; padding:2px; color:#c7c7c7; transition: transform .12s ease; }
+.movie-stars .star.on{ color:#f59e0b; }
+.movie-stars .star:hover{ transform: translateY(-1px); }
 
     </style>
 </head>
@@ -2231,6 +2248,191 @@
 
       {% endif %}
   </div>
+
+
+
+<!-- Películas -->
+<div class="section animate-in delay-4" id="movies-section">
+  <h3>Nuestras Películas</h3>
+  <p>Lo que queremos ver y lo que ya vimos 💿</p>
+
+  <div class="wishlist-tabs" id="movie-tabs-container">
+    <div class="wishlist-tab active" data-tab="to-watch">Por ver</div>
+    <div class="wishlist-tab" data-tab="watched">Vistas</div>
+    <div class="wishlist-tab" data-tab="add-movie">Añadir película</div>
+  </div>
+
+  <!-- Por ver -->
+  <div class="wishlist-content active" id="to-watch-tab">
+    <div class="travel-tools">
+      <input type="search" id="movies-search" placeholder="Buscar título/año...">
+      <button type="button" class="clear-btn" onclick="clearMovieSearch()">Limpiar</button>
+    </div>
+
+    <div class="movies-grid">
+      {% for id, title, year, link, poster_url, notes, watched, created_by, created_at, rating in movies if not watched %}
+        <div class="movie-card" data-created="{{ created_at or '' }}" data-title="{{ title|lower }}">
+          <div class="movie-status status-wishlist">Por ver</div>
+
+          <div class="movie-top">
+            <div class="movie-poster">
+              {% if poster_url %}
+                <img src="{{ poster_url }}" alt="{{ title }}">
+              {% else %}
+                <div class="poster-fallback"><i class="fas fa-film"></i></div>
+              {% endif %}
+            </div>
+
+            <div class="movie-info">
+              <h3 class="movie-title">{{ title }}</h3>
+              {% if year %}<div class="movie-meta">{{ year }}</div>{% endif %}
+              {% if link %}<a class="wishlist-link" href="{{ link }}" target="_blank"><i class="fas fa-link"></i> Ver ficha</a>{% endif %}
+              {% if notes %}<p class="movie-notes">{{ notes }}</p>{% endif %}
+
+              <div class="movie-stars" data-id="{{ id }}" data-score="{{ rating or 0 }}">
+                {% for s in range(1,6) %}
+                  <button type="button" class="star" aria-label="{{ s }} estrellas" data-score="{{ s }}">★</button>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <div class="wishlist-meta">
+            <span>
+              <div class="user-avatar" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:5px;">
+                {% if profile_pictures.get(created_by) %}<img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">{% else %}{{ created_by[0]|upper }}{% endif %}
+              </div>
+              Añadida por {{ created_by }}
+            </span>
+            <span>{{ (created_at or '')[:10] }}</span>
+          </div>
+
+          <div class="wishlist-actions">
+            <form method="POST" action="/toggle_movie_status">
+              <input type="hidden" name="movie_id" value="{{ id }}">
+              <button type="submit" class="icon-btn" title="Marcar como vista"><i class="fas fa-check"></i></button>
+            </form>
+
+            <button class="icon-btn" title="Editar"
+              onclick='openEditMovieModal({{ id }}, {{ title|tojson }}, {{ (year or "")|tojson }}, {{ (link or "")|tojson }}, {{ (poster_url or "")|tojson }}, {{ (notes or "")|tojson }})'>
+              <i class="fas fa-edit"></i>
+            </button>
+
+            <form method="POST" action="/delete_movie" onsubmit="return confirm('¿Eliminar esta película?');">
+              <input type="hidden" name="movie_id" value="{{ id }}">
+              <button type="submit" class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button>
+            </form>
+          </div>
+        </div>
+      {% else %}
+        <p>No hay pelis pendientes. ¡Añade una!</p>
+      {% endfor %}
+    </div>
+
+    <div class="pager" id="movies-pager"></div>
+  </div>
+
+  <!-- Vistas -->
+  <div class="wishlist-content" id="watched-tab">
+    <div class="movies-grid">
+      {% for id, title, year, link, poster_url, notes, watched, created_by, created_at, rating in movies if watched %}
+        <div class="movie-card watched" data-created="{{ created_at or '' }}" data-title="{{ title|lower }}">
+          <div class="movie-status status-visited">Vista</div>
+
+          <div class="movie-top">
+            <div class="movie-poster">
+              {% if poster_url %}
+                <img src="{{ poster_url }}" alt="{{ title }}">
+              {% else %}
+                <div class="poster-fallback"><i class="fas fa-film"></i></div>
+              {% endif %}
+            </div>
+
+            <div class="movie-info">
+              <h3 class="movie-title">{{ title }}</h3>
+              {% if year %}<div class="movie-meta">{{ year }}</div>{% endif %}
+              {% if link %}<a class="wishlist-link" href="{{ link }}" target="_blank"><i class="fas fa-link"></i> Ver ficha</a>{% endif %}
+              {% if notes %}<p class="movie-notes">{{ notes }}</p>{% endif %}
+
+              <div class="movie-stars" data-id="{{ id }}" data-score="{{ rating or 0 }}">
+                {% for s in range(1,6) %}
+                  <button type="button" class="star" aria-label="{{ s }} estrellas" data-score="{{ s }}">★</button>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <div class="wishlist-meta">
+            <span>
+              <div class="user-avatar" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:5px;">
+                {% if profile_pictures.get(created_by) %}<img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">{% else %}{{ created_by[0]|upper }}{% endif %}
+              </div>
+              Añadida por {{ created_by }}
+            </span>
+            <span>{{ (created_at or '')[:10] }}</span>
+          </div>
+
+          <div class="wishlist-actions">
+            <form method="POST" action="/toggle_movie_status">
+              <input type="hidden" name="movie_id" value="{{ id }}">
+              <button type="submit" class="icon-btn" title="Marcar como NO vista"><i class="fas fa-undo"></i></button>
+            </form>
+
+            <button class="icon-btn" title="Editar"
+              onclick='openEditMovieModal({{ id }}, {{ title|tojson }}, {{ (year or "")|tojson }}, {{ (link or "")|tojson }}, {{ (poster_url or "")|tojson }}, {{ (notes or "")|tojson }})'>
+              <i class="fas fa-edit"></i>
+            </button>
+
+            <form method="POST" action="/delete_movie" onsubmit="return confirm('¿Eliminar esta película?');">
+              <input type="hidden" name="movie_id" value="{{ id }}">
+              <button type="submit" class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button>
+            </form>
+          </div>
+        </div>
+      {% else %}
+        <p>Aún no marcasteis ninguna como vista.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Añadir -->
+  <div class="wishlist-content" id="add-movie-tab">
+    <div class="wishlist-form">
+      <h4>Añadir película</h4>
+      <form method="POST" action="/add_movie">
+        <input type="text" name="title" placeholder="Título" required>
+        <input type="text" name="year" placeholder="Año (opcional)">
+        <input type="url"  name="link" placeholder="Enlace (IMDb, Filmaffinity...) (opcional)">
+        <input type="url"  name="poster_url" placeholder="URL del póster (opcional)">
+        <textarea name="notes" rows="3" placeholder="Notas (opcional)"></textarea>
+        <button type="submit"><i class="fas fa-plus"></i> Añadir</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal editar película -->
+<div id="editMovieModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Editar película</h2>
+      <span class="close-modal">&times;</span>
+    </div>
+    <div class="modal-body">
+      <form method="POST" action="/edit_movie" id="editMovieForm">
+        <input type="hidden" name="movie_id" id="movieId">
+        <input type="text" name="title" id="movieTitle" placeholder="Título" required>
+        <input type="text" name="year" id="movieYear" placeholder="Año (opcional)">
+        <input type="url"  name="link" id="movieLink" placeholder="Enlace (opcional)">
+        <input type="url"  name="poster_url" id="moviePoster" placeholder="URL del póster (opcional)">
+        <textarea name="notes" id="movieNotes" rows="3" placeholder="Notas (opcional)"></textarea>
+        <button type="submit"><i class="fas fa-save"></i> Guardar cambios</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
 
@@ -3564,6 +3766,133 @@ function humanizeAgo(seconds){
   const d = Math.floor(h/24); h = h % 24;
   return `hace ${d} d${h?` ${h} h`:''}`;
 }
+
+
+// === Pelis: modal editar ===
+function openEditMovieModal(id, title, year, link, poster, notes){
+  const m = document.getElementById('editMovieModal');
+  if(!m) return;
+  const $ = (x)=>document.getElementById(x);
+  $('movieId').value    = id || '';
+  $('movieTitle').value = title || '';
+  $('movieYear').value  = year || '';
+  $('movieLink').value  = link || '';
+  $('moviePoster').value= poster || '';
+  $('movieNotes').value = notes || '';
+  m.style.display = 'block';
+}
+window.openEditMovieModal = openEditMovieModal;
+
+// === Pelis: estrellas (pinta y envía al backend) ===
+function paintStars(container){
+  const score = Number(container.dataset.score || 0);
+  container.querySelectorAll('.star').forEach(btn=>{
+    btn.classList.toggle('on', Number(btn.dataset.score) <= score);
+  });
+}
+async function setRating(movieId, score){
+  try{
+    const res = await fetch('/rate_movie', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ movie_id: movieId, rating: score })
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    showToast?.('success','¡Valoración guardada!');
+  }catch(e){
+    console.error(e);
+    showToast?.('error','No se pudo guardar la valoración');
+  }
+}
+function setupMovieStars(){
+  document.querySelectorAll('.movie-stars').forEach(box=>{
+    paintStars(box);
+    box.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.star'); if(!btn) return;
+      const score = Number(btn.dataset.score||0);
+      box.dataset.score = score;
+      paintStars(box);
+      const id = box.dataset.id;
+      if(id){ setRating(id, score); }
+    });
+  });
+}
+
+// === Pelis: tabs, buscador y paginación simple ===
+function setupMovieTabs(){
+  document.querySelectorAll('#movie-tabs-container .wishlist-tab').forEach(tab=>{
+    tab.addEventListener('click', ()=>{
+      document.querySelectorAll('#movie-tabs-container .wishlist-tab').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('#movies-section .wishlist-content').forEach(c=>c.classList.remove('active'));
+      tab.classList.add('active');
+      const id = tab.dataset.tab;
+      document.getElementById(id+'-tab')?.classList.add('active');
+    });
+  });
+}
+
+let moviesPagerAPI = null;
+function paginateMovies(){
+  const grid = document.querySelector('#to-watch-tab .movies-grid');
+  const pager = document.getElementById('movies-pager');
+  if(!grid || !pager) return;
+
+  const cards = Array.from(grid.querySelectorAll(':scope > .movie-card'));
+  let current = 1, pageSize = 6;
+
+  function render(){
+    const shown = cards.filter(el => el.dataset.match !== '0');
+    const totalPages = Math.max(1, Math.ceil(shown.length / pageSize));
+    current = Math.min(current, totalPages);
+    cards.forEach(el=> el.style.display = 'none');
+    const start = (current-1)*pageSize;
+    shown.forEach((el,i)=>{ if(i>=start && i<start+pageSize) el.style.display=''; });
+    // pager
+    pager.innerHTML = '';
+    function btn(txt, on, dis, act){ const b=document.createElement('button'); b.textContent=txt; if(dis) b.disabled=true; if(act) b.className='page-btn active'; b.onclick=on; return b; }
+    pager.append(btn('«', ()=>{current=1;render()}, current===1),
+                 btn('‹', ()=>{current=Math.max(1,current-1);render()}, current===1));
+    for(let p=1;p<=totalPages;p++){
+      pager.appendChild(btn(String(p), ()=>{current=p;render()}, false, p===current));
+    }
+    pager.append(btn('›', ()=>{current=Math.min(totalPages,current+1);render()}, current===totalPages),
+                 btn('»', ()=>{current=totalPages;render()}, current===totalPages));
+    pager.style.display = (totalPages>1)?'flex':'none';
+  }
+  moviesPagerAPI = { refresh: render, goFirst: ()=>{current=1;render()} };
+
+  // init match
+  cards.forEach(el=> el.dataset.match='1');
+  render();
+}
+
+function setupMovieSearch(){
+  const input = document.getElementById('movies-search');
+  const grid  = document.querySelector('#to-watch-tab .movies-grid');
+  if(!input || !grid) return;
+  const cards = Array.from(grid.querySelectorAll(':scope > .movie-card'));
+  function filter(){
+    const term = (input.value||'').trim().toLowerCase();
+    cards.forEach(c=>{
+      const t = (c.querySelector('.movie-title')?.textContent||'').toLowerCase();
+      const y = (c.querySelector('.movie-meta')?.textContent||'').toLowerCase();
+      c.dataset.match = (!term || t.includes(term) || y.includes(term)) ? '1' : '0';
+    });
+    moviesPagerAPI?.goFirst?.();
+    moviesPagerAPI?.refresh?.();
+  }
+  input.addEventListener('input', filter);
+  filter();
+}
+window.clearMovieSearch = function(){ const i=document.getElementById('movies-search'); if(i){ i.value=''; i.dispatchEvent(new Event('input')); } };
+
+// === Arranque (añade estas llamadas dentro de tu DOMContentLoaded ya existente) ===
+document.addEventListener('DOMContentLoaded', ()=>{
+  setupMovieTabs();
+  setupMovieStars();
+  paginateMovies();
+  setupMovieSearch();
+});
 
 </script>
 

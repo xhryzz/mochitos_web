@@ -3514,104 +3514,97 @@ function countGridColumns(gridEl){
   return cols;
 }
 
-// --- Paginación que rellena filas completas en grids de media ---
+// --- Utils que ya tienes arriba ---
+// function debounce(...) { ... }
+// function countGridColumns(gridEl) { ... }
+
 function setupMediaPagination(gridEl, pagerEl){
   if(!gridEl || !pagerEl) return { refresh(){} };
 
   let current = 1;
-  let pageSize = 9; // se recalcula
-  let cards = Array.from(gridEl.querySelectorAll(':scope > .media-card'));
 
-
-    // --- Inicialización de paginadores de Media ---
-    document.addEventListener('DOMContentLoaded', () => {
-    const gToWatch = document.querySelector('#towatch-tab .media-grid');
-    const pToWatch = document.getElementById('media-pager-towatch');
-    const gWatched = document.querySelector('#watched-tab .media-grid');
-    const pWatched = document.getElementById('media-pager-watched');
-
-    // Crea los dos paginadores (si existen los nodos)
-    window.mediaTowatchPager = gToWatch && pToWatch
-      ? setupMediaPagination(gToWatch, pToWatch)
-      : null;
-
-    window.mediaWatchedPager = gWatched && pWatched
-      ? setupMediaPagination(gWatched, pWatched)
-      : null;
-
-    // Útil cuando filtras/ordenas/buscas
-    window.refreshMediaPagination = function () {
-      window.mediaTowatchPager?.refresh();
-      window.mediaWatchedPager?.refresh();
-    };
-  });
-
-  // calcula tamaño de página en múltiplos de columnas (3 filas desktop, 2 móvil/tablet)
+  // 3 filas en ≥992px (desktop), 2 filas en móvil/tablet
   function computePageSize(){
     const cols = Math.max(1, countGridColumns(gridEl));
-    const rows = (window.innerWidth >= 992) ? 3 : 2; // 3 filas desktop; 2 en móvil/tablet
-    pageSize = cols * rows;
+    const rows = (window.innerWidth >= 992 ? 3 : 2);
+    return cols * rows;
   }
 
-
-
-
-  function renderPager(totalPages){
-    pagerEl.innerHTML = '';
-    const mk = (txt, on, opts={})=>{
-      const b=document.createElement('button');
-      b.textContent=txt;
-      b.className = 'page-btn' + (opts.active?' active':'');
-      if(opts.title) b.title=opts.title;
-      if(opts.disabled){ b.disabled=true; return b; }
-      b.addEventListener('click', on); return b;
-    };
-    pagerEl.appendChild(mk('«', ()=>{ current=1; render(); }, {disabled: current===1, title:'Primera'}));
-    pagerEl.appendChild(mk('‹', ()=>{ current=Math.max(1,current-1); render(); }, {disabled: current===1, title:'Anterior'}));
-    const windowSize = 5;
-    let from = Math.max(1, current - Math.floor(windowSize/2));
-    let to   = Math.min(totalPages, from + windowSize - 1);
-    from = Math.max(1, to - windowSize + 1);
-    for(let p=from; p<=to; p++){
-      pagerEl.appendChild(mk(String(p), ()=>{ current=p; render(); }, {active:p===current}));
-    }
-    pagerEl.appendChild(mk('›', ()=>{ current=Math.min(totalPages,current+1); render(); }, {disabled: current===totalPages, title:'Siguiente'}));
-    pagerEl.appendChild(mk('»', ()=>{ current=totalPages; render(); }, {disabled: current===totalPages, title:'Última'}));
+  // Solo las tarjetas "visibles" (no display:none y no filtradas)
+  function getVisibleCards(){
+    const cards = Array.from(gridEl.querySelectorAll(':scope > .media-card'));
+    return cards.filter(el => {
+      const st = window.getComputedStyle(el);
+      if (st.display === 'none' || el.hidden) return false;
+      if (el.dataset.match === '0') return false; // por si usas data-match en búsquedas
+      return true;
+    });
   }
 
   function render(){
-    computePageSize(); // <- clave: siempre múltiplo de columnas
-    const total = cards.length;
+    const pageSize   = computePageSize();
+    const allCards   = Array.from(gridEl.querySelectorAll(':scope > .media-card'));
+    const visible    = getVisibleCards();
+    const total      = visible.length;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
-    if(current > totalPages) current = totalPages;
+    current          = Math.min(current, totalPages);
 
-    // Mostrar solo los de la página actual
-    const start = (current-1)*pageSize, end = current*pageSize;
-    cards.forEach((el,i)=>{ el.style.display = (i>=start && i<end) ? '' : 'none'; });
+    // Oculta todas
+    allCards.forEach(el => el.style.display = 'none');
 
-    // Pager visible solo si hace falta
-    if(totalPages <= 1){ pagerEl.style.display='none'; pagerEl.innerHTML=''; }
-    else { pagerEl.style.display='flex'; renderPager(totalPages); }
+    // Muestra el tramo exacto de visibles (evita “huecos”)
+    const start = (current - 1) * pageSize;
+    visible.slice(start, start + pageSize).forEach(el => el.style.display = '');
+
+    // Paginador
+    pagerEl.innerHTML = '';
+    const mk = (label, onClick, opts={}) => {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.className = 'page-btn' + (opts.active ? ' active' : '');
+      if (opts.disabled) b.disabled = true;
+      if (!opts.disabled) b.addEventListener('click', onClick);
+      return b;
+    };
+
+    pagerEl.appendChild(mk('«', ()=>{ current=1; render(); }, {disabled: current===1}));
+    pagerEl.appendChild(mk('‹', ()=>{ current=Math.max(1,current-1); render(); }, {disabled: current===1}));
+
+    for(let i=1;i<=totalPages;i++){
+      pagerEl.appendChild(mk(String(i), ()=>{ current=i; render(); }, {active: i===current}));
+    }
+
+    pagerEl.appendChild(mk('›', ()=>{ current=Math.min(totalPages,current+1); render(); }, {disabled: current===totalPages}));
+    pagerEl.appendChild(mk('»', ()=>{ current=totalPages; render(); }, {disabled: current===totalPages}));
   }
 
-  // Recalcular al redimensionar (cambian columnas -> cambia pageSize)
-  const onResize = debounce(()=>{ 
-    const old = pageSize; 
-    computePageSize(); 
-    if(pageSize !== old) render();
-  }, 120);
-  window.addEventListener('resize', onResize);
-
-  // API para recontar si añades/eliminás cartas dinámicamente
   function refresh(){
-    cards = Array.from(gridEl.querySelectorAll(':scope > .media-card'));
+    current = 1;      // si cambió el filtro/orden, vuelve a la primera
     render();
   }
+
+  const onResize = debounce(()=> render(), 120);
+  window.addEventListener('resize', onResize);
 
   render();
   return { refresh };
 }
 
+
+document.addEventListener('DOMContentLoaded', () => {
+  const gToWatch = document.querySelector('#towatch-tab .media-grid');
+  const pToWatch = document.getElementById('media-pager-towatch');
+  const gWatched = document.querySelector('#watched-tab .media-grid');
+  const pWatched = document.getElementById('media-pager-watched');
+
+  window.mediaTowatchPager = gToWatch && pToWatch ? setupMediaPagination(gToWatch, pToWatch) : null;
+  window.mediaWatchedPager = gWatched && pWatched ? setupMediaPagination(gWatched, pWatched) : null;
+
+  window.refreshMediaPagination = function(){
+    window.mediaTowatchPager?.refresh();
+    window.mediaWatchedPager?.refresh();
+  };
+});
 
   function renderPager(totalPages) {
     pagerEl.innerHTML = '';
@@ -5117,6 +5110,20 @@ window.addEventListener('scroll', () => {
 
   // Si al abrir el modal rellenas ratingInput, pinta estrellitas:
   paint(ratingInput.value || '');
+})();
+
+
+(function setupMediaTabs(){
+  const tabs = document.querySelectorAll('.media-tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.media-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.tab + '-tab')?.classList.add('active');
+      window.refreshMediaPagination?.();
+    });
+  });
 })();
 </script>
 

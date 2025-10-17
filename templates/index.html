@@ -1487,6 +1487,14 @@ body.page-media .section:not([data-section="media"]){
   /* grid-auto-flow: dense; */
 }
 
+/* Logos de plataformas como imagen */
+.platform-chip{
+  display:inline-flex; align-items:center;
+  padding:0; border:0; background:transparent;
+}
+.platform-chip img{
+  height:18px; width:auto; display:block;
+}
 
     </style>
 </head>
@@ -2424,8 +2432,18 @@ body.page-media .section:not([data-section="media"]){
 
         <div class="media-head">
           <span class="media-kind movie">Título</span>
-          {% if m.get('on_netflix') %}<span class="platform-chip"><i class="fas fa-tv"></i> Netflix</span>{% endif %}
-          {% if m.get('on_prime') %}<span class="platform-chip"><i class="fas fa-tv"></i> Prime</span>{% endif %}
+          {% if m.get('on_netflix') %}
+  <span class="platform-chip" aria-label="Netflix">
+    <img src="{{ url_for('static', filename='icons/netflix.png') }}" alt="Netflix" loading="lazy">
+  </span>
+{% endif %}
+{% if m.get('on_prime') %}
+  <span class="platform-chip" aria-label="Prime Video">
+    <img src="{{ url_for('static', filename='icons/prime-video.png') }}" alt="Prime Video" loading="lazy">
+  </span>
+{% endif %}
+
+
         </div>
 
         {% if m.get('cover_url') %}
@@ -2517,8 +2535,17 @@ body.page-media .section:not([data-section="media"]){
 
         <div class="media-head">
           <span class="media-kind movie">Título</span>
-          {% if m.get('on_netflix') %}<span class="platform-chip"><i class="fas fa-tv"></i> Netflix</span>{% endif %}
-          {% if m.get('on_prime') %}<span class="platform-chip"><i class="fas fa-tv"></i> Prime</span>{% endif %}
+          {% if m.get('on_netflix') %}
+  <span class="platform-chip" aria-label="Netflix">
+    <img src="{{ url_for('static', filename='icons/netflix.png') }}" alt="Netflix" loading="lazy">
+  </span>
+{% endif %}
+{% if m.get('on_prime') %}
+  <span class="platform-chip" aria-label="Prime Video">
+    <img src="{{ url_for('static', filename='icons/prime-video.png') }}" alt="Prime Video" loading="lazy">
+  </span>
+{% endif %}
+
         </div>
 
         {% if m.get('cover_url') %}

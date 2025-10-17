@@ -2404,7 +2404,6 @@ body.page-media .section:not([data-section="media"]){
            data-priority="{{ (m.get('priority') or 'media') }}"
            data-cover="{{ (m.get('cover_url') or '')|e }}"
            data-created="{{ (m.get('created_at') or '') }}"
-           <!-- reseñas por usuario (si existen) -->
            data-rating-me="{{ (m.get('reviews', {}).get(username, {}).get('rating') or m.get('rating_me') or 0) }}"
            data-rating-other="{{ (m.get('reviews', {}).get(other_user, {}).get('rating') or m.get('rating_other') or 0) }}"
            data-comment-me="{{ (m.get('reviews', {}).get(username, {}).get('comment') or m.get('comment_me') or '')|e }}"

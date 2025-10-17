@@ -2313,7 +2313,6 @@ body.page-media .section:not([data-section="media"]){
 </div>
 
 
-
 <!-- =========================
      PELÍCULAS & SERIES
      ========================= -->
@@ -2338,153 +2337,178 @@ body.page-media .section:not([data-section="media"]){
   </div>
 
   <!-- Por ver -->
-<div class="media-grid">
-  {% for m in media_to_watch %}
-    <div class="media-card"
-         data-created="{{ m.created_at or '' }}"
-         data-rating="{{ m.rating or 0 }}"
-         data-platform="{{ (m.platform or 'zzz')|lower }}"
-         data-title="{{ (m.title or '')|lower }}">
-      <div class="media-status badge-wanted">Por ver</div>
+  <div class="media-content active" id="towatch-tab">
+    <div class="media-grid">
+      {% for m in media_to_watch %}
+      <div class="media-card"
+           data-created="{{ m['created_at'] or '' }}"
+           data-rating="{{ m['rating'] or 0 }}"
+           data-platform="{{ (m['platform'] or 'zzz')|lower }}"
+           data-title="{{ (m['title'] or '')|lower }}">
+        <div class="media-status badge-wanted">Por ver</div>
 
-      <div class="media-head">
-        <span class="media-kind {{ 'movie' if m.kind=='movie' else 'show' }}">
-          {{ 'Película' if m.kind=='movie' else 'Serie' }}
-        </span>
-        {% if m.platform %}
-          <span class="platform-chip"><i class="fas fa-tv"></i> {{ m.platform }}</span>
-        {% endif %}
-      </div>
-
-      <h3 class="media-title">{{ m.title }}</h3>
-
-      {% if m.link %}
-        <a class="media-link" href="{{ m.link }}" target="_blank" rel="noopener">
-          <i class="fas fa-link"></i> Abrir enlace
-        </a>
-      {% endif %}
-
-      {% if m.kind == 'show' %}
-        <div class="progress-row">
-          <span>Episodios: {{ m.episodes_seen or 0 }}/{{ m.episodes_total or 0 }}</span>
-          <form method="POST" action="/media/progress" class="progress-form">
-            <input type="hidden" name="id" value="{{ m.id }}">
-            <button name="op" value="dec" class="icon-btn" title="Restar"><i class="fas fa-minus"></i></button>
-            <button name="op" value="inc" class="icon-btn" title="Sumar"><i class="fas fa-plus"></i></button>
-          </form>
+        <div class="media-head">
+          <span class="media-kind {{ 'movie' if m['kind']=='movie' else 'show' }}">
+            {{ 'Película' if m['kind']=='movie' else 'Serie' }}
+          </span>
+          {% if m['platform'] %}
+            <span class="platform-chip"><i class="fas fa-tv"></i> {{ m['platform'] }}</span>
+          {% endif %}
         </div>
-      {% endif %}
 
-      {% if m.notes %}<p class="media-notes">{{ m.notes }}</p>{% endif %}
+        <h3 class="media-title">{{ m['title'] }}</h3>
 
-      <div class="media-meta">
-        <span>
-          <div class="user-avatar" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:5px;">
-            {% if profile_pictures.get(m.created_by) %}<img src="{{ profile_pictures.get(m.created_by) }}" alt="{{ m.created_by }}">{% else %}{{ m.created_by[0]|upper }}{% endif %}
+        {% if m['link'] %}
+          <a class="media-link" href="{{ m['link'] }}" target="_blank" rel="noopener">
+            <i class="fas fa-link"></i> Abrir enlace
+          </a>
+        {% endif %}
+
+        {% if m['kind'] == 'show' %}
+          <div class="progress-row">
+            <span>Episodios: {{ m['episodes_seen'] or 0 }}/{{ m['episodes_total'] or 0 }}</span>
+            <form method="POST" action="/media/progress" class="progress-form">
+              <input type="hidden" name="id" value="{{ m['id'] }}">
+              <button name="op" value="dec" class="icon-btn" title="Restar"><i class="fas fa-minus"></i></button>
+              <button name="op" value="inc" class="icon-btn" title="Sumar"><i class="fas fa-plus"></i></button>
+            </form>
           </div>
-          {{ m.created_by }}
-        </span>
-        <span>{{ (m.created_at or '')[:10] }}</span>
-      </div>
-
-      <div class="media-actions">
-        <form method="POST" action="/media/toggle">
-          <input type="hidden" name="id" value="{{ m.id }}">
-          <button class="icon-btn" title="Marcar como vista"><i class="fas fa-check"></i></button>
-        </form>
-
-        <button class="icon-btn" title="Editar"
-          onclick='openEditMediaModal({{ m.id }}, {{ m.title|tojson }}, {{ m.kind|tojson }}, {{ (m.platform or "")|tojson }}, {{ (m.link or "")|tojson }}, {{ (m.notes or "")|tojson }}, {{ (m.rating or 0)|tojson }}, {{ (m.episodes_total or 0)|tojson }}, {{ (m.episodes_seen or 0)|tojson }}, false)'>
-          <i class="fas fa-edit"></i>
-        </button>
-
-        {% if m.created_by == username %}
-        <form method="POST" action="/media/delete" onsubmit="return confirm('¿Eliminar este título?');">
-          <input type="hidden" name="id" value="{{ m.id }}">
-          <button class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button>
-        </form>
         {% endif %}
-      </div>
-    </div>
-  {% else %}
-    <p>No hay títulos por ver. ¡Añade alguno!</p>
-  {% endfor %}
-</div>
 
- <!-- Por ver -->
-<div class="media-grid">
-  {% for m in media_to_watch %}
-    <div class="media-card"
-         data-created="{{ m.created_at or '' }}"
-         data-rating="{{ m.rating or 0 }}"
-         data-platform="{{ (m.platform or 'zzz')|lower }}"
-         data-title="{{ (m.title or '')|lower }}">
-      <div class="media-status badge-wanted">Por ver</div>
+        {% if m['notes'] %}<p class="media-notes">{{ m['notes'] }}</p>{% endif %}
 
-      <div class="media-head">
-        <span class="media-kind {{ 'movie' if m.kind=='movie' else 'show' }}">
-          {{ 'Película' if m.kind=='movie' else 'Serie' }}
-        </span>
-        {% if m.platform %}
-          <span class="platform-chip"><i class="fas fa-tv"></i> {{ m.platform }}</span>
-        {% endif %}
-      </div>
-
-      <h3 class="media-title">{{ m.title }}</h3>
-
-      {% if m.link %}
-        <a class="media-link" href="{{ m.link }}" target="_blank" rel="noopener">
-          <i class="fas fa-link"></i> Abrir enlace
-        </a>
-      {% endif %}
-
-      {% if m.kind == 'show' %}
-        <div class="progress-row">
-          <span>Episodios: {{ m.episodes_seen or 0 }}/{{ m.episodes_total or 0 }}</span>
-          <form method="POST" action="/media/progress" class="progress-form">
-            <input type="hidden" name="id" value="{{ m.id }}">
-            <button name="op" value="dec" class="icon-btn" title="Restar"><i class="fas fa-minus"></i></button>
-            <button name="op" value="inc" class="icon-btn" title="Sumar"><i class="fas fa-plus"></i></button>
-          </form>
+        <div class="media-meta">
+          <span>
+            <div class="user-avatar" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:5px;">
+              {% if profile_pictures.get(m['created_by']) %}
+                <img src="{{ profile_pictures.get(m['created_by']) }}" alt="{{ m['created_by'] }}">
+              {% else %}{{ m['created_by'][0]|upper }}{% endif %}
+            </div>
+            {{ m['created_by'] }}
+          </span>
+          <span>{{ ((m['created_at']|string) or '')[:10] }}</span>
         </div>
-      {% endif %}
 
-      {% if m.notes %}<p class="media-notes">{{ m.notes }}</p>{% endif %}
+        <div class="media-actions">
+          <form method="POST" action="/media/toggle">
+            <input type="hidden" name="id" value="{{ m['id'] }}">
+            <button class="icon-btn" title="Marcar como vista"><i class="fas fa-check"></i></button>
+          </form>
 
-      <div class="media-meta">
-        <span>
-          <div class="user-avatar" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:5px;">
-            {% if profile_pictures.get(m.created_by) %}<img src="{{ profile_pictures.get(m.created_by) }}" alt="{{ m.created_by }}">{% else %}{{ m.created_by[0]|upper }}{% endif %}
-          </div>
-          {{ m.created_by }}
-        </span>
-        <span>{{ (m.created_at or '')[:10] }}</span>
+          <button class="icon-btn" title="Editar"
+            onclick='openEditMediaModal(
+              {{ m["id"] }},
+              {{ m["title"]|tojson }},
+              {{ m["kind"]|tojson }},
+              {{ (m["platform"] or "")|tojson }},
+              {{ (m["link"] or "")|tojson }},
+              {{ (m["notes"] or "")|tojson }},
+              {{ (m["rating"] or 0)|tojson }},
+              {{ (m["episodes_total"] or 0)|tojson }},
+              {{ (m["episodes_seen"] or 0)|tojson }},
+              false
+            )'>
+            <i class="fas fa-edit"></i>
+          </button>
+
+          {% if m['created_by'] == username %}
+          <form method="POST" action="/media/delete" onsubmit="return confirm('¿Eliminar este título?');">
+            <input type="hidden" name="id" value="{{ m['id'] }}">
+            <button class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button>
+          </form>
+          {% endif %}
+        </div>
       </div>
-
-      <div class="media-actions">
-        <form method="POST" action="/media/toggle">
-          <input type="hidden" name="id" value="{{ m.id }}">
-          <button class="icon-btn" title="Marcar como vista"><i class="fas fa-check"></i></button>
-        </form>
-
-        <button class="icon-btn" title="Editar"
-          onclick='openEditMediaModal({{ m.id }}, {{ m.title|tojson }}, {{ m.kind|tojson }}, {{ (m.platform or "")|tojson }}, {{ (m.link or "")|tojson }}, {{ (m.notes or "")|tojson }}, {{ (m.rating or 0)|tojson }}, {{ (m.episodes_total or 0)|tojson }}, {{ (m.episodes_seen or 0)|tojson }}, false)'>
-          <i class="fas fa-edit"></i>
-        </button>
-
-        {% if m.created_by == username %}
-        <form method="POST" action="/media/delete" onsubmit="return confirm('¿Eliminar este título?');">
-          <input type="hidden" name="id" value="{{ m.id }}">
-          <button class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button>
-        </form>
-        {% endif %}
-      </div>
+      {% else %}
+        <p>No hay títulos por ver. ¡Añade alguno!</p>
+      {% endfor %}
     </div>
-  {% else %}
-    <p>No hay títulos por ver. ¡Añade alguno!</p>
-  {% endfor %}
-</div>
+    <div class="pager" id="media-pager-towatch"></div>
+  </div>
 
+  <!-- Vistas -->
+  <div class="media-content" id="watched-tab">
+    <div class="media-grid">
+      {% for m in media_watched %}
+      <div class="media-card watched"
+           data-created="{{ m['created_at'] or '' }}"
+           data-rating="{{ m['rating'] or 0 }}"
+           data-platform="{{ (m['platform'] or 'zzz')|lower }}"
+           data-title="{{ (m['title'] or '')|lower }}">
+        <div class="media-status badge-watched">Vista</div>
+
+        <div class="media-head">
+          <span class="media-kind {{ 'movie' if m['kind']=='movie' else 'show' }}">
+            {{ 'Película' if m['kind']=='movie' else 'Serie' }}
+          </span>
+          {% if m['platform'] %}
+            <span class="platform-chip"><i class="fas fa-tv"></i> {{ m['platform'] }}</span>
+          {% endif %}
+        </div>
+
+        <h3 class="media-title">{{ m['title'] }}</h3>
+
+        {% if m['link'] %}
+          <a class="media-link" href="{{ m['link'] }}" target="_blank" rel="noopener">
+            <i class="fas fa-link"></i> Abrir enlace
+          </a>
+        {% endif %}
+
+        <div class="rating readonly" aria-label="Valoración">
+          {% for i in range(1,6) %}
+            <i class="fa-star {{ 'fas' if (m['rating'] or 0) >= i else 'far' }}"></i>
+          {% endfor %}
+        </div>
+
+        {% if m['kind'] == 'show' %}
+          <div class="progress-row muted">
+            <span>Episodios vistos: {{ m['episodes_seen'] or 0 }}/{{ m['episodes_total'] or 0 }}</span>
+          </div>
+        {% endif %}
+
+        {% if m['notes'] %}<p class="media-notes">{{ m['notes'] }}</p>{% endif %}
+
+        <div class="media-meta">
+          <span>Vista: {{ ((m['watched_at'] or m['created_at'])|string)[:10] }}</span>
+          <span>⭐ {{ m['rating'] or 0 }}/5</span>
+        </div>
+
+        <div class="media-actions">
+          <form method="POST" action="/media/toggle">
+            <input type="hidden" name="id" value="{{ m['id'] }}">
+            <button class="icon-btn" title="Marcar como no vista"><i class="fas fa-undo"></i></button>
+          </form>
+
+          <button class="icon-btn" title="Editar"
+            onclick='openEditMediaModal(
+              {{ m["id"] }},
+              {{ m["title"]|tojson }},
+              {{ m["kind"]|tojson }},
+              {{ (m["platform"] or "")|tojson }},
+              {{ (m["link"] or "")|tojson }},
+              {{ (m["notes"] or "")|tojson }},
+              {{ (m["rating"] or 0)|tojson }},
+              {{ (m["episodes_total"] or 0)|tojson }},
+              {{ (m["episodes_seen"] or 0)|tojson }},
+              true
+            )'>
+            <i class="fas fa-edit"></i>
+          </button>
+
+          {% if m['created_by'] == username %}
+          <form method="POST" action="/media/delete" onsubmit="return confirm('¿Eliminar este título?');">
+            <input type="hidden" name="id" value="{{ m['id'] }}">
+            <button class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% else %}
+        <p>No hay títulos vistos aún.</p>
+      {% endfor %}
+    </div>
+    <div class="pager" id="media-pager-watched"></div>
+  </div>
 
   <!-- Añadir -->
   <div class="media-content" id="add-media-tab">
@@ -2547,6 +2571,7 @@ body.page-media .section:not([data-section="media"]){
     </div>
   </div>
 </div>
+
 
 <!-- MODAL: Editar media -->
 <div id="editMediaModal" class="modal">

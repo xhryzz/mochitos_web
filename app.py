@@ -3757,6 +3757,127 @@ def media_delete():
 
 
 
+@app.route('/media/update', methods=['GET','POST'])
+def media_update():
+    # GET directo → vuelve a Pelis
+    if request.method == 'GET':
+        return redirect('/#pelis')
+
+    if 'username' not in session:
+        return redirect('/')
+
+    u = session['username']
+    mid = (request.form.get('id') or '').strip()
+    if not mid:
+        flash('Falta ID.', 'error')
+        return redirect('/#pelis')
+
+    # Metadatos (Por ver)
+    title      = (request.form.get('title') or '').strip()
+    cover_url  = (request.form.get('cover_url') or '').strip()
+    link_url   = (request.form.get('link_url') or '').strip()
+    on_netflix = bool(request.form.get('on_netflix'))
+    on_prime   = bool(request.form.get('on_prime'))
+    priority   = (request.form.get('priority') or 'media').strip()
+    comment    = (request.form.get('comment') or '').strip()
+
+    # Opciones de visto / rating
+    mark_watched     = bool(request.form.get('mark_watched') or request.form.get('watch'))
+    unwatch          = bool(request.form.get('unwatch'))
+    rating_raw       = (request.form.get('rating') or '').strip()
+    watched_comment  = (request.form.get('watched_comment') or '').strip()
+
+    rating = None
+    if rating_raw.isdigit():
+        rr = int(rating_raw)
+        if 1 <= rr <= 5:
+            rating = rr
+
+    if priority not in ('alta','media','baja'):
+        priority = 'media'
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # 1) Actualiza metadatos si vienen en el form
+            c.execute("""
+                UPDATE media_items SET
+                    title      = COALESCE(NULLIF(%s,''), title),
+                    cover_url  = COALESCE(NULLIF(%s,''), cover_url),
+                    link_url   = COALESCE(NULLIF(%s,''), link_url),
+                    on_netflix = %s,
+                    on_prime   = %s,
+                    priority   = %s,
+                    comment    = %s
+                WHERE id=%s
+            """, (title, cover_url, link_url, on_netflix, on_prime, priority, comment, mid))
+
+            # 2) Marcar como NO vista (si se pidió)
+            if unwatch:
+                c.execute("""
+                    UPDATE media_items
+                       SET is_watched = FALSE,
+                           watched_at = NULL,
+                           rating = NULL,
+                           watched_comment = NULL
+                     WHERE id=%s
+                """, (mid,))
+            # 3) Marcar vista / guardar review en JSONB (+avg) si procede
+            elif mark_watched or rating is not None or watched_comment:
+                c.execute("SELECT reviews FROM media_items WHERE id=%s", (mid,))
+                row = c.fetchone()
+                if not row:
+                    flash('Elemento no encontrado.', 'error')
+                    conn.rollback()
+                    return redirect('/#pelis')
+
+                raw_reviews = row['reviews'] if isinstance(row, dict) else row[0]
+                try:
+                    rv = dict(raw_reviews) if isinstance(raw_reviews, dict) else (json.loads(raw_reviews) if (isinstance(raw_reviews, str) and raw_reviews.strip()) else {})
+                except Exception:
+                    rv = {}
+
+                prev = rv.get(u) or {}
+                rv[u] = {
+                    "rating": rating if rating is not None else prev.get("rating"),
+                    "comment": (watched_comment or prev.get("comment") or "")
+                }
+
+                vals = []
+                for obj in rv.values():
+                    try:
+                        r = int((obj or {}).get('rating') or 0)
+                        if 1 <= r <= 5: vals.append(r)
+                    except Exception:
+                        pass
+                avg = round(sum(vals)/len(vals), 1) if vals else None
+
+                c.execute("""
+                    UPDATE media_items
+                       SET is_watched    = TRUE,
+                           watched_at     = %s,
+                           reviews        = %s::jsonb,
+                           avg_rating     = %s,
+                           -- legacy a NULL para no confundir
+                           rating         = NULL,
+                           watched_comment= NULL
+                     WHERE id=%s
+                """, (now_madrid_str(), json.dumps(rv, ensure_ascii=False), avg, mid))
+
+        conn.commit()
+        flash('Actualizado 🎬', 'success')
+    except Exception as e:
+        print('[media_update] ', e)
+        try: conn.rollback()
+        except Exception: pass
+        flash('No se pudo actualizar.', 'error')
+    finally:
+        conn.close()
+
+    return redirect('/#pelis')
+
+
+
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1
 if os.environ.get("RUN_SCHEDULER", "1") == "1":
     threading.Thread(target=background_loop, daemon=True).start()

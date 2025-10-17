@@ -196,10 +196,47 @@
         .profile-form label { background: var(--gradient); color: white; padding: 10px 15px; border-radius: 50px; cursor: pointer; text-align: center; transition: all .3s; }
         .profile-form label:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(232,67,147,.4); }
 
-        /* Footer */
-        .site-footer { background: var(--gradient); color: white; text-align: center; padding: 20px; margin-top: 40px; border-top-left-radius: 20px; border-top-right-radius: 20px; box-shadow: 0 -5px 15px rgba(0,0,0,.1); position: relative; }
-        .site-footer::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: rgba(255,255,255,.3); }
-        .site-footer p { margin: 0; font-weight: 500; font-size: 1rem; }
+/* Asegúrate de que el footer esté fijo al fondo de la ventana */
+.site-footer {
+    background: var(--gradient);
+    color: white;
+    text-align: center;
+    padding: 20px;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    box-shadow: 0 -5px 15px rgba(0,0,0,.1);
+    position: fixed;
+    bottom: 0; /* Se posiciona al fondo de la pantalla */
+    width: 100%; /* Asegúrate de que ocupe todo el ancho */
+    left: 0;
+    transform: translateY(100%); /* Ocultar el footer inicialmente */
+    transition: transform 0.3s ease-in-out; /* Transición suave */
+}
+
+/* Efecto de línea superior */
+.site-footer::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: rgba(255,255,255,.3);
+}
+
+.site-footer p {
+    margin: 0;
+    font-weight: 500;
+    font-size: 1rem;
+}
+
+/* Para dispositivos pequeños, podrías ajustar el tamaño del padding o del texto */
+@media (max-width: 768px) {
+    .site-footer {
+        padding: 15px;
+    }
+}
+
 
         /* Icono ajustes */
         .settings-icon { position: fixed; top: 30px; left: 30px; width: 50px; height: 50px; border-radius: 50%; background: white; color: var(--primary-color); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; box-shadow: var(--shadow); z-index: 1000; cursor: pointer; transition: all .3s; }
@@ -2562,6 +2599,44 @@ body.page-media .section:not([data-section="media"]){
 
 
 
+<!-- MODAL EDITAR PELI/SERIE -->
+<div id="editMediaModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="editMediaHeading">Valorar</h2>
+      <span class="close-modal">&times;</span>
+    </div>
+    <div class="modal-body">
+      <form method="POST" action="/media/watch" id="editMediaForm">
+        <input type="hidden" name="id" id="mediaId">
+
+        <div class="rating editable" aria-label="Valoración" id="ratingStars">
+          <i class="fa-star far" data-val="1"></i>
+          <i class="fa-star far" data-val="2"></i>
+          <i class="fa-star far" data-val="3"></i>
+          <i class="fa-star far" data-val="4"></i>
+          <i class="fa-star far" data-val="5"></i>
+          <span class="rating-help">Haz clic para valorar</span>
+        </div>
+        <input type="hidden" name="rating" id="ratingInput" value="0">
+
+        <div class="input-wrap">
+          <label>Comentario</label>
+          <textarea name="watched_comment" id="mediaComment" rows="3" placeholder="¿Qué tal estuvo?"></textarea>
+        </div>
+
+        <label class="checkbox" style="display:inline-flex;gap:8px;align-items:center;margin:8px 0 16px">
+          <input type="checkbox" id="markWatched"> Marcar como vista
+        </label>
+
+        <button type="submit"><i class="fas fa-save"></i> Guardar</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+
       <!-- Viajes -->
       <div class="section animate-in delay-4">
         <h3>Nuestros Viajes</h3>
@@ -4626,6 +4701,89 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   });
 })();
+
+
+// Seleccionamos el footer
+const footer = document.querySelector('.site-footer');
+
+// Variables para almacenar la posición de desplazamiento anterior
+let lastScrollTop = 0;
+
+// Detectamos el evento de scroll
+window.addEventListener('scroll', () => {
+    let scrollTop = window.scrollY || document.documentElement.scrollTop;
+
+    if (scrollTop > lastScrollTop) {
+        // Si el usuario ha hecho scroll hacia abajo
+        footer.style.transform = 'translateY(0)'; // Mostrar el footer
+    } else {
+        // Si el usuario ha hecho scroll hacia arriba
+        footer.style.transform = 'translateY(100%)'; // Ocultar el footer
+    }
+
+    // Actualizamos la posición de scroll
+    lastScrollTop = scrollTop <= 0 ? 0 : scrollTop; // Para que no haya valores negativos
+});
+
+(function(){
+  const modal        = document.getElementById('editMediaModal');
+  const form         = document.getElementById('editMediaForm');
+  const idInput      = document.getElementById('mediaId');
+  const commentInput = document.getElementById('mediaComment');
+  const ratingInput  = document.getElementById('ratingInput');
+  const starsWrap    = document.getElementById('ratingStars');
+  const markWatched  = document.getElementById('markWatched');
+  const heading      = document.getElementById('editMediaHeading');
+
+  function paintStars(val){
+    ratingInput.value = String(val);
+    starsWrap.querySelectorAll('i.fa-star').forEach(i=>{
+      const v = +i.dataset.val;
+      i.classList.toggle('fas', v <= val);
+      i.classList.toggle('far',  v >  val);
+    });
+  }
+
+  starsWrap?.addEventListener('click', (e)=>{
+    const i = e.target.closest('i.fa-star');
+    if(!i) return;
+    paintStars(+i.dataset.val || 0);
+  });
+
+  // La función que faltaba:
+  window.openEditMedia = function(btn, mark) {
+    const card = btn.closest('.media-card');
+    if (!card) return;
+
+    const title   = card.querySelector('.media-title')?.textContent?.trim() || 'Título';
+    const watched = card.dataset.watched === '1';
+
+    idInput.value      = card.dataset.id || '';
+    commentInput.value = (card.dataset.notes || '').trim();
+    paintStars(parseInt(card.dataset.rating || '0', 10) || 0);
+
+    // Si está en "Por ver" y pulsas lápiz, forzamos "marcar como vista"
+    // (porque no tienes endpoint de edición de pendientes)
+    const shouldWatch = mark || !watched;
+    markWatched.checked = !!shouldWatch;
+
+    // Acción según el checkbox
+    form.action = markWatched.checked ? '/media/watch' : '/media/unwatch';
+
+    // Título del modal
+    heading.textContent = (watched || markWatched.checked)
+      ? `Valorar: ${title}`
+      : `Editar: ${title}`;
+
+    modal.style.display = 'block';
+  };
+
+  // Cambiar destino del form si alternan el checkbox
+  markWatched?.addEventListener('change', ()=>{
+    form.action = markWatched.checked ? '/media/watch' : '/media/unwatch';
+  });
+})();
+
 </script>
 
 

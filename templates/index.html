@@ -1478,6 +1478,14 @@ body.page-media .section:not([data-section="media"]){
 }
 
 
+/* Media grid: garantiza columnas “reales” medibles */
+.media-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap:18px;
+  /* opcional: pack si las alturas varían mucho (suele no hacer falta) */
+  /* grid-auto-flow: dense; */
+}
 
 
     </style>
@@ -1631,7 +1639,7 @@ body.page-media .section:not([data-section="media"]){
         <div class="banner-overlay">
           <div class="scroll-hint" aria-hidden="true"></div>
 
-          <h1>Christian <span class="heart">❤️</span> Clara</h1>
+          <h1>Christian Clara</h1>
           <form method="POST" enctype="multipart/form-data" class="banner-form">
             <label for="banner-upload" class="custom-file-upload">
               <i class="fas fa-image"></i> Elegir imagen
@@ -3495,6 +3503,116 @@ function paginateGrid(gridEl, pagerEl, pageSize = 6) {
     if (!opts.disabled && onClick) b.addEventListener('click', onClick);
     return b;
   }
+
+
+
+// --- Utils ---
+function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+function countGridColumns(gridEl){
+  const cs = getComputedStyle(gridEl);
+  const cols = cs.gridTemplateColumns?.split(' ').filter(Boolean).length || 1;
+  return cols;
+}
+
+// --- Paginación que rellena filas completas en grids de media ---
+function setupMediaPagination(gridEl, pagerEl){
+  if(!gridEl || !pagerEl) return { refresh(){} };
+
+  let current = 1;
+  let pageSize = 9; // se recalcula
+  let cards = Array.from(gridEl.querySelectorAll(':scope > .media-card'));
+
+
+    // --- Inicialización de paginadores de Media ---
+    document.addEventListener('DOMContentLoaded', () => {
+    const gToWatch = document.querySelector('#towatch-tab .media-grid');
+    const pToWatch = document.getElementById('media-pager-towatch');
+    const gWatched = document.querySelector('#watched-tab .media-grid');
+    const pWatched = document.getElementById('media-pager-watched');
+
+    // Crea los dos paginadores (si existen los nodos)
+    window.mediaTowatchPager = gToWatch && pToWatch
+      ? setupMediaPagination(gToWatch, pToWatch)
+      : null;
+
+    window.mediaWatchedPager = gWatched && pWatched
+      ? setupMediaPagination(gWatched, pWatched)
+      : null;
+
+    // Útil cuando filtras/ordenas/buscas
+    window.refreshMediaPagination = function () {
+      window.mediaTowatchPager?.refresh();
+      window.mediaWatchedPager?.refresh();
+    };
+  });
+
+  // calcula tamaño de página en múltiplos de columnas (3 filas desktop, 2 móvil/tablet)
+  function computePageSize(){
+    const cols = Math.max(1, countGridColumns(gridEl));
+    const rows = (window.innerWidth >= 992) ? 3 : 2; // 3 filas desktop; 2 en móvil/tablet
+    pageSize = cols * rows;
+  }
+
+
+
+
+  function renderPager(totalPages){
+    pagerEl.innerHTML = '';
+    const mk = (txt, on, opts={})=>{
+      const b=document.createElement('button');
+      b.textContent=txt;
+      b.className = 'page-btn' + (opts.active?' active':'');
+      if(opts.title) b.title=opts.title;
+      if(opts.disabled){ b.disabled=true; return b; }
+      b.addEventListener('click', on); return b;
+    };
+    pagerEl.appendChild(mk('«', ()=>{ current=1; render(); }, {disabled: current===1, title:'Primera'}));
+    pagerEl.appendChild(mk('‹', ()=>{ current=Math.max(1,current-1); render(); }, {disabled: current===1, title:'Anterior'}));
+    const windowSize = 5;
+    let from = Math.max(1, current - Math.floor(windowSize/2));
+    let to   = Math.min(totalPages, from + windowSize - 1);
+    from = Math.max(1, to - windowSize + 1);
+    for(let p=from; p<=to; p++){
+      pagerEl.appendChild(mk(String(p), ()=>{ current=p; render(); }, {active:p===current}));
+    }
+    pagerEl.appendChild(mk('›', ()=>{ current=Math.min(totalPages,current+1); render(); }, {disabled: current===totalPages, title:'Siguiente'}));
+    pagerEl.appendChild(mk('»', ()=>{ current=totalPages; render(); }, {disabled: current===totalPages, title:'Última'}));
+  }
+
+  function render(){
+    computePageSize(); // <- clave: siempre múltiplo de columnas
+    const total = cards.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    if(current > totalPages) current = totalPages;
+
+    // Mostrar solo los de la página actual
+    const start = (current-1)*pageSize, end = current*pageSize;
+    cards.forEach((el,i)=>{ el.style.display = (i>=start && i<end) ? '' : 'none'; });
+
+    // Pager visible solo si hace falta
+    if(totalPages <= 1){ pagerEl.style.display='none'; pagerEl.innerHTML=''; }
+    else { pagerEl.style.display='flex'; renderPager(totalPages); }
+  }
+
+  // Recalcular al redimensionar (cambian columnas -> cambia pageSize)
+  const onResize = debounce(()=>{ 
+    const old = pageSize; 
+    computePageSize(); 
+    if(pageSize !== old) render();
+  }, 120);
+  window.addEventListener('resize', onResize);
+
+  // API para recontar si añades/eliminás cartas dinámicamente
+  function refresh(){
+    cards = Array.from(gridEl.querySelectorAll(':scope > .media-card'));
+    render();
+  }
+
+  render();
+  return { refresh };
+}
+
+
   function renderPager(totalPages) {
     pagerEl.innerHTML = '';
     pagerEl.appendChild(makeBtn('«', () => { current = 1; renderPage(); }, { disabled: current === 1, title: 'Primera' }));

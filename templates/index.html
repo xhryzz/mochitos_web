@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -327,62 +328,10 @@
 @keyframes toast-out{ to { transform: translateY(6px); opacity:0 } }
 @keyframes toastlife{ from{width:100%} to{width:0%} }
 
-
-
-/* Navbar base: fijo abajo en móvil */
-.app-nav{
-  position: fixed;
-  left: 50%;
-  bottom: 12px;
-  transform: translateX(-50%);
-  width: min(1100px, 94vw);
-  margin: 0 auto;
-  padding: 8px;
-  border-radius: 16px;
-  background: rgba(255,255,255,.95);
-  border: 1px solid rgba(255,255,255,.6);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 20px 40px rgba(0,0,0,.12);
-  display: none;                 /* la muestra body.logged más abajo */
-  grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
-  z-index: 999;
-}
-.app-nav .nav-btn{
-  appearance: none; border: 0; background: transparent;
-  padding: 10px 8px; border-radius: 12px; font-weight: 700;
-  color: #6b7280; display: flex; align-items: center; justify-content: center; gap: 8px;
-}
-.app-nav .nav-btn i{ font-size: 1.1rem; }
-.app-nav .nav-btn.active{ background: var(--gradient); color: #fff; box-shadow: 0 8px 20px rgba(232,67,147,.35); }
-@media (max-width: 768px){ .app-nav .nav-btn span{ display:none; } }
-
-/* hace hueco al navbar inferior en móvil */
-.site-footer{ padding-bottom: 90px; }
-
-/* Mostrar navbar solo si hay login */
-body.logged .app-nav{ display: grid; }
-
-
-/* Desktop: navbar arriba, centrado y sticky */
+/* en desktop opcional: arriba-derecha (pega a tu logout) */
 @media (min-width: 992px){
-  .app-nav{
-    position: sticky;   /* queda arriba y se mantiene al hacer scroll */
-    top: 12px;
-    bottom: auto;
-    left: 0; right: 0;
-    width: min(1100px, 94vw);
-    margin: 12px auto 18px;
-    border-radius: 16px;
-    display: none; /* sigue oculto si no hay login; lo muestra la regla body.logged .app-nav */
-  }
-
-  /* Como el navbar ya no tapa el contenido en desktop, quitamos el extra del footer */
-  .site-footer{ padding-bottom: 24px; }
+  #toasts{ top: 24px; bottom: auto; right: 24px; }
 }
-
-/* Móvil se queda igual: fijo abajo */
-body.logged .app-nav{ display: grid; }  /* ya lo tienes, lo dejo aquí por claridad */
 
 
         /* Paginación & buscador viajes */
@@ -1236,7 +1185,7 @@ body.logged .app-nav{ display: grid; }  /* ya lo tienes, lo dejo aquí por clari
     </style>
 </head>
 
-<body class="{% if session.username %}logged{% endif %}">
+<body>
   {% set flash_messages = get_flashed_messages(with_categories=true) %}
 
   <!-- Zona toasts -->
@@ -1334,16 +1283,6 @@ body.logged .app-nav{ display: grid; }  /* ya lo tienes, lo dejo aquí por clari
 {% else %}
 
       <a href="/logout" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
-
-      <nav class="app-nav" role="navigation" aria-label="Navegación principal">
-  <button class="nav-btn active" data-target="#home"><i class="fas fa-home"></i><span>Inicio</span></button>
-  <button class="nav-btn" data-target="#pregunta"><i class="fas fa-comment-dots"></i><span>Pregunta</span></button>
-  <button class="nav-btn" data-target="#wishlist"><i class="fas fa-gift"></i><span>Wishlist</span></button>
-  <button class="nav-btn" data-target="#viajes"><i class="fas fa-map"></i><span>Viajes</span></button>
-  <button class="nav-btn" data-target="#distancia"><i class="fas fa-arrows-left-right"></i><span>Distancia</span></button>
-  <button class="nav-btn" data-target="#horarios"><i class="fas fa-calendar-alt"></i><span>Horarios</span></button>
-</nav>
-
       <!-- BANNER -->
       <div class="section banner animate-in">
         {% if banner_file %}
@@ -1466,7 +1405,7 @@ body.logged .app-nav{ display: grid; }  /* ya lo tienes, lo dejo aquí por clari
       </div>
 
      <!-- Contadores -->
-<div id="home" class="section animate-in delay-1">
+<div class="section animate-in delay-1">
   <h3>Nosotros</h3>
   <div class="counters">
     <div class="counter-item">
@@ -1636,7 +1575,7 @@ body.logged .app-nav{ display: grid; }  /* ya lo tienes, lo dejo aquí por clari
       </div>
 
       <!-- Mapa de Distancia -->
-<div id="distancia" class="section animate-in delay-2">
+      <div class="section animate-in delay-2">
         <h3>Distancia</h3>
         <p>Cuánta distancia hay entre nosotros.</p>
 
@@ -1680,7 +1619,7 @@ body.logged .app-nav{ display: grid; }  /* ya lo tienes, lo dejo aquí por clari
       </div>
 
       <!-- Horarios -->
-<div id="horarios" class="section animate-in delay-2">
+      <div class="section animate-in delay-2">
         <h3>Nuestros Horarios</h3>
         <p>Nuestros horarios y activiades (editables).</p>
         <a href="{{ url_for('schedule_page') }}">
@@ -1691,7 +1630,7 @@ body.logged .app-nav{ display: grid; }  /* ya lo tienes, lo dejo aquí por clari
       </div>
 
       <!-- Pregunta diaria -->
-<div id="pregunta" class="section animate-in delay-2">
+<div class="section animate-in delay-2">
   <h3>Pregunta del día</h3>
 
   <div class="dq-countdown">
@@ -1841,7 +1780,7 @@ body.logged .app-nav{ display: grid; }  /* ya lo tienes, lo dejo aquí por clari
 
 
 <!-- Lista de deseos -->
-<div id="wishlist" class="section animate-in delay-3">
+<div class="section animate-in delay-3">
   <h3>Nuestra Lista de Deseos</h3>
   <p>Cosas que nos gustaría tener o regalarnos mutuamente.</p>
 
@@ -2099,7 +2038,7 @@ body.logged .app-nav{ display: grid; }  /* ya lo tienes, lo dejo aquí por clari
 
 
       <!-- Viajes -->
-<div id="viajes" class="section animate-in delay-4">
+      <div class="section animate-in delay-4">
         <h3>Nuestros Viajes</h3>
         <p>Lugares que hemos visitado y destinos que soñamos conocer juntos.</p>
 
@@ -3627,34 +3566,6 @@ function humanizeAgo(seconds){
   return `hace ${d} d${h?` ${h} h`:''}`;
 }
 
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.app-nav .nav-btn[data-target]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const target = document.querySelector(btn.dataset.target);
-      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  });
-
-  // Marca activo según la sección visible
-  const btns = [...document.querySelectorAll('.app-nav .nav-btn[data-target]')];
-  const sections = btns
-    .map(b => document.querySelector(b.dataset.target))
-    .filter(Boolean);
-
-  if ('IntersectionObserver' in window){
-    const io = new IntersectionObserver(entries => {
-      const visible = entries
-        .filter(e => e.isIntersecting)
-        .sort((a,b) => b.intersectionRatio - a.intersectionRatio)[0];
-      if (!visible) return;
-      const id = '#' + visible.target.id;
-      btns.forEach(b => b.classList.toggle('active', b.dataset.target === id));
-    }, { rootMargin: '-30% 0px -60% 0px', threshold: [0, .25, .5, .75, 1] });
-    sections.forEach(s => io.observe(s));
-  }
-});
-
 </script>
 
 
@@ -3665,7 +3576,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </body>
 </html>
-
 
 
 

@@ -327,10 +327,25 @@
 @keyframes toast-out{ to { transform: translateY(6px); opacity:0 } }
 @keyframes toastlife{ from{width:100%} to{width:0%} }
 
-/* en desktop opcional: arriba-derecha (pega a tu logout) */
+/* Desktop: navbar arriba, centrado y sticky */
 @media (min-width: 992px){
-  #toasts{ top: 24px; bottom: auto; right: 24px; }
+  .app-nav{
+    position: sticky;   /* queda arriba y se mantiene al hacer scroll */
+    top: 12px;
+    bottom: auto;
+    left: 0; right: 0;
+    width: min(1100px, 94vw);
+    margin: 12px auto 18px;
+    border-radius: 16px;
+    display: none; /* sigue oculto si no hay login; lo muestra la regla body.logged .app-nav */
+  }
+
+  /* Como el navbar ya no tapa el contenido en desktop, quitamos el extra del footer */
+  .site-footer{ padding-bottom: 24px; }
 }
+
+/* Móvil se queda igual: fijo abajo */
+body.logged .app-nav{ display: grid; }  /* ya lo tienes, lo dejo aquí por claridad */
 
 
         /* Paginación & buscador viajes */
@@ -1180,60 +1195,6 @@
 .admin-icon { top: 92px; } /* 30px (margen superior) + 50px (alto del icono) + 12px (separación) */
 
 
-/* ============= NAVBAR INFERIOR (mobile-first) ============= */
-.app-nav{
-  position: fixed; left: 0; right: 0; bottom: 0;
-  background: rgba(255,255,255,.9);
-  border-top: 1px solid rgba(0,0,0,.06);
-  backdrop-filter: blur(10px);
-  display: none;                   /* se muestra solo si estás logueado */
-  grid-template-columns: repeat(6, 1fr);
-  gap: 6px; padding: 8px 10px;
-  z-index: 1100;
-  box-shadow: 0 -8px 24px rgba(0,0,0,.06);
-}
-.app-nav .nav-btn{
-  appearance:none; border:0; background:transparent;
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:4px; padding:8px 6px; border-radius:12px; cursor:pointer; font-weight:800;
-  color:#6b7280; min-width:0;
-}
-.app-nav .nav-btn i{ font-size:18px; }
-.app-nav .nav-btn span{ font-size:.75rem; letter-spacing:.2px; }
-.app-nav .nav-btn.active{
-  color:#fff;
-  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-  box-shadow: 0 8px 20px rgba(232,67,147,.28);
-}
-
-/* Desktop: barra flotante centrada */
-@media (min-width: 992px){
-  .app-nav{
-    width: min(820px, 92vw);
-    margin: 0 auto 14px; bottom: 12px;
-    border-radius: 16px;
-    display: none; /* desktop también oculta si no login */
-  }
-}
-
-/* ===== Pantallas: show/hidden por data-screen ===== */
-.page-hidden{ display:none !important; }
-
-/* Inicio limpio: oculta iconos y chips arriba */
-body[data-screen="home"] #presenceChip,
-body[data-screen="home"] #settingsIcon,
-body[data-screen="home"] .admin-icon{ display:none !important; }
-
-/* Footer por detrás del navbar */
-.site-footer{ padding-bottom: 78px; }
-
-/* Compensa el navbar para que no tape contenido */
-@media (max-width: 768px){
-  .container{ padding-bottom: 92px; }
-}
-
-/* Nav solo si estás logueado */
-body.logged .app-nav{ display: grid; }
 
     </style>
 </head>
@@ -3620,106 +3581,34 @@ function humanizeAgo(seconds){
 }
 
 
-/* ==== 1) Marca login para mostrar navbar ==== */
 document.addEventListener('DOMContentLoaded', () => {
-  {% if session.username %} document.body.classList.add('logged'); {% endif %}
-});
-
-/* ==== 2) Etiquetar secciones automáticamente por el <h3> ==== */
-function tagPages(){
-  const mapByText = [
-    { key: 'Nosotros',            page: 'home' },
-    { key: 'Distancia',           page: 'home' },
-    { key: 'Pregunta del día',    page: 'pregunta' },
-    { key: 'Nuestra Lista de Deseos', page: 'wishlist' },
-    { key: 'Nuestros Viajes',     page: 'viajes' },
-    { key: 'Nuestros Horarios',   page: 'horarios' },
-    { key: 'Intimidad',           page: 'intimidad' },
-  ];
-
-  // Banner siempre es "home"
-  document.querySelectorAll('.section.banner').forEach(sec => sec.dataset.page = 'home');
-
-  // Asigna por texto del H3
-  document.querySelectorAll('.section').forEach(sec => {
-    if (sec.dataset.page) return;
-    const h = sec.querySelector('h3');
-    const t = (h?.textContent || '').trim();
-    for (const {key, page} of mapByText){
-      if (t.includes(key)) { sec.dataset.page = page; break; }
-    }
-  });
-}
-
-/* ==== 3) Mostrar solo la pantalla activa ==== */
-function showPage(page){
-  document.body.setAttribute('data-screen', page);
-  // Oculta todo lo que sea .section excepto los que tengan data-page=page
-  document.querySelectorAll('.section').forEach(sec => {
-    const isHome = (sec.dataset.page === 'home');
-    const isTarget = (sec.dataset.page === page);
-    sec.classList.toggle('page-hidden', !isTarget);
-    // El banner + días + mapa solo en home
-    if (isHome) sec.classList.toggle('page-hidden', page !== 'home');
+  document.querySelectorAll('.app-nav .nav-btn[data-target]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.querySelector(btn.dataset.target);
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   });
 
-  // Estado activo en navbar
-document.querySelectorAll('.app-nav .nav-btn').forEach(b=>{
-  const isActive = b.dataset?.page === page;
-  b.classList.toggle('active', isActive);
-});
-  // Si volvemos a home, recalcula el mapa por si Leaflet pierde el tamaño
-  if (page === 'home' && window.map && typeof map.invalidateSize === 'function'){
-    setTimeout(()=> map.invalidateSize(true), 250);
+  // Marca activo según la sección visible
+  const btns = [...document.querySelectorAll('.app-nav .nav-btn[data-target]')];
+  const sections = btns
+    .map(b => document.querySelector(b.dataset.target))
+    .filter(Boolean);
+
+  if ('IntersectionObserver' in window){
+    const io = new IntersectionObserver(entries => {
+      const visible = entries
+        .filter(e => e.isIntersecting)
+        .sort((a,b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      const id = '#' + visible.target.id;
+      btns.forEach(b => b.classList.toggle('active', b.dataset.target === id));
+    }, { rootMargin: '-30% 0px -60% 0px', threshold: [0, .25, .5, .75, 1] });
+    sections.forEach(s => io.observe(s));
   }
-
-  // Guarda en hash para volver aquí si recargas
-  if (location.hash !== '#' + page){
-    history.replaceState(null, '', '#' + page);
-  }
-}
-
-/* ==== 4) Arranque + listeners ==== */
-document.addEventListener('DOMContentLoaded', () => {
-  tagPages();
-
-  // Por si vienes con #viajes, etc.
-  const initial = (location.hash || '#home').replace('#','');
-  showPage(initial || 'home');
-
-  // Clicks en navbar
-  document.getElementById('appNav')?.addEventListener('click', (e)=>{
-    const btn = e.target.closest('.nav-btn');
-    if (!btn) return;
-    const target = btn.dataset.target;
-    // abrir modal de perfil? (si añades botón Perfil aquí)
-    if (target === 'perfil'){
-      document.getElementById('profileModal').style.display = 'block';
-      return;
-    }
-    showPage(target);
-  });
-
-  // Soporta navegación manual cambiando el hash
-  window.addEventListener('hashchange', () => {
-    const page = (location.hash || '#home').replace('#','') || 'home';
-    showPage(page);
-  });
 });
 
 </script>
-
-{% if session.username %}
-<nav class="app-nav" id="appNav" aria-label="Navegación">
-  <button class="nav-btn" data-target="home"      aria-label="Inicio"><i class="fa-solid fa-house"></i><span>Inicio</span></button>
-  <button class="nav-btn" data-target="pregunta"  aria-label="Pregunta"><i class="fa-solid fa-message"></i><span>Pregunta</span></button>
-  <button class="nav-btn" data-target="wishlist"  aria-label="Deseos"><i class="fa-solid fa-gift"></i><span>Deseos</span></button>
-  <button class="nav-btn" data-target="viajes"    aria-label="Viajes"><i class="fa-solid fa-plane"></i><span>Viajes</span></button>
-  <button class="nav-btn" data-target="horarios"  aria-label="Horarios"><i class="fa-solid fa-calendar-days"></i><span>Horario</span></button>
-  <button class="nav-btn" data-target="intimidad" aria-label="Privado"><i class="fa-solid fa-heart"></i><span>Privado</span></button>
-</nav>
-{% endif %}
-
 
 
 {% if username in ('mochito','mochita') %}
@@ -3729,6 +3618,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </body>
 </html>
+
 
 
 

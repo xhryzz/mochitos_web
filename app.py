@@ -2034,26 +2034,34 @@ def index():
             """)
             wl_rows = c.fetchall()  # <-- IMPORTANTE: justo después del SELECT de wishlist
 
-                        # --- Media: POR VER ---
+                       # --- Media: POR VER ---
             c.execute("""
-                SELECT id, title, cover_url, link_url, on_netflix, on_prime, comment, priority
+                SELECT
+                id, title, cover_url, link_url, on_netflix, on_prime,
+                comment, priority,
+                created_by, created_at,
+                rating
                 FROM media_items
                 WHERE is_watched = FALSE
                 ORDER BY
-                    CASE priority WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,
-                    COALESCE(created_at, '1970-01-01') DESC,
-                    id DESC
+                CASE priority WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,
+                COALESCE(created_at, '1970-01-01') DESC,
+                id DESC
             """)
             media_to_watch = c.fetchall()
 
             # --- Media: VISTAS ---
             c.execute("""
-                SELECT id, title, cover_url, rating, watched_comment, watched_at
+                SELECT
+                id, title, cover_url, link_url,
+                rating, watched_comment, watched_at,
+                created_by
                 FROM media_items
                 WHERE is_watched = TRUE
                 ORDER BY COALESCE(watched_at, '1970-01-01') DESC, id DESC
             """)
             media_watched = c.fetchall()
+
 
 
 

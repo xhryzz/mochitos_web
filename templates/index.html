@@ -1250,6 +1250,91 @@ body[data-screen="home"] .admin-icon { display:none !important; }
 .app-nav .nav-btn.active i { color: var(--primary-color); }
 
 
+/* ============================
+   Floating UI responsive fix
+   — evita solapes con el navbar
+   ============================ */
+
+/* Zonas seguras del nuevo navbar */
+:root{
+  --nav-left-desktop: 76px;   /* ancho de la sidebar en desktop */
+  --nav-bottom-mobile: 64px;  /* alto del tabbar en móvil */
+  --gap: 16px;                /* separación base */
+}
+
+/* Asegura que floten por encima del navbar */
+#presenceChip,
+.settings-icon,
+.admin-icon,
+.debug-fab,
+#enablePushBtn{
+  z-index: 1200; /* navbar usa ~1100 */
+}
+
+/* ===== MÓVIL / TABLET (navbar abajo) ===== */
+@media (max-width: 991.98px){
+  /* Colocamos en columna, arriba-izquierda, sin solapes entre sí */
+  .settings-icon{                 /* Usuario */
+    position: fixed;
+    top: calc(var(--gap));
+    left: calc(var(--gap));
+  }
+  #presenceChip{                  /* Estado */
+    position: fixed;
+    top: calc(var(--gap) + 60px); /* debajo del botón de usuario */
+    left: calc(var(--gap));
+    right: auto;
+  }
+  .admin-icon{                    /* Admin */
+    position: fixed;
+    top: calc(var(--gap) + 60px + 60px);
+    left: calc(var(--gap));
+  }
+
+  /* Botón de notificaciones (si lo usas) despejado del tabbar */
+  .debug-fab,
+  #enablePushBtn{
+    position: fixed !important;
+    right: 16px !important;
+    bottom: calc(16px + var(--nav-bottom-mobile)) !important; /* por encima del tabbar */
+  }
+
+  /* Por si el chip de estado se hace muy ancho en móvil */
+  #presenceChip{ max-width: calc(100vw - 2*var(--gap)); }
+}
+
+/* ===== DESKTOP (navbar a la izquierda) ===== */
+@media (min-width: 992px){
+  .settings-icon{                 /* Usuario */
+    position: fixed;
+    top: 20px;
+    left: calc(var(--nav-left-desktop) + var(--gap));
+  }
+  #presenceChip{                  /* Estado (debajo de usuario) */
+    position: fixed;
+    top: 88px;
+    left: calc(var(--nav-left-desktop) + var(--gap));
+  }
+  .admin-icon{                    /* Admin (debajo de estado) */
+    position: fixed;
+    top: 156px;
+    left: calc(var(--nav-left-desktop) + var(--gap));
+  }
+
+  /* Notificaciones: esquina inferior derecha normal */
+  .debug-fab,
+  #enablePushBtn{
+    position: fixed !important;
+    right: 16px !important;
+    bottom: 16px !important;
+  }
+}
+
+/* Opcional: mini pulido visual */
+#presenceChip{ box-shadow: 0 8px 20px rgba(0,0,0,.08); }
+.settings-icon,
+.admin-icon{ box-shadow: var(--shadow); }
+
     </style>
 </head>
 

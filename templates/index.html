@@ -100,7 +100,13 @@
 
         /* Efectos */
         .floating-hearts { position: fixed; inset: 0; pointer-events: none; z-index: -1; }
-        .heart { position: absolute; color: rgba(232, 67, 147, 0.3); font-size: 20px; animation: float 8s ease-in-out infinite; }
+        /* AFTER (scopeado) */
+.floating-hearts .heart { 
+  position: absolute; 
+  color: rgba(232, 67, 147, 0.3); 
+  font-size: 20px; 
+  animation: float 8s ease-in-out infinite; 
+}
         @keyframes float { 0% { transform: translateY(100vh) rotate(0deg); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(-100px) rotate(360deg); opacity: 0; } }
 
         /* Viajes */
@@ -1329,6 +1335,75 @@
 
 
 
+/* ===== Películas & Series ===== */
+.media-tools{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+.media-tools input[type="search"]{ flex:1; min-width:220px; background:#f8f8f8; border:2px solid #eee; border-radius:12px; padding:10px 14px; font-size:1rem; }
+
+.media-tabs{ display:flex; border-bottom:2px solid #eee; margin:8px 0 12px; flex-wrap:wrap; }
+.media-tab{ padding:10px 16px; cursor:pointer; font-weight:700; border-bottom:3px solid transparent; }
+.media-tab.active{ color:var(--primary-color); border-bottom-color:var(--primary-color); }
+.media-tab:hover:not(.active){ color:var(--secondary-color); }
+
+.media-content{ display:none; }
+.media-content.active{ display:block; }
+
+.media-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap:18px; }
+.media-card{
+  background:#fff; border-radius:16px; padding:16px; box-shadow:0 8px 22px rgba(0,0,0,.08);
+  position:relative; border:1px solid #f1f1f4; display:flex; flex-direction:column; min-height: 220px;
+}
+.media-card:hover{ transform: translateY(-3px); box-shadow:0 12px 28px rgba(0,0,0,.10); }
+.media-card.watched{ border-left:5px solid var(--visited-color); }
+.media-card:not(.watched){ border-left:5px solid var(--wishlist-color); }
+
+.media-status{
+  position:absolute; top:12px; right:12px; padding:4px 10px; border-radius:999px; font-size:.78rem; font-weight:800; color:#fff;
+  box-shadow:0 6px 16px rgba(0,0,0,.10);
+}
+.badge-wanted{ background: var(--wishlist-color); }
+.badge-watched{ background: var(--visited-color); }
+
+.media-head{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.media-kind{ font-weight:800; font-size:.82rem; padding:4px 8px; border-radius:999px; background:#f7f7fb; border:1px solid #eee; color:#6b7280; }
+.media-kind.movie{ background:#fff7f9; border-color:#ffe0eb; color:#b91c1c; }
+.media-kind.show { background:#f1f8ff; border-color:#dbeafe; color:#1d4ed8; }
+
+.platform-chip{ display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:10px; background:#f8f8f8; border:1px solid #eee; font-weight:700; color:#374151; }
+
+.media-title{ font-family:'Playfair Display', serif; font-size:1.2rem; margin:6px 0 8px; }
+.media-link{ display:inline-flex; gap:8px; align-items:center; font-weight:700; text-decoration:none; background:#f7f7fb; border:1px solid #eee; padding:7px 12px; border-radius:10px; margin-bottom:8px; }
+.media-link:hover{ background:#f1f1f9; color:var(--primary-color); }
+
+.media-notes{ color:#555; font-style:italic; margin-top:6px; }
+
+.progress-row{ display:flex; align-items:center; gap:10px; justify-content:space-between; margin-top:6px; }
+.progress-row.muted{ opacity:.8; }
+.progress-form .icon-btn{ width:30px; height:30px; border-radius:8px; }
+
+.media-meta{ margin-top:auto; display:flex; align-items:center; justify-content:space-between; gap:8px; color:#8a8fa3; font-size:.9rem; padding-top:8px; border-top:1px dashed #eee; }
+.media-actions{ display:flex; gap:8px; margin-top:8px; }
+
+.media-form .grid2{ display:grid; gap:10px; }
+@media (min-width:520px){ .media-form .grid2{ grid-template-columns:1fr 1fr; } }
+.media-form .input-wrap{ display:flex; flex-direction:column; gap:6px; }
+.media-form input[type="text"],
+.media-form input[type="url"],
+.media-form input[type="number"],
+.media-form select,
+.media-form textarea{
+  padding:10px 12px; border:1px solid rgba(0,0,0,.12); border-radius:10px; background:#fff;
+}
+
+/* Rating (estrellas) */
+.rating{ display:flex; align-items:center; gap:6px; margin:8px 0 2px; }
+.rating i.fa-star{ font-size:1.1rem; }
+.rating.readonly i.fas{ color:#f59e0b; }
+.rating.editable i{ cursor:pointer; }
+.rating.editable i.fas{ color:#f59e0b; }
+.rating .rating-help{ font-size:.85rem; color:#8a8fa3; margin-left:6px; }
+
+/* Paginación específica media */
+#media-pager-towatch, #media-pager-watched{ margin-top:12px; }
 
 
     </style>
@@ -1446,6 +1521,10 @@
     <i class="fa-solid fa-gifts" aria-hidden="true"></i>
     <span class="nav-label">Wishlist</span>
   </button>
+  <button class="nav-btn" data-goto="media" title="Películas y Series">
+  <i class="fas fa-film" aria-hidden="true"></i>
+  <span class="nav-label">Películas/Series</span>
+</button>
   <button class="nav-btn" data-goto="travels" title="Viajes">
     <i class="fa-solid fa-plane" aria-hidden="true"></i> 
     <span class="nav-label">Viajes</span>
@@ -1536,6 +1615,56 @@
       </div>
     </div>
   </div>
+
+   <!-- MODAL EDITAR MEDIA -->
+
+  <div id="editMediaModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Editar título</h2>
+      <span class="close-modal">&times;</span>
+    </div>
+    <div class="modal-body">
+      <form method="POST" action="/media/edit" id="editMediaForm">
+        <input type="hidden" name="id" id="mediaEditId">
+
+        <input type="text" name="title" id="mediaEditTitle" placeholder="Título" required>
+
+        <select name="kind" id="mediaEditKind" required>
+          <option value="movie">Película</option>
+          <option value="show">Serie</option>
+        </select>
+
+        <input type="text" name="platform" id="mediaEditPlatform" placeholder="Plataforma (Netflix, Prime…)" />
+        <input type="url"  name="link" id="mediaEditLink" placeholder="Enlace (opcional)">
+        <textarea name="notes" id="mediaEditNotes" rows="3" placeholder="Notas (opcional)"></textarea>
+
+        <!-- Rating -->
+        <input type="hidden" name="rating" id="mediaEditRating" value="0">
+        <div class="rating" data-target="mediaEditRating" aria-label="Valoración">
+          <i class="fa-star far"></i><i class="fa-star far"></i><i class="fa-star far"></i>
+          <i class="fa-star far"></i><i class="fa-star far"></i>
+        </div>
+
+        <!-- Solo series -->
+        <div id="mediaEditShowFields" style="display:none">
+          <div style="display:grid;gap:10px;grid-template-columns:1fr 1fr;">
+            <input type="number" min="0" name="episodes_total" id="mediaEditEpisodesTotal" placeholder="Episodios totales">
+            <input type="number" min="0" name="episodes_seen"  id="mediaEditEpisodesSeen"  placeholder="Episodios vistos">
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+          <input type="checkbox" id="mediaEditWatched" name="is_watched" style="width:auto;">
+          <label for="mediaEditWatched">¿Vista?</label>
+        </div>
+
+        <button type="submit"><i class="fas fa-save"></i> Guardar cambios</button>
+      </form>
+    </div>
+  </div>
+</div>
+
 
       <!-- MODAL PERFIL -->
       <div id="profileModal" class="modal">
@@ -2017,7 +2146,7 @@
             <h3 class="wishlist-product">{{ product_name }}</h3>
 
             {% if product_link %}
-              <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+              <a href="{{ product_link }}" target="_blank" rel="noopener noreferrer" class="wishlist-link">
                 <i class="fas fa-link"></i> Ver producto
               </a>
               {% if (size or '')|trim %}
@@ -2118,7 +2247,7 @@
             <h3 class="wishlist-product">{{ product_name }}</h3>
 
             {% if product_link %}
-              <a href="{{ product_link }}" target="_blank" class="wishlist-link">
+              <a href="{{ product_link }}" target="_blank" rel="noopener noreferrer" class="wishlist-link">
                 <i class="fas fa-link"></i> Ver producto
               </a>
               {% if (size or '')|trim %}
@@ -2168,7 +2297,7 @@
             </button>
 
             {% if created_by == username %}
-            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm("¿Estás seguro de que quieres eliminar este producto?");">
+            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
               <input type="hidden" name="item_id" value="{{ id }}">
               <button type="submit" class="icon-btn" title="Eliminar">
                 <i class="fas fa-trash"></i>
@@ -2215,6 +2344,314 @@
     </div>
   </div>
 </div>
+
+
+
+<!-- =========================
+     PELÍCULAS & SERIES
+     ========================= -->
+<div class="section animate-in" data-section="media">
+  <h3>Películas & Series</h3>
+  <p>Lo que queremos ver y lo que ya vimos 💫</p>
+
+  <div class="media-tools">
+    <input type="search" id="media-search" placeholder="Buscar título/plataforma…">
+    <div id="media-sort-toggle" class="sort-toggle" role="group" aria-label="Ordenar" tabindex="0">
+      <div class="slider" aria-hidden="true"></div>
+      <button type="button" data-mode="recent"   aria-pressed="true"><i class="fas fa-clock"></i> Recientes</button>
+      <button type="button" data-mode="rating"   aria-pressed="false"><i class="fas fa-star"></i> Rating</button>
+      <button type="button" data-mode="platform" aria-pressed="false"><i class="fas fa-tv"></i> Plataforma</button>
+    </div>
+  </div>
+
+  <div class="media-tabs">
+    <div class="media-tab active" data-tab="towatch">Por ver</div>
+    <div class="media-tab" data-tab="watched">Vistas</div>
+    <div class="media-tab" data-tab="add-media">Añadir</div>
+  </div>
+
+  <!-- Por ver -->
+  <div class="media-content active" id="towatch-tab">
+    <div class="media-grid">
+      {% for m in media_items if not m.is_watched %}
+      <div class="media-card"
+           data-created="{{ m.created_at or '' }}"
+           data-rating="{{ m.rating or 0 }}"
+           data-platform="{{ (m.platform or 'zzz')|lower }}"
+           data-title="{{ (m.title or '')|lower }}">
+        <div class="media-status badge-wanted">Por ver</div>
+
+        <div class="media-head">
+          <span class="media-kind {{ 'movie' if m.kind=='movie' else 'show' }}">
+            {{ 'Película' if m.kind=='movie' else 'Serie' }}
+          </span>
+          {% if m.platform %}
+            <span class="platform-chip"><i class="fas fa-tv"></i> {{ m.platform }}</span>
+          {% endif %}
+        </div>
+
+        <h3 class="media-title">{{ m.title }}</h3>
+
+        {% if m.link %}
+          <a class="media-link" href="{{ m.link }}" target="_blank" rel="noopener">
+            <i class="fas fa-link"></i> Abrir enlace
+          </a>
+        {% endif %}
+
+        {% if m.kind == 'show' %}
+          <div class="progress-row">
+            <span>Episodios: {{ m.episodes_seen or 0 }}/{{ m.episodes_total or 0 }}</span>
+            <form method="POST" action="/media/progress" class="progress-form">
+              <input type="hidden" name="id" value="{{ m.id }}">
+              <button name="op" value="dec" class="icon-btn" title="Restar"><i class="fas fa-minus"></i></button>
+              <button name="op" value="inc" class="icon-btn" title="Sumar"><i class="fas fa-plus"></i></button>
+            </form>
+          </div>
+        {% endif %}
+
+        {% if m.notes %}<p class="media-notes">{{ m.notes }}</p>{% endif %}
+
+        <div class="media-meta">
+          <span>
+            <div class="user-avatar" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:5px;">
+              {% if profile_pictures.get(m.created_by) %}<img src="{{ profile_pictures.get(m.created_by) }}" alt="{{ m.created_by }}">{% else %}{{ m.created_by[0]|upper }}{% endif %}
+            </div>
+            {{ m.created_by }}
+          </span>
+          <span>{{ (m.created_at or '')[:10] }}</span>
+        </div>
+
+        <div class="media-actions">
+          <form method="POST" action="/media/toggle">
+            <input type="hidden" name="id" value="{{ m.id }}">
+            <button class="icon-btn" title="Marcar como vista"><i class="fas fa-check"></i></button>
+          </form>
+
+          <button class="icon-btn" title="Editar" onclick='openEditMediaModal({{ m.id }}, {{ m.title|tojson }}, {{ m.kind|tojson }}, {{ (m.platform or "")|tojson }}, {{ (m.link or "")|tojson }}, {{ (m.notes or "")|tojson }}, {{ (m.rating or 0)|tojson }}, {{ (m.episodes_total or 0)|tojson }}, {{ (m.episodes_seen or 0)|tojson }}, false)'>
+            <i class="fas fa-edit"></i>
+          </button>
+
+          {% if m.created_by == username %}
+          <form method="POST" action="/media/delete" onsubmit="return confirm('¿Eliminar este título?');">
+            <input type="hidden" name="id" value="{{ m.id }}">
+            <button class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% else %}
+        <p>No hay títulos por ver. ¡Añade alguno!</p>
+      {% endfor %}
+    </div>
+    <div class="pager" id="media-pager-towatch"></div>
+  </div>
+
+  <!-- Vistas -->
+  <div class="media-content" id="watched-tab">
+    <div class="media-grid">
+      {% for m in media_items if m.is_watched %}
+      <div class="media-card watched"
+           data-created="{{ m.created_at or '' }}"
+           data-rating="{{ m.rating or 0 }}"
+           data-platform="{{ (m.platform or 'zzz')|lower }}"
+           data-title="{{ (m.title or '')|lower }}">
+        <div class="media-status badge-watched">Vista</div>
+
+        <div class="media-head">
+          <span class="media-kind {{ 'movie' if m.kind=='movie' else 'show' }}">
+            {{ 'Película' if m.kind=='movie' else 'Serie' }}
+          </span>
+          {% if m.platform %}
+            <span class="platform-chip"><i class="fas fa-tv"></i> {{ m.platform }}</span>
+          {% endif %}
+        </div>
+
+        <h3 class="media-title">{{ m.title }}</h3>
+
+        {% if m.link %}
+          <a class="media-link" href="{{ m.link }}" target="_blank" rel="noopener">
+            <i class="fas fa-link"></i> Abrir enlace
+          </a>
+        {% endif %}
+
+        <div class="rating readonly" aria-label="Valoración">
+          {% for i in range(1,6) %}
+            <i class="fa-star {{ 'fas' if (m.rating or 0) >= i else 'far' }}"></i>
+          {% endfor %}
+        </div>
+
+        {% if m.kind == 'show' %}
+          <div class="progress-row muted">
+            <span>Episodios vistos: {{ m.episodes_seen or 0 }}/{{ m.episodes_total or 0 }}</span>
+          </div>
+        {% endif %}
+
+        {% if m.notes %}<p class="media-notes">{{ m.notes }}</p>{% endif %}
+
+        <div class="media-meta">
+          <span>Vista: {{ (m.watched_at or m.created_at or '')[:10] }}</span>
+          <span>⭐ {{ m.rating or 0 }}/5</span>
+        </div>
+
+        <div class="media-actions">
+          <form method="POST" action="/media/toggle">
+            <input type="hidden" name="id" value="{{ m.id }}">
+            <button class="icon-btn" title="Marcar como no vista"><i class="fas fa-undo"></i></button>
+          </form>
+
+          <button class="icon-btn" title="Editar" onclick='openEditMediaModal({{ m.id }}, {{ m.title|tojson }}, {{ m.kind|tojson }}, {{ (m.platform or "")|tojson }}, {{ (m.link or "")|tojson }}, {{ (m.notes or "")|tojson }}, {{ (m.rating or 0)|tojson }}, {{ (m.episodes_total or 0)|tojson }}, {{ (m.episodes_seen or 0)|tojson }}, true)'>
+            <i class="fas fa-edit"></i>
+          </button>
+
+          {% if m.created_by == username %}
+          <form method="POST" action="/media/delete" onsubmit="return confirm('¿Eliminar este título?');">
+            <input type="hidden" name="id" value="{{ m.id }}">
+            <button class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% else %}
+        <p>No hay títulos vistos aún.</p>
+      {% endfor %}
+    </div>
+    <div class="pager" id="media-pager-watched"></div>
+  </div>
+
+  <!-- Añadir -->
+  <div class="media-content" id="add-media-tab">
+    <div class="media-form">
+      <h4>Añadir título</h4>
+      <form method="POST" action="/media/add" id="addMediaForm">
+        <div class="grid2">
+          <div class="input-wrap">
+            <label>Título</label>
+            <input type="text" name="title" required>
+          </div>
+
+          <div class="input-wrap">
+            <label>Tipo</label>
+            <select name="kind" id="addKind" required>
+              <option value="movie">Película</option>
+              <option value="show">Serie</option>
+            </select>
+          </div>
+
+          <div class="input-wrap">
+            <label>Plataforma (opcional)</label>
+            <input type="text" name="platform" placeholder="Netflix, HBO Max, Prime…">
+          </div>
+
+          <div class="input-wrap">
+            <label>Enlace (opcional)</label>
+            <input type="url" name="link" placeholder="https://…">
+          </div>
+        </div>
+
+        <div class="grid2" id="addEpisodesRow" style="display:none">
+          <div class="input-wrap">
+            <label>Episodios totales</label>
+            <input type="number" name="episodes_total" min="0" value="0">
+          </div>
+          <div class="input-wrap">
+            <label>Episodios vistos</label>
+            <input type="number" name="episodes_seen" min="0" value="0">
+          </div>
+        </div>
+
+        <div class="input-wrap">
+          <label>Notas (opcional)</label>
+          <textarea name="notes" rows="3" placeholder="Por qué queremos verla, recordatorios…"></textarea>
+        </div>
+
+        <div class="rating editable" data-target="addRatingInput" aria-label="Valoración opcional">
+          <input type="hidden" name="rating" id="addRatingInput" value="0">
+          <i class="far fa-star" data-v="1"></i>
+          <i class="far fa-star" data-v="2"></i>
+          <i class="far fa-star" data-v="3"></i>
+          <i class="far fa-star" data-v="4"></i>
+          <i class="far fa-star" data-v="5"></i>
+          <span class="rating-help">Pulsa para valorar (opcional)</span>
+        </div>
+
+        <button type="submit"><i class="fas fa-plus"></i> Añadir</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Editar media -->
+<div id="editMediaModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Editar título</h2>
+      <span class="close-modal">&times;</span>
+    </div>
+    <div class="modal-body">
+      <form method="POST" action="/media/edit" id="editMediaForm">
+        <input type="hidden" name="id" id="mediaId">
+        <div class="grid2">
+          <div class="input-wrap">
+            <label>Título</label>
+            <input type="text" name="title" id="mediaTitle" required>
+          </div>
+          <div class="input-wrap">
+            <label>Tipo</label>
+            <select name="kind" id="mediaKind" required>
+              <option value="movie">Película</option>
+              <option value="show">Serie</option>
+            </select>
+          </div>
+          <div class="input-wrap">
+            <label>Plataforma</label>
+            <input type="text" name="platform" id="mediaPlatform" placeholder="Netflix, HBO Max…">
+          </div>
+          <div class="input-wrap">
+            <label>Enlace</label>
+            <input type="url" name="link" id="mediaLink" placeholder="https://…">
+          </div>
+        </div>
+
+        <div class="grid2" id="editEpisodesRow" style="display:none">
+          <div class="input-wrap">
+            <label>Episodios totales</label>
+            <input type="number" name="episodes_total" id="mediaEpsTotal" min="0">
+          </div>
+          <div class="input-wrap">
+            <label>Episodios vistos</label>
+            <input type="number" name="episodes_seen" id="mediaEpsSeen" min="0">
+          </div>
+        </div>
+
+        <div class="input-wrap">
+          <label>Notas</label>
+          <textarea name="notes" id="mediaNotes" rows="3"></textarea>
+        </div>
+
+        <div class="rating editable" data-target="mediaRating" aria-label="Valoración">
+          <input type="hidden" name="rating" id="mediaRating" value="0">
+          <i class="far fa-star" data-v="1"></i>
+          <i class="far fa-star" data-v="2"></i>
+          <i class="far fa-star" data-v="3"></i>
+          <i class="far fa-star" data-v="4"></i>
+          <i class="far fa-star" data-v="5"></i>
+        </div>
+
+        <div class="input-wrap">
+          <label class="switch">
+            <input type="checkbox" id="mediaWatchedToggle" name="is_watched">
+            <label for="mediaWatchedToggle"></label>
+          </label>
+          <span class="switch-text">¿Marcada como vista?</span>
+        </div>
+
+        <button type="submit"><i class="fas fa-save"></i> Guardar cambios</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+
 
 
       <!-- Viajes -->
@@ -3557,126 +3994,88 @@ window.addEventListener('beforeunload', () => {
 
 /* ===== Wishlist: orden por "Más recientes" o "Prioridad" ===== */
 (function(){
-  const RANK = { alta: 3, media: 2, baja: 1 };
+  const RANK = { alta:3, media:2, baja:1 };
 
-  // "YYYY-MM-DD HH:MM:SS[.xxxxx]" -> timestamp seguro
   function toTs(s){
     if (!s) return 0;
-    const str = String(s).trim().replace('T',' ');
-    const core = str.slice(0, 19).replace(' ', 'T'); // corta microsegundos y normaliza
+    const core = String(s).trim().slice(0,19).replace(' ','T');
     const t = Date.parse(core);
     return Number.isFinite(t) ? t : 0;
   }
 
   function sortGrid(grid, mode){
     const cards = Array.from(grid.querySelectorAll('.wishlist-card'));
-    const pos = new Map(cards.map((el, i) => [el, i])); // orden estable
-
-    cards.sort((a, b) => {
-      const A = { p: RANK[(a.dataset.priority||'').toLowerCase()] || 0,
-                  t: toTs(a.dataset.created) };
-      const B = { p: RANK[(b.dataset.priority||'').toLowerCase()] || 0,
-                  t: toTs(b.dataset.created) };
-
-      if (mode === 'priority') {
-        if (B.p !== A.p) return B.p - A.p;   // alta > media > baja
-        if (B.t !== A.t) return B.t - A.t;   // más nuevo primero
-      } else { // 'recent'
-        if (B.t !== A.t) return B.t - A.t;   // más nuevo primero
-        if (B.p !== A.p) return B.p - A.p;   // desempate por prioridad
-      }
-      return pos.get(a) - pos.get(b);
+    const pos = new Map(cards.map((el,i)=>[el,i]));
+    cards.sort((a,b)=>{
+      const A = { p: RANK[(a.dataset.priority||'').toLowerCase()]||0, t: toTs(a.dataset.created) };
+      const B = { p: RANK[(b.dataset.priority||'').toLowerCase()]||0, t: toTs(b.dataset.created) };
+      if (mode==='priority') return (B.p-A.p) || (B.t-A.t) || (pos.get(a)-pos.get(b));
+      return (B.t-A.t) || (B.p-A.p) || (pos.get(a)-pos.get(b));
     });
-
-    cards.forEach(c => grid.appendChild(c));
+    cards.forEach(c=>grid.appendChild(c));
   }
 
   function applyWishlistSort(mode){
-    const m = mode || (document.getElementById('wishlist-sort')?.value || 'recent');
-    ['wanted-tab','purchased-tab'].forEach(tabId => {
-      const grid = document.querySelector(`#${tabId} .wishlist-grid`);
-      if (grid) sortGrid(grid, m);
+    ['wanted-tab','purchased-tab'].forEach(id=>{
+      const grid = document.querySelector(`#${id} .wishlist-grid`);
+      if (grid) sortGrid(grid, mode);
     });
-    try { localStorage.setItem('wishlist_sort', m); } catch {}
+    try{ localStorage.setItem('wishlist_sort', mode); }catch{}
   }
 
-  function setupWishlistSorting(){
-    const select = document.getElementById('wishlist-sort');
-    if (!select) return;
+  function initToggle(){
+    const toggle = document.getElementById('wishlist-sort-toggle');
+    if (!toggle) return;
+    const btns = Array.from(toggle.querySelectorAll('button[data-mode]'));
+    const slider = toggle.querySelector('.slider');
 
-    // restaura preferencia guardada
-    try {
-      const saved = localStorage.getItem('wishlist_sort');
-      if (saved) select.value = saved;
-    } catch {}
+    function positionSlider(){
+      const active = toggle.querySelector('button.active');
+      if (!active || !slider) return;
+      slider.style.width = active.offsetWidth + 'px';
+      slider.style.transform = `translateX(${active.offsetLeft}px)`;
+    }
 
-    select.addEventListener('change', () => applyWishlistSort(select.value));
-    applyWishlistSort(select.value);
+    function setMode(mode){
+      btns.forEach(b=>{
+        const on = b.dataset.mode === mode;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      positionSlider();
+      applyWishlistSort(mode);
+    }
+
+    // Estado inicial
+    let initial = 'recent';
+    try{ initial = localStorage.getItem('wishlist_sort') || initial; }catch{}
+    setMode(initial);
+
+    // Eventos
+    btns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+    window.addEventListener('resize', positionSlider);
+
+    // Accesibilidad teclado
+    toggle.addEventListener('keydown', (e)=>{
+      if (e.key!=='ArrowRight' && e.key!=='ArrowLeft') return;
+      e.preventDefault();
+      const idx = btns.findIndex(b=>b.classList.contains('active'));
+      const next = e.key==='ArrowRight' ? Math.min(btns.length-1, idx+1) : Math.max(0, idx-1);
+      setMode(btns[next].dataset.mode);
+    });
   }
 
-  // expone helpers por si luego añades/eliminás cards dinámicamente
-  window.setupWishlistSorting = setupWishlistSorting;
+  // Exponer si lo necesitas
   window.applyWishlistSort = applyWishlistSort;
 
-
-function setupWishlistSortToggle(){
-  const toggle = document.getElementById('wishlist-sort-toggle');
-  if (!toggle || !window.applyWishlistSort) return;
-  const btns = Array.from(toggle.querySelectorAll('button[data-mode]'));
-  const slider = toggle.querySelector('.slider');
-
-  function positionSlider(){
-    const active = toggle.querySelector('button.active');
-    if (!active || !slider) return;
-    slider.style.width = active.offsetWidth + 'px';
-    slider.style.transform = `translateX(${active.offsetLeft}px)`;
-  }
-
-  function setMode(mode){
-    btns.forEach(b=>{
-      const on = b.dataset.mode === mode;
-      b.classList.toggle('active', on);
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    });
-    positionSlider();
-    window.applyWishlistSort(mode); // ya guarda en localStorage
-  }
-
-  // Init con preferencia guardada o 'recent'
-  let initial = 'recent';
-  try{ initial = localStorage.getItem('wishlist_sort') || initial; }catch(e){}
-  setMode(initial);
-
-  // Eventos
-  btns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
-  window.addEventListener('resize', positionSlider);
-
-  // Soporte teclado (izq/der)
-  toggle.addEventListener('keydown', (e)=>{
-    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-    e.preventDefault();
-    const idx = btns.findIndex(b => b.classList.contains('active'));
-    const next = e.key === 'ArrowRight' ? Math.min(btns.length-1, idx+1) : Math.max(0, idx-1);
-    setMode(btns[next].dataset.mode);
-    btns[next].focus();
-  });
-}
-
-// Llama a esta función en tu DOMContentLoaded grande:
-document.addEventListener('DOMContentLoaded', () => {
-  setupWishlistSortToggle();
-});
-
-
-
-  // arranca cuando el DOM esté listo
-  document.addEventListener('DOMContentLoaded', setupWishlistSorting);
+  document.addEventListener('DOMContentLoaded', initToggle);
 })();
 
 
   // El backend ya pasa 'username' a la plantilla:
-  const ME = "{{ username }}";
-  const OTHER = (ME === "mochito") ? "mochita" : "mochito";
+// --- El backend ya pasa 'username'...
+const ME = "{{ username }}";
+const OTHER = (ME === "mochito") ? "mochita" : "mochito";
 
   // 1) Mantener mi presencia viva
   async function pingPresence() {
@@ -3693,7 +4092,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(pingPresence, 45_000);
 
   // 2) Mostrar estado del OTRO usuario (cambia los selectores a los tuyos)
-  const dot   = document.querySelector('#presenceDot');   // ⬅️ círculo/semáforo
+  const dot   = document.querySelector('#presenceDot');   //...
   const label = document.querySelector('#presenceText');  // ⬅️ texto “En línea/Desconectado/Comprobando…”
 
   function humanizeAgo(sec){
@@ -3917,6 +4316,297 @@ function humanizeAgo(seconds){
     bootRouter();
   }
 })();
+
+
+
+>
+/* ========= Media: tabs ========= */
+function setupMediaTabs(){
+  document.querySelectorAll('.media-tabs .media-tab').forEach(tab=>{
+    tab.addEventListener('click', ()=>{
+      document.querySelectorAll('.media-tabs .media-tab').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.media-content').forEach(c=>c.classList.remove('active'));
+      tab.classList.add('active');
+      const id = tab.getAttribute('data-tab');
+      document.getElementById(id + '-tab')?.classList.add('active');
+      // Reaplica búsqueda al cambiar de tab
+      const q = document.getElementById('media-search')?.value || '';
+      applyMediaSearch(q);
+      // Reposiciona slider del toggle
+      positionMediaSortSlider();
+      // Refresca paginación del tab visible
+      refreshMediaPagination();
+    });
+  });
+}
+
+/* ========= Media: sort ========= */
+function positionMediaSortSlider(){
+  const toggle = document.getElementById('media-sort-toggle');
+  if (!toggle) return;
+  const slider = toggle.querySelector('.slider');
+  const active = toggle.querySelector('button.active');
+  if (!slider || !active) return;
+  slider.style.width = active.offsetWidth + 'px';
+  slider.style.transform = `translateX(${active.offsetLeft}px)`;
+}
+function applyMediaSort(mode){
+  const grids = [
+    document.querySelector('#towatch-tab .media-grid'),
+    document.querySelector('#watched-tab .media-grid')
+  ];
+  grids.forEach(grid=>{
+    if (!grid) return;
+    const cards = Array.from(grid.querySelectorAll(':scope > .media-card'));
+    const pos = new Map(cards.map((el,i)=>[el,i]));
+    const ts = s => {
+      if (!s) return 0;
+      const core = String(s).trim().slice(0,19).replace(' ','T');
+      const t = Date.parse(core);
+      return Number.isFinite(t) ? t : 0;
+    };
+    cards.sort((a,b)=>{
+      const A = {
+        t: ts(a.dataset.created),
+        r: +a.dataset.rating || 0,
+        p: (a.dataset.platform || 'zzz'),
+        title: (a.dataset.title || '')
+      };
+      const B = {
+        t: ts(b.dataset.created),
+        r: +b.dataset.rating || 0,
+        p: (b.dataset.platform || 'zzz'),
+        title: (b.dataset.title || '')
+      };
+      if (mode === 'rating')   return (B.r - A.r) || (B.t - A.t) || (pos.get(a)-pos.get(b));
+      if (mode === 'platform') return (A.p.localeCompare(B.p)) || A.title.localeCompare(B.title) || (B.t - A.t);
+      // recent
+      return (B.t - A.t) || (B.r - A.r) || (pos.get(a)-pos.get(b));
+    });
+    cards.forEach(c=>grid.appendChild(c));
+  });
+}
+function setupMediaSortToggle(){
+  const toggle = document.getElementById('media-sort-toggle');
+  if (!toggle) return;
+  const btns = Array.from(toggle.querySelectorAll('button[data-mode]'));
+  let current = 'recent';
+  try { current = localStorage.getItem('media_sort') || 'recent'; } catch {}
+  function setMode(mode){
+    current = mode;
+    btns.forEach(b=>{
+      const on = b.dataset.mode === mode;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    applyMediaSort(mode);
+    positionMediaSortSlider();
+    try{ localStorage.setItem('media_sort', mode); }catch{}
+  }
+  btns.forEach(b=> b.addEventListener('click', ()=> setMode(b.dataset.mode)));
+  toggle.addEventListener('keydown', (e)=>{
+    if (e.key!=='ArrowRight' && e.key!=='ArrowLeft') return;
+    e.preventDefault();
+    const i = btns.findIndex(b=>b.classList.contains('active'));
+    const next = e.key==='ArrowRight' ? Math.min(btns.length-1, i+1) : Math.max(0, i-1);
+    setMode(btns[next].dataset.mode);
+  });
+  // init
+  setMode(current);
+  window.addEventListener('resize', positionMediaSortSlider);
+}
+
+/* ========= Media: búsqueda + paginación ========= */
+function activeMediaGrid(){
+  if (document.getElementById('towatch-tab')?.classList.contains('active'))
+    return {grid: document.querySelector('#towatch-tab .media-grid'), pager: document.getElementById('media-pager-towatch')};
+  if (document.getElementById('watched-tab')?.classList.contains('active'))
+    return {grid: document.querySelector('#watched-tab .media-grid'), pager: document.getElementById('media-pager-watched')};
+  return null;
+}
+let mediaPager = { refresh(){}, goToFirst(){} };
+function paginateMediaGrid(gridEl, pagerEl, pageSize = 8){
+  if (!gridEl || !pagerEl) return { refresh(){}, goToFirst(){} };
+  const allCards = Array.from(gridEl.querySelectorAll(':scope > .media-card'));
+  let current = 1;
+  let emptyMsg = gridEl.querySelector('.no-results');
+  if (!emptyMsg){
+    emptyMsg = document.createElement('p');
+    emptyMsg.className = 'no-results';
+    emptyMsg.textContent = 'Sin resultados.';
+    emptyMsg.style.display = 'none';
+    emptyMsg.style.gridColumn = '1/-1';
+    gridEl.appendChild(emptyMsg);
+  }
+  function getMatched(){ return allCards.filter(el => el.dataset.match !== '0'); }
+  function hideAll(){ allCards.forEach(el=> el.style.display='none'); }
+  function makeBtn(label, onClick, opts={}){
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.className = 'page-btn' + (opts.active ? ' active' : '');
+    if (opts.title) b.title = opts.title;
+    if (opts.disabled) b.disabled = true;
+    if (!opts.disabled && onClick) b.addEventListener('click', onClick);
+    return b;
+  }
+  function render(){
+    const matched = getMatched();
+    const total = matched.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    if (current > totalPages) current = totalPages;
+    if (total === 0){
+      hideAll(); emptyMsg.style.display = ''; pagerEl.style.display='none'; pagerEl.innerHTML=''; return;
+    } else { emptyMsg.style.display='none'; }
+    if (totalPages <= 1){
+      pagerEl.style.display='none'; pagerEl.innerHTML='';
+      hideAll(); matched.forEach(el=> el.style.display='');
+      return;
+    }
+    pagerEl.style.display='flex';
+    const start = (current - 1) * pageSize;
+    const end   = start + pageSize;
+    hideAll();
+    matched.forEach((el,i)=>{ el.style.display = (i>=start && i<end) ? '' : 'none'; });
+    // controls
+    pagerEl.innerHTML='';
+    pagerEl.appendChild(makeBtn('«', ()=>{ current=1; render(); }, {disabled: current===1, title:'Primera'}));
+    pagerEl.appendChild(makeBtn('‹', ()=>{ current=Math.max(1,current-1); render(); }, {disabled: current===1, title:'Anterior'}));
+    const windowSize = 5;
+    let from = Math.max(1, current - Math.floor(windowSize/2));
+    let to   = Math.min(totalPages, from + windowSize - 1);
+    from = Math.max(1, to - windowSize + 1);
+    for(let p=from;p<=to;p++){
+      pagerEl.appendChild(makeBtn(String(p), ()=>{ current=p; render(); }, {active: p===current}));
+    }
+    pagerEl.appendChild(makeBtn('›', ()=>{ current=Math.min(totalPages,current+1); render(); }, {disabled: current===totalPages, title:'Siguiente'}));
+    pagerEl.appendChild(makeBtn('»', ()=>{ current=totalPages; render(); }, {disabled: current===totalPages, title:'Última'}));
+  }
+  render();
+  return {
+    refresh: render,
+    goToFirst: ()=>{ current = 1; render(); }
+  };
+}
+function setupMediaPagination(){
+  const act = activeMediaGrid();
+  if (!act) return;
+  mediaPager = paginateMediaGrid(act.grid, act.pager, 8);
+}
+function refreshMediaPagination(){
+  const act = activeMediaGrid();
+  if (!act) return;
+  mediaPager = paginateMediaGrid(act.grid, act.pager, 8);
+}
+function applyMediaSearch(termRaw){
+  const act = activeMediaGrid();
+  if (!act) return;
+  const term = (termRaw || '').trim().toLowerCase();
+  const cards = Array.from(act.grid.querySelectorAll(':scope > .media-card'));
+  cards.forEach(card=>{
+    const title = (card.dataset.title || '');
+    const platf = (card.dataset.platform || '');
+    const match = term === '' || title.includes(term) || platf.includes(term);
+    card.dataset.match = match ? '1' : '0';
+  });
+  mediaPager.goToFirst?.();
+  mediaPager.refresh?.();
+}
+function setupMediaSearch(){
+  const input = document.getElementById('media-search');
+  if (!input) return;
+  input.addEventListener('input', ()=> applyMediaSearch(input.value));
+  applyMediaSearch(input.value);
+}
+
+/* ========= Media: rating widgets ========= */
+function attachRating(container){
+  const box = (typeof container === 'string') ? document.querySelector(container) : container;
+  if (!box) return;
+  const stars = Array.from(box.querySelectorAll('i.fa-star'));
+  const inputId = box.getAttribute('data-target');
+  const hidden = inputId ? document.getElementById(inputId) : box.querySelector('input[type="hidden"][name="rating"]');
+  if (!hidden) return;
+  function paint(val){
+    stars.forEach(st => {
+      const v = +st.dataset.v;
+      st.classList.toggle('fas', v <= val);
+      st.classList.toggle('far', v >  val);
+    });
+    hidden.value = val;
+  }
+  stars.forEach(st=>{
+    st.addEventListener('mouseenter', ()=> paint(+st.dataset.v));
+    st.addEventListener('click',      ()=> paint(+st.dataset.v));
+  });
+  box.addEventListener('mouseleave', ()=> paint(+hidden.value || 0));
+  // init
+  paint(+hidden.value || 0);
+}
+function initAllEditableRatings(){
+  document.querySelectorAll('.rating.editable').forEach(attachRating);
+}
+
+/* ========= Media: modal edición ========= */
+function toggleEpisodesRow(selectEl, rowEl){
+  if (!selectEl || !rowEl) return;
+  rowEl.style.display = (selectEl.value === 'show') ? '' : 'none';
+}
+window.openEditMediaModal = function(id, title, kind, platform, link, notes, rating, epsTotal, epsSeen, isWatched){
+  const modal = document.getElementById('editMediaModal');
+  if (!modal) return;
+
+  // fill
+  document.getElementById('mediaId').value = id || '';
+  document.getElementById('mediaTitle').value = title || '';
+  document.getElementById('mediaKind').value = kind || 'movie';
+  document.getElementById('mediaPlatform').value = platform || '';
+  document.getElementById('mediaLink').value = link || '';
+  document.getElementById('mediaNotes').value = notes || '';
+  document.getElementById('mediaRating').value = Number(rating||0);
+
+  const row = document.getElementById('editEpisodesRow');
+  const sel = document.getElementById('mediaKind');
+  toggleEpisodesRow(sel, row);
+  document.getElementById('mediaEpsTotal').value = Number(epsTotal||0);
+  document.getElementById('mediaEpsSeen').value  = Number(epsSeen||0);
+
+  const watched = document.getElementById('mediaWatchedToggle');
+  watched.checked = !!isWatched;
+
+  // init stars
+  initAllEditableRatings();
+
+  // open
+  modal.style.display = 'block';
+};
+
+// Cerrar modal genérico ya lo tienes (delegación .close-modal)
+
+/* ========= Media: init on DOMContentLoaded ========= */
+document.addEventListener('DOMContentLoaded', ()=>{
+  setupMediaTabs();
+  setupMediaSortToggle();
+  setupMediaPagination();
+  setupMediaSearch();
+  initAllEditableRatings();
+
+  // "Añadir" — mostrar episodios si es serie
+  const addKind = document.getElementById('addKind');
+  const addRow  = document.getElementById('addEpisodesRow');
+  if (addKind && addRow){
+    toggleEpisodesRow(addKind, addRow);
+    addKind.addEventListener('change', ()=> toggleEpisodesRow(addKind, addRow));
+  }
+
+  // "Editar" — cambiar visibilidad episodios al cambiar tipo
+  const editKind = document.getElementById('mediaKind');
+  const editRow  = document.getElementById('editEpisodesRow');
+  if (editKind && editRow){
+    editKind.addEventListener('change', ()=> toggleEpisodesRow(editKind, editRow));
+  }
+});
+
+
 
 </script>
 

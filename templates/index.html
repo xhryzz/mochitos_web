@@ -1195,7 +1195,7 @@
   border: 0; cursor: pointer;
   padding: 10px 14px; border-radius: 999px;
   font-weight: 800; letter-spacing: .2px;
-  background: #fff;
+  background: rgba(232, 67, 147, 0.486);
   border: 1px solid #eee;
   display: inline-flex; align-items: center; gap: 8px;
   transition: transform .15s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
@@ -1208,28 +1208,35 @@
   border-color: transparent;
 }
 
-/* ===== Modo “pantallas” ===== */
-/* Cuando body[data-screen] existe, ocultamos TODAS las secciones... */
-body[data-screen] .section{ display: none; }
-body[data-screen] .section.banner{ display: none; }
-/* ...y mostramos sólo las que lleven ese data-screen activo */
-body[data-screen] .section[data-screen="home"]{ display: block; }
-body[data-screen] .section.banner[data-screen="home"]{ display: block; }
-body[data-screen="intim"]   .section[data-screen="intim"],
-body[data-screen="dist"]    .section[data-screen="dist"],
-body[data-screen="horarios"] .section[data-screen="horarios"],
-body[data-screen="dq"]      .section[data-screen="dq"],
-body[data-screen="wish"]    .section[data-screen="wish"],
-body[data-screen="viajes"]  .section[data-screen="viajes"]{ display: block; }
+/* ===== Modo “pantallas” (versión segura) ===== */
+/* Oculta SOLO las secciones que declaran data-screen.
+   Las que no tengan data-screen nunca se ocultan. */
+body[data-screen] .section[data-screen] { display: none; }
 
-/* En la pantalla de inicio ocultamos chips/atajos para que quede “sólo banner + días” */
+/* HOME */
+body[data-screen="home"] .section[data-screen="home"]{ display:block; }
+body[data-screen="home"] .section.banner[data-screen="home"]{ display:block; }
+
+/* Otras pantallas */
+body[data-screen="intim"]    .section[data-screen="intim"],
+body[data-screen="dist"]     .section[data-screen="dist"],
+body[data-screen="horarios"] .section[data-screen="horarios"],
+body[data-screen="dq"]       .section[data-screen="dq"],
+body[data-screen="wish"]     .section[data-screen="wish"],
+body[data-screen="viajes"]   .section[data-screen="viajes"]{ display:block; }
+
+/* En la pantalla de inicio ocultamos chips/atajos para que quede limpio */
 body[data-screen="home"] #presenceChip,
 body[data-screen="home"] #settingsIcon,
 body[data-screen="home"] .admin-icon{ display:none !important; }
 
-/* (Opcional) que el footer no pegue saltos al cambiar de pantalla */
-body[data-screen] .site-footer{ margin-top: 24px; }
-
+/* Banner y tarjeta "Nosotros" SOLO en Inicio */
+body[data-screen] .section[data-screen="home"] { 
+  display: none !important; 
+}
+body[data-screen="home"] .section[data-screen="home"] { 
+  display: block !important; 
+}
     </style>
 </head>
 
@@ -3632,47 +3639,56 @@ function humanizeAgo(seconds){
   return `hace ${d} d${h?` ${h} h`:''}`;
 }
 
-/* ===== Control de pantallas (SPA ultra simple) ===== */
+/* ===== Control de pantallas (SPA ultra simple, seguro) ===== */
 (function(){
-  // Solo si estás logueado (evita afectar al login)
   var logged = {{ 'true' if session.username else 'false' }};
   if(!logged) return;
-
-  // Pantalla inicial = home
-  document.body.dataset.screen = document.body.dataset.screen || 'home';
 
   const nav = document.getElementById('ccNav');
   if(!nav) return;
 
+  // Si no hay ninguna sección con data-screen, no activamos el modo pantallas.
+  const hasScreenedSections = !!document.querySelector('.section[data-screen]');
+  if (!hasScreenedSections) return;
+
+  // Si hay secciones “screened” pero no hay una de home, no activamos nada.
+  const hasHome = !!document.querySelector('.section[data-screen="home"]');
+
   function setScreen(name){
     document.body.dataset.screen = name;
-    // activa botón
     nav.querySelectorAll('button[data-goto]').forEach(b=>{
-      b.classList.toggle('active', b.dataset.goto===name);
-      b.setAttribute('aria-pressed', b.dataset.goto===name ? 'true':'false');
+      const on = b.dataset.goto === name;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
-    // arriba del todo
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Pantalla inicial:
+  // 1) hash, 2) 'home' si existe, 3) no activar nada (fallback)
+  const want = (location.hash||'').slice(1);
+  if (want && document.querySelector(`.section[data-screen="${want}"]`)) {
+    setScreen(want);
+  } else if (hasHome) {
+    setScreen('home');
+  } else {
+    delete document.body.dataset.screen; // no ocultes nada si falta 'home'
   }
 
   // clicks
   nav.querySelectorAll('button[data-goto]').forEach(btn=>{
-    btn.addEventListener('click', ()=> setScreen(btn.dataset.goto));
+    btn.addEventListener('click', ()=> {
+      const to = btn.dataset.goto;
+      if (document.querySelector(`.section[data-screen="${to}"]`)) {
+        setScreen(to);
+        history.replaceState(null,'','#'+to);
+      }
+    });
   });
-
-  // si hay hash tipo #wish, úsalo
-  if (location.hash && nav.querySelector(`button[data-goto="${location.hash.slice(1)}"]`)) {
-    setScreen(location.hash.slice(1));
-  }
-
-  // mantener hash sincronizado (opcional)
-  const obs = new MutationObserver(()=>{
-    const scr = document.body.dataset.screen || 'home';
-    if (location.hash !== '#'+scr) history.replaceState(null, '', '#'+scr);
-  });
-  obs.observe(document.body, { attributes:true, attributeFilter:['data-screen'] });
 })();
 
+  // Pinta desde el primer milisegundo la pantalla correcta
+  document.body.dataset.screen = (location.hash || '#home').slice(1);
 </script>
 
 

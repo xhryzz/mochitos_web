@@ -161,6 +161,24 @@
         .close-modal:hover { color: #e84393; }
         .modal-body { padding: 25px; overflow-y: auto; }
 
+        /* Base: 1 col en móvil */
+.wishlist-grid{ 
+  display:grid; 
+  gap:25px; 
+  grid-template-columns: repeat(1, minmax(0,1fr)); 
+}
+
+/* Tablet: 2 columnas */
+@media (min-width: 768px){
+  .wishlist-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
+/* Desktop: 3 columnas */
+@media (min-width: 1100px){
+  .wishlist-grid{ grid-template-columns: repeat(3, minmax(0,1fr)); }
+}
+
+
         /* Pregunta del día */
         .question { font-size: 1.4rem; margin-bottom: 20px; color: var(--dark-text); font-weight: 600; line-height: 1.5; padding: 20px; background: rgba(162,155,254,.1); border-radius: 15px; border-left: 5px solid var(--accent-color); }
         .answers { margin-top: 25px; display: flex; flex-direction: column; gap: 15px; }
@@ -1245,6 +1263,12 @@ body{
 }
 .container{ flex: 1 0 auto; }   /* el contenido empuja al footer */
 .site-footer{ margin-top: auto; }/* se queda al fondo incluso con poco contenido */
+
+
+html, body { height: 100%; }
+body { min-height: 100vh; display: flex; flex-direction: column; }
+.container { flex: 1 0 auto; }   /* el contenido ocupa el espacio */
+.site-footer { margin-top: auto; }/* el footer baja hasta el final */
 
 
     </style>
@@ -2576,6 +2600,18 @@ function initMap() {
   loadSavedLocations();
 }
 
+
+function ensureMapReady(){
+  if (typeof L === 'undefined') return;       // Leaflet aún no cargó
+  if (!window._mapInit){                      // primera vez
+    initMap();
+    window._mapInit = true;
+  } else if (window.map){                     // ya existe -> recalcula
+    setTimeout(() => { map.invalidateSize(); updateDistanceLine(); }, 60);
+  }
+}
+
+
 function updateDistanceLine() {
   if (!map || !christianMarker || !claraMarker) return;
   if (distanceLine) map.removeLayer(distanceLine);
@@ -3665,7 +3701,7 @@ function humanizeAgo(seconds){
   // Si hay secciones “screened” pero no hay una de home, no activamos nada.
   const hasHome = !!document.querySelector('.section[data-screen="home"]');
 
-  function setScreen(name){
+function setScreen(name){
   document.body.dataset.screen = name;
   nav.querySelectorAll('button[data-goto]').forEach(b=>{
     const on = b.dataset.goto === name;
@@ -3674,14 +3710,10 @@ function humanizeAgo(seconds){
   });
   window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  // 🗺️ FIX Leaflet cuando se muestra la pestaña
-  if (name === 'dist' && window.map) {
-    setTimeout(() => {
-      map.invalidateSize();      // recalcula tamaño
-      updateDistanceLine();      // vuelve a ajustar el zoom a los marcadores
-    }, 80);                      // pequeño delay para que el DOM ya esté visible
-  }
+  // 👇 Asegura el mapa al abrir Distancia
+  if (name === 'dist') ensureMapReady();
 }
+
 
 
   // Pantalla inicial:

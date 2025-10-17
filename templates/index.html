@@ -1422,6 +1422,25 @@ body.page-media .section:not([data-section="media"]){
   display:none !important;
 }
 
+
+
+/* Portada en tarjetas Media */
+.media-cover{
+  position: relative;
+  height: 160px;
+  overflow: hidden;
+  border-radius: 12px;
+  margin: -4px -4px 10px -4px;
+  background:#f6f7fb;
+}
+.media-cover img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+
     </style>
 </head>
 
@@ -2312,7 +2331,6 @@ body.page-media .section:not([data-section="media"]){
   </div>
 </div>
 
-
 <!-- =========================
      PELÍCULAS & SERIES
      ========================= -->
@@ -2341,10 +2359,16 @@ body.page-media .section:not([data-section="media"]){
     <div class="media-grid">
       {% for m in media_to_watch %}
       <div class="media-card"
-           data-created="{{ (m.get('created_at') or '') }}"
-           data-rating="{{ (m.get('rating') or 0) }}"
+           data-id="{{ m.get('id') }}"
+           data-title="{{ (m.get('title') or '')|e }}"
+           data-kind="{{ (m.get('kind') or 'movie')|e }}"
            data-platform="{% if m.get('on_netflix') and m.get('on_prime') %}both{% elif m.get('on_netflix') %}netflix{% elif m.get('on_prime') %}prime{% else %}zzz{% endif %}"
-           data-title="{{ (m.get('title') or '')|lower }}">
+           data-link="{{ (m.get('link_url') or '')|e }}"
+           data-notes="{{ (m.get('comment') or '')|e }}"
+           data-rating="{{ (m.get('rating') or 0) }}"
+           data-watched="0"
+           data-cover="{{ (m.get('cover_url') or '')|e }}"
+           data-created="{{ (m.get('created_at') or '') }}">
         <div class="media-status badge-wanted">Por ver</div>
 
         <div class="media-head">
@@ -2352,6 +2376,12 @@ body.page-media .section:not([data-section="media"]){
           {% if m.get('on_netflix') %}<span class="platform-chip"><i class="fas fa-tv"></i> Netflix</span>{% endif %}
           {% if m.get('on_prime') %}<span class="platform-chip"><i class="fas fa-tv"></i> Prime</span>{% endif %}
         </div>
+
+        {% if m.get('cover_url') %}
+          <div class="media-cover">
+            <img src="{{ m.get('cover_url') }}" alt="Portada de {{ m.get('title')|e }}">
+          </div>
+        {% endif %}
 
         <h3 class="media-title">{{ m.get('title') }}</h3>
 
@@ -2379,10 +2409,17 @@ body.page-media .section:not([data-section="media"]){
         </div>
 
         <div class="media-actions">
-          <form method="POST" action="/media/watch">
-            <input type="hidden" name="id" value="{{ m.get('id') }}">
-            <button class="icon-btn" title="Marcar como vista"><i class="fas fa-check"></i></button>
-          </form>
+          <!-- Marcar como vista + abrir modal para rating/comentario -->
+          <button type="button" class="icon-btn" title="Marcar como vista y valorar"
+                  onclick="openEditMedia(this, true)">
+            <i class="fas fa-check"></i>
+          </button>
+
+          <!-- Editar (título/notas, o marcar vista desde el propio modal) -->
+          <button type="button" class="icon-btn" title="Editar"
+                  onclick="openEditMedia(this, false)">
+            <i class="fas fa-edit"></i>
+          </button>
 
           {% if m.get('created_by') == username %}
           <form method="POST" action="/media/delete" onsubmit="return confirm('¿Eliminar este título?');">
@@ -2404,15 +2441,29 @@ body.page-media .section:not([data-section="media"]){
     <div class="media-grid">
       {% for m in media_watched %}
       <div class="media-card watched"
-           data-created="{{ (m.get('watched_at') or m.get('created_at') or '') }}"
-           data-rating="{{ (m.get('rating') or 0) }}"
+           data-id="{{ m.get('id') }}"
+           data-title="{{ (m.get('title') or '')|e }}"
+           data-kind="{{ (m.get('kind') or 'movie')|e }}"
            data-platform="{% if m.get('on_netflix') and m.get('on_prime') %}both{% elif m.get('on_netflix') %}netflix{% elif m.get('on_prime') %}prime{% else %}zzz{% endif %}"
-           data-title="{{ (m.get('title') or '')|lower }}">
+           data-link="{{ (m.get('link_url') or '')|e }}"
+           data-notes="{{ (m.get('watched_comment') or m.get('comment') or '')|e }}"
+           data-rating="{{ (m.get('rating') or 0) }}"
+           data-watched="1"
+           data-cover="{{ (m.get('cover_url') or '')|e }}"
+           data-created="{{ (m.get('watched_at') or m.get('created_at') or '') }}">
         <div class="media-status badge-watched">Vista</div>
 
         <div class="media-head">
           <span class="media-kind movie">Título</span>
+          {% if m.get('on_netflix') %}<span class="platform-chip"><i class="fas fa-tv"></i> Netflix</span>{% endif %}
+          {% if m.get('on_prime') %}<span class="platform-chip"><i class="fas fa-tv"></i> Prime</span>{% endif %}
         </div>
+
+        {% if m.get('cover_url') %}
+          <div class="media-cover">
+            <img src="{{ m.get('cover_url') }}" alt="Portada de {{ m.get('title')|e }}">
+          </div>
+        {% endif %}
 
         <h3 class="media-title">{{ m.get('title') }}</h3>
 
@@ -2440,6 +2491,12 @@ body.page-media .section:not([data-section="media"]){
             <input type="hidden" name="id" value="{{ m.get('id') }}">
             <button class="icon-btn" title="Marcar como no vista"><i class="fas fa-undo"></i></button>
           </form>
+
+          <!-- Editar rating/comentario (y otros campos) -->
+          <button type="button" class="icon-btn" title="Editar valoración/comentario"
+                  onclick="openEditMedia(this, false)">
+            <i class="fas fa-edit"></i>
+          </button>
 
           {% if m.get('created_by') == username %}
           <form method="POST" action="/media/delete" onsubmit="return confirm('¿Eliminar este título?');">
@@ -2502,79 +2559,6 @@ body.page-media .section:not([data-section="media"]){
     </div>
   </div>
 </div>
-
-
-<!-- MODAL: Editar media -->
-<div id="editMediaModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2>Editar título</h2>
-      <span class="close-modal">&times;</span>
-    </div>
-    <div class="modal-body">
-      <form method="POST" action="/media/edit" id="editMediaForm">
-        <input type="hidden" name="id" id="mediaId">
-        <div class="grid2">
-          <div class="input-wrap">
-            <label>Título</label>
-            <input type="text" name="title" id="mediaTitle" required>
-          </div>
-          <div class="input-wrap">
-            <label>Tipo</label>
-            <select name="kind" id="mediaKind" required>
-              <option value="movie">Película</option>
-              <option value="show">Serie</option>
-            </select>
-          </div>
-          <div class="input-wrap">
-            <label>Plataforma</label>
-            <input type="text" name="platform" id="mediaPlatform" placeholder="Netflix, HBO Max…">
-          </div>
-          <div class="input-wrap">
-            <label>Enlace</label>
-            <input type="url" name="link" id="mediaLink" placeholder="https://…">
-          </div>
-        </div>
-
-        <div class="grid2" id="editEpisodesRow" style="display:none">
-          <div class="input-wrap">
-            <label>Episodios totales</label>
-            <input type="number" name="episodes_total" id="mediaEpsTotal" min="0">
-          </div>
-          <div class="input-wrap">
-            <label>Episodios vistos</label>
-            <input type="number" name="episodes_seen" id="mediaEpsSeen" min="0">
-          </div>
-        </div>
-
-        <div class="input-wrap">
-          <label>Notas</label>
-          <textarea name="notes" id="mediaNotes" rows="3"></textarea>
-        </div>
-
-        <div class="rating editable" data-target="mediaRating" aria-label="Valoración">
-          <input type="hidden" name="rating" id="mediaRating" value="0">
-          <i class="far fa-star" data-v="1"></i>
-          <i class="far fa-star" data-v="2"></i>
-          <i class="far fa-star" data-v="3"></i>
-          <i class="far fa-star" data-v="4"></i>
-          <i class="far fa-star" data-v="5"></i>
-        </div>
-
-        <div class="input-wrap">
-          <label class="switch">
-            <input type="checkbox" id="mediaWatchedToggle" name="is_watched">
-            <label for="mediaWatchedToggle"></label>
-          </label>
-          <span class="switch-text">¿Marcada como vista?</span>
-        </div>
-
-        <button type="submit"><i class="fas fa-save"></i> Guardar cambios</button>
-      </form>
-    </div>
-  </div>
-</div>
-
 
 
 
@@ -4555,6 +4539,93 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.addEventListener('DOMContentLoaded', function () {
     setupSimplePages();
   });
+
+
+  (function(){
+  // pinta estado de estrellas según value (0-5)
+  function paintStars(container, value){
+    const v = Number(value)||0;
+    container.querySelectorAll('i[data-v]').forEach(star=>{
+      const n = Number(star.dataset.v);
+      star.classList.toggle('fas', n <= v);
+      star.classList.toggle('far', n >  v);
+    });
+  }
+
+  // engancha clicks en estrellas para actualizar el hidden
+  function wireStars(container, hiddenInput){
+    container.querySelectorAll('i[data-v]').forEach(star=>{
+      star.addEventListener('click', ()=>{
+        const v = Number(star.dataset.v)||0;
+        hiddenInput.value = v;
+        paintStars(container, v);
+      });
+    });
+  }
+
+  // mapa de platform para el campo "platform" del modal
+  function platformText(key){
+    return key === 'both' ? 'Netflix + Prime'
+         : key === 'netflix' ? 'Netflix'
+         : key === 'prime' ? 'Prime'
+         : '';
+  }
+
+  // Abre el modal a partir del botón dentro de .media-card
+  window.openEditMedia = function(btn, forceWatched){
+    const card = btn.closest('.media-card');
+    if(!card) return;
+
+    const modal = document.getElementById('editMediaModal');
+    const form  = document.getElementById('editMediaForm');
+    if(!modal || !form) return;
+
+    // inputs
+    const idEl     = document.getElementById('mediaId');
+    const titleEl  = document.getElementById('mediaTitle');
+    const kindEl   = document.getElementById('mediaKind');
+    const platEl   = document.getElementById('mediaPlatform');
+    const linkEl   = document.getElementById('mediaLink');
+    const notesEl  = document.getElementById('mediaNotes');
+    const rateHid  = document.getElementById('mediaRating');
+    const rateBox  = modal.querySelector('.rating.editable');
+    const watchedT = document.getElementById('mediaWatchedToggle');
+    const epsRow   = document.getElementById('editEpisodesRow');
+
+    // dataset -> campos
+    idEl.value     = card.dataset.id || '';
+    titleEl.value  = card.dataset.title || '';
+    kindEl.value   = (card.dataset.kind || 'movie');
+    platEl.value   = platformText(card.dataset.platform || '');
+    linkEl.value   = card.dataset.link || '';
+    notesEl.value  = card.dataset.notes || '';
+
+    // rating y estado "vista"
+    const currentRating = Number(card.dataset.rating || 0);
+    rateHid.value = currentRating;
+    paintStars(rateBox, currentRating);
+    watchedT.checked = forceWatched ? true : (card.dataset.watched === '1');
+
+    // mostrar inputs de episodios si es serie
+    if (epsRow) epsRow.style.display = (kindEl.value === 'show') ? '' : 'none';
+
+    // (re)wire estrellas una sola vez
+    if (!rateBox.__wired){
+      wireStars(rateBox, rateHid);
+      rateBox.__wired = true;
+    }
+
+    // abre modal
+    modal.style.display = 'block';
+  };
+
+  // cierra modal (reutiliza tus handlers globales)
+  document.querySelectorAll('#editMediaModal .close-modal').forEach(x=>{
+    x.addEventListener('click', ()=> {
+      document.getElementById('editMediaModal').style.display = 'none';
+    });
+  });
+})();
 </script>
 
 

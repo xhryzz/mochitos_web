@@ -275,6 +275,18 @@ def seconds_until_next_midnight_madrid() -> float:
     nxt = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
     return (nxt - now).total_seconds()
 
+
+def is_due_or_overdue(now_madrid: datetime, hhmm: str, grace_minutes: int = 720) -> bool:
+    """Devuelve True si ya toca o si vamos tarde hasta grace_minutes (por si el server estuvo dormido)."""
+    try:
+        hh, mm = map(int, hhmm.split(":"))
+    except Exception:
+        return False
+    scheduled = now_madrid.replace(hour=hh, minute=mm, second=0, microsecond=0)
+    delta = (now_madrid - scheduled).total_seconds()
+    return (delta >= 0) and (delta <= grace_minutes * 60)
+
+
 def now_madrid_str() -> str:
     return europe_madrid_now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -1125,7 +1137,7 @@ def maybe_push_relationship_daily_windowed(now_md: datetime):
     if state_get(sent_key, ""):
         return  # ya enviada hoy
 
-    if due_now(now_md, hhmm):
+    if is_due_or_overdue(now_md, hhmm, 720):
         # Enviar ahora
         send_push_both(
             title=f"💖 Hoy cumplís {dcount} días juntos",
@@ -1371,14 +1383,145 @@ def sweep_price_checks(max_items: int = 6, min_age_minutes: int = 180):
     finally:
         conn.close()
 
+
+
+def run_scheduled_jobs(now=None):
+    """Ejecuta UNA iteración del scheduler (idéntico a lo que haces dentro del while del background_loop)."""
+    now = now or europe_madrid_now()
+    today = now.date()
+
+    # 1) Pregunta del día + push (una vez al día)
+    last_dq_push = state_get("last_dq_push_date", "")
+    if str(today) != last_dq_push:
+        qid, _ = get_today_question(today)   # fecha local
+        if qid:
+            push_daily_new_question()
+            state_set("last_dq_push_date", str(today))
+            cache_invalidate('compute_streaks')
+        else:
+            send_discord("Daily question skipped (empty bank)", {"date": str(today)})
+
+    # 2) Aviso diario "Hoy cumplís X días..." (ventana 09:00–23:59, tolerante a atrasos via is_due_or_overdue)
+    try:
+        maybe_push_relationship_daily_windowed(now)
+    except Exception as e:
+        print("[tick rel_daily_window]", e)
+
+    # 3) Hitos 75/100/150/200/250/300/365
+    try:
+        push_relationship_milestones()
+    except Exception as e:
+        print("[tick milestone]", e)
+
+    # 4) Notificaciones programadas (admin)
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute("""
+                    SELECT id, target, title, body, url, tag, icon, badge, when_at
+                    FROM scheduled_notifications
+                    WHERE status='pending'
+                    ORDER BY when_at ASC
+                    LIMIT 25
+                """)
+                rows = c.fetchall()
+
+            now_local = europe_madrid_now()
+            for r in rows:
+                when_dt = _parse_dt(r['when_at'] or "")
+                if when_dt and when_dt <= now_local:
+                    target = r['target']
+                    if target == 'both':
+                        send_push_both(title=r['title'], body=r['body'] or None,
+                                       url=r['url'], tag=r['tag'], icon=r['icon'], badge=r['badge'])
+                    else:
+                        send_push_to(target, title=r['title'], body=r['body'] or None,
+                                     url=r['url'], tag=r['tag'], icon=r['icon'], badge=r['badge'])
+                    with conn.cursor() as c2:
+                        c2.execute("""
+                           UPDATE scheduled_notifications
+                           SET status='sent', sent_at=%s
+                           WHERE id=%s
+                        """, (now_madrid_str(), r['id']))
+                        conn.commit()
+                    send_discord("Admin: push sent (scheduled)", {"id": int(r['id']), "title": r['title']})
+        finally:
+            conn.close()
+    except Exception as e:
+        print("[tick scheduled push]", e)
+
+    # 5) Countdown para meeting (1–3 días)
+    d = days_until_meeting()
+    if d is not None and d in (1, 2, 3):
+        times = ensure_meet_times(today)
+        for hhmm in times:
+            sent_key = _meet_sent_key(today, hhmm)
+            if not state_get(sent_key, "") and is_due_or_overdue(now, hhmm, 720):
+                push_meeting_countdown(d)
+                state_set(sent_key, "1")
+    else:
+        state_set(_meet_times_key(today), json.dumps([]))
+
+    # 6) Últimas 3h para responder la DQ
+    try:
+        qid, _ = get_today_question(today)
+    except Exception:
+        qid = None
+    if qid:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute("SELECT username FROM answers WHERE question_id=%s", (qid,))
+                have = {r[0] for r in c.fetchall()}
+        finally:
+            conn.close()
+        secs_left = seconds_until_next_midnight_madrid()
+        if secs_left <= 3 * 3600:
+            for u in ('mochito', 'mochita'):
+                if u not in have:
+                    key = f"late_reminder_{today.isoformat()}_{u}"
+                    if not state_get(key, ""):
+                        push_last_hours(u)
+                        state_set(key, "1")
+
+    # 7) Barrido de precios cada ~3 horas
+    try:
+        last_sweep = state_get("last_price_sweep", "")
+        do = True
+        if last_sweep:
+            dt = _parse_dt(last_sweep)
+            if dt:
+                from datetime import timedelta as _td
+                do = (europe_madrid_now() - dt) >= _td(hours=3)
+        if do:
+            sweep_price_checks(max_items=6, min_age_minutes=180)
+            state_set("last_price_sweep", now_madrid_str())
+    except Exception as e:
+        print("[tick price sweep]", e)
+
+
 # ========= Background scheduler (recordatorios) =========
 def background_loop():
-    """Bucles de 45–60s para:
-       - crear pregunta del día a medianoche y notificar a ambos
-       - recordatorios 3/2/1 días (2–3 veces entre 09:00 y 23:00)
-       - últimas 3h si falta responder
+    """Bucles de ~45s para:
+       - crear pregunta del día y notificar (una vez/día)
+       - aviso romántico diario (ventana 09:00–23:59, con tolerancia si el server estuvo dormido)
+       - hitos 75/100/150/200/250/300/365
+       - notificaciones programadas (admin)
+       - countdown meeting (1/2/3 días) con tolerancia
+       - recordatorio últimas 3h si falta responder
        - barrido de seguimiento de precios cada ~3h
     """
+    # Helper local: considera "atraso" hasta N minutos por si el servicio estuvo dormido
+    def _is_due_or_overdue(now_madrid: datetime, hhmm: str, grace_minutes: int = 720) -> bool:
+        try:
+            hh, mm = map(int, hhmm.split(":"))
+        except Exception:
+            return False
+        scheduled = now_madrid.replace(hour=hh, minute=mm, second=0, microsecond=0)
+        delta = (now_madrid - scheduled).total_seconds()
+        return (delta >= 0) and (delta <= grace_minutes * 60)
+
     print("[bg] scheduler iniciado")
     while True:
         try:
@@ -1386,38 +1529,53 @@ def background_loop():
             today = now.date()
 
             # 1) Pregunta del día + notificación (una vez/día)
-            # 1) Pregunta del día + notificación (una vez/día)
             last_dq_push = state_get("last_dq_push_date", "")
             if str(today) != last_dq_push:
-                qid, qtext = get_today_question(today)   # usar fecha local
+                qid, _qtext = get_today_question(today)   # usar fecha local (Madrid)
                 if qid:
                     push_daily_new_question()
                     state_set("last_dq_push_date", str(today))
                     cache_invalidate('compute_streaks')
                 else:
-                    # Opcional: log para saber que no había preguntas sin usar
+                    # Banco vacío: avisa por Discord para que añadas preguntas
                     send_discord("Daily question skipped (empty bank)", {"date": str(today)})
 
-
-            # 💖 Aviso diario "Hoy cumplís X días..." (una vez entre 09:00 y 23:59)
+            # 2) Aviso diario "Hoy cumplís X días..." (ventana 09:00–23:59)
+            #    Primero dejamos tu lógica original:
             try:
                 maybe_push_relationship_daily_windowed(now)
             except Exception as e:
                 print("[bg rel_daily_window]", e)
+            #    Luego un "catch-up" por si la hora quedó atrás mientras el servicio dormía:
+            try:
+                dcount = days_together()
+                if dcount > 0 and dcount not in {75, 100, 150, 200, 250, 300, 365}:
+                    day = now.date()
+                    hhmm = ensure_rel_daily_time(day, now)   # fija/recupera la hora del día
+                    if hhmm:
+                        sent_key = _rel_daily_sent_key(day, hhmm)
+                        if not state_get(sent_key, "") and _is_due_or_overdue(now, hhmm, 720):
+                            send_push_both(
+                                title=f"💖 Hoy cumplís {dcount} días juntos",
+                                body="Un día más, y cada vez mejor 🥰",
+                                url="/#contador",
+                                tag=f"relationship-day-{dcount}"
+                            )
+                            state_set(sent_key, "1")
+            except Exception as e:
+                print("[bg rel_daily_catchup]", e)
 
-
-            # 💖 Hitos 75/100/150/200/250/300/365 (solo el día exacto)
+            # 3) Hitos 75/100/150/200/250/300/365 (solo el día exacto)
             try:
                 push_relationship_milestones()
             except Exception as e:
                 print("[bg milestone]", e)
 
-                        # 5) Notificaciones programadas (admin)
+            # 4) Notificaciones programadas (admin)
             try:
                 conn = get_db_connection()
                 try:
                     with conn.cursor() as c:
-                        # Cogemos las 'pending' vencidas
                         c.execute("""
                             SELECT id, target, title, body, url, tag, icon, badge, when_at
                             FROM scheduled_notifications
@@ -1431,15 +1589,20 @@ def background_loop():
                     for r in rows:
                         when_dt = _parse_dt(r['when_at'] or "")
                         if when_dt and when_dt <= now_local:
-                            # enviar
                             target = r['target']
                             if target == 'both':
-                                send_push_both(title=r['title'], body=r['body'] or None,
-                                               url=r['url'], tag=r['tag'], icon=r['icon'], badge=r['badge'])
+                                send_push_both(
+                                    title=r['title'],
+                                    body=(r['body'] or None),
+                                    url=r['url'], tag=r['tag'], icon=r['icon'], badge=r['badge']
+                                )
                             else:
-                                send_push_to(target, title=r['title'], body=r['body'] or None,
-                                             url=r['url'], tag=r['tag'], icon=r['icon'], badge=r['badge'])
-                            # marcar como enviada
+                                send_push_to(
+                                    target,
+                                    title=r['title'],
+                                    body=(r['body'] or None),
+                                    url=r['url'], tag=r['tag'], icon=r['icon'], badge=r['badge']
+                                )
                             with conn.cursor() as c2:
                                 c2.execute("""
                                    UPDATE scheduled_notifications
@@ -1453,24 +1616,23 @@ def background_loop():
             except Exception as e:
                 print("[bg scheduled push]", e)
 
+            # 5) Countdown para meeting (1–3 días) con tolerancia a atrasos
+            try:
+                d = days_until_meeting()
+                if d is not None and d in (1, 2, 3):
+                    times = ensure_meet_times(today)  # lista de HH:MM
+                    for hhmm in times:
+                        sent_key = _meet_sent_key(today, hhmm)
+                        if not state_get(sent_key, "") and _is_due_or_overdue(now, hhmm, 720):
+                            push_meeting_countdown(d)
+                            state_set(sent_key, "1")
+                else:
+                    # resetea la lista del día para que mañana se regenere
+                    state_set(_meet_times_key(today), json.dumps([]))
+            except Exception as e:
+                print("[bg meeting countdown]", e)
 
-
-
-            d = days_until_meeting()
-            if d is not None and d in (1, 2, 3):
-                # genera/recupera las horas planificadas para HOY (Europe/Madrid)
-                times = ensure_meet_times(today)
-                for hhmm in times:
-                    sent_key = _meet_sent_key(today, hhmm)
-                    if not state_get(sent_key, "") and due_now(now, hhmm):
-                        push_meeting_countdown(d)
-                        state_set(sent_key, "1")
-            else:
-                # resetea la lista del día para que mañana se regenere
-                state_set(_meet_times_key(today), json.dumps([]))
-
-
-            # 3) Últimas 3 horas para responder
+            # 6) Últimas 3 horas para responder la pregunta del día
             try:
                 qid, _ = get_today_question(today)
             except Exception:
@@ -1493,7 +1655,7 @@ def background_loop():
                                 push_last_hours(u)
                                 state_set(key, "1")
 
-            # 4) Barrido de precios cada ~3h
+            # 7) Barrido de precios cada ~3h
             try:
                 last_sweep = state_get("last_price_sweep", "")
                 do = True
@@ -1513,8 +1675,6 @@ def background_loop():
 
         time.sleep(45)
 
-# Lanzar scheduler en segundo plano
-threading.Thread(target=background_loop, daemon=True).start()
 
 # ========= Rutas =========
 @app.route('/', methods=['GET', 'POST'])
@@ -3158,6 +3318,34 @@ def admin_questions_delete_all():
     flash("Se han borrado TODAS las preguntas del banco 🗑️", "info")
     return redirect("/admin/questions")
 
+
+# === Tick invocable por HTTP (compatible con GET/POST) ===
+@app.route("/__cron/tick", methods=["GET","POST"])
+def __cron_tick():
+    token = (request.headers.get("X-CRON-TOKEN") or request.args.get("token","")).strip()
+    need  = os.environ.get("CRON_TOKEN","").strip()
+    if not need or token != need:
+        return jsonify(ok=False, error="forbidden"), 403
+    try:
+        # Ejecuta UNA pasada de las tareas (debes tener run_scheduled_jobs ya definido)
+        run_scheduled_jobs()
+        return jsonify(ok=True, ran_at=now_madrid_str())
+    except Exception as e:
+        print("[cron_tick]", e)
+        return jsonify(ok=False, error="server_error"), 500
+
+
+
+@app.cli.command("tick")
+def cli_tick():
+    """Ejecuta una pasada del scheduler (para Cron Jobs)."""
+    run_scheduled_jobs()
+    print("tick OK", now_madrid_str())
+
+
+# Arrancar el scheduler sólo si RUN_SCHEDULER=1
+if os.environ.get("RUN_SCHEDULER", "1") == "1":
+    threading.Thread(target=background_loop, daemon=True).start()
 
 # ======= WSGI / Run =======
 if __name__ == '__main__':

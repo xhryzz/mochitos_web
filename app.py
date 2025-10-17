@@ -1339,6 +1339,15 @@ def notify_price_drop(row, old_cents: int, new_cents: int):
         "created_by": created_by
     })
 
+
+def form_or_json(*keys, default=None):
+    j = request.get_json(silent=True) or {}
+    for k in keys:
+        if k in request.form: return request.form.get(k)
+        if k in j:           return j.get(k)
+    return default
+
+
 def sweep_price_checks(max_items: int = 6, min_age_minutes: int = 180):
     """Consulta algunos items con tracking y actualiza si baja el precio."""
     now_txt = now_madrid_str()
@@ -1882,65 +1891,68 @@ def index():
                     broadcast("travel_update", {"type": "photo_add", "id": int(travel_id)})
                 return redirect('/')
 
-                    # 8) Wishlist add (aceptar form o JSON y nombres antiguos/nuevos)
-        if request.method == 'POST' and 'edit_wishlist_item' not in request.path:
-            data = request.get_json(silent=True) or request.form
+                    # 8) Wishlist add (acepta form o JSON y nombres antiguos/nuevos)
+                if request.method == 'POST' and 'edit_wishlist_item' not in request.path:
+                    data = request.get_json(silent=True) or request.form
 
-            def g(*keys, default=""):
-                for k in keys:
-                    v = data.get(k)
-                    if v is not None:
-                        return v.strip() if isinstance(v, str) else v
-                return default
+                    def g(*keys, default=""):
+                        for k in keys:
+                            v = data.get(k)
+                            if v is not None:
+                                return v.strip() if isinstance(v, str) else v
+                        return default
 
-            # Nombres compatibles
-            product_name = g('product_name', 'productName')
-            product_link = g('product_link', 'url', 'link')
-            notes        = g('wishlist_notes', 'notes', 'description')
-            size         = g('size', 'talla')
-            priority     = (g('priority') or 'media').lower()
-            is_gift_raw  = str(g('is_gift','isGift','gift')).lower()
-            is_gift      = is_gift_raw in ('1','true','on','yes','si','sí')
+                    product_name = g('product_name', 'productName')
+                    product_link = g('product_link', 'url', 'link')
+                    notes        = g('wishlist_notes', 'notes', 'description')
+                    size         = g('size', 'talla')
+                    priority     = (g('priority') or 'media').lower()
+                    is_gift      = str(g('is_gift','isGift','gift')).lower() in ('1','true','on','yes','si','sí')
 
-            # Tracking (compat)
-            track_raw    = str(g('track_price','trackPrice')).lower()
-            track_price  = track_raw in ('1','true','on','yes','si','sí')
-            alert_drop_percent = g('alert_drop_percent','alertDropPercent')
-            alert_below_price  = g('alert_below_price','alertBelowPrice')
+                    track_price  = str(g('track_price','trackPrice')).lower() in ('1','true','on','yes','si','sí')
+                    alert_drop_percent = g('alert_drop_percent','alertDropPercent')
+                    alert_below_price  = g('alert_below_price','alertBelowPrice')
 
-            if priority not in ('alta','media','baja'):
-                priority = 'media'
+                    if priority not in ('alta','media','baja'):
+                        priority = 'media'
 
-            def euros_to_cents(v):
-                v = (v or '').strip()
-                if not v: return None
-                return _to_cents_from_str(v.replace('€',''))
+                    def euros_to_cents(v):
+                        v = (v or '').strip()
+                        if not v: return None
+                        return _to_cents_from_str(v.replace('€',''))
 
-            alert_below_cents = euros_to_cents(alert_below_price)
-            alert_pct = float(alert_drop_percent) if alert_drop_percent else None
+                    alert_below_cents = euros_to_cents(alert_below_price)
+                    alert_pct = float(alert_drop_percent) if alert_drop_percent else None
 
-            if product_name:
-                with conn.cursor() as c:
-                    c.execute("""
-                        INSERT INTO wishlist
-                            (product_name, product_link, notes, size, created_by, created_at,
-                            is_purchased, priority, is_gift,
-                            track_price, alert_drop_percent, alert_below_cents)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                    """, (product_name, product_link, notes, size, user, now_madrid_str(),
-                        False, priority, is_gift, track_price, alert_pct, alert_below_cents))
-                    conn.commit()
-                flash("Producto añadido 🛍️", "success")
-                send_discord("Wishlist added (compat)", {
-                    "user": user, "name": product_name, "priority": priority,
-                    "is_gift": is_gift, "size": size, "track_price": track_price
-                })
-                broadcast("wishlist_update", {"type": "add"})
-                try:
-                    push_wishlist_notice(user, is_gift)
-                except Exception as e:
-                    print("[push wishlist] ", e)
-            return redirect('/')
+                    # 👉 Solo actuar si realmente es un alta de wishlist
+                    if product_name:
+                        c.execute("""
+                            INSERT INTO wishlist
+                                (product_name, product_link, notes, size, created_by, created_at,
+                                is_purchased, priority, is_gift,
+                                track_price, alert_drop_percent, alert_below_cents)
+                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        """, (product_name, product_link, notes, size, user, now_madrid_str(),
+                            False, priority, is_gift, track_price, alert_pct, alert_below_cents))
+                        conn.commit()
+
+                        flash("Producto añadido 🛍️", "success")
+                        send_discord("Wishlist added (compat)", {
+                            "user": user, "name": product_name, "priority": priority,
+                            "is_gift": is_gift, "size": size, "track_price": track_price
+                        })
+                        broadcast("wishlist_update", {"type": "add"})
+                        try:
+                            push_wishlist_notice(user, is_gift)
+                        except Exception as e:
+                            print("[push wishlist] ", e)
+
+                        # Responder acorde al tipo de petición
+                        if request.is_json or request.headers.get('Accept','').startswith('application/json'):
+                            return jsonify({"ok": True})
+                        return redirect('/')
+                    # Si NO hay product_name, seguimos con el resto de handlers sin devolver nada.
+
 
 
             # INTIMIDAD
@@ -2041,8 +2053,6 @@ def index():
             media_watched = c.fetchall()
 
 
-
-            wl_rows = c.fetchall()
 
         # --- Procesamiento Python *fuera* del cursor ---
         # Respuestas
@@ -2177,6 +2187,10 @@ def delete_travel_photo():
     finally:
         if 'conn' in locals():
             conn.close()
+
+
+
+            
 
 @app.route('/toggle_travel_status', methods=['POST'])
 def toggle_travel_status():

@@ -1180,6 +1180,86 @@
 .admin-icon { top: 92px; } /* 30px (margen superior) + 50px (alto del icono) + 12px (separación) */
 
 
+/* ===== NAVBAR pegajoso (mismo look & feel del sitio) ===== */
+.app-nav{
+  position: sticky; top: 0; z-index: 1200;
+  display: flex; gap: 10px; align-items: center; justify-content: center;
+  padding: 10px; margin: 0 0 16px 0;
+  background: linear-gradient(135deg, rgba(232,67,147,.10), rgba(162,155,254,.10));
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255,255,255,.6);
+  box-shadow: 0 10px 24px rgba(0,0,0,.06);
+  border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;
+}
+.app-nav .nav-btn{
+  border: 1px solid #eee; background:#fff; color:#444; cursor:pointer;
+  padding: 10px 14px; border-radius: 999px; font-weight:800; letter-spacing:.2px;
+  display:flex; align-items:center; gap:8px; box-shadow:0 8px 18px rgba(0,0,0,.06);
+}
+.app-nav .nav-btn[aria-current="page"]{
+  color:#fff; border-color:transparent;
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+  box-shadow: 0 12px 28px rgba(232,67,147,.28);
+}
+.app-nav .spacer{ flex:1 }
+
+/* ===== Pantallas: por defecto mostramos todo (compat), el router oculta ===== */
+.section[hidden]{ display:none !important; }
+
+
+
+
+/* Navbar móvil = solo emojis/íconos, centrados */
+@media (max-width: 768px){
+  .app-nav { position: sticky; top: 0; z-index: 1200; }
+  .app-nav .nav-btn{
+    width: 52px; height: 52px;
+    padding: 0;
+    border-radius: 50%;
+    justify-content: center;
+  }
+  .app-nav .nav-btn span{ display: none !important; }
+  .app-nav .nav-btn i{
+    font-size: 20px;
+    line-height: 1;
+    margin: 0;
+  }
+}
+
+
+/* Botones flotantes / móvil */
+@media (max-width: 768px){
+  /* Cerrar sesión: botón redondo abajo-derecha, solo icono */
+  .logout{
+    position: fixed; right: 14px; bottom: 14px;
+    top: auto; margin: 0;
+    width: 52px; height: 52px; border-radius: 50%;
+    padding: 0; gap: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0; /* oculta el texto */
+  }
+  .logout i{ font-size: 20px; }
+
+  /* Ajustes / Admin: columna izquierda bajo el navbar */
+  .settings-icon{
+    position: fixed; left: 16px; top: 72px;
+    width: 48px; height: 48px; border-radius: 50%;
+  }
+  .admin-icon{ left: 16px; top: 128px; } /* debajo del de ajustes */
+
+  /* Presencia, compacto junto a ajustes */
+  .presence-chip{
+    top: 72px; left: 74px;
+    padding: 6px 8px; border-radius: 999px;
+  }
+  .presence-name{ display: none; }  /* ya lo tenías, mantengo */
+}
+
+/* Desktop: sin cambios “raros” */
+@media (min-width: 769px){
+  .logout{ font-size: inherit; } /* asegura que el texto se vea normal en desktop */
+}
+
 
     </style>
 </head>
@@ -1282,9 +1362,20 @@
 {% else %}
 
       <a href="/logout" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
+      <!-- NAVBAR -->
+<nav class="app-nav" id="appNav" role="navigation" aria-label="Secciones">
+  <button class="nav-btn" data-screen="home"><i class="fas fa-home"></i><span>Inicio</span></button>
+  <button class="nav-btn" data-screen="pregunta"><i class="fas fa-question-circle"></i><span>Pregunta</span></button>
+  <button class="nav-btn" data-screen="wishlist"><i class="fas fa-gift"></i><span>Wishlist</span></button>
+  <button class="nav-btn" data-screen="viajes"><i class="fas fa-plane"></i><span>Viajes</span></button>
+  <button class="nav-btn" data-screen="horarios"><i class="fas fa-calendar-alt"></i><span>Horarios</span></button>
+  <button class="nav-btn" data-screen="intimidad"><i class="fas fa-heart"></i><span>Intimidad</span></button>
+  <div class="spacer"></div>
+  <button class="nav-btn" data-screen="perfil"><i class="fas fa-user"></i><span>Perfil</span></button>
+</nav>
+
       <!-- BANNER -->
-      <div class="section banner animate-in">
-        {% if banner_file %}
+<div class="section banner animate-in" data-screen="home">        {% if banner_file %}
           <img src="{{ banner_file }}" alt="Banner">
         {% else %}
           <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 450'%3E%3Crect width='1200' height='450' fill='%23ffe8f3'/%3E%3C/svg%3E" alt="Banner por defecto">
@@ -1404,7 +1495,7 @@
       </div>
 
      <!-- Contadores -->
-<div class="section animate-in delay-1">
+<div class="section animate-in delay-1" data-screen="home">
   <h3>Nosotros</h3>
   <div class="counters">
     <div class="counter-item">
@@ -1435,7 +1526,7 @@
 
 
       <!-- INTIMIDAD (discreto) -->
-      <div class="section animate-in">
+<div class="section animate-in" data-screen="intimidad">
         <h3>Intimidad <small style="font-size:.9rem; opacity:.7;">(privado)</small></h3>
         {% if not intim_unlocked %}
           <p>Este módulo está oculto. Introduce el PIN para verlo.</p>
@@ -1574,7 +1665,7 @@
       </div>
 
       <!-- Mapa de Distancia -->
-      <div class="section animate-in delay-2">
+<div class="section animate-in delay-2" data-screen="home">
         <h3>Distancia</h3>
         <p>Cuánta distancia hay entre nosotros.</p>
 
@@ -1618,7 +1709,7 @@
       </div>
 
       <!-- Horarios -->
-      <div class="section animate-in delay-2">
+<div class="section animate-in delay-2" data-screen="horarios">
         <h3>Nuestros Horarios</h3>
         <p>Nuestros horarios y activiades (editables).</p>
         <a href="{{ url_for('schedule_page') }}">
@@ -1629,7 +1720,7 @@
       </div>
 
       <!-- Pregunta diaria -->
-<div class="section animate-in delay-2">
+<div class="section animate-in delay-2" data-screen="pregunta">
   <h3>Pregunta del día</h3>
 
   <div class="dq-countdown">
@@ -1779,7 +1870,7 @@
 
 
 <!-- Lista de deseos -->
-<div class="section animate-in delay-3">
+<div class="section animate-in delay-3" data-screen="wishlist">
   <h3>Nuestra Lista de Deseos</h3>
   <p>Cosas que nos gustaría tener o regalarnos mutuamente.</p>
 
@@ -2037,7 +2128,7 @@
 
 
       <!-- Viajes -->
-      <div class="section animate-in delay-4">
+<div class="section animate-in delay-4" data-screen="viajes">
         <h3>Nuestros Viajes</h3>
         <p>Lugares que hemos visitado y destinos que soñamos conocer juntos.</p>
 
@@ -3564,6 +3655,157 @@ function humanizeAgo(seconds){
   const d = Math.floor(h/24); h = h % 24;
   return `hace ${d} d${h?` ${h} h`:''}`;
 }
+
+/* ========= Router de pantallas sin tocar tu HTML =========
+   - HOME:   solo Banner + "Nosotros" (días)
+   - Las demás pestañas muestran su sección correspondiente.
+   - Asigna IDs a secciones detectando el <h3> para no editar plantillas.
+*/
+(function(){
+  if (!{{ ('true' if session.username else 'false')|safe }}) return; // si no está logueado, nada
+
+  // 1) Etiquetamos secciones por título para poder mostrarlas/ocultarlas
+  function tagByTitle(textStarts, id){
+    const secs = Array.from(document.querySelectorAll('.section'));
+    for (const s of secs){
+      const h3 = s.querySelector('h3');
+      if (!h3) continue;
+      const t = h3.textContent.trim().toLowerCase();
+      if (t.startsWith(textStarts)) { s.id = id; return s; }
+    }
+    return null;
+  }
+  const secBanner   = document.querySelector('.section.banner'); if (secBanner) secBanner.id = 'sec-banner';
+  const secNosotros = tagByTitle('nosotros','sec-nosotros');
+  const secIntim    = tagByTitle('intimidad','sec-intimidad');
+  const secHor      = tagByTitle('nuestros horarios','sec-horarios');
+  const secPreg     = tagByTitle('pregunta del día','sec-pregunta');
+  // “Nuestra Lista de Deseos” / “Lista de deseos”
+  let secWish = tagByTitle('nuestra lista de deseos','sec-wishlist');
+  if (!secWish) secWish = tagByTitle('lista de deseos','sec-wishlist');
+  const secTrips    = tagByTitle('nuestros viajes','sec-viajes');
+
+  const idOrder = ['sec-banner','sec-nosotros','sec-pregunta','sec-wishlist','sec-viajes','sec-horarios','sec-intimidad'];
+  const idToEl = Object.fromEntries(idOrder.map(id => [id, document.getElementById(id)]));
+
+  // 2) Definimos qué va en cada pantalla
+  const SCREENS = {
+    home:      ['sec-banner','sec-nosotros'],
+    pregunta:  ['sec-pregunta'],
+    wishlist:  ['sec-wishlist'],
+    viajes:    ['sec-viajes'],
+    horarios:  ['sec-horarios'],
+    intimidad: ['sec-intimidad']
+  };
+
+  // 3) Mostrar/ocultar respetando tu DOM actual
+  function showScreen(name){
+    // Perfil abre el modal y mantiene la pantalla actual
+    if (name === 'perfil'){
+      const modal = document.getElementById('profileModal');
+      if (modal) modal.style.display = 'block';
+      return;
+    }
+    const keep = new Set(SCREENS[name] || SCREENS.home);
+    // Oculta TODO .section excepto las que tocan
+    Object.entries(idToEl).forEach(([id, el]) => {
+      if (!el) return;
+      el.hidden = !keep.has(id);
+    });
+    // dataset para estilos en home
+    document.body.setAttribute('data-screen', name);
+
+    // Navbar activo
+    document.querySelectorAll('#appNav .nav-btn').forEach(b => {
+      b.setAttribute('aria-current', b.dataset.screen === name ? 'page' : 'false');
+    });
+
+    // Guardar preferencia
+    try { localStorage.setItem('cc_screen', name); } catch(_){}
+
+    // Fix: Leaflet rompe si se inicializa oculto -> invalida tamaño al entrar
+    if (name === 'distancia' && window.map && typeof window.map.invalidateSize === 'function'){
+      setTimeout(() => {
+        try { window.map.invalidateSize(true); } catch (_){}
+        if (typeof window.updateDistanceLine === 'function') window.updateDistanceLine();
+      }, 120);
+    }
+  }
+
+  // 4) Clicks de navbar
+  const nav = document.getElementById('appNav');
+  if (nav){
+    nav.addEventListener('click', (e) => {
+      const btn = e.target.closest('.nav-btn');
+      if (!btn) return;
+      e.preventDefault();
+      const scr = btn.dataset.screen || 'home';
+      // Hash para poder volver con atrás/adelante
+      location.hash = '#/'+scr;
+    });
+  }
+
+  // 5) Enrutado por hash (y recuerda última)
+  function currentFromHash(){
+    const m = (location.hash||'').match(/^#\/([a-z]+)/i);
+    return m ? m[1] : null;
+  }
+  window.addEventListener('hashchange', () => showScreen(currentFromHash() || 'home'));
+
+  // 6) Arranque
+  const initial = currentFromHash() || (()=>{
+    try { return localStorage.getItem('cc_screen'); } catch(_){ return null; }
+  })() || 'home';
+  showScreen(initial);
+})();
+
+
+(function setupRouter(){
+  const btns = document.querySelectorAll('#appNav .nav-btn');
+  const sections = document.querySelectorAll('.section[data-screen]');
+
+  function show(screen){
+    if (screen === 'perfil'){
+      // Abre el modal de perfil en vez de “navegar”
+      document.getElementById('profileModal')?.style.setProperty('display','block');
+      return;
+    }
+    sections.forEach(s => s.hidden = (s.dataset.screen !== screen));
+    btns.forEach(b => b.setAttribute('aria-current', b.dataset.screen === screen ? 'page' : 'false'));
+    try { localStorage.setItem('current_screen', screen); } catch {}
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  btns.forEach(b => b.addEventListener('click', () => show(b.dataset.screen)));
+  // Arranque: última pantalla usada o “home”
+  const initial = (localStorage.getItem('current_screen') || 'home');
+  show(initial);
+})();
+
+
+(function setupRouter(){
+  const btns = document.querySelectorAll('#appNav .nav-btn');
+  const sections = document.querySelectorAll('.section[data-screen]');
+
+  function show(screen){
+    if (screen === 'perfil'){
+      document.getElementById('profileModal')?.style.setProperty('display','block');
+      return;
+    }
+    sections.forEach(s => s.hidden = (s.dataset.screen !== screen));
+    btns.forEach(b => b.setAttribute('aria-current', b.dataset.screen === screen ? 'page' : 'false'));
+    try { localStorage.setItem('current_screen', screen); } catch {}
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Inicializa: oculta todas menos la guardada o 'home'
+  const initial = localStorage.getItem('current_screen') || 'home';
+  sections.forEach(s => s.hidden = (s.dataset.screen !== initial));
+  btns.forEach(b => b.setAttribute('aria-current', b.dataset.screen === initial ? 'page' : 'false'));
+
+  // Clicks
+  btns.forEach(b => b.addEventListener('click', () => show(b.dataset.screen)));
+})();
 
 </script>
 

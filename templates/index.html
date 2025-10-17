@@ -1616,55 +1616,6 @@
     </div>
   </div>
 
-   <!-- MODAL EDITAR MEDIA -->
-
-  <div id="editMediaModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2>Editar título</h2>
-      <span class="close-modal">&times;</span>
-    </div>
-    <div class="modal-body">
-      <form method="POST" action="/media/edit" id="editMediaForm">
-        <input type="hidden" name="id" id="mediaEditId">
-
-        <input type="text" name="title" id="mediaEditTitle" placeholder="Título" required>
-
-        <select name="kind" id="mediaEditKind" required>
-          <option value="movie">Película</option>
-          <option value="show">Serie</option>
-        </select>
-
-        <input type="text" name="platform" id="mediaEditPlatform" placeholder="Plataforma (Netflix, Prime…)" />
-        <input type="url"  name="link" id="mediaEditLink" placeholder="Enlace (opcional)">
-        <textarea name="notes" id="mediaEditNotes" rows="3" placeholder="Notas (opcional)"></textarea>
-
-        <!-- Rating -->
-        <input type="hidden" name="rating" id="mediaEditRating" value="0">
-        <div class="rating" data-target="mediaEditRating" aria-label="Valoración">
-          <i class="fa-star far"></i><i class="fa-star far"></i><i class="fa-star far"></i>
-          <i class="fa-star far"></i><i class="fa-star far"></i>
-        </div>
-
-        <!-- Solo series -->
-        <div id="mediaEditShowFields" style="display:none">
-          <div style="display:grid;gap:10px;grid-template-columns:1fr 1fr;">
-            <input type="number" min="0" name="episodes_total" id="mediaEditEpisodesTotal" placeholder="Episodios totales">
-            <input type="number" min="0" name="episodes_seen"  id="mediaEditEpisodesSeen"  placeholder="Episodios vistos">
-          </div>
-        </div>
-
-        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
-          <input type="checkbox" id="mediaEditWatched" name="is_watched" style="width:auto;">
-          <label for="mediaEditWatched">¿Vista?</label>
-        </div>
-
-        <button type="submit"><i class="fas fa-save"></i> Guardar cambios</button>
-      </form>
-    </div>
-  </div>
-</div>
-
 
       <!-- MODAL PERFIL -->
       <div id="profileModal" class="modal">

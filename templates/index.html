@@ -3479,145 +3479,221 @@ function setupUseMyLocation() {
 // =====================
 // Paginación + Buscador (viajes) – 6 por página
 // =====================
-// Debounce básico
-function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
-
-// Nº de columnas de un grid, incluso si está oculto
-function computeGridColsEvenIfHidden(grid){
-  const cs = getComputedStyle(grid);
-  // 1) Intenta por gridTemplateColumns ya resuelto (cuando está visible)
-  let cols = (cs.gridTemplateColumns || '')
-    .split(' ')
-    .filter(x => x.trim() && x !== 'none').length;
-
-  // 2) Si está oculto o devuelve 0/1, calcula por anchura y min de la CSS (minmax(280px, 1fr) con gap 18px)
-  if (!cols || cols < 1) {
-    const gap = parseFloat(cs.columnGap) || 18;
-    const min = 280; // <-- el min del CSS: minmax(280px, 1fr)
-    const w   = grid.clientWidth || grid.parentElement?.clientWidth || 0;
-    if (w) cols = Math.max(1, Math.floor((w + gap) / (min + gap)));
-    else cols = 1; // último recurso
+function paginateGrid(gridEl, pagerEl, pageSize = 6) {
+  if (!gridEl || !pagerEl) return { goToFirst(){}, refresh(){} };
+  const allCards = Array.from(gridEl.querySelectorAll(':scope > .travel-card'));
+  let emptyMsg = gridEl.querySelector('.no-results');
+  if (!emptyMsg) {
+    emptyMsg = document.createElement('p');
+    emptyMsg.className = 'no-results';
+    emptyMsg.textContent = 'Sin resultados.';
+    emptyMsg.style.display = 'none';
+    emptyMsg.style.gridColumn = '1/-1';
+    gridEl.appendChild(emptyMsg);
   }
+  let current = 1;
+  function getMatched() { return allCards.filter(el => el.dataset.match !== '0'); }
+  function hideAll() { allCards.forEach(el => { el.style.display = 'none'; }); }
+  function makeBtn(label, onClick, opts = {}) {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.className = 'page-btn' + (opts.active ? ' active' : '');
+    if (opts.title) b.title = opts.title;
+    if (opts.disabled) b.disabled = true;
+    if (!opts.disabled && onClick) b.addEventListener('click', onClick);
+    return b;
+  }
+
+
+
+// --- Utils ---
+function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+function countGridColumns(gridEl){
+  const cs = getComputedStyle(gridEl);
+  const cols = cs.gridTemplateColumns?.split(' ').filter(Boolean).length || 1;
   return cols;
 }
 
-// Paginación específica de "media"
-function setupMediaPager(grid, pager){
-  if(!grid || !pager) return null;
+// --- Paginación que rellena filas completas en grids de media ---
+function setupMediaPagination(gridEl, pagerEl){
+  if(!gridEl || !pagerEl) return { refresh(){} };
 
-  let page = 1;
+  let current = 1;
+  let pageSize = 9; // se recalcula
+  let cards = Array.from(gridEl.querySelectorAll(':scope > .media-card'));
 
-  // Sólo tarjetas del grid actual
-  const allCards = Array.from(grid.querySelectorAll(':scope > .media-card'));
 
-  function visibleCards(){
-    return allCards.filter(el => {
-      // No cuentes lo “filtrado” (por búsqueda) ni lo realmente oculto
-      if (el.dataset.match === '0') return false;
-      const st = getComputedStyle(el);
-      return st.display !== 'none' && !el.hidden;
-    });
+    // --- Inicialización de paginadores de Media ---
+    document.addEventListener('DOMContentLoaded', () => {
+    const gToWatch = document.querySelector('#towatch-tab .media-grid');
+    const pToWatch = document.getElementById('media-pager-towatch');
+    const gWatched = document.querySelector('#watched-tab .media-grid');
+    const pWatched = document.getElementById('media-pager-watched');
+
+    // Crea los dos paginadores (si existen los nodos)
+    window.mediaTowatchPager = gToWatch && pToWatch
+      ? setupMediaPagination(gToWatch, pToWatch)
+      : null;
+
+    window.mediaWatchedPager = gWatched && pWatched
+      ? setupMediaPagination(gWatched, pWatched)
+      : null;
+
+    // Útil cuando filtras/ordenas/buscas
+    window.refreshMediaPagination = function () {
+      window.mediaTowatchPager?.refresh();
+      window.mediaWatchedPager?.refresh();
+    };
+  });
+
+  // calcula tamaño de página en múltiplos de columnas (3 filas desktop, 2 móvil/tablet)
+  function computePageSize(){
+    const cols = Math.max(1, countGridColumns(gridEl));
+    const rows = (window.innerWidth >= 992) ? 3 : 2; // 3 filas desktop; 2 en móvil/tablet
+    pageSize = cols * rows;
   }
 
-  function computePageSize(){
-    const cols = computeGridColsEvenIfHidden(grid);
-    const rows = (window.innerWidth >= 992 ? 3 : 2);
-    return Math.max(1, cols * rows); // múltiplo de columnas => sin huecos
+
+
+
+  function renderPager(totalPages){
+    pagerEl.innerHTML = '';
+    const mk = (txt, on, opts={})=>{
+      const b=document.createElement('button');
+      b.textContent=txt;
+      b.className = 'page-btn' + (opts.active?' active':'');
+      if(opts.title) b.title=opts.title;
+      if(opts.disabled){ b.disabled=true; return b; }
+      b.addEventListener('click', on); return b;
+    };
+    pagerEl.appendChild(mk('«', ()=>{ current=1; render(); }, {disabled: current===1, title:'Primera'}));
+    pagerEl.appendChild(mk('‹', ()=>{ current=Math.max(1,current-1); render(); }, {disabled: current===1, title:'Anterior'}));
+    const windowSize = 5;
+    let from = Math.max(1, current - Math.floor(windowSize/2));
+    let to   = Math.min(totalPages, from + windowSize - 1);
+    from = Math.max(1, to - windowSize + 1);
+    for(let p=from; p<=to; p++){
+      pagerEl.appendChild(mk(String(p), ()=>{ current=p; render(); }, {active:p===current}));
+    }
+    pagerEl.appendChild(mk('›', ()=>{ current=Math.min(totalPages,current+1); render(); }, {disabled: current===totalPages, title:'Siguiente'}));
+    pagerEl.appendChild(mk('»', ()=>{ current=totalPages; render(); }, {disabled: current===totalPages, title:'Última'}));
   }
 
   function render(){
-    const pageSize    = computePageSize();
-    const vis         = visibleCards();
-    const total       = vis.length;
-    const totalPages  = Math.max(1, Math.ceil(total / pageSize));
-    page              = Math.min(page, totalPages);
+    computePageSize(); // <- clave: siempre múltiplo de columnas
+    const total = cards.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    if(current > totalPages) current = totalPages;
 
-    // Oculta todas
-    allCards.forEach(el => el.style.display = 'none');
+    // Mostrar solo los de la página actual
+    const start = (current-1)*pageSize, end = current*pageSize;
+    cards.forEach((el,i)=>{ el.style.display = (i>=start && i<end) ? '' : 'none'; });
 
-    // Muestra exactamente el tramo de visibles para esta página
-    const start = (page - 1) * pageSize;
-    vis.slice(start, start + pageSize).forEach(el => { el.style.display = ''; });
-
-    // Paginador
-    pager.innerHTML = '';
-    const btn = (label, on, opts={})=>{
-      const b = document.createElement('button');
-      b.textContent = label;
-      b.className = 'page-btn' + (opts.active ? ' active' : '');
-      if (opts.disabled) b.disabled = true;
-      if (!opts.disabled && on) b.addEventListener('click', on);
-      return b;
-    };
-
-    pager.appendChild(btn('«', ()=>{ page=1; render(); }, {disabled: page===1}));
-    pager.appendChild(btn('‹', ()=>{ page=Math.max(1,page-1); render(); }, {disabled: page===1}));
-
-    for(let i=1;i<=totalPages;i++){
-      pager.appendChild(btn(String(i), ()=>{ page=i; render(); }, {active: i===page}));
-    }
-
-    pager.appendChild(btn('›', ()=>{ page=Math.min(totalPages,page+1); render(); }, {disabled: page===totalPages}));
-    pager.appendChild(btn('»', ()=>{ page=totalPages; render(); }, {disabled: page===totalPages}));
+    // Pager visible solo si hace falta
+    if(totalPages <= 1){ pagerEl.style.display='none'; pagerEl.innerHTML=''; }
+    else { pagerEl.style.display='flex'; renderPager(totalPages); }
   }
 
-  // Redibuja al cambiar ancho/cols
-  const onResize = debounce(render, 120);
+  // Recalcular al redimensionar (cambian columnas -> cambia pageSize)
+  const onResize = debounce(()=>{ 
+    const old = pageSize; 
+    computePageSize(); 
+    if(pageSize !== old) render();
+  }, 120);
   window.addEventListener('resize', onResize);
 
-  // Redibuja cuando cambian columnas aunque no haya resize
-  const ro = new ResizeObserver(onResize);
-  ro.observe(grid);
-
-  render();
-  return {
-    refresh(){ page = 1; render(); },
-    go(p){ page = p; render(); }
-  };
-}
-
-// Inicializa ambos grids (Por ver / Vistas)
-document.addEventListener('DOMContentLoaded', () => {
-  const gToWatch = document.querySelector('#towatch-tab .media-grid');
-  const pToWatch = document.getElementById('media-pager-towatch');
-  const gWatched = document.querySelector('#watched-tab .media-grid');
-  const pWatched = document.getElementById('media-pager-watched');
-
-  window.mediaTowatchPager = (gToWatch && pToWatch) ? setupMediaPager(gToWatch, pToWatch) : null;
-  window.mediaWatchedPager = (gWatched && pWatched) ? setupMediaPager(gWatched, pWatched) : null;
-
-  // Buscador (no ocultes tú las tarjetas; sólo marca data-match y refresca)
-  const q = document.getElementById('media-search');
-  if (q) {
-    q.addEventListener('input', debounce(() => {
-      const needle = q.value.trim().toLowerCase();
-      document.querySelectorAll('.media-grid .media-card').forEach(card => {
-        const hay = [
-          card.dataset.title || '',
-          card.dataset.platform || '',
-          card.dataset.notes || ''
-        ].join(' ').toLowerCase();
-        card.dataset.match = (!needle || hay.includes(needle)) ? '1' : '0';
-      });
-      window.mediaTowatchPager?.refresh();
-      window.mediaWatchedPager?.refresh();
-    }, 150));
+  // API para recontar si añades/eliminás cartas dinámicamente
+  function refresh(){
+    cards = Array.from(gridEl.querySelectorAll(':scope > .media-card'));
+    render();
   }
 
-  // Tabs de “Media”: activa/oculta y recalcula al cambiar
-  document.querySelectorAll('.media-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.media-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.media-content').forEach(c => c.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById(tab.dataset.tab + '-tab')?.classList.add('active');
+  render();
+  return { refresh };
+}
 
-      // Refresca el pager del tab activo (así mide las columnas ya visibles)
-      if (tab.dataset.tab === 'towatch')      window.mediaTowatchPager?.refresh();
-      else if (tab.dataset.tab === 'watched') window.mediaWatchedPager?.refresh();
+
+  function renderPager(totalPages) {
+    pagerEl.innerHTML = '';
+    pagerEl.appendChild(makeBtn('«', () => { current = 1; renderPage(); }, { disabled: current === 1, title: 'Primera' }));
+    pagerEl.appendChild(makeBtn('‹', () => { current = Math.max(1, current - 1); renderPage(); }, { disabled: current === 1, title: 'Anterior' }));
+    const windowSize = 5;
+    let from = Math.max(1, current - Math.floor(windowSize / 2));
+    let to = Math.min(totalPages, from + windowSize - 1);
+    from = Math.max(1, to - windowSize + 1);
+    for (let p = from; p <= to; p++) {
+      pagerEl.appendChild(makeBtn(String(p), () => { current = p; renderPage(); }, { active: p === current }));
+    }
+    pagerEl.appendChild(makeBtn('›', () => { current = Math.min(totalPages, current + 1); renderPage(); }, { disabled: current === totalPages, title: 'Siguiente' }));
+    pagerEl.appendChild(makeBtn('»', () => { current = totalPages; renderPage(); }, { disabled: current === totalPages, title: 'Última' }));
+  }
+  function renderPage() {
+    const matched = getMatched();
+    const total = matched.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    if (current > totalPages) current = totalPages;
+    if (total === 0) {
+      hideAll(); emptyMsg.style.display = ''; pagerEl.style.display = 'none'; pagerEl.innerHTML = ''; return;
+    } else { emptyMsg.style.display = 'none'; }
+    if (totalPages <= 1) {
+      pagerEl.style.display = 'none'; pagerEl.innerHTML = '';
+      hideAll(); matched.forEach(el => { el.style.display = ''; });
+      return;
+    }
+    pagerEl.style.display = 'flex';
+    const start = (current - 1) * pageSize;
+    const end = start + pageSize;
+    hideAll();
+    matched.forEach((el, i) => { el.style.display = (i >= start && i < end) ? '' : 'none'; });
+    renderPager(totalPages);
+  }
+  renderPage();
+  return { goToFirst: () => { current = 1; renderPage(); }, refresh: () => renderPage() };
+}
+let visitedPagerAPI = null;
+let wishlistPagerAPI = null;
+
+function setupTravelPagination() {
+  const visitedGrid = document.querySelector('#visited-tab .travels-grid');
+  const visitedPager = document.getElementById('visited-pager');
+  const wishlistGrid = document.querySelector('#wishlist-travel-tab .travels-grid');
+  const wishlistPager = document.getElementById('wishlist-pager');
+  visitedPagerAPI = paginateGrid(visitedGrid, visitedPager, 6);
+  wishlistPagerAPI = paginateGrid(wishlistGrid, wishlistPager, 6);
+}
+
+function setupTravelSearch(scopeId, inputId, pagerAPI) {
+  const grid = document.querySelector(`#${scopeId} .travels-grid`);
+  const input = document.getElementById(inputId);
+  if (!grid || !input) return;
+
+  const cards = Array.from(grid.querySelectorAll(':scope > .travel-card'));
+  function applyFilter(termRaw) {
+    const term = (termRaw || '').trim().toLowerCase();
+    cards.forEach(card => {
+      const dest = (card.querySelector('.travel-destination')?.textContent || '').toLowerCase();
+      const desc = (card.querySelector('.travel-description')?.textContent || '').toLowerCase();
+      const date = (card.querySelector('.travel-date')?.textContent || '').toLowerCase();
+      const match = term === '' || dest.includes(term) || desc.includes(term) || date.includes(term);
+      card.dataset.match = match ? '1' : '0';
     });
-  });
-});
+    pagerAPI?.goToFirst?.();
+    pagerAPI?.refresh?.();
+  }
+  input.addEventListener('input', () => applyFilter(input.value));
+  applyFilter(input.value);
+}
+function clearTravelSearch(which) {
+  if (which === 'visited') {
+    const i = document.getElementById('visited-search');
+    if (i) { i.value = ''; setupTravelSearch('visited-tab', 'visited-search', visitedPagerAPI); }
+  }
+  if (which === 'wishlist') {
+    const i = document.getElementById('wishlist-search');
+    if (i) { i.value = ''; setupTravelSearch('wishlist-travel-tab', 'wishlist-search', wishlistPagerAPI); }
+  }
+}
+
 
 // =====================
 // DOMContentLoaded
@@ -5042,165 +5118,6 @@ window.addEventListener('scroll', () => {
   // Si al abrir el modal rellenas ratingInput, pinta estrellitas:
   paint(ratingInput.value || '');
 })();
-
-
-(function setupMediaTabs(){
-  const tabs = document.querySelectorAll('.media-tab');
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      tabs.forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.media-content').forEach(c => c.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById(tab.dataset.tab + '-tab')?.classList.add('active');
-      window.refreshMediaPagination?.();
-    });
-  });
-})();
-
-/* 1) Modal de intimidad (faltaba) */
-function openEditIntimModal(id, place, notes){
-  const m = document.getElementById('editIntimModal');
-  if(!m) return;
-  document.getElementById('editEventId').value = id || '';
-  document.getElementById('editIntimPlace').value = place || '';
-  document.getElementById('editIntimNotes').value = notes || '';
-  m.style.display = 'block';
-}
-
-/* 2) Editar respuesta (Pregunta del día) */
-function toggleEdit(who){
-  const form = document.getElementById(`ans-form-${who}`);
-  const text = document.getElementById(`ans-text-${who}`);
-  if(!form || !text) return false;
-  form.style.display = form.style.display === 'none' || !form.style.display ? 'block' : 'none';
-  return false;
-}
-
-/* 3) Navbar: activa pestañas y “Media” como página */
-function setupAppNav(){
-  const buttons = document.querySelectorAll('.app-nav .nav-btn');
-  buttons.forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      buttons.forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-
-      const goto = btn.dataset.goto;
-      // Página “media” usa clase de body
-      if(goto === 'media'){
-        document.body.classList.add('page-media');
-        window.scrollTo({top:0,behavior:'smooth'});
-        return;
-      } else {
-        document.body.classList.remove('page-media');
-      }
-
-      // Desplazar a secciones (añade estos IDs en tus secciones si puedes)
-      const anchors = {
-        home:        'top',
-        question:    'section-question',
-        wishlist:    'section-wishlist',
-        travels:     'section-travels',
-        schedules:   'section-schedules',
-        intim:       'section-intim',
-        profile:     'profileModal'
-      };
-
-      const id = anchors[goto];
-      if(goto === 'profile'){
-        document.getElementById('profileModal')?.style && (document.getElementById('profileModal').style.display='block');
-        return;
-      }
-      if(id === 'top'){ window.scrollTo({top:0, behavior:'smooth'}); return; }
-      const el = document.getElementById(id);
-      if(el){ el.scrollIntoView({behavior:'smooth', block:'start'}); }
-    });
-  });
-}
-
-/* 4) Footer (si quieres que se vea) */
-function ensureFooter(){
-  const f = document.querySelector('.site-footer');
-  if(!f){
-    const footer = document.createElement('footer');
-    footer.className = 'site-footer';
-    footer.innerHTML = '<p>Hecho con 💖 por Christian y Clara</p>';
-    document.body.appendChild(footer);
-  }
-  // Si lo tienes oculto, muéstralo:
-  document.querySelector('.site-footer').style.transform = 'translateY(0)';
-}
-
-/* 5) Paginación simple (sustituye tu función cortada) */
-function setupSimplePager(gridSel, pagerSel, pageSize=6){
-  const grid = document.querySelector(gridSel);
-  const pager = document.querySelector(pagerSel);
-  if(!grid || !pager) return;
-
-  const cards = Array.from(grid.children).filter(el => el.classList.contains('media-card') || el.classList.contains('travel-card') || el.classList.contains('wishlist-card'));
-  if(cards.length === 0) return;
-
-  let page = 1;
-  function render(){
-    const total = Math.ceil(cards.length / pageSize);
-    page = Math.min(page, total);
-    cards.forEach((c, i)=>{
-      const show = i >= (page-1)*pageSize && i < page*pageSize;
-      c.style.display = show ? '' : 'none';
-    });
-    pager.innerHTML = '';
-    for(let i=1;i<=Math.max(total,1);i++){
-      const b = document.createElement('button');
-      b.textContent = i;
-      b.className = 'page-btn' + (i===page ? ' active' : '');
-      b.addEventListener('click', ()=>{ page = i; render(); });
-      pager.appendChild(b);
-    }
-  }
-  render();
-  window.addEventListener('resize', render);
-}
-
-/* 6) Arranque seguro (todo junto) */
-window.addEventListener('DOMContentLoaded', ()=>{
-  // Icono de perfil: usa clase si no tienes #settingsIcon
-  const profileBtn = document.querySelector('.settings-icon,#settingsIcon');
-  const profileModal = document.getElementById('profileModal');
-  if(profileBtn && profileModal){
-    profileBtn.addEventListener('click', ()=> profileModal.style.display='block');
-  }
-
-  // Toggler de contraseña
-  const toggle = document.querySelector('.toggle-pass');
-  const pass = document.getElementById('password');
-  if(toggle && pass){
-    toggle.addEventListener('click', ()=>{
-      pass.type = pass.type === 'password' ? 'text' : 'password';
-      toggle.querySelector('i')?.classList.toggle('fa-eye-slash');
-    });
-  }
-
-  // Inicializaciones varias que ya tenías
-  try{ createHearts(); }catch(e){}
-  try{ setupTabs(); }catch(e){}
-  try{ setupLocationForm(); }catch(e){}
-  try{ setupUseMyLocation(); }catch(e){}
-  try{ setupAppNav(); }catch(e){}
-
-  // Leaflet puede tardar: llama initMap cuando esté disponible
-  if(window.L){ try{ initMap(); }catch(e){} }
-  else { window.addEventListener('load', ()=>{ if(window.L) try{ initMap(); }catch(e){} }); }
-
-  // Paginadores mínimos (medios)
-  setupSimplePager('#towatch-tab .media-grid',  '#media-pager-towatch', 6);
-  setupSimplePager('#watched-tab .media-grid',  '#media-pager-watched', 6);
-
-  // Paginadores mínimos (viajes y wishlist si quieres)
-  setupSimplePager('#visited-tab .travels-grid',   '#visited-pager',   6);
-  setupSimplePager('#wishlist-travel-tab .travels-grid', '#wishlist-pager', 6);
-
-  ensureFooter();
-});
-
 </script>
 
 

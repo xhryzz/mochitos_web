@@ -1332,6 +1332,42 @@
 .settings-icon,
 .admin-icon{ box-shadow: var(--shadow); }
 
+
+
+
+/* ===== Sticky footer (siempre abajo) ===== */
+html, body { height: 100%; }
+
+body{
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh; /* mejor que 100vh en móviles */
+}
+
+.container{
+  flex: 1 0 auto;   /* ocupa el alto disponible */
+}
+
+/* El footer se va al fondo del body */
+.site-footer{
+  margin-top: auto;
+}
+
+/* En móvil: separa un poco del tabbar fijo */
+@media (max-width: 991.98px){
+  .site-footer{
+    margin-bottom: var(--nav-bottom-mobile); /* ya la defines como 64px */
+  }
+}
+
+/* En desktop, alínealo con la sidebar izquierda */
+@media (min-width: 992px){
+  .site-footer{
+    margin-left: var(--nav-left-desktop); /* 76px en tu CSS */
+  }
+}
+
+
     </style>
 </head>
 

@@ -2367,7 +2367,6 @@ body.page-media .section:not([data-section="media"]){
     </div>
   </div>
 </div>
-
 <!-- =========================
      PELÍCULAS & SERIES
      ========================= -->
@@ -2402,10 +2401,16 @@ body.page-media .section:not([data-section="media"]){
            data-platform="{% if m.get('on_netflix') and m.get('on_prime') %}both{% elif m.get('on_netflix') %}netflix{% elif m.get('on_prime') %}prime{% else %}zzz{% endif %}"
            data-link="{{ (m.get('link_url') or '')|e }}"
            data-notes="{{ (m.get('comment') or '')|e }}"
-           data-rating="{{ (m.get('rating') or 0) }}"
-           data-watched="0"
+           data-priority="{{ (m.get('priority') or 'media') }}"
            data-cover="{{ (m.get('cover_url') or '')|e }}"
-           data-created="{{ (m.get('created_at') or '') }}">
+           data-created="{{ (m.get('created_at') or '') }}"
+           <!-- reseñas por usuario (si existen) -->
+           data-rating-me="{{ (m.get('reviews', {}).get(username, {}).get('rating') or m.get('rating_me') or 0) }}"
+           data-rating-other="{{ (m.get('reviews', {}).get(other_user, {}).get('rating') or m.get('rating_other') or 0) }}"
+           data-comment-me="{{ (m.get('reviews', {}).get(username, {}).get('comment') or m.get('comment_me') or '')|e }}"
+           data-comment-other="{{ (m.get('reviews', {}).get(other_user, {}).get('comment') or m.get('comment_other') or '')|e }}"
+           data-avg="{{ (m.get('avg_rating') or m.get('rating') or 0) }}"
+           data-watched="0">
         <div class="media-status badge-wanted">Por ver</div>
 
         <div class="media-head">
@@ -2446,16 +2451,16 @@ body.page-media .section:not([data-section="media"]){
         </div>
 
         <div class="media-actions">
-          <!-- Marcar como vista + abrir modal para rating/comentario -->
+          <!-- Valorar/comentar (modal B) -->
           <button type="button" class="icon-btn" title="Marcar como vista y valorar"
-                  onclick="openEditMedia(this, true)">
+                  onclick="openRateMedia(this)">
             <i class="fas fa-check"></i>
           </button>
 
-          <!-- Editar (título/notas, o marcar vista desde el propio modal) -->
-          <button type="button" class="icon-btn" title="Editar"
-                  onclick="openEditMedia(this, false)">
-            <i class="fas fa-edit"></i>
+          <!-- Editar ficha (modal A) -->
+          <button type="button" class="icon-btn" title="Editar ficha"
+                  onclick="openBasicEditMedia(this)">
+            <i class="fas fa-pen-to-square"></i>
           </button>
 
           {% if m.get('created_by') == username %}
@@ -2477,17 +2482,28 @@ body.page-media .section:not([data-section="media"]){
   <div class="media-content" id="watched-tab">
     <div class="media-grid">
       {% for m in media_watched %}
+      {% set reviews = m.get('reviews') or {} %}
+      {% set avg = m.get('avg_rating') or m.get('rating') or 0 %}
+      {% set my_rating = reviews.get(username, {}).get('rating') or m.get('rating_me') or 0 %}
+      {% set other_rating = reviews.get(other_user, {}).get('rating') or m.get('rating_other') or 0 %}
+      {% set my_comment = reviews.get(username, {}).get('comment') or m.get('comment_me') or (m.get('watched_comment') if m.get('created_by') == username else '') %}
+      {% set other_comment = reviews.get(other_user, {}).get('comment') or m.get('comment_other') %}
       <div class="media-card watched"
            data-id="{{ m.get('id') }}"
            data-title="{{ (m.get('title') or '')|e }}"
            data-kind="{{ (m.get('kind') or 'movie')|e }}"
            data-platform="{% if m.get('on_netflix') and m.get('on_prime') %}both{% elif m.get('on_netflix') %}netflix{% elif m.get('on_prime') %}prime{% else %}zzz{% endif %}"
            data-link="{{ (m.get('link_url') or '')|e }}"
-           data-notes="{{ (m.get('watched_comment') or m.get('comment') or '')|e }}"
-           data-rating="{{ (m.get('rating') or 0) }}"
-           data-watched="1"
+           data-notes="{{ (m.get('comment') or '')|e }}"
+           data-priority="{{ (m.get('priority') or 'media') }}"
            data-cover="{{ (m.get('cover_url') or '')|e }}"
-           data-created="{{ (m.get('watched_at') or m.get('created_at') or '') }}">
+           data-created="{{ (m.get('watched_at') or m.get('created_at') or '') }}"
+           data-rating-me="{{ my_rating }}"
+           data-rating-other="{{ other_rating }}"
+           data-comment-me="{{ (my_comment or '')|e }}"
+           data-comment-other="{{ (other_comment or '')|e }}"
+           data-avg="{{ avg }}"
+           data-watched="1">
         <div class="media-status badge-watched">Vista</div>
 
         <div class="media-head">
@@ -2510,17 +2526,47 @@ body.page-media .section:not([data-section="media"]){
           </a>
         {% endif %}
 
-        <div class="rating readonly" aria-label="Valoración">
+        <!-- Media de ambos -->
+        <div class="rating readonly" aria-label="Valoración media">
           {% for i in range(1,6) %}
-            <i class="fa-star {{ 'fas' if (m.get('rating') or 0) >= i else 'far' }}"></i>
+            <i class="fa-star {{ 'fas' if avg >= i else 'far' }}"></i>
           {% endfor %}
         </div>
 
-        {% if m.get('watched_comment') %}<p class="media-notes">{{ m.get('watched_comment') }}</p>{% endif %}
+        <!-- Chips por usuario -->
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin:6px 0;">
+          {% if my_rating %}
+            <span class="chip">⭐ {{ my_rating }}/5 Tú</span>
+          {% endif %}
+          {% if other_rating %}
+            <span class="chip">⭐ {{ other_rating }}/5 {{ other_user }}</span>
+          {% endif %}
+        </div>
+
+        <!-- Comentarios separados -->
+        <div class="review-duo" style="display:grid; gap:10px;">
+          {% if my_comment %}
+          <div class="answer-item">
+            <div class="user-avatar">
+              {% if profile_pictures.get(username) %}<img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">{% else %}{{ username[0]|upper }}{% endif %}
+            </div>
+            <div><b>Tú:</b> <span class="answer-text">{{ my_comment }}</span></div>
+          </div>
+          {% endif %}
+
+          {% if other_comment %}
+          <div class="answer-item">
+            <div class="user-avatar">
+              {% if profile_pictures.get(other_user) %}<img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">{% else %}{{ other_user[0]|upper }}{% endif %}
+            </div>
+            <div><b>{{ other_user }}:</b> <span class="answer-text">{{ other_comment }}</span></div>
+          </div>
+          {% endif %}
+        </div>
 
         <div class="media-meta">
           <span>Vista: {{ ((m.get('watched_at') or '')|string)[:10] }}</span>
-          <span>⭐ {{ m.get('rating') or 0 }}/5</span>
+          <span>⭐ {{ avg }}/5</span>
         </div>
 
         <div class="media-actions">
@@ -2529,10 +2575,16 @@ body.page-media .section:not([data-section="media"]){
             <button class="icon-btn" title="Marcar como no vista"><i class="fas fa-undo"></i></button>
           </form>
 
-          <!-- Editar rating/comentario (y otros campos) -->
+          <!-- Valorar/comentar (modal B) -->
           <button type="button" class="icon-btn" title="Editar valoración/comentario"
-                  onclick="openEditMedia(this, false)">
-            <i class="fas fa-edit"></i>
+                  onclick="openRateMedia(this)">
+            <i class="fas fa-star"></i>
+          </button>
+
+          <!-- Editar ficha (modal A) -->
+          <button type="button" class="icon-btn" title="Editar ficha"
+                  onclick="openBasicEditMedia(this)">
+            <i class="fas fa-pen-to-square"></i>
           </button>
 
           {% if m.get('created_by') == username %}
@@ -2598,16 +2650,17 @@ body.page-media .section:not([data-section="media"]){
 </div>
 
 
-
-<!-- MODAL EDITAR PELI/SERIE -->
+<!-- MODAL B: Valorar / comentar -->
 <div id="editMediaModal" class="modal">
   <div class="modal-content">
     <div class="modal-header">
-      <h2 id="editMediaHeading">Valorar</h2>
+      <h2 id="editMediaHeading">Valorar / comentar</h2>
       <span class="close-modal">&times;</span>
     </div>
     <div class="modal-body">
-      <form method="POST" action="/media/watch" id="editMediaForm">
+      <!-- Puedes dejar /media/watch si ya lo usas.
+           Recomendado: /media/review para upsert por usuario -->
+      <form method="POST" action="/media/review" id="editMediaForm">
         <input type="hidden" name="id" id="mediaId">
 
         <div class="rating editable" aria-label="Valoración" id="ratingStars">
@@ -2621,12 +2674,12 @@ body.page-media .section:not([data-section="media"]){
         <input type="hidden" name="rating" id="ratingInput" value="0">
 
         <div class="input-wrap">
-          <label>Comentario</label>
+          <label>Tu comentario</label>
           <textarea name="watched_comment" id="mediaComment" rows="3" placeholder="¿Qué tal estuvo?"></textarea>
         </div>
 
         <label class="checkbox" style="display:inline-flex;gap:8px;align-items:center;margin:8px 0 16px">
-          <input type="checkbox" id="markWatched"> Marcar como vista
+          <input type="checkbox" id="markWatched" name="mark_watched"> Marcar como vista
         </label>
 
         <button type="submit"><i class="fas fa-save"></i> Guardar</button>
@@ -2635,6 +2688,136 @@ body.page-media .section:not([data-section="media"]){
   </div>
 </div>
 
+<!-- MODAL A: Editar ficha (título/link/portada/plataformas/prioridad) -->
+<div id="basicEditMediaModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Editar ficha</h2>
+      <span class="close-modal">&times;</span>
+    </div>
+    <div class="modal-body">
+      <form method="POST" action="/media/update" id="basicEditMediaForm">
+        <input type="hidden" name="id" id="basicMediaId">
+
+        <div class="input-wrap">
+          <label>Título</label>
+          <input type="text" name="title" id="basicTitle" required>
+        </div>
+
+        <div class="input-wrap">
+          <label>Portada (URL)</label>
+          <input type="url" name="cover_url" id="basicCover" placeholder="https://…">
+        </div>
+
+        <div class="input-wrap">
+          <label>Enlace</label>
+          <input type="url" name="link_url" id="basicLink" placeholder="https://…">
+        </div>
+
+        <div class="grid2" style="margin:10px 0;">
+          <label class="checkbox"><input type="checkbox" name="on_netflix" id="basicNetflix"> Está en Netflix</label>
+          <label class="checkbox"><input type="checkbox" name="on_prime"   id="basicPrime"> Está en Prime</label>
+        </div>
+
+        <div class="input-wrap">
+          <label>Prioridad</label>
+          <select name="priority" id="basicPriority">
+            <option value="alta">Alta</option>
+            <option value="media">Media</option>
+            <option value="baja">Baja</option>
+          </select>
+        </div>
+
+        <div class="input-wrap">
+          <label>Notas (lista)</label>
+          <textarea name="comment" id="basicNotes" rows="3" placeholder="Notas generales (no es la reseña)"></textarea>
+        </div>
+
+        <button type="submit"><i class="fas fa-save"></i> Guardar ficha</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ===== JS para los dos modales ===== -->
+<script>
+function getCardFromBtn(btn){ return btn.closest('.media-card'); }
+
+/* Pinta estrellas (fas/far) dentro del contenedor dado */
+function paintStars(container, val){
+  if(!container) return;
+  const n = Number(val||0);
+  container.querySelectorAll('.fa-star').forEach((i, idx)=>{
+    i.classList.toggle('fas', idx < n);
+    i.classList.toggle('far',  idx >= n);
+  });
+}
+
+/* Bind click de estrellas una vez */
+(function bindStarsOnce(){
+  const starsEl = document.getElementById('ratingStars');
+  if(!starsEl) return;
+  const inputEl = document.getElementById('ratingInput');
+  starsEl.addEventListener('click', (e)=>{
+    const i = e.target.closest('.fa-star');
+    if(!i) return;
+    const val = Number(i.dataset.val || 0);
+    inputEl.value = val;
+    paintStars(starsEl, val);
+  });
+})();
+
+/* Modal B: Valorar/Comentar (por usuario) */
+window.openRateMedia = function(btn){
+  const card = getCardFromBtn(btn);
+  if(!card) return;
+
+  const modal   = document.getElementById('editMediaModal');
+  const idEl    = document.getElementById('mediaId');
+  const starsEl = document.getElementById('ratingStars');
+  const inputEl = document.getElementById('ratingInput');
+  const textEl  = document.getElementById('mediaComment');
+  const checkEl = document.getElementById('markWatched');
+  const formEl  = document.getElementById('editMediaForm');
+
+  const id       = card.dataset.id;
+  const myRating = Number(card.dataset.ratingMe || 0);
+  const myCom    = card.dataset.commentMe || '';
+  const watched  = card.dataset.watched === '1';
+
+  idEl.value = id || '';
+  inputEl.value = myRating || 0;
+  textEl.value = myCom || '';
+  checkEl.checked = watched;
+
+  // Si todavía usas /media/watch, puedes dejarlo; recomendado /media/review
+  formEl.action = "/media/review";
+
+  paintStars(starsEl, myRating);
+  modal.style.display = 'block';
+};
+
+/* Modal A: Editar ficha (título, portada, enlace, plataformas, prioridad, notas) */
+window.openBasicEditMedia = function(btn){
+  const card = getCardFromBtn(btn);
+  if(!card) return;
+
+  const modal = document.getElementById('basicEditMediaModal');
+
+  document.getElementById('basicMediaId').value = card.dataset.id || '';
+  document.getElementById('basicTitle').value   = card.dataset.title || '';
+  document.getElementById('basicCover').value   = card.dataset.cover || '';
+  document.getElementById('basicLink').value    = card.dataset.link  || '';
+  document.getElementById('basicNotes').value   = card.dataset.notes || '';
+  document.getElementById('basicPriority').value= card.dataset.priority || 'media';
+
+  const plat = (card.dataset.platform || '').toLowerCase();
+  document.getElementById('basicNetflix').checked = plat.includes('netflix') || plat.includes('both');
+  document.getElementById('basicPrime').checked   = plat.includes('prime')   || plat.includes('both');
+
+  modal.style.display = 'block';
+};
+</script>
 
 
       <!-- Viajes -->

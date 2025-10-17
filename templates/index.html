@@ -2341,79 +2341,52 @@ body.page-media .section:not([data-section="media"]){
     <div class="media-grid">
       {% for m in media_to_watch %}
       <div class="media-card"
-           data-created="{{ m['created_at'] or '' }}"
-           data-rating="{{ m['rating'] or 0 }}"
-           data-platform="{{ (m['platform'] or 'zzz')|lower }}"
-           data-title="{{ (m['title'] or '')|lower }}">
+           data-created="{{ (m.get('created_at') or '') }}"
+           data-rating="{{ (m.get('rating') or 0) }}"
+           data-platform="{% if m.get('on_netflix') and m.get('on_prime') %}both{% elif m.get('on_netflix') %}netflix{% elif m.get('on_prime') %}prime{% else %}zzz{% endif %}"
+           data-title="{{ (m.get('title') or '')|lower }}">
         <div class="media-status badge-wanted">Por ver</div>
 
         <div class="media-head">
-          <span class="media-kind {{ 'movie' if m['kind']=='movie' else 'show' }}">
-            {{ 'Película' if m['kind']=='movie' else 'Serie' }}
-          </span>
-          {% if m['platform'] %}
-            <span class="platform-chip"><i class="fas fa-tv"></i> {{ m['platform'] }}</span>
-          {% endif %}
+          <span class="media-kind movie">Título</span>
+          {% if m.get('on_netflix') %}<span class="platform-chip"><i class="fas fa-tv"></i> Netflix</span>{% endif %}
+          {% if m.get('on_prime') %}<span class="platform-chip"><i class="fas fa-tv"></i> Prime</span>{% endif %}
         </div>
 
-        <h3 class="media-title">{{ m['title'] }}</h3>
+        <h3 class="media-title">{{ m.get('title') }}</h3>
 
-        {% if m['link'] %}
-          <a class="media-link" href="{{ m['link'] }}" target="_blank" rel="noopener">
+        {% if m.get('link_url') %}
+          <a class="media-link" href="{{ m.get('link_url') }}" target="_blank" rel="noopener">
             <i class="fas fa-link"></i> Abrir enlace
           </a>
         {% endif %}
 
-        {% if m['kind'] == 'show' %}
-          <div class="progress-row">
-            <span>Episodios: {{ m['episodes_seen'] or 0 }}/{{ m['episodes_total'] or 0 }}</span>
-            <form method="POST" action="/media/progress" class="progress-form">
-              <input type="hidden" name="id" value="{{ m['id'] }}">
-              <button name="op" value="dec" class="icon-btn" title="Restar"><i class="fas fa-minus"></i></button>
-              <button name="op" value="inc" class="icon-btn" title="Sumar"><i class="fas fa-plus"></i></button>
-            </form>
-          </div>
-        {% endif %}
-
-        {% if m['notes'] %}<p class="media-notes">{{ m['notes'] }}</p>{% endif %}
+        {% if m.get('comment') %}<p class="media-notes">{{ m.get('comment') }}</p>{% endif %}
 
         <div class="media-meta">
+          {% set who = m.get('created_by') or '' %}
           <span>
             <div class="user-avatar" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:5px;">
-              {% if profile_pictures.get(m['created_by']) %}
-                <img src="{{ profile_pictures.get(m['created_by']) }}" alt="{{ m['created_by'] }}">
-              {% else %}{{ m['created_by'][0]|upper }}{% endif %}
+              {% if profile_pictures.get(who) %}
+                <img src="{{ profile_pictures.get(who) }}" alt="{{ who }}">
+              {% else %}
+                {{ (who[:1] or '?')|upper }}
+              {% endif %}
             </div>
-            {{ m['created_by'] }}
+            {{ who or '—' }}
           </span>
-          <span>{{ ((m['created_at']|string) or '')[:10] }}</span>
+          <span>{{ (m.get('created_at') or '')[:10] }}</span>
         </div>
 
         <div class="media-actions">
-          <form method="POST" action="/media/toggle">
-            <input type="hidden" name="id" value="{{ m['id'] }}">
+          <form method="POST" action="/media/watch">
+            <input type="hidden" name="id" value="{{ m.get('id') }}">
             <button class="icon-btn" title="Marcar como vista"><i class="fas fa-check"></i></button>
           </form>
 
-          <button class="icon-btn" title="Editar"
-            onclick='openEditMediaModal(
-              {{ m["id"] }},
-              {{ m["title"]|tojson }},
-              {{ m["kind"]|tojson }},
-              {{ (m["platform"] or "")|tojson }},
-              {{ (m["link"] or "")|tojson }},
-              {{ (m["notes"] or "")|tojson }},
-              {{ (m["rating"] or 0)|tojson }},
-              {{ (m["episodes_total"] or 0)|tojson }},
-              {{ (m["episodes_seen"] or 0)|tojson }},
-              false
-            )'>
-            <i class="fas fa-edit"></i>
-          </button>
-
-          {% if m['created_by'] == username %}
+          {% if m.get('created_by') == username %}
           <form method="POST" action="/media/delete" onsubmit="return confirm('¿Eliminar este título?');">
-            <input type="hidden" name="id" value="{{ m['id'] }}">
+            <input type="hidden" name="id" value="{{ m.get('id') }}">
             <button class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button>
           </form>
           {% endif %}
@@ -2431,73 +2404,46 @@ body.page-media .section:not([data-section="media"]){
     <div class="media-grid">
       {% for m in media_watched %}
       <div class="media-card watched"
-           data-created="{{ m['created_at'] or '' }}"
-           data-rating="{{ m['rating'] or 0 }}"
-           data-platform="{{ (m['platform'] or 'zzz')|lower }}"
-           data-title="{{ (m['title'] or '')|lower }}">
+           data-created="{{ (m.get('watched_at') or m.get('created_at') or '') }}"
+           data-rating="{{ (m.get('rating') or 0) }}"
+           data-platform="{% if m.get('on_netflix') and m.get('on_prime') %}both{% elif m.get('on_netflix') %}netflix{% elif m.get('on_prime') %}prime{% else %}zzz{% endif %}"
+           data-title="{{ (m.get('title') or '')|lower }}">
         <div class="media-status badge-watched">Vista</div>
 
         <div class="media-head">
-          <span class="media-kind {{ 'movie' if m['kind']=='movie' else 'show' }}">
-            {{ 'Película' if m['kind']=='movie' else 'Serie' }}
-          </span>
-          {% if m['platform'] %}
-            <span class="platform-chip"><i class="fas fa-tv"></i> {{ m['platform'] }}</span>
-          {% endif %}
+          <span class="media-kind movie">Título</span>
         </div>
 
-        <h3 class="media-title">{{ m['title'] }}</h3>
+        <h3 class="media-title">{{ m.get('title') }}</h3>
 
-        {% if m['link'] %}
-          <a class="media-link" href="{{ m['link'] }}" target="_blank" rel="noopener">
+        {% if m.get('link_url') %}
+          <a class="media-link" href="{{ m.get('link_url') }}" target="_blank" rel="noopener">
             <i class="fas fa-link"></i> Abrir enlace
           </a>
         {% endif %}
 
         <div class="rating readonly" aria-label="Valoración">
           {% for i in range(1,6) %}
-            <i class="fa-star {{ 'fas' if (m['rating'] or 0) >= i else 'far' }}"></i>
+            <i class="fa-star {{ 'fas' if (m.get('rating') or 0) >= i else 'far' }}"></i>
           {% endfor %}
         </div>
 
-        {% if m['kind'] == 'show' %}
-          <div class="progress-row muted">
-            <span>Episodios vistos: {{ m['episodes_seen'] or 0 }}/{{ m['episodes_total'] or 0 }}</span>
-          </div>
-        {% endif %}
-
-        {% if m['notes'] %}<p class="media-notes">{{ m['notes'] }}</p>{% endif %}
+        {% if m.get('watched_comment') %}<p class="media-notes">{{ m.get('watched_comment') }}</p>{% endif %}
 
         <div class="media-meta">
-          <span>Vista: {{ ((m['watched_at'] or m['created_at'])|string)[:10] }}</span>
-          <span>⭐ {{ m['rating'] or 0 }}/5</span>
+          <span>Vista: {{ ((m.get('watched_at') or '')|string)[:10] }}</span>
+          <span>⭐ {{ m.get('rating') or 0 }}/5</span>
         </div>
 
         <div class="media-actions">
-          <form method="POST" action="/media/toggle">
-            <input type="hidden" name="id" value="{{ m['id'] }}">
+          <form method="POST" action="/media/unwatch">
+            <input type="hidden" name="id" value="{{ m.get('id') }}">
             <button class="icon-btn" title="Marcar como no vista"><i class="fas fa-undo"></i></button>
           </form>
 
-          <button class="icon-btn" title="Editar"
-            onclick='openEditMediaModal(
-              {{ m["id"] }},
-              {{ m["title"]|tojson }},
-              {{ m["kind"]|tojson }},
-              {{ (m["platform"] or "")|tojson }},
-              {{ (m["link"] or "")|tojson }},
-              {{ (m["notes"] or "")|tojson }},
-              {{ (m["rating"] or 0)|tojson }},
-              {{ (m["episodes_total"] or 0)|tojson }},
-              {{ (m["episodes_seen"] or 0)|tojson }},
-              true
-            )'>
-            <i class="fas fa-edit"></i>
-          </button>
-
-          {% if m['created_by'] == username %}
+          {% if m.get('created_by') == username %}
           <form method="POST" action="/media/delete" onsubmit="return confirm('¿Eliminar este título?');">
-            <input type="hidden" name="id" value="{{ m['id'] }}">
+            <input type="hidden" name="id" value="{{ m.get('id') }}">
             <button class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button>
           </form>
           {% endif %}
@@ -2520,50 +2466,35 @@ body.page-media .section:not([data-section="media"]){
             <label>Título</label>
             <input type="text" name="title" required>
           </div>
-
           <div class="input-wrap">
-            <label>Tipo</label>
-            <select name="kind" id="addKind" required>
-              <option value="movie">Película</option>
-              <option value="show">Serie</option>
-            </select>
-          </div>
-
-          <div class="input-wrap">
-            <label>Plataforma (opcional)</label>
-            <input type="text" name="platform" placeholder="Netflix, HBO Max, Prime…">
-          </div>
-
-          <div class="input-wrap">
-            <label>Enlace (opcional)</label>
-            <input type="url" name="link" placeholder="https://…">
+            <label>Portada (URL, opcional)</label>
+            <input type="url" name="cover_url" placeholder="https://…">
           </div>
         </div>
 
-        <div class="grid2" id="addEpisodesRow" style="display:none">
+        <div class="grid2">
           <div class="input-wrap">
-            <label>Episodios totales</label>
-            <input type="number" name="episodes_total" min="0" value="0">
+            <label>Enlace (opcional)</label>
+            <input type="url" name="link_url" placeholder="https://…">
           </div>
           <div class="input-wrap">
-            <label>Episodios vistos</label>
-            <input type="number" name="episodes_seen" min="0" value="0">
+            <label>Prioridad</label>
+            <select name="priority">
+              <option value="alta">Alta</option>
+              <option value="media" selected>Media</option>
+              <option value="baja">Baja</option>
+            </select>
           </div>
+        </div>
+
+        <div class="grid2">
+          <label class="checkbox"><input type="checkbox" name="on_netflix"> Está en Netflix</label>
+          <label class="checkbox"><input type="checkbox" name="on_prime"> Está en Prime</label>
         </div>
 
         <div class="input-wrap">
           <label>Notas (opcional)</label>
-          <textarea name="notes" rows="3" placeholder="Por qué queremos verla, recordatorios…"></textarea>
-        </div>
-
-        <div class="rating editable" data-target="addRatingInput" aria-label="Valoración opcional">
-          <input type="hidden" name="rating" id="addRatingInput" value="0">
-          <i class="far fa-star" data-v="1"></i>
-          <i class="far fa-star" data-v="2"></i>
-          <i class="far fa-star" data-v="3"></i>
-          <i class="far fa-star" data-v="4"></i>
-          <i class="far fa-star" data-v="5"></i>
-          <span class="rating-help">Pulsa para valorar (opcional)</span>
+          <textarea name="comment" rows="3" placeholder="Por qué queremos verla, recordatorios…"></textarea>
         </div>
 
         <button type="submit"><i class="fas fa-plus"></i> Añadir</button>

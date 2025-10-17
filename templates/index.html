@@ -1236,12 +1236,6 @@
 
 
 
-/* Footer pegado al final con tabbar */
-.site-footer { margin-bottom: 72px; }
-@media (min-width:992px){ .site-footer { margin-left: 76px; margin-bottom: 0; } }
-
-
-
 /* Navbar con Font Awesome: color al activo */
 .app-nav .nav-btn i { font-size: 20px; color: #6b7280; pointer-events: none; }
 .app-nav .nav-btn.active i { color: var(--primary-color); }
@@ -1335,37 +1329,6 @@
 
 
 
-/* ===== Sticky footer (siempre abajo) ===== */
-html, body { height: 100%; }
-
-body{
-  display: flex;
-  flex-direction: column;
-  min-height: 100svh; /* mejor que 100vh en móviles */
-}
-
-.container{
-  flex: 1 0 auto;   /* ocupa el alto disponible */
-}
-
-/* El footer se va al fondo del body */
-.site-footer{
-  margin-top: auto;
-}
-
-/* En móvil: separa un poco del tabbar fijo */
-@media (max-width: 991.98px){
-  .site-footer{
-    margin-bottom: var(--nav-bottom-mobile); /* ya la defines como 64px */
-  }
-}
-
-/* En desktop, alínealo con la sidebar izquierda */
-@media (min-width: 992px){
-  .site-footer{
-    margin-left: var(--nav-left-desktop); /* 76px en tu CSS */
-  }
-}
 
 
     </style>

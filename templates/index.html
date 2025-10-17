@@ -1314,7 +1314,6 @@
   <button class="nav-btn" data-screen="pregunta"><i class="fas fa-question-circle"></i><span>Pregunta</span></button>
   <button class="nav-btn" data-screen="wishlist"><i class="fas fa-gift"></i><span>Wishlist</span></button>
   <button class="nav-btn" data-screen="viajes"><i class="fas fa-plane"></i><span>Viajes</span></button>
-  <button class="nav-btn" data-screen="distancia"><i class="fas fa-route"></i><span>Distancia</span></button>
   <button class="nav-btn" data-screen="horarios"><i class="fas fa-calendar-alt"></i><span>Horarios</span></button>
   <button class="nav-btn" data-screen="intimidad"><i class="fas fa-heart"></i><span>Intimidad</span></button>
   <div class="spacer"></div>
@@ -3626,7 +3625,6 @@ function humanizeAgo(seconds){
   const secBanner   = document.querySelector('.section.banner'); if (secBanner) secBanner.id = 'sec-banner';
   const secNosotros = tagByTitle('nosotros','sec-nosotros');
   const secIntim    = tagByTitle('intimidad','sec-intimidad');
-  const secDist     = tagByTitle('distancia','sec-distancia');
   const secHor      = tagByTitle('nuestros horarios','sec-horarios');
   const secPreg     = tagByTitle('pregunta del día','sec-pregunta');
   // “Nuestra Lista de Deseos” / “Lista de deseos”
@@ -3634,7 +3632,7 @@ function humanizeAgo(seconds){
   if (!secWish) secWish = tagByTitle('lista de deseos','sec-wishlist');
   const secTrips    = tagByTitle('nuestros viajes','sec-viajes');
 
-  const idOrder = ['sec-banner','sec-nosotros','sec-pregunta','sec-wishlist','sec-viajes','sec-distancia','sec-horarios','sec-intimidad'];
+  const idOrder = ['sec-banner','sec-nosotros','sec-pregunta','sec-wishlist','sec-viajes','sec-horarios','sec-intimidad'];
   const idToEl = Object.fromEntries(idOrder.map(id => [id, document.getElementById(id)]));
 
   // 2) Definimos qué va en cada pantalla
@@ -3643,7 +3641,6 @@ function humanizeAgo(seconds){
     pregunta:  ['sec-pregunta'],
     wishlist:  ['sec-wishlist'],
     viajes:    ['sec-viajes'],
-    distancia: ['sec-distancia'],
     horarios:  ['sec-horarios'],
     intimidad: ['sec-intimidad']
   };

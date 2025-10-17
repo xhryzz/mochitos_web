@@ -1882,49 +1882,66 @@ def index():
                     broadcast("travel_update", {"type": "photo_add", "id": int(travel_id)})
                 return redirect('/')
 
-            # 8) Wishlist add (con seguimiento de precio)
-            if request.method == 'POST' and 'product_name' in request.form and 'edit_wishlist_item' not in request.path:
-                product_name = request.form['product_name'].strip()
-                product_link = request.form.get('product_link', '').strip()
-                notes = request.form.get('wishlist_notes', '').strip()
-                product_size = request.form.get('size', '').strip()
-                priority = request.form.get('priority', 'media').strip()
-                is_gift = bool(request.form.get('is_gift'))
+                    # 8) Wishlist add (aceptar form o JSON y nombres antiguos/nuevos)
+        if request.method == 'POST' and 'edit_wishlist_item' not in request.path:
+            data = request.get_json(silent=True) or request.form
 
-                # NUEVO: tracking
-                track_price = bool(request.form.get('track_price'))
-                alert_drop_percent = (request.form.get('alert_drop_percent') or '').strip()
-                alert_below_price  = (request.form.get('alert_below_price')  or '').strip()
+            def g(*keys, default=""):
+                for k in keys:
+                    v = data.get(k)
+                    if v is not None:
+                        return v.strip() if isinstance(v, str) else v
+                return default
 
-                if priority not in ('alta', 'media', 'baja'): priority = 'media'
-                def euros_to_cents(v):
-                    v = (v or '').strip()
-                    if not v: return None
-                    return _to_cents_from_str(v.replace('€',''))
+            # Nombres compatibles
+            product_name = g('product_name', 'productName')
+            product_link = g('product_link', 'url', 'link')
+            notes        = g('wishlist_notes', 'notes', 'description')
+            size         = g('size', 'talla')
+            priority     = (g('priority') or 'media').lower()
+            is_gift_raw  = str(g('is_gift','isGift','gift')).lower()
+            is_gift      = is_gift_raw in ('1','true','on','yes','si','sí')
 
-                alert_below_cents = euros_to_cents(alert_below_price)
-                alert_pct = float(alert_drop_percent) if alert_drop_percent else None
+            # Tracking (compat)
+            track_raw    = str(g('track_price','trackPrice')).lower()
+            track_price  = track_raw in ('1','true','on','yes','si','sí')
+            alert_drop_percent = g('alert_drop_percent','alertDropPercent')
+            alert_below_price  = g('alert_below_price','alertBelowPrice')
 
-                if product_name:
+            if priority not in ('alta','media','baja'):
+                priority = 'media'
+
+            def euros_to_cents(v):
+                v = (v or '').strip()
+                if not v: return None
+                return _to_cents_from_str(v.replace('€',''))
+
+            alert_below_cents = euros_to_cents(alert_below_price)
+            alert_pct = float(alert_drop_percent) if alert_drop_percent else None
+
+            if product_name:
+                with conn.cursor() as c:
                     c.execute("""
-                      INSERT INTO wishlist
-                        (product_name, product_link, notes, size, created_by, created_at,
-                         is_purchased, priority, is_gift,
-                         track_price, alert_drop_percent, alert_below_cents)
-                      VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                    """, (product_name, product_link, notes, product_size, user, now_madrid_str(),
-                          False, priority, is_gift, track_price, alert_pct, alert_below_cents))
-                    conn.commit(); flash("Producto añadido 🛍️", "success")
-                    send_discord("Wishlist added", {
-                        "user": user, "name": product_name, "priority": priority,
-                        "is_gift": is_gift, "size": product_size, "track_price": track_price
-                    })
-                    broadcast("wishlist_update", {"type": "add"})
-                    try:
-                        push_wishlist_notice(user, is_gift)
-                    except Exception as e:
-                        print("[push wishlist] ", e)
-                return redirect('/')
+                        INSERT INTO wishlist
+                            (product_name, product_link, notes, size, created_by, created_at,
+                            is_purchased, priority, is_gift,
+                            track_price, alert_drop_percent, alert_below_cents)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    """, (product_name, product_link, notes, size, user, now_madrid_str(),
+                        False, priority, is_gift, track_price, alert_pct, alert_below_cents))
+                    conn.commit()
+                flash("Producto añadido 🛍️", "success")
+                send_discord("Wishlist added (compat)", {
+                    "user": user, "name": product_name, "priority": priority,
+                    "is_gift": is_gift, "size": size, "track_price": track_price
+                })
+                broadcast("wishlist_update", {"type": "add"})
+                try:
+                    push_wishlist_notice(user, is_gift)
+                except Exception as e:
+                    print("[push wishlist] ", e)
+            return redirect('/')
+
 
             # INTIMIDAD
             if request.method == 'POST' and 'intim_unlock_pin' in request.form:
@@ -2117,7 +2134,8 @@ def index():
                            intim_stats=intim_stats,
                            intim_events=intim_events,
                            media_to_watch=media_to_watch,
-                           media_watched=media_watched
+                           media_watched=media_watched,
+                           wishlist=wishlist_items
                            )
 
 # ======= Rutas REST extra (con broadcast) =======

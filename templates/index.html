@@ -2659,9 +2659,7 @@ body.page-media .section:not([data-section="media"]){
       <span class="close-modal">&times;</span>
     </div>
     <div class="modal-body">
-      <!-- Puedes dejar /media/watch si ya lo usas.
-           Recomendado: /media/review para upsert por usuario -->
-      <form method="POST" action="/media/review" id="editMediaForm">
+      <form method="POST" action="/media/watch" id="editMediaForm">
         <input type="hidden" name="id" id="mediaId">
 
         <div class="rating editable" aria-label="Valoración" id="ratingStars">
@@ -2672,15 +2670,17 @@ body.page-media .section:not([data-section="media"]){
           <i class="fa-star far" data-val="5"></i>
           <span class="rating-help">Haz clic para valorar</span>
         </div>
-        <input type="hidden" name="rating" id="ratingInput" value="0">
+        <!-- vacío = sin nota (mejor que poner 0) -->
+        <input type="hidden" name="rating" id="ratingInput" value="">
 
         <div class="input-wrap">
           <label>Tu comentario</label>
           <textarea name="watched_comment" id="mediaComment" rows="3" placeholder="¿Qué tal estuvo?"></textarea>
         </div>
 
+        <!-- Esta casilla es opcional; el backend /media/watch SIEMPRE marca como vista -->
         <label class="checkbox" style="display:inline-flex;gap:8px;align-items:center;margin:8px 0 16px">
-          <input type="checkbox" id="markWatched" name="mark_watched"> Marcar como vista
+          <input type="checkbox" id="markWatched" name="mark_watched" checked> Marcar como vista
         </label>
 
         <button type="submit"><i class="fas fa-save"></i> Guardar</button>
@@ -2743,28 +2743,34 @@ body.page-media .section:not([data-section="media"]){
 <!-- ===== JS para los dos modales ===== -->
 <script>
 function getCardFromBtn(btn){ return btn.closest('.media-card'); }
-
 /* Pinta estrellas (fas/far) dentro del contenedor dado */
 function paintStars(container, val){
   if(!container) return;
-  const n = Number(val||0);
-  container.querySelectorAll('.fa-star').forEach((i, idx)=>{
+  const n = Number(val || 0);
+  container.querySelectorAll('.fa-star').forEach((i, idx) => {
     i.classList.toggle('fas', idx < n);
     i.classList.toggle('far',  idx >= n);
   });
 }
 
-/* Bind click de estrellas una vez */
+/* Bind click de estrellas (con toggle para quitar) */
 (function bindStarsOnce(){
   const starsEl = document.getElementById('ratingStars');
   if(!starsEl) return;
   const inputEl = document.getElementById('ratingInput');
-  starsEl.addEventListener('click', (e)=>{
+
+  starsEl.addEventListener('click', (e) => {
     const i = e.target.closest('.fa-star');
     if(!i) return;
     const val = Number(i.dataset.val || 0);
-    inputEl.value = val;
-    paintStars(starsEl, val);
+    // si clicas la misma, quita la nota (vacío)
+    if (Number(inputEl.value || 0) === val) {
+      inputEl.value = '';
+      paintStars(starsEl, 0);
+    } else {
+      inputEl.value = String(val);
+      paintStars(starsEl, val);
+    }
   });
 })();
 
@@ -2781,22 +2787,24 @@ window.openRateMedia = function(btn){
   const checkEl = document.getElementById('markWatched');
   const formEl  = document.getElementById('editMediaForm');
 
-  const id       = card.dataset.id;
-  const myRating = Number(card.dataset.ratingMe || 0);
-  const myCom    = card.dataset.commentMe || '';
-  const watched  = card.dataset.watched === '1';
+  const id        = card.dataset.id;
+  const rawRating = card.dataset.ratingMe;                 // <- puede venir vacío
+  const myRating  = rawRating ? Number(rawRating) : 0;     // número para pintar estrellas
+  const myCom     = card.dataset.commentMe || '';
+  const watched   = card.dataset.watched === '1';
 
-  idEl.value = id || '';
-  inputEl.value = myRating || 0;
-  textEl.value = myCom || '';
+  idEl.value      = id || '';
+  inputEl.value   = rawRating ? String(myRating) : '';     // <- VACÍO si no hay nota
+  textEl.value    = myCom;
   checkEl.checked = watched;
 
-  // Si todavía usas /media/watch, puedes dejarlo; recomendado /media/review
-  formEl.action = "/media/review";
+  // usa el endpoint existente (no 404)
+  formEl.action = "/media/watch";
 
   paintStars(starsEl, myRating);
   modal.style.display = 'block';
 };
+
 
 /* Modal A: Editar ficha (título, portada, enlace, plataformas, prioridad, notas) */
 window.openBasicEditMedia = function(btn){
@@ -4968,6 +4976,30 @@ window.addEventListener('scroll', () => {
   });
 })();
 
+(function () {
+  const stars = Array.from(document.querySelectorAll('#ratingStars .fa-star'));
+  const ratingInput = document.getElementById('ratingInput');
+
+  function paint(v) {
+    stars.forEach(s => {
+      const on = Number(s.dataset.val) <= Number(v || 0);
+      s.classList.toggle('fas', on); // sólida
+      s.classList.toggle('far', !on); // borde
+    });
+  }
+
+  stars.forEach(s => {
+    s.addEventListener('click', () => {
+      const v = Number(s.dataset.val);
+      // si clicas de nuevo la misma estrella, “desmarca” (sin nota)
+      ratingInput.value = (Number(ratingInput.value) === v) ? '' : String(v);
+      paint(ratingInput.value);
+    });
+  });
+
+  // Si al abrir el modal rellenas ratingInput, pinta estrellitas:
+  paint(ratingInput.value || '');
+})();
 </script>
 
 

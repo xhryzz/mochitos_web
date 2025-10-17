@@ -1890,9 +1890,10 @@ def index():
                     send_discord("Travel photo added", {"user": user, "travel_id": travel_id})
                     broadcast("travel_update", {"type": "photo_add", "id": int(travel_id)})
                 return redirect('/')
+            
 
-                    # 8) Wishlist add (acepta form o JSON y nombres antiguos/nuevos)
-                if request.method == 'POST' and 'edit_wishlist_item' not in request.path:
+# 8) Wishlist add (acepta form o JSON y nombres antiguos/nuevos)
+            if request.method == 'POST' and 'edit_wishlist_item' not in request.path:
                     data = request.get_json(silent=True) or request.form
 
                     def g(*keys, default=""):
@@ -1952,6 +1953,8 @@ def index():
                             return jsonify({"ok": True})
                         return redirect('/')
                     # Si NO hay product_name, seguimos con el resto de handlers sin devolver nada.
+
+                
 
 
 

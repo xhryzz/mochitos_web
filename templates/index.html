@@ -161,24 +161,6 @@
         .close-modal:hover { color: #e84393; }
         .modal-body { padding: 25px; overflow-y: auto; }
 
-        /* Base: 1 col en móvil */
-.wishlist-grid{ 
-  display:grid; 
-  gap:25px; 
-  grid-template-columns: repeat(1, minmax(0,1fr)); 
-}
-
-/* Tablet: 2 columnas */
-@media (min-width: 768px){
-  .wishlist-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-}
-
-/* Desktop: 3 columnas */
-@media (min-width: 1100px){
-  .wishlist-grid{ grid-template-columns: repeat(3, minmax(0,1fr)); }
-}
-
-
         /* Pregunta del día */
         .question { font-size: 1.4rem; margin-bottom: 20px; color: var(--dark-text); font-weight: 600; line-height: 1.5; padding: 20px; background: rgba(162,155,254,.1); border-radius: 15px; border-left: 5px solid var(--accent-color); }
         .answers { margin-top: 25px; display: flex; flex-direction: column; gap: 15px; }
@@ -1198,78 +1180,6 @@
 .admin-icon { top: 92px; } /* 30px (margen superior) + 50px (alto del icono) + 12px (separación) */
 
 
-/* ===== NAV superior (tabs) ===== */
-.cc-nav{
-  position: sticky; top: 0; z-index: 1001;
-  display: flex; gap: 8px; align-items: center;
-  padding: 8px; margin: 0 0 14px 0;
-  background: rgba(255,255,255,.75);
-  border: 1px solid rgba(255,255,255,.6);
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
-  box-shadow: 0 10px 24px rgba(0,0,0,.08);
-}
-.cc-nav button{
-  border: 0; cursor: pointer;
-  padding: 10px 14px; border-radius: 999px;
-  font-weight: 800; letter-spacing: .2px;
-  background: rgba(232, 67, 147, 0.486);
-  border: 1px solid #eee;
-  display: inline-flex; align-items: center; gap: 8px;
-  transition: transform .15s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
-}
-.cc-nav button:hover{ transform: translateY(-1px); box-shadow: 0 8px 18px rgba(0,0,0,.06); }
-.cc-nav button.active{
-  color: #fff;
-  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-  box-shadow: 0 10px 24px rgba(232,67,147,.35);
-  border-color: transparent;
-}
-
-/* ===== Modo “pantallas” (versión segura) ===== */
-/* Oculta SOLO las secciones que declaran data-screen.
-   Las que no tengan data-screen nunca se ocultan. */
-body[data-screen] .section[data-screen] { display: none; }
-
-/* HOME */
-body[data-screen="home"] .section[data-screen="home"]{ display:block; }
-body[data-screen="home"] .section.banner[data-screen="home"]{ display:block; }
-
-/* Otras pantallas */
-body[data-screen="intim"]    .section[data-screen="intim"],
-body[data-screen="dist"]     .section[data-screen="dist"],
-body[data-screen="horarios"] .section[data-screen="horarios"],
-body[data-screen="dq"]       .section[data-screen="dq"],
-body[data-screen="wish"]     .section[data-screen="wish"],
-body[data-screen="viajes"]   .section[data-screen="viajes"]{ display:block; }
-
-
-
-/* Banner y tarjeta "Nosotros" SOLO en Inicio */
-body[data-screen] .section[data-screen="home"] { 
-  display: none !important; 
-}
-body[data-screen="home"] .section[data-screen="home"] { 
-  display: block !important; 
-}
-
-
-/* Layout base para “sticky footer” */
-html, body { height: 100%; }
-body{
-  display: flex;
-  min-height: 100vh;
-  flex-direction: column;
-}
-.container{ flex: 1 0 auto; }   /* el contenido empuja al footer */
-.site-footer{ margin-top: auto; }/* se queda al fondo incluso con poco contenido */
-
-
-html, body { height: 100%; }
-body { min-height: 100vh; display: flex; flex-direction: column; }
-.container { flex: 1 0 auto; }   /* el contenido ocupa el espacio */
-.site-footer { margin-top: auto; }/* el footer baja hasta el final */
-
 
     </style>
 </head>
@@ -1372,20 +1282,8 @@ body { min-height: 100vh; display: flex; flex-direction: column; }
 {% else %}
 
       <a href="/logout" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
-      <!-- NAVBAR (pantallas) -->
-<nav class="cc-nav" id="ccNav" aria-label="Secciones">
-  <button type="button" data-goto="home"    class="active"><i class="fa-solid fa-house"></i> Inicio</button>
-  <button type="button" data-goto="intim"><i class="fa-solid fa-heart"></i> Intimidad</button>
-  <button type="button" data-goto="dist"><i class="fa-solid fa-route"></i> Distancia</button>
-  <button type="button" data-goto="horarios"><i class="fa-solid fa-calendar-alt"></i> Horarios</button>
-  <button type="button" data-goto="dq"><i class="fa-solid fa-circle-question"></i> Pregunta</button>
-  <button type="button" data-goto="wish"><i class="fa-solid fa-gift"></i> Wishlist</button>
-  <button type="button" data-goto="viajes"><i class="fa-solid fa-plane-departure"></i> Viajes</button>
-</nav>
-
       <!-- BANNER -->
-      <div class="section banner animate-in" data-screen="home">
-
+      <div class="section banner animate-in">
         {% if banner_file %}
           <img src="{{ banner_file }}" alt="Banner">
         {% else %}
@@ -1506,7 +1404,7 @@ body { min-height: 100vh; display: flex; flex-direction: column; }
       </div>
 
      <!-- Contadores -->
-<div class="section animate-in delay-1" data-screen="home">
+<div class="section animate-in delay-1">
   <h3>Nosotros</h3>
   <div class="counters">
     <div class="counter-item">
@@ -1537,8 +1435,7 @@ body { min-height: 100vh; display: flex; flex-direction: column; }
 
 
       <!-- INTIMIDAD (discreto) -->
-      <div class="section animate-in" data-screen="intim">
-
+      <div class="section animate-in">
         <h3>Intimidad <small style="font-size:.9rem; opacity:.7;">(privado)</small></h3>
         {% if not intim_unlocked %}
           <p>Este módulo está oculto. Introduce el PIN para verlo.</p>
@@ -1677,8 +1574,7 @@ body { min-height: 100vh; display: flex; flex-direction: column; }
       </div>
 
       <!-- Mapa de Distancia -->
-      <div class="section animate-in delay-2" data-screen="dist">
-
+      <div class="section animate-in delay-2">
         <h3>Distancia</h3>
         <p>Cuánta distancia hay entre nosotros.</p>
 
@@ -1722,8 +1618,7 @@ body { min-height: 100vh; display: flex; flex-direction: column; }
       </div>
 
       <!-- Horarios -->
-      <div class="section animate-in delay-2" data-screen="horarios">
-
+      <div class="section animate-in delay-2">
         <h3>Nuestros Horarios</h3>
         <p>Nuestros horarios y activiades (editables).</p>
         <a href="{{ url_for('schedule_page') }}">
@@ -1734,8 +1629,7 @@ body { min-height: 100vh; display: flex; flex-direction: column; }
       </div>
 
       <!-- Pregunta diaria -->
-<div class="section animate-in delay-2" data-screen="dq">
-
+<div class="section animate-in delay-2">
   <h3>Pregunta del día</h3>
 
   <div class="dq-countdown">
@@ -1885,8 +1779,7 @@ body { min-height: 100vh; display: flex; flex-direction: column; }
 
 
 <!-- Lista de deseos -->
-<div class="section animate-in delay-3" data-screen="wish">
-
+<div class="section animate-in delay-3">
   <h3>Nuestra Lista de Deseos</h3>
   <p>Cosas que nos gustaría tener o regalarnos mutuamente.</p>
 
@@ -2144,8 +2037,7 @@ body { min-height: 100vh; display: flex; flex-direction: column; }
 
 
       <!-- Viajes -->
-      <div class="section animate-in delay-4" data-screen="viajes">
-
+      <div class="section animate-in delay-4">
         <h3>Nuestros Viajes</h3>
         <p>Lugares que hemos visitado y destinos que soñamos conocer juntos.</p>
 
@@ -2600,18 +2492,6 @@ function initMap() {
   loadSavedLocations();
 }
 
-
-function ensureMapReady(){
-  if (typeof L === 'undefined') return;       // Leaflet aún no cargó
-  if (!window._mapInit){                      // primera vez
-    initMap();
-    window._mapInit = true;
-  } else if (window.map){                     // ya existe -> recalcula
-    setTimeout(() => { map.invalidateSize(); updateDistanceLine(); }, 60);
-  }
-}
-
-
 function updateDistanceLine() {
   if (!map || !christianMarker || !claraMarker) return;
   if (distanceLine) map.removeLayer(distanceLine);
@@ -2622,9 +2502,8 @@ function updateDistanceLine() {
   ).addTo(map);
 
   const group = new L.featureGroup([christianMarker, claraMarker]);
-  map.fitBounds(group.getBounds(), { padding: [40, 40] }); // 👈 padding para que no queden pegados
+  map.fitBounds(group.getBounds().pad(0.2));
 }
-
 
 function updateDistanceInfo() {
   const el = document.getElementById('distanceValue');
@@ -3686,61 +3565,6 @@ function humanizeAgo(seconds){
   return `hace ${d} d${h?` ${h} h`:''}`;
 }
 
-/* ===== Control de pantallas (SPA ultra simple, seguro) ===== */
-(function(){
-  var logged = {{ 'true' if session.username else 'false' }};
-  if(!logged) return;
-
-  const nav = document.getElementById('ccNav');
-  if(!nav) return;
-
-  // Si no hay ninguna sección con data-screen, no activamos el modo pantallas.
-  const hasScreenedSections = !!document.querySelector('.section[data-screen]');
-  if (!hasScreenedSections) return;
-
-  // Si hay secciones “screened” pero no hay una de home, no activamos nada.
-  const hasHome = !!document.querySelector('.section[data-screen="home"]');
-
-function setScreen(name){
-  document.body.dataset.screen = name;
-  nav.querySelectorAll('button[data-goto]').forEach(b=>{
-    const on = b.dataset.goto === name;
-    b.classList.toggle('active', on);
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
-  });
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-
-  // 👇 Asegura el mapa al abrir Distancia
-  if (name === 'dist') ensureMapReady();
-}
-
-
-
-  // Pantalla inicial:
-  // 1) hash, 2) 'home' si existe, 3) no activar nada (fallback)
-  const want = (location.hash||'').slice(1);
-  if (want && document.querySelector(`.section[data-screen="${want}"]`)) {
-    setScreen(want);
-  } else if (hasHome) {
-    setScreen('home');
-  } else {
-    delete document.body.dataset.screen; // no ocultes nada si falta 'home'
-  }
-
-  // clicks
-  nav.querySelectorAll('button[data-goto]').forEach(btn=>{
-    btn.addEventListener('click', ()=> {
-      const to = btn.dataset.goto;
-      if (document.querySelector(`.section[data-screen="${to}"]`)) {
-        setScreen(to);
-        history.replaceState(null,'','#'+to);
-      }
-    });
-  });
-})();
-
-  // Pinta desde el primer milisegundo la pantalla correcta
-  document.body.dataset.screen = (location.hash || '#home').slice(1);
 </script>
 
 

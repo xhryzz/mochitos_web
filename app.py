@@ -506,6 +506,10 @@ def init_db():
         """)
         c.execute("CREATE INDEX IF NOT EXISTS idx_media_watched_prio ON media_items (is_watched, priority, created_at DESC);")
         c.execute("CREATE INDEX IF NOT EXISTS idx_media_watched_at   ON media_items (is_watched, watched_at DESC);")
+        # Guardar reviews por usuario y media calcular medias
+        c.execute("""ALTER TABLE media_items ADD COLUMN IF NOT EXISTS reviews JSONB DEFAULT '{}'::jsonb""")
+        c.execute("""ALTER TABLE media_items ADD COLUMN IF NOT EXISTS avg_rating REAL""")
+
 
 
         # === Preguntas (banco editable por admin) ===
@@ -595,6 +599,38 @@ def _parse_dt(txt: str):
             except Exception:
                 pass
     return dt  # último recurso (naive) — pero ya no restamos naive con aware en tu código
+
+
+def _reviews_dict(v):
+    if isinstance(v, dict): return v
+    if isinstance(v, str) and v.strip():
+        try: return json.loads(v)
+        except Exception: return {}
+    return {}
+
+def _compute_avg_from_reviews(rv: dict) -> float:
+    vals = []
+    for u, obj in (rv or {}).items():
+        try:
+            r = int((obj or {}).get('rating') or 0)
+            if 1 <= r <= 5:
+                vals.append(r)
+        except Exception:
+            pass
+    return round(sum(vals)/len(vals), 1) if vals else 0.0
+
+def _enrich_media_row(row, user):
+    """Devuelve un dict con rating/comment de 'Tú' y del otro ya resueltos."""
+    d = dict(row)
+    rv = _reviews_dict(d.get('reviews') or {})
+    other = other_of(user)
+    def g(u, key): return (rv.get(u) or {}).get(key)
+    d['rating_me']     = int(g(user,  'rating') or 0)
+    d['rating_other']  = int(g(other, 'rating') or 0)
+    d['comment_me']    = g(user,  'comment') or ''
+    d['comment_other'] = g(other, 'comment') or ''
+    d['avg_rating']    = d.get('avg_rating') or 0
+    return d
 
 
 # --- Lógica dependiente de fecha en Madrid ---
@@ -2034,13 +2070,14 @@ def index():
             """)
             wl_rows = c.fetchall()  # <-- IMPORTANTE: justo después del SELECT de wishlist
 
-                       # --- Media: POR VER ---
+          # --- Media: POR VER ---
             c.execute("""
                 SELECT
                 id, title, cover_url, link_url, on_netflix, on_prime,
                 comment, priority,
                 created_by, created_at,
-                rating
+                reviews,            -- NUEVO (JSONB)
+                avg_rating          -- NUEVO (media)
                 FROM media_items
                 WHERE is_watched = FALSE
                 ORDER BY
@@ -2054,7 +2091,9 @@ def index():
             c.execute("""
                 SELECT
                 id, title, cover_url, link_url,
-                rating, watched_comment, watched_at,
+                reviews,            -- NUEVO (JSONB)
+                avg_rating,         -- NUEVO (media)
+                watched_at,
                 created_by
                 FROM media_items
                 WHERE is_watched = TRUE
@@ -2063,6 +2102,52 @@ def index():
             media_watched = c.fetchall()
 
 
+            # Helpers para leer reviews y exponer campos cómodos a la plantilla
+        def _parse_reviews_value(raw):
+            # raw puede venir como dict (jsonb) o str (json)
+            if isinstance(raw, dict):
+                return dict(raw)
+            if isinstance(raw, str) and raw.strip():
+                try:
+                    return json.loads(raw)
+                except Exception:
+                    return {}
+            return {}
+
+        def _norm_rate(v):
+            try:
+                i = int(v)
+                return i if 1 <= i <= 5 else None
+            except Exception:
+                return None
+
+        def enrich_media(rows, me_user):
+            other_user = 'mochita' if me_user == 'mochito' else 'mochito'
+            out = []
+            for r in rows:
+                d = dict(r)  # DictRow -> dict
+                rv = _parse_reviews_value(d.get('reviews'))
+
+                my_r = rv.get(me_user) or {}
+                ot_r = rv.get(other_user) or {}
+
+                d['my_rating']     = _norm_rate(my_r.get('rating'))
+                d['my_comment']    = (my_r.get('comment') or '').strip()
+                d['other_rating']  = _norm_rate(ot_r.get('rating'))
+                d['other_comment'] = (ot_r.get('comment') or '').strip()
+
+                # Compatibilidad con plantillas antiguas:
+                if d.get('rating') is None and d.get('avg_rating') is not None:
+                    d['rating'] = d['avg_rating']              # usa la media como "rating"
+                if d.get('watched_comment') is None and d.get('my_comment'):
+                    d['watched_comment'] = d['my_comment']     # usa tu comentario como "watched_comment"
+
+                out.append(d)
+            return out
+
+        # Enriquecer las dos listas con campos cómodos para la plantilla
+        media_to_watch = enrich_media(media_to_watch, user)
+        media_watched  = enrich_media(media_watched, user)
 
 
         # --- Procesamiento Python *fuera* del cursor ---
@@ -3490,6 +3575,7 @@ def media_mark_watched():
     rating_raw = (request.form.get('rating') or '').strip()
     watched_comment = (request.form.get('watched_comment') or '').strip()
 
+    # rating ∈ {1..5} o None
     rating = None
     if rating_raw.isdigit():
         r = int(rating_raw)
@@ -3503,22 +3589,67 @@ def media_mark_watched():
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
+            # Cargar reviews actuales (JSONB) si existen
+            c.execute("SELECT reviews FROM media_items WHERE id=%s", (mid,))
+            row = c.fetchone()
+            if not row:
+                flash('Elemento no encontrado.', 'error')
+                return redirect('/#pelis')
+
+            raw_reviews = row['reviews'] if isinstance(row, dict) else row[0]
+            rv = {}
+            # Puede venir como dict (psycopg2) o como str; cubrimos ambos casos
+            if isinstance(raw_reviews, dict):
+                rv = dict(raw_reviews)
+            elif isinstance(raw_reviews, str) and raw_reviews.strip():
+                try:
+                    rv = json.loads(raw_reviews)
+                except Exception:
+                    rv = {}
+
+            # Upsert de TU reseña
+            rv[user] = {
+                "rating": rating,                    # puede ser None si no puntúa
+                "comment": watched_comment or ""     # string (incl. vacío)
+            }
+
+            # Recalcular media a partir de todas las reseñas válidas (1..5)
+            vals = []
+            for _, obj in (rv or {}).items():
+                try:
+                    rr = int((obj or {}).get("rating") or 0)
+                    if 1 <= rr <= 5:
+                        vals.append(rr)
+                except Exception:
+                    pass
+            avg = round(sum(vals) / len(vals), 1) if vals else None
+
+            # Guardar: marcamos como vista, fijamos watched_at y escribimos JSONB + avg
             c.execute("""
                 UPDATE media_items
-                SET is_watched = TRUE,
-                    watched_at  = %s,
-                    rating = COALESCE(%s, rating),
-                    watched_comment = NULLIF(%s,'')
-                WHERE id = %s
-            """, (now_madrid_str(), rating, watched_comment, mid))
+                   SET is_watched    = TRUE,
+                       watched_at     = %s,
+                       reviews        = %s::jsonb,
+                       avg_rating     = %s,
+                       -- Campos legacy a NULL para no confundir al front
+                       rating         = NULL,
+                       watched_comment= NULL
+                 WHERE id = %s
+            """, (now_madrid_str(), json.dumps(rv, ensure_ascii=False), avg, mid))
             conn.commit()
-        try: send_discord('Media watched', {'by': user, 'id': int(mid), 'rating': rating})
-        except Exception: pass
+
+        try:
+            send_discord('Media watched', {'by': user, 'id': int(mid), 'rating': rating})
+        except Exception:
+            pass
         flash('Marcado como visto ✅', 'success')
+
     except Exception as e:
         print('[media_mark_watched] ', e)
-        try: conn.rollback()
-        except Exception: pass
+        try:
+            conn.rollback()
+        except Exception:
+            pass
         flash('No se pudo marcar como visto.', 'error')
     finally:
         conn.close()
@@ -3623,6 +3754,7 @@ def media_delete():
         conn.close()
 
     return redirect('/#pelis')
+
 
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1

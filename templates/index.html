@@ -1225,10 +1225,7 @@ body[data-screen="dq"]       .section[data-screen="dq"],
 body[data-screen="wish"]     .section[data-screen="wish"],
 body[data-screen="viajes"]   .section[data-screen="viajes"]{ display:block; }
 
-/* En la pantalla de inicio ocultamos chips/atajos para que quede limpio */
-body[data-screen="home"] #presenceChip,
-body[data-screen="home"] #settingsIcon,
-body[data-screen="home"] .admin-icon{ display:none !important; }
+
 
 /* Banner y tarjeta "Nosotros" SOLO en Inicio */
 body[data-screen] .section[data-screen="home"] { 
@@ -1237,6 +1234,19 @@ body[data-screen] .section[data-screen="home"] {
 body[data-screen="home"] .section[data-screen="home"] { 
   display: block !important; 
 }
+
+
+/* Layout base para “sticky footer” */
+html, body { height: 100%; }
+body{
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+}
+.container{ flex: 1 0 auto; }   /* el contenido empuja al footer */
+.site-footer{ margin-top: auto; }/* se queda al fondo incluso con poco contenido */
+
+
     </style>
 </head>
 
@@ -2576,8 +2586,9 @@ function updateDistanceLine() {
   ).addTo(map);
 
   const group = new L.featureGroup([christianMarker, claraMarker]);
-  map.fitBounds(group.getBounds().pad(0.2));
+  map.fitBounds(group.getBounds(), { padding: [40, 40] }); // 👈 padding para que no queden pegados
 }
+
 
 function updateDistanceInfo() {
   const el = document.getElementById('distanceValue');
@@ -3655,14 +3666,23 @@ function humanizeAgo(seconds){
   const hasHome = !!document.querySelector('.section[data-screen="home"]');
 
   function setScreen(name){
-    document.body.dataset.screen = name;
-    nav.querySelectorAll('button[data-goto]').forEach(b=>{
-      const on = b.dataset.goto === name;
-      b.classList.toggle('active', on);
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.body.dataset.screen = name;
+  nav.querySelectorAll('button[data-goto]').forEach(b=>{
+    const on = b.dataset.goto === name;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // 🗺️ FIX Leaflet cuando se muestra la pestaña
+  if (name === 'dist' && window.map) {
+    setTimeout(() => {
+      map.invalidateSize();      // recalcula tamaño
+      updateDistanceLine();      // vuelve a ajustar el zoom a los marcadores
+    }, 80);                      // pequeño delay para que el DOM ya esté visible
   }
+}
+
 
   // Pantalla inicial:
   // 1) hash, 2) 'home' si existe, 3) no activar nada (fallback)

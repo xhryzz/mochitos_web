@@ -2000,6 +2000,7 @@ def index():
                     END,
                     created_at DESC
             """)
+            wl_rows = c.fetchall()  # <-- IMPORTANTE: justo después del SELECT de wishlist
 
                         # --- Media: POR VER ---
             c.execute("""

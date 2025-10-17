@@ -1406,6 +1406,22 @@
 #media-pager-towatch, #media-pager-watched{ margin-top:12px; }
 
 
+
+
+
+/* ===== Páginas: Media ===== */
+/* Oculto por defecto en Inicio */
+.section[data-section="media"]{ display:none; }
+
+/* Cuando estamos en la página "media" */
+body.page-media .section[data-section="media"]{ display:block; }
+
+/* En "media", ocultamos el resto de secciones del inicio (banner y otras tarjetas) */
+body.page-media .banner,
+body.page-media .section:not([data-section="media"]){
+  display:none !important;
+}
+
     </style>
 </head>
 
@@ -4556,7 +4572,32 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 
 
+ // Navegación simple entre "Inicio" y "Películas/Series"
+  function setupSimplePages(){
+    const btns = document.querySelectorAll('.app-nav .nav-btn');
+    btns.forEach(btn=>{
+      btn.addEventListener('click', () => {
+        // estado visual de la barra
+        btns.forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
 
+        const dest = btn.dataset.goto;
+
+        // Si es "media", activamos la página de películas/series.
+        // Si no, volvemos al inicio.
+        if (dest === 'media') {
+          document.body.classList.add('page-media');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          document.body.classList.remove('page-media');
+        }
+      });
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    setupSimplePages();
+  });
 </script>
 
 

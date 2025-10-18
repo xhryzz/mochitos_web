@@ -1594,6 +1594,59 @@ body.page-media .section:not([data-section="media"]){
 }
 
 
+/* Solo-logo, mini toggles — versión con etiqueta */
+:root{
+  /* ajusta aquí el tamaño general */
+  --brand-size: 52px;  /* ancho del botón/columna */
+  --brand-img: 30px;   /* alto del logo */
+}
+@media (max-width:480px){
+  :root{ --brand-size: 46px; --brand-img: 26px; }
+}
+
+.brand-toggles-min{
+  display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap;
+}
+
+.brand-icon-toggle{ position:relative; }
+
+.brand-icon-toggle input{
+  position:absolute; inset:0; opacity:0; pointer-events:none;
+}
+
+.brand-icon-toggle label{
+  display:inline-flex; flex-direction:column; align-items:center; justify-content:flex-start;
+  gap:6px;
+  width:var(--brand-size); /* columna compacta */
+  height:auto; padding:4px 0;
+  background:transparent; border:0; border-radius:8px; /* sin cuadro */
+  cursor:pointer; transition: transform .12s ease, filter .15s ease;
+}
+
+.brand-icon-toggle label img{
+  height:var(--brand-img); width:auto; display:block;
+  filter: grayscale(100%) opacity(.6);
+  transition: filter .15s ease, transform .12s ease;
+}
+.brand-icon-toggle label:hover img{ transform: translateY(-1px); }
+.brand-icon-toggle input:focus-visible + label{ outline:2px solid var(--accent-color); outline-offset:2px; }
+
+/* Etiqueta visible bajo el icono */
+.brand-caption{
+  font-size:.75rem; line-height:1;
+  font-weight:700; letter-spacing:.2px;
+  color:#8a8fa3;
+  user-select:none;
+}
+
+/* Activo: logo a color + etiqueta con color de marca */
+.brand-icon-toggle input:checked + label img{ filter:none; opacity:1; }
+.brand-icon-toggle input:checked + label .brand-caption{ color:#374151; } /* fallback */
+
+.brand-icon-toggle input:checked + label.netflix .brand-caption{ color:#e50914; }
+.brand-icon-toggle input:checked + label.prime   .brand-caption{ color:#00a8e1; }
+
+
 
     </style>
 </head>
@@ -2768,25 +2821,31 @@ body.page-media .section:not([data-section="media"]){
           </div>
         </div>
 
-        <div class="brand-toggles-min">
-          <!-- Netflix -->
-          <div class="brand-icon-toggle">
-            <input type="checkbox" id="on_netflix" name="on_netflix">
-            <label for="on_netflix" title="Está en Netflix">
-              <img src="{{ url_for('static', filename='icons/Netflix_N.png') }}" alt="Netflix">
-              <span class="sr-only">Está en Netflix</span>
-            </label>
-          </div>
+        <div class="input-wrap">
+          <label style="font-weight:800;">Disponible en</label>
+          <div class="brand-toggles-min" role="group" aria-label="Disponible en plataformas">
+            <!-- Netflix -->
+            <div class="brand-icon-toggle">
+              <input type="checkbox" id="on_netflix" name="on_netflix">
+              <label for="on_netflix" class="netflix" title="Está en Netflix">
+                <img src="{{ url_for('static', filename='icons/Netflix_N.png') }}" alt="Netflix">
+                <span class="brand-caption">Netflix</span>
+                <span class="sr-only">Está en Netflix</span>
+              </label>
+            </div>
         
-          <!-- Prime Video -->
-          <div class="brand-icon-toggle">
-            <input type="checkbox" id="on_prime" name="on_prime">
-            <label for="on_prime" title="Está en Prime Video">
-              <img src="{{ url_for('static', filename='icons/prime_logo.png') }}" alt="Prime Video">
-              <span class="sr-only">Está en Prime Video</span>
-            </label>
+            <!-- Prime Video -->
+            <div class="brand-icon-toggle">
+              <input type="checkbox" id="on_prime" name="on_prime">
+              <label for="on_prime" class="prime" title="Está en Prime Video">
+                <img src="{{ url_for('static', filename='icons/prime_logo.png') }}" alt="Prime Video">
+                <span class="brand-caption">Prime Video</span>
+                <span class="sr-only">Está en Prime Video</span>
+              </label>
+            </div>
           </div>
         </div>
+        
         
         
 

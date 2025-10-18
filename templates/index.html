@@ -1496,6 +1496,274 @@ body.page-media .section:not([data-section="media"]){
   height:18px; width:auto; display:block;
 }
 
+
+
+
+/* ===== Botones de plataforma — Netflix & Prime (pill glass) ===== */
+.platform-group{
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.platform-btn{
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 34px; padding: 0 12px;
+  border-radius: 999px; font-weight: 800; letter-spacing: .2px;
+  text-decoration: none; user-select: none;
+  background: rgba(255,255,255,.86);
+  border: 1px solid rgba(0,0,0,.06);
+  color: #374151;
+  backdrop-filter: blur(8px);
+  box-shadow:
+    0 8px 18px rgba(0,0,0,.08),
+    inset 0 1px 0 rgba(255,255,255,.65);
+  transition: transform .15s ease, box-shadow .2s ease, filter .2s ease, background .2s ease;
+}
+
+.platform-btn img{
+  height: 16px; width: auto; display: block;
+}
+
+.platform-btn .label{
+  font-size: .95rem;
+}
+
+/* Acabado por marca */
+.platform-btn.netflix{
+  border-color: rgba(229,9,20,.30);
+  box-shadow: 0 8px 22px rgba(229,9,20,.16), inset 0 1px 0 rgba(255,255,255,.55);
+}
+.platform-btn.prime{
+  border-color: rgba(15,121,175,.30);
+  box-shadow: 0 8px 22px rgba(15,121,175,.16), inset 0 1px 0 rgba(255,255,255,.55);
+}
+
+/* Hover: boost suave, sin “matar” el logo */
+.platform-btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(0,0,0,.10);
+  filter: saturate(1.02);
+}
+.platform-btn.netflix:hover{
+  box-shadow: 0 14px 34px rgba(229,9,20,.25), inset 0 1px 0 rgba(255,255,255,.6);
+}
+.platform-btn.prime:hover{
+  box-shadow: 0 14px 34px rgba(15,121,175,.25), inset 0 1px 0 rgba(255,255,255,.6);
+}
+
+.platform-btn:active{ transform: translateY(0); filter: brightness(.97); }
+
+/* Compacto en móvil: oculta texto, deja solo el logo */
+@media (max-width: 480px){
+  .platform-btn{ height: 32px; padding: 0 10px; }
+  .platform-btn .label{ display: none; }
+}
+
+
+
+/* ===== Pills de plataforma para los checkboxes del formulario ===== */
+label.checkbox{
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid #eee;
+  background: #fff;
+  color: #374151;
+  font-weight: 800;
+  letter-spacing: .2px;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 8px 18px rgba(0,0,0,.06);
+  transition: transform .15s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
+}
+
+/* Oculta el checkbox pero mantén accesibilidad */
+label.checkbox > input[type="checkbox"]{
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Icono (se añade por CSS) */
+label.checkbox::before{
+  content: "";
+  width: 18px; height: 18px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  display: inline-block;
+  filter: saturate(1.05);
+}
+
+/* Asigna iconos según el input interno (sin cambiar tu HTML) */
+label.checkbox:has(input[name="on_netflix"])::before{
+  background-image: url("{{ url_for('static', filename='icons/netflix.png') }}");
+}
+label.checkbox:has(input[name="on_prime"])::before{
+  background-image: url("{{ url_for('static', filename='icons/prime-video.png') }}");
+}
+
+/* Hover genérico */
+label.checkbox:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(0,0,0,.10);
+}
+
+/* Foco accesible (tecla Tab) */
+label.checkbox:has(input:focus-visible){
+  outline: 3px solid rgba(162,155,254,.35);
+  outline-offset: 2px;
+}
+
+/* Estado activo (checked) */
+label.checkbox:has(input:checked){
+  color: #fff;
+  border-color: transparent;
+  transform: translateY(-1px);
+}
+
+/* Paletas por marca al estar marcado */
+label.checkbox:has(input[name="on_netflix"]:checked){
+  background: linear-gradient(135deg, #e50914, #b20710);
+  box-shadow: 0 14px 34px rgba(229,9,20,.28);
+}
+label.checkbox:has(input[name="on_prime"]:checked){
+  background: linear-gradient(135deg, #0f79af, #0b5f89);
+  box-shadow: 0 14px 34px rgba(15,121,175,.28);
+}
+
+/* Móvil: más compacto */
+@media (max-width: 480px){
+  label.checkbox{ padding: 8px 12px; gap: 8px; }
+  label.checkbox::before{ width: 16px; height: 16px; }
+}
+
+/* Fallback si usas el JS: emula :has(input:checked) */
+label.checkbox.checked{ color:#fff; border-color:transparent; transform: translateY(-1px); }
+label.checkbox:has(input[name="on_netflix"]), label.checkbox.checked:has(*) { /* placeholder para orden */ }
+label.checkbox.checked:has(input[name="on_netflix"]){ background: linear-gradient(135deg, #e50914, #b20710); box-shadow: 0 14px 34px rgba(229,9,20,.28); }
+label.checkbox.checked:has(input[name="on_prime"]){   background: linear-gradient(135deg, #0f79af, #0b5f89); box-shadow: 0 14px 34px rgba(15,121,175,.28); }
+
+/* ===== Pills “estilo Netflix” para on_netflix / on_prime ===== */
+/* Base pill oscura (solo aplica a esos dos) */
+label.checkbox:has(input[name="on_netflix"]),
+label.checkbox:has(input[name="on_prime"]),
+/* Fallback por clases (ver script opcional) */
+label.checkbox.is-netflix,
+label.checkbox.is-prime{
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #141414;                 /* negro Netflix */
+  color: #e5e5e5;
+  border: 1px solid #262626;
+  font-weight: 800; letter-spacing: .2px;
+  cursor: pointer; user-select: none;
+  box-shadow: 0 8px 18px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.04);
+  transition: transform .15s, box-shadow .2s, border-color .2s, color .2s, background .2s;
+}
+
+/* Ocultamos SOLO esos inputs, manteniendo accesibilidad */
+label.checkbox:has(input[name="on_netflix"]) > input[type="checkbox"],
+label.checkbox:has(input[name="on_prime"])   > input[type="checkbox"],
+label.checkbox.is-netflix > input[type="checkbox"],
+label.checkbox.is-prime   > input[type="checkbox"]{
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+}
+
+/* Logo a la izquierda */
+label.checkbox:has(input[name="on_netflix"])::before,
+label.checkbox.is-netflix::before,
+label.checkbox:has(input[name="on_prime"])::before,
+label.checkbox.is-prime::before{
+  content: "";
+  width: 18px; height: 18px;
+  background-size: contain; background-repeat: no-repeat;
+  display: inline-block;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.25));
+}
+label.checkbox:has(input[name="on_netflix"])::before,
+label.checkbox.is-netflix::before{
+  background-image: url("{{ url_for('static', filename='icons/netflix.png') }}");
+}
+label.checkbox:has(input[name="on_prime"])::before,
+label.checkbox.is-prime::before{
+  background-image: url("{{ url_for('static', filename='icons/prime-video.png') }}");
+}
+
+/* Hover: levanta un poco */
+label.checkbox:has(input[name="on_netflix"]):hover,
+label.checkbox:has(input[name="on_prime"]):hover,
+label.checkbox.is-netflix:hover,
+label.checkbox.is-prime:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(0,0,0,.34);
+}
+
+/* Foco accesible (Tab) en color de marca */
+label.checkbox:has(input[name="on_netflix"]:focus-visible){
+  outline: 3px solid rgba(229,9,20,.45);
+  outline-offset: 2px;
+}
+label.checkbox:has(input[name="on_prime"]:focus-visible){
+  outline: 3px solid rgba(15,121,175,.45);
+  outline-offset: 2px;
+}
+/* Fallback focus con clases (ver script) */
+label.checkbox.is-netflix:focus-within{ outline: 3px solid rgba(229,9,20,.45); outline-offset: 2px; }
+label.checkbox.is-prime:focus-within{   outline: 3px solid rgba(15,121,175,.45);  outline-offset: 2px; }
+
+/* Checked: acento de marca (Netflix rojo, Prime azul) */
+label.checkbox:has(input[name="on_netflix"]:checked),
+label.checkbox.is-netflix.is-checked{
+  background: #e50914;                 /* rojo Netflix */
+  color:#fff; border-color:#e50914;
+  box-shadow: 0 14px 34px rgba(229,9,20,.45), 0 0 0 3px rgba(229,9,20,.25);
+}
+label.checkbox:has(input[name="on_prime"]:checked),
+label.checkbox.is-prime.is-checked{
+  background: #0f79af;                 /* azul Prime */
+  color:#fff; border-color:#0f79af;
+  box-shadow: 0 14px 34px rgba(15,121,175,.45), 0 0 0 3px rgba(15,121,175,.25);
+}
+
+/* Mini check a la derecha cuando está activo (sutil) */
+label.checkbox:has(input[name="on_netflix"]:checked)::after,
+label.checkbox:has(input[name="on_prime"]:checked)::after,
+label.checkbox.is-netflix.is-checked::after,
+label.checkbox.is-prime.is-checked::after{
+  content: "✓";
+  font-weight: 900;
+  margin-left: 2px;
+}
+
+/* Compacto en móvil */
+@media (max-width: 480px){
+  label.checkbox:has(input[name="on_netflix"]),
+  label.checkbox:has(input[name="on_prime"]),
+  label.checkbox.is-netflix,
+  label.checkbox.is-prime{
+    padding: 8px 12px; gap: 8px;
+  }
+  label.checkbox:has(input[name="on_netflix"])::before,
+  label.checkbox:has(input[name="on_prime"])::before,
+  label.checkbox.is-netflix::before,
+  label.checkbox.is-prime::before{
+    width: 16px; height: 16px;
+  }
+}
+
+
+
+
+
     </style>
 </head>
 
@@ -2432,16 +2700,25 @@ body.page-media .section:not([data-section="media"]){
 
         <div class="media-head">
           <span class="media-kind movie">Título</span>
-          {% if m.get('on_netflix') %}
-  <span class="platform-chip" aria-label="Netflix">
-    <img src="{{ url_for('static', filename='icons/netflix.png') }}" alt="Netflix" loading="lazy">
-  </span>
-{% endif %}
-{% if m.get('on_prime') %}
-  <span class="platform-chip" aria-label="Prime Video">
-    <img src="{{ url_for('static', filename='icons/prime-video.png') }}" alt="Prime Video" loading="lazy">
-  </span>
-{% endif %}
+          <div class="platform-group">
+  {% if m.get('on_netflix') %}
+    <a class="platform-btn netflix"
+       target="_blank" rel="noopener"
+       href="https://www.netflix.com/search?q={{ (m.get('title') or '')|urlencode }}">
+      <img src="{{ url_for('static', filename='icons/netflix.png') }}" alt="Netflix" loading="lazy">
+      <span class="label">Netflix</span>
+    </a>
+  {% endif %}
+
+  {% if m.get('on_prime') %}
+    <a class="platform-btn prime"
+       target="_blank" rel="noopener"
+       href="https://www.primevideo.com/search?phrase={{ (m.get('title') or '')|urlencode }}">
+      <img src="{{ url_for('static', filename='icons/prime-video.png') }}" alt="Prime Video" loading="lazy">
+      <span class="label">Prime</span>
+    </a>
+  {% endif %}
+</div>
 
 
         </div>
@@ -2535,16 +2812,25 @@ body.page-media .section:not([data-section="media"]){
 
         <div class="media-head">
           <span class="media-kind movie">Título</span>
-          {% if m.get('on_netflix') %}
-  <span class="platform-chip" aria-label="Netflix">
-    <img src="{{ url_for('static', filename='icons/netflix.png') }}" alt="Netflix" loading="lazy">
-  </span>
-{% endif %}
-{% if m.get('on_prime') %}
-  <span class="platform-chip" aria-label="Prime Video">
-    <img src="{{ url_for('static', filename='icons/prime-video.png') }}" alt="Prime Video" loading="lazy">
-  </span>
-{% endif %}
+          <div class="platform-group">
+  {% if m.get('on_netflix') %}
+    <a class="platform-btn netflix"
+       target="_blank" rel="noopener"
+       href="https://www.netflix.com/search?q={{ (m.get('title') or '')|urlencode }}">
+      <img src="{{ url_for('static', filename='icons/netflix.png') }}" alt="Netflix" loading="lazy">
+      <span class="label">Netflix</span>
+    </a>
+  {% endif %}
+
+  {% if m.get('on_prime') %}
+    <a class="platform-btn prime"
+       target="_blank" rel="noopener"
+       href="https://www.primevideo.com/search?phrase={{ (m.get('title') or '')|urlencode }}">
+      <img src="{{ url_for('static', filename='icons/prime-video.png') }}" alt="Prime Video" loading="lazy">
+      <span class="label">Prime</span>
+    </a>
+  {% endif %}
+</div>
 
         </div>
 
@@ -5145,6 +5431,27 @@ window.addEventListener('scroll', () => {
   // Si al abrir el modal rellenas ratingInput, pinta estrellitas:
   paint(ratingInput.value || '');
 })();
+
+document.querySelectorAll('label.checkbox > input[type="checkbox"]').forEach(cb=>{
+  const lab = cb.closest('label.checkbox');
+  const sync = ()=> lab.classList.toggle('checked', cb.checked);
+  cb.addEventListener('change', sync);
+  sync();
+});
+
+
+document.querySelectorAll('label.checkbox > input[name="on_netflix"], label.checkbox > input[name="on_prime"]').forEach(cb=>{
+  const lab = cb.closest('label.checkbox');
+  lab.classList.add(cb.name==='on_netflix' ? 'is-netflix' : 'is-prime');
+  const sync=()=> lab.classList.toggle('is-checked', cb.checked);
+  cb.addEventListener('change', sync);
+  cb.addEventListener('focus', ()=> lab.classList.add('kbd'));
+  cb.addEventListener('blur',  ()=> lab.classList.remove('kbd'));
+  sync();
+});
+
+
+
 </script>
 
 

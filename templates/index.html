@@ -6362,6 +6362,94 @@ function setDistanceBar(km){
     setTimeout(()=> { if (hasCached() && cta) cta.hidden = true; }, 1500);
   });
 })();
+
+
+(function(){
+  // Crea el CTA si no existe
+  let cta = document.getElementById('locationCta');
+  if (!cta){
+    cta = document.createElement('div');
+    cta.id = 'locationCta';
+    cta.innerHTML = `
+      <div class="cta-text">📍 Activa tu ubicación para calcular la distancia en tiempo real.</div>
+      <button id="grantLocationBtn">Activar</button>
+    `;
+    document.body.appendChild(cta);
+  }
+
+  // Estilos inline para que se vea SIEMPRE (por encima del tabbar)
+  Object.assign(cta.style, {
+    position:'fixed', left:'16px', right:'16px',
+    bottom:'96px',                 // 64px tabbar + 16px margen + 16px propio
+    background:'#fff', border:'1px solid #eee', borderRadius:'14px',
+    padding:'12px', display:'flex', alignItems:'center', gap:'12px',
+    zIndex:'99999', boxShadow:'0 12px 28px rgba(0,0,0,.12)'
+  });
+
+  const btn = cta.querySelector('#grantLocationBtn');
+  Object.assign(btn.style, {
+    marginLeft:'auto', border:'0', borderRadius:'10px',
+    padding:'10px 14px', fontWeight:'800',
+    background:'linear-gradient(135deg,#e84393,#a29bfe)', color:'#fff', cursor:'pointer'
+  });
+
+  // Muestra/Oculta según permisos si existe Permissions API; si no, muéstralo
+  function refreshCTA(){
+    if (!(window.isSecureContext || location.hostname==='localhost')){
+      cta.style.display = 'flex';
+      btn.disabled = true; btn.textContent = 'HTTPS requerido';
+      return;
+    }
+    if (!('geolocation' in navigator)){
+      cta.style.display = 'none';
+      return;
+    }
+    if (navigator.permissions && navigator.permissions.query){
+      navigator.permissions.query({name:'geolocation'}).then(st=>{
+        cta.style.display = (st.state === 'granted') ? 'none' : 'flex';
+        st.onchange = ()=> cta.style.display = (st.state === 'granted') ? 'none' : 'flex';
+      }).catch(()=> cta.style.display = 'flex');
+    } else {
+      // Fallback: mostrar si no hay coords cacheadas
+      try{
+        const has = ['mochitos:pos:christian','mochitos:pos:clara'].some(k=>{
+          const v = localStorage.getItem(k); if(!v) return false;
+          const o = JSON.parse(v); return o && typeof o.lat==='number' && typeof o.lon==='number';
+        });
+        cta.style.display = has ? 'none' : 'flex';
+      }catch(e){ cta.style.display = 'flex'; }
+    }
+  }
+
+  // Acción del botón: dispara el prompt del navegador
+  btn.addEventListener('click', ()=>{
+    if (!(window.isSecureContext || location.hostname==='localhost')){
+      window.showToast?.('error','En móvil el permiso SOLO sale en HTTPS o localhost');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(async (pos)=>{
+      // Usa tu función si la tienes (del parche anterior)
+      if (typeof window.setMyPosition === 'function'){
+        await window.setMyPosition(pos.coords.latitude, pos.coords.longitude);
+      } else {
+        // Fallback: guardar algo en cache y recargar
+        const obj = { lat: pos.coords.latitude, lon: pos.coords.longitude, label:'' };
+        try{ localStorage.setItem('mochitos:pos:christian', JSON.stringify(obj)); }catch(e){}
+      }
+      cta.style.display = 'none';
+      window.showToast?.('success','Ubicación activada ✅');
+    }, (err)=>{
+      window.showToast?.('error',
+        err.code===1 ? 'Permiso denegado: permite la ubicación en los ajustes del sitio.' :
+                       'No se pudo obtener tu ubicación: ' + err.message
+      );
+      cta.style.display = 'flex';
+    }, { enableHighAccuracy:true, timeout:10000, maximumAge:30000 });
+  });
+
+  // Al cargar
+  document.addEventListener('DOMContentLoaded', refreshCTA);
+})();
   </script>
 
 

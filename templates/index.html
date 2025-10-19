@@ -5643,6 +5643,90 @@ function sortCards(grid, mode){
   applyFilter();
 })();
 
+// === Buscador automático SOLO por TÍTULO ===
+// 1º prueba "empieza por"; si no hay resultados, cae a "contiene".
+(function mediaTitleSearchAuto(){
+  const old = document.getElementById('media-search');
+  if(!old) return;
+
+  // Elimina el toggle si existiera (de la versión anterior)
+  document.getElementById('media-search-mode')?.remove();
+
+  // Clona el input para limpiar listeners previos
+  const input = old.cloneNode(true);
+  old.replaceWith(input);
+  input.placeholder = 'Buscar por título…';
+
+  // Normalizador: sin tildes, minúsculas
+  const norm = (s) => (s||'')
+    .toString()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().trim();
+
+  const needlesOf = (q) => norm(q).split(/\s+/).filter(Boolean);
+
+  // Contiene: todas las palabras deben aparecer
+  function matchContains(hay, needles){
+    if(needles.length===0) return true;
+    return needles.every(n => hay.includes(n));
+  }
+
+  // Empieza por: el título empieza por la frase completa
+  //   o cada palabra coincide con el inicio de alguna palabra del título
+  function matchStarts(hay, needles){
+    if(needles.length===0) return true;
+    const phrase = needles.join(' ');
+    if(hay.startsWith(phrase)) return true;
+    const words = hay.split(/\s+/);
+    return needles.every(n => words.some(w => w.startsWith(n)));
+  }
+
+  // Aplica el filtro con el modo elegido y devuelve nº de visibles
+  function applyWith(mode){
+    const nls = needlesOf(input.value);
+    let total = 0;
+
+    [
+      ['#towatch-tab .media-grid','towatch'],
+      ['#watched-tab .media-grid','watched']
+    ].forEach(([sel, key])=>{
+      const grid = document.querySelector(sel);
+      if(!grid) return;
+
+      grid.querySelectorAll('.media-card').forEach(card=>{
+        const hay = norm(card.dataset.title || '');
+        const ok = nls.length===0
+          ? true
+          : (mode === 'starts' ? matchStarts(hay, nls) : matchContains(hay, nls));
+        card.style.display = ok ? '' : 'none';
+        if(ok) total++;
+      });
+
+      // Si tienes repaginador, lo llamamos (si no existe, no pasa nada)
+      if(typeof window.rePageMedia === 'function'){
+        window.rePageMedia(key);
+      }
+    });
+
+    return total;
+  }
+
+  function applyFilter(){
+    const q = input.value.trim();
+    if(!q){
+      applyWith('contains'); // vacío = mostrar todo
+      return;
+    }
+    // 1) intenta "empieza por"
+    const hits = applyWith('starts');
+    // 2) si no hay resultados, cae a "contiene"
+    if(hits === 0) applyWith('contains');
+  }
+
+  input.addEventListener('input', applyFilter);
+  // Primera pasada
+  applyFilter();
+})();
 
 </script>
 

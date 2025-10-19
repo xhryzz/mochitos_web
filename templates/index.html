@@ -2176,10 +2176,6 @@ body.page-media .section:not([data-section="media"]){
 <button type="button" class="map-fab" id="toggleMapSize" title="Pantalla completa">
   <i class="fa-solid fa-expand"></i>
 </button>
-<button type="button" class="map-fab" id="swapLocations" title="Intercambiar ubicaciones" style="right: 60px;">
-  <i class="fa-solid fa-shuffle"></i>
-</button>
-
           <div class="distance-info">
             <h4>Distancia entre nosotros</h4>
             <div class="distance-value" id="distanceValue">Cargando...</div>
@@ -2210,16 +2206,7 @@ body.page-media .section:not([data-section="media"]){
             </div>
 
             <!-- 🌍 FORM: Actualizar ubicación (manual o automática) -->
-            <form class="location-form" id="locationForm">
-              <div class="row">
-                <input type="text" id="userLocation" placeholder="Tu ciudad/barrio (opcional si usas el botón)">
-                <button type="button" id="useMyLocationBtn">
-                  <i class="fas fa-location-arrow"></i> Usar mi ubicación
-                </button>
-              </div>
-              <button type="submit"><i class="fas fa-map-marker-alt"></i> Actualizar con texto</button>
-              <small style="opacity:.8; display:block; margin-top:6px;">Consejo: en HTTPS el navegador te permite usar la ubicación real.</small>
-            </form>
+            
           </div>
         </div>
       </div>
@@ -6028,6 +6015,164 @@ function setDistanceBar(km){
 })();
 
 
+
+/* ====== AUTO GEO (solo geolocalización, sin botones) ====== */
+const LOGGED = {{ (username or '')|tojson }};
+const OTHER  = {{ (other_user or '')|tojson }};
+
+let map, christianMarker, claraMarker, distanceLine;
+let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" };
+let claraLocation     = { lat: 37.8882, lng: -4.7794, name: "Córdoba" };
+let watchId = null;
+
+/* Haversine en km */
+function haversine(a, b){
+  const R=6371, toRad=d=>d*Math.PI/180;
+  const dLat=toRad(b.lat-a.lat), dLng=toRad(b.lng-a.lng);
+  const sLat1=toRad(a.lat), sLat2=toRad(b.lat);
+  const h=Math.sin(dLat/2)**2+Math.cos(sLat1)*Math.cos(sLat2)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+
+/* Pinta distancia, barra y línea */
+function renderDistance(){
+  if(!christianLocation || !claraLocation) return;
+  const km = haversine(christianLocation, claraLocation);
+  const val = document.getElementById('distanceValue');
+  const fill = document.getElementById('distanceFill');
+  const chip = document.getElementById('chipDistance');
+  const kmTxt = `${km.toFixed(1)} km`;
+  if(val)  val.textContent = kmTxt;
+  if(chip) chip.innerHTML = `<i class="fa-solid fa-route"></i> ${kmTxt}`;
+  if(fill) fill.style.width = `${Math.min(100, (km/5)*100)}%`; // 0–5 km escala bonita
+
+  // línea entre los dos
+  if(distanceLine){ distanceLine.remove(); }
+  if(map){
+    distanceLine = L.polyline([
+      [christianLocation.lat, christianLocation.lng],
+      [claraLocation.lat,     claraLocation.lng]
+    ], {color:'#e84393', weight:4, opacity:.6}).addTo(map);
+
+    const bounds = L.latLngBounds(
+      [christianLocation.lat, christianLocation.lng],
+      [claraLocation.lat,     claraLocation.lng]
+    );
+    map.fitBounds(bounds, { padding:[30,30] });
+  }
+}
+
+/* Coloca/actualiza markers */
+function upsertMarkers(){
+  if(!map || typeof L==='undefined') return;
+  // Cristian
+  if(!christianMarker){
+    christianMarker = L.marker([christianLocation.lat, christianLocation.lng], { title:'Christian' }).addTo(map);
+  }else{
+    christianMarker.setLatLng([christianLocation.lat, christianLocation.lng]);
+  }
+  // Clara
+  if(!claraMarker){
+    claraMarker = L.marker([claraLocation.lat, claraLocation.lng], { title:'Clara' }).addTo(map);
+  }else{
+    claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
+  }
+  renderDistance();
+}
+
+/* Lógica para asignar MI posición (según usuario logueado) */
+function setMyCoords(lat,lng,acc){
+  const who = (LOGGED||'').toLowerCase();
+  const point = {lat: Number(lat), lng: Number(lng)};
+  if(who === 'mochito' || who === 'christian'){
+    christianLocation = {...christianLocation, ...point, acc};
+    const el = document.getElementById('christianLocation');
+    if(el) el.textContent = `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
+  }else{
+    claraLocation = {...claraLocation, ...point, acc};
+    const el = document.getElementById('claraLocation');
+    if(el) el.textContent = `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
+  }
+  upsertMarkers();
+}
+
+/* (Opcional) trae la última posición de la otra persona desde tu backend */
+async function fetchOtherCoords(){
+  try{
+    const r = await fetch(`/api/other_location?user=${encodeURIComponent(OTHER||'')}`, {cache:'no-store'});
+    if(!r.ok) return;
+    const j = await r.json();
+    if(!j || !j.lat || !j.lng) return;
+    const point = {lat:Number(j.lat), lng:Number(j.lng)};
+    // Decide a quién corresponde “other”
+    const otherIsChristian = (OTHER||'').toLowerCase() === 'mochito' || (OTHER||'').toLowerCase()==='christian';
+    if(otherIsChristian){
+      christianLocation = {...christianLocation, ...point};
+    }else{
+      claraLocation = {...claraLocation, ...point};
+    }
+    upsertMarkers();
+  }catch(e){ /* silenciar */ }
+}
+
+/* Arranca geolocalización continua */
+function startAutoGeolocation(){
+  if(!('geolocation' in navigator)){
+    showToast?.('error','Tu dispositivo no soporta geolocalización');
+    return;
+  }
+  // Permisos: si ya está denegado, avisamos rápido
+  if(navigator.permissions && navigator.permissions.query){
+    navigator.permissions.query({name:'geolocation'}).then(p=>{
+      if(p.state==='denied'){
+        showToast?.('error','Activa el permiso de ubicación para ver la distancia en tiempo real');
+      }
+    }).catch(()=>{});
+  }
+
+  // Observa mi posición y (opcional) la envía al backend
+  try{
+    watchId = navigator.geolocation.watchPosition(async pos=>{
+      const {latitude, longitude, accuracy} = pos.coords;
+      setMyCoords(latitude, longitude, accuracy);
+      // Enviar al backend (ajusta la URL si ya tienes otra ruta)
+      try{
+        await fetch('/api/location', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ lat:latitude, lng:longitude, acc:accuracy })
+        });
+      }catch(_){ /* sin ruido */ }
+    }, err=>{
+      showToast?.('error', 'No se pudo obtener tu ubicación: '+ (err && err.message ? err.message : ''));
+    }, { enableHighAccuracy:true, maximumAge:15000, timeout:10000 });
+  }catch(e){
+    showToast?.('error','Error iniciando geolocalización');
+  }
+
+  // Refresca cada 15 s la ubicación de la otra persona (si hay backend)
+  setInterval(fetchOtherCoords, 15000);
+}
+
+/* Inicializa el mapa (sustituye tu initMap si estaba a medias) */
+function initMap(){
+  const mapEl = document.getElementById('distanceMap');
+  if(!mapEl || typeof L==='undefined') return;
+  map = L.map('distanceMap', { zoomControl:true }).setView([39.5, -3], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+  upsertMarkers();
+}
+
+/* Arranque */
+document.addEventListener('DOMContentLoaded', () => {
+  createHearts?.();
+  initMap();
+  startAutoGeolocation();
+  // primer pull del otro usuario (si lo tienes en backend)
+  fetchOtherCoords();
+});
 </script>
 
 

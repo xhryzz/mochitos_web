@@ -2714,12 +2714,20 @@ body.page-media .section:not([data-section="media"]){
           </a>
         {% endif %}
 
-        <!-- Media de ambos -->
-        <div class="rating readonly" aria-label="Valoración media">
-          {% for i in range(1,6) %}
-            <i class="fa-star {{ 'fas' if avg >= i else 'far' }}"></i>
-          {% endfor %}
-        </div>
+        <!-- Media de ambos (con medias) -->
+<div class="rating readonly" aria-label="Valoración media">
+  {% set av = (avg or 0)|float %}
+  {% for i in range(1, 6) %}
+    {% set diff = av - (i - 1) %}
+    {% if diff >= 1 %}
+      <i class="fas fa-star"></i>
+    {% elif diff >= 0.5 %}
+      <i class="fas fa-star-half-stroke"></i>
+    {% else %}
+      <i class="far fa-star"></i>
+    {% endif %}
+  {% endfor %}
+</div>
 
         <!-- Chips por usuario -->
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin:6px 0;">
@@ -5331,7 +5339,131 @@ document.querySelectorAll('.brand-toggle input').forEach(inp=>{
 
 
 
+// ===== Helpers de orden =====
+function getActiveMediaGrid(){
+  // coge el grid del tab "Por ver" o "Vistas" que esté activo
+  const active = document.querySelector('.media-content.active .media-grid');
+  return active || null;
+}
 
+function parseTs(s){
+  // convierte fecha en timestamp; si no hay, 0
+  const t = Date.parse(s || '');
+  return Number.isFinite(t) ? t : 0;
+}
+
+function platformRank(p){
+  // prioridad: both > netflix > prime > zzz
+  const v = (p || '').toLowerCase();
+  if (v === 'both')    return 0;
+  if (v === 'netflix') return 1;
+  if (v === 'prime')   return 2;
+  return 3; // zzz/otros
+}
+
+function sortCards(grid, mode){
+  if(!grid) return;
+  const cards = Array.from(grid.querySelectorAll('.media-card'));
+  const byRecent = (a,b) => parseTs(b.dataset.created) - parseTs(a.dataset.created);
+  const byRating = (a,b) => {
+    const ra = parseFloat(a.dataset.avg || '0') || 0;
+    const rb = parseFloat(b.dataset.avg || '0') || 0;
+    if (rb !== ra) return rb - ra;
+    // desempate: más reciente primero
+    return byRecent(a,b);
+  };
+  const byPlatform = (a,b) => {
+    const pa = platformRank(a.dataset.platform);
+    const pb = platformRank(b.dataset.platform);
+    if (pa !== pb) return pa - pb;
+    return byRecent(a,b);
+  };
+
+  const cmp = mode === 'rating' ? byRating : mode === 'platform' ? byPlatform : byRecent;
+
+  // Re-orden estable: crea un índice original para no romper empates iguales
+  cards.forEach((c, i) => c.__idx = i);
+  cards.sort((a,b) => {
+    const r = cmp(a,b);
+    return r !== 0 ? r : (a.__idx - b.__idx);
+  });
+
+  // Reinsertar en orden
+  const frag = document.createDocumentFragment();
+  cards.forEach(c => frag.appendChild(c));
+  grid.appendChild(frag);
+}
+
+// ===== UI del sort-toggle =====
+(function setupMediaSort(){
+  const wrap = document.getElementById('media-sort-toggle');
+  if(!wrap) return;
+
+  const slider = wrap.querySelector('.slider');
+  const btns   = Array.from(wrap.querySelectorAll('button'));
+  let mode = (btns.find(b => b.getAttribute('aria-pressed') === 'true')?.dataset.mode) || 'recent';
+
+  function moveSliderTo(btn){
+    if(!slider || !btn) return;
+    const rWrap = wrap.getBoundingClientRect();
+    const rBtn  = btn.getBoundingClientRect();
+    const w  = rBtn.width;
+    const x  = rBtn.left - rWrap.left;
+    slider.style.width = `${w}px`;
+    slider.style.transform = `translateX(${x}px)`;
+  }
+
+  function setActive(btn){
+    btns.forEach(b => {
+      const on = (b === btn);
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    moveSliderTo(btn);
+  }
+
+  function apply(){
+    const grid = getActiveMediaGrid();
+    sortCards(grid, mode);
+  }
+
+  // Clicks
+  wrap.addEventListener('click', (e)=>{
+    const b = e.target.closest('button[data-mode]');
+    if(!b) return;
+    mode = b.dataset.mode;
+    setActive(b);
+    apply();
+  });
+
+  // Al cargar / al cambiar de tab, recoloca slider + aplica sort
+  window.addEventListener('load', ()=>{
+    const current = btns.find(b => b.dataset.mode === mode) || btns[0];
+    setActive(current);
+    apply();
+  });
+  window.addEventListener('resize', ()=>{
+    const current = btns.find(b => b.classList.contains('active'));
+    if(current) moveSliderTo(current);
+  });
+
+  // Si no tienes listeners para tabs de media, añade esto:
+  document.querySelectorAll('.media-tabs .media-tab').forEach(tab=>{
+    tab.addEventListener('click', ()=>{
+      // activar pestaña
+      document.querySelectorAll('.media-tabs .media-tab').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.media-content').forEach(c=>c.classList.remove('active'));
+      tab.classList.add('active');
+      const id = tab.dataset.tab;
+      document.getElementById(id + '-tab')?.classList.add('active');
+
+      // volver a aplicar el orden al nuevo grid visible
+      const current = btns.find(b => b.classList.contains('active')) || btns[0];
+      moveSliderTo(current);
+      apply();
+    });
+  });
+})();
 
 </script>
 

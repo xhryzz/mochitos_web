@@ -5465,6 +5465,70 @@ function sortCards(grid, mode){
   });
 })();
 
+
+(() => {
+  const searchEl = document.getElementById('media-search');
+  if (!searchEl) return;
+
+  // Normaliza texto: minúsculas, sin acentos
+  const norm = (s) =>
+    (s || '')
+      .toString()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+  // Mapea sinónimos típicos a los valores de data-platform (netflix/prime/both/zzz)
+  const alias = (s) =>
+    norm(s)
+      .replace(/\bamazon(?:\s+prime)?(?:\s+video)?\b/g, 'prime')
+      .replace(/\bprime(?:\s+video)?\b/g, 'prime')
+      .replace(/\bnetfli[x]?\b/g, 'netflix');
+
+  const cards = Array.from(document.querySelectorAll('.media-card'));
+
+  function filter() {
+    const q = alias(searchEl.value.trim());
+    const terms = q.split(/\s+/).filter(Boolean);
+
+    // Si no hay términos, muestra todo
+    if (terms.length === 0) {
+      cards.forEach(c => c.style.display = '');
+      return;
+    }
+
+    cards.forEach(card => {
+      // Campos que queremos buscar
+      const haystack = [
+        card.dataset.title,
+        card.dataset.platform,    // 'netflix' | 'prime' | 'both' | 'zzz'
+        card.dataset.notes,
+        card.dataset.link
+      ].map(alias).join(' ');
+
+      const matches = terms.every(t => haystack.includes(t));
+      card.style.display = matches ? '' : 'none';
+    });
+  }
+
+  // Escuchar escribir y el botón "x" del input type=search
+  searchEl.addEventListener('input', filter);
+  searchEl.addEventListener('search', filter);
+
+  // Opcional: limpiar con ESC
+  searchEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      searchEl.value = '';
+      filter();
+      searchEl.blur();
+    }
+  });
+
+  // Ejecuta una vez al cargar
+  filter();
+})();
+
+
 </script>
 
 

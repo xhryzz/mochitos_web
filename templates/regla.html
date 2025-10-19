@@ -32,7 +32,7 @@
     .section{background:var(--card-bg); border-radius:20px; padding:24px; margin:16px 0; box-shadow:var(--shadow); border:1px solid rgba(255,255,255,.5)}
     .section>h3{font-family:'Playfair Display',serif; font-size:2rem; color:var(--primary-color); margin-bottom:14px; border-bottom:3px solid var(--secondary-color); display:inline-block; padding-bottom:10px}
 
-    /* Navbar igual de look & feel */
+    /* Navbar */
     .app-nav{
       position:fixed; inset:auto 0 0 0; height:64px; z-index:1100;
       background:rgba(255,255,255,.9); backdrop-filter:blur(10px);
@@ -91,6 +91,7 @@
     .day.period{background:rgba(232,67,147,.1); border-color:rgba(232,67,147,.35)}
     .day.fertile{background:rgba(34,197,94,.12); border-color:rgba(34,197,94,.3)}
     .day.ovul{background:rgba(99,102,241,.12); border-color:rgba(99,102,241,.3)}
+    .day.today{outline:2px solid var(--secondary-color)}
     .legend{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px}
     .legend .key{display:inline-flex; align-items:center; gap:8px; font-size:.9rem; color:#475569}
     .swatch{width:14px; height:14px; border-radius:4px; display:inline-block; border:1px solid rgba(0,0,0,.08)}
@@ -112,7 +113,7 @@
 </head>
 <body>
 
-  <!-- NAV lateral/abajo (consistente con tu app) -->
+  <!-- NAV lateral/abajo -->
   <nav class="app-nav" aria-label="Navegación principal">
     <button class="nav-btn" title="Inicio" onclick="location.href='{{ url_for('home') if home is defined else '/' }}'">
       <i class="fas fa-house"></i><span class="nav-label">Inicio</span>
@@ -142,7 +143,7 @@
       <div class="kpis">
         <div class="kpi">
           <small>Día del ciclo</small>
-          <b>{{ cycle_stats.day_of_cycle if cycle_stats else '-' }}</b>
+          <b>{{ cycle_stats.day_of_cycle if cycle_stats and cycle_stats.day_of_cycle else '—' }}</b>
           <span class="hint muted">Desde el último inicio de periodo</span>
         </div>
         <div class="kpi">
@@ -152,7 +153,11 @@
         </div>
         <div class="kpi">
           <small>Ventana fértil estimada</small>
-          <b>{{ cycle_stats.fertile_start if cycle_stats else '—' }} → {{ cycle_stats.fertile_end if cycle_stats else '—' }}</b>
+          <b>
+            {{ cycle_stats.fertile_start if cycle_stats else '—' }}
+            →
+            {{ cycle_stats.fertile_end if cycle_stats else '—' }}
+          </b>
           <span class="hint muted">Ovulación: {{ cycle_stats.ovulation_day if cycle_stats else '—' }}</span>
         </div>
         <div class="kpi">
@@ -181,10 +186,11 @@
         <div class="row2">
           <div>
             <label>Flujo</label>
+            <!-- Los valores guardan poco/medio/mucho -->
             <select name="flow">
-              <option value="ligero">Ligero</option>
+              <option value="poco">Ligero</option>
               <option value="medio" selected>Medio</option>
-              <option value="abundante">Abundante</option>
+              <option value="mucho">Abundante</option>
             </select>
           </div>
           <div>
@@ -242,7 +248,7 @@
         <div>
           <label>Síntomas</label>
           <div class="chipset" id="sym-chips">
-            {% set SYM = symptoms_choices or ['Cólicos','Dolor lumbar','Hinchazón','Sensibilidad pechos','Dolor de cabeza','Acné','Antojos','Insomnio','Náuseas','Diarrrea/Estreñimiento'] %}
+            {% set SYM = symptoms_choices or ['Cólicos','Dolor lumbar','Hinchazón','Sensibilidad pechos','Dolor de cabeza','Acné','Antojos','Insomnio','Náuseas','Diarrea/Estreñimiento'] %}
             {% for s in SYM %}
               <label class="chip"><input type="checkbox" name="symptoms" value="{{ s }}">{{ s }}</label>
             {% endfor %}
@@ -270,7 +276,7 @@
       <h3>Calendario</h3>
       <div class="calendar">
         <div class="cal-head">
-          <div class="cal-title">{{ calendar.month_name if calendar else '' }}</div>
+          <div class="cal-title" id="cal-title"></div>
           <div class="muted">Semanas: L M X J V S D</div>
         </div>
         <div class="grid" id="dow-row">
@@ -307,9 +313,9 @@
             <td>{{ p.end or '—' }}</td>
             <td>{{ p.length or '—' }}</td>
             <td>
-              {% if p.flow == 'ligero' %}<span class="tag flow-low">Ligero</span>{% endif %}
-              {% if p.flow == 'medio'   %}<span class="tag flow-mid">Medio</span>{% endif %}
-              {% if p.flow == 'abundante' %}<span class="tag flow-high">Abundante</span>{% endif %}
+              {% if p.flow == 'poco'  %}<span class="tag flow-low">Ligero</span>{% endif %}
+              {% if p.flow == 'medio' %}<span class="tag flow-mid">Medio</span>{% endif %}
+              {% if p.flow == 'mucho' %}<span class="tag flow-high">Abundante</span>{% endif %}
             </td>
             <td>{{ p.pain if p.pain is not none else '—' }}</td>
             <td class="muted">{{ p.notes or '' }}</td>
@@ -330,53 +336,46 @@
   </div><!-- /container -->
 
   <script>
-    // chips “activos”
+    // Chips “activos”
     document.getElementById('sym-chips')?.addEventListener('click', (e)=>{
       const lab = e.target.closest('.chip'); if(!lab) return;
       const inp = lab.querySelector('input'); if(!inp) return;
       setTimeout(()=> lab.classList.toggle('active', inp.checked), 0);
     });
 
-    // ==== Calendario: render simple a partir de datos del backend ====
-    // Espera: calendar = {
-    //   year, month (1-12), month_name, days_in_month, start_weekday (1=Lunes..7=Domingo),
-    //   period_dates: ["YYYY-MM-DD", ...],
-    //   fertile_dates: ["YYYY-MM-DD", ...],
-    //   ovulation_date: "YYYY-MM-DD"
-    // }
+    // ==== Calendario: render con estructura devuelta por build_calendar_data ====
+    // Espera:
+    // calendar = { year, month (1-12), first_weekday (0=Lunes), days: [{iso,day,is_today,is_period,is_fertile,is_ovulation}, ...] }
     const CAL = {{ (calendar or {}) | tojson }};
     (function renderCalendar(c){
       const grid = document.getElementById('days-grid');
-      if(!grid || !c || !c.days_in_month) return;
+      const title = document.getElementById('cal-title');
+      if(!grid || !c || !c.days) return;
 
-      const fill = (n, el='div', cls='day muted') => { for(let i=0;i<n;i++){ const d=document.createElement(el); d.className=cls; d.textContent=''; grid.appendChild(d);}};
+      const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+      title.textContent = `${MONTHS[(c.month||1)-1]?.[0].toUpperCase()}${MONTHS[(c.month||1)-1]?.slice(1)} ${c.year}`;
 
-      // Huecos previos según primer día (1=Lunes)
-      const prev = (c.start_weekday||1) - 1; fill(prev);
+      // Huecos previos según primer día (0=Lunes)
+      const prev = Number(c.first_weekday||0);
+      for(let i=0;i<prev;i++){ const d=document.createElement('div'); d.className='day muted'; grid.appendChild(d); }
 
-      const setP = new Set(c.period_dates||[]);
-      const setF = new Set(c.fertile_dates||[]);
-      const ovu  = c.ovulation_date || '';
-
-      for(let day=1; day<=c.days_in_month; day++){
+      // Días reales
+      for(const it of c.days){
         const d = document.createElement('div');
         d.className = 'day';
-        const y = String(c.year).padStart(4,'0');
-        const m = String(c.month).padStart(2,'0');
-        const ds = String(day).padStart(2,'0');
-        const iso = `${y}-${m}-${ds}`;
-
-        if(setP.has(iso)) d.classList.add('period');
-        if(setF.has(iso)) d.classList.add('fertile');
-        if(iso === ovu)   d.classList.add('ovul');
-
-        d.textContent = String(day);
+        if(it.is_period)    d.classList.add('period');
+        if(it.is_fertile)   d.classList.add('fertile');
+        if(it.is_ovulation) d.classList.add('ovul');
+        if(it.is_today)     d.classList.add('today');
+        d.textContent = String(it.day);
+        d.title = it.iso;
         grid.appendChild(d);
       }
 
-      // Huecos finales para completar filas a múltiplos de 7
-      const totalCells = prev + c.days_in_month;
-      const post = (7 - (totalCells % 7)) % 7; fill(post);
+      // Completar fila final
+      const totalCells = prev + c.days.length;
+      const post = (7 - (totalCells % 7)) % 7;
+      for(let i=0;i<post;i++){ const d=document.createElement('div'); d.className='day muted'; grid.appendChild(d); }
     })(CAL);
   </script>
 </body>

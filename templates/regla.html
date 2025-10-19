@@ -1,18 +1,23 @@
 <!doctype html>
 <html lang="es">
 <head>
-<!-- Charts + Export PDF -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Regla - Mochita</title>
 <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
 
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Dancing+Script:wght@700&display=swap');
+<!-- Fuentes -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
 
+<!-- Charts + Export PDF -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+<style>
 :root{
   --primary:#e84393; --secondary:#fd79a8; --accent:#a29bfe;
   --ink:#2d3436; --muted:#6b7280; --card:#fff; --line:#eee;
@@ -32,7 +37,7 @@ body{
 /* Contenedor y cabecera */
 .container{
   background:var(--card); border-radius:20px; box-shadow:var(--shadow);
-  overflow:hidden; max-width:1100px; margin:24px auto; border:1px solid rgba(255,255,255,.6);
+  overflow:hidden; max-width:1200px; margin:24px auto; border:1px solid rgba(255,255,255,.6);
 }
 .container > h1{
   font-family:'Dancing Script',cursive; font-size:42px; margin:0; padding:22px 16px 8px;
@@ -44,15 +49,26 @@ body{
   background:var(--gradient); border-bottom:1px solid rgba(255,255,255,.3); font-weight:600; opacity:.95;
 }
 
-/* Tarjetas */
-.card{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:var(--shadow); margin:18px; }
-
-/* Toolbar */
-.toolbar{
-  display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:space-between;
-  background:#fafafa; border:1px solid #eee; border-radius:16px; padding:14px 16px; box-shadow:0 6px 14px rgba(0,0,0,.05);
+/* Tabs (2 menús) */
+.tabs{ display:flex; gap:10px; padding:12px 16px; justify-content:center; background:#fafafa; border-top:1px solid #f1f1f1 }
+.tab{
+  padding:10px 16px; border-radius:999px; border:1px solid #eee; background:#fff; cursor:pointer; font-weight:800;
+  box-shadow:0 6px 14px rgba(0,0,0,.06); transition:.15s;
 }
-.toolbar .left,.toolbar .right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.tab:hover{ transform:translateY(-2px) }
+.tab.active{ background:var(--primary); color:#fff; border-color:transparent }
+
+.view{ display:none; padding:0 12px 24px }
+.view.active{ display:block }
+
+/* Tarjetas */
+.card{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:var(--shadow); margin:18px }
+
+/* Toolbars */
+.toolbar, .stats-toolbar{
+  display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:space-between;
+  background:#fafafa; border:1px solid #eee; border-radius:16px; padding:12px 16px; box-shadow:0 6px 14px rgba(0,0,0,.05);
+}
 .pill{
   padding:10px 14px; border:none; border-radius:999px; background:#eee; font-weight:700; cursor:pointer;
   transition:.2s; box-shadow:0 6px 14px rgba(0,0,0,.06);
@@ -62,17 +78,16 @@ body{
 .pill.accent{ color:#fff; background:var(--accent) }
 .pill.danger{ color:#fff; background:#ff7675 }
 .pill[disabled]{ opacity:.55; cursor:not-allowed; transform:none }
-select.pill{ background:#fff; border:2px solid #eee; }
+select.pill{ background:#fff; border:2px solid #eee }
 
 /* Calendario */
-.cal-head{ display:flex; align-items:center; gap:10px; margin-bottom:10px; padding:4px 0 8px; border-bottom:1px solid #f0f0f0; }
+.cal-head{ display:flex; align-items:center; gap:10px; margin-bottom:10px; padding:4px 0 8px; border-bottom:1px solid #f0f0f0 }
 .arrow{
   width:40px; height:40px; border:none; border-radius:12px; background:#fff; cursor:pointer; display:grid; place-items:center;
   box-shadow:0 6px 14px rgba(0,0,0,.06); transition:.2s;
 }
 .arrow:hover{ transform:translateY(-2px); background:#f7f7f7 }
 .month-title{ font-weight:800; font-size:1.15rem }
-
 .week{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:8px; color:#6b7280; font-weight:700; text-transform:uppercase; font-size:.85rem }
 .grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:8px }
 .day{
@@ -83,110 +98,85 @@ select.pill{ background:#fff; border:2px solid #eee; }
 .day:hover{ transform:translateY(-2px); box-shadow:0 10px 22px rgba(0,0,0,.08) }
 .day.muted{ background:#fafafa }
 .day.today{ outline:2px dashed var(--secondary-color); outline-offset:-6px; background:#fcfcff }
-.day .top{ display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.day .top{ display:flex; align-items:center; justify-content:space-between; gap:6px }
 .day .num{ font-weight:800 }
 
-/* Etiquetas Inicio/Fin (chips bajo el número) */
-.labels{ display:flex; gap:6px; flex-wrap:wrap; }
-.label-chip{ font-size:.75rem; padding:3px 8px; border-radius:999px; border:1px solid; font-weight:800; }
+/* Chips Inicio/Fin */
+.labels{ display:flex; gap:6px; flex-wrap:wrap }
+.label-chip{ font-size:.75rem; padding:3px 8px; border-radius:999px; border:1px solid; font-weight:800 }
 .label-chip.start{ background:#ffe4e6; border-color:#fecdd3; color:#9f1239 }
 .label-chip.end{   background:#ede9fe; border-color:#ddd6fe; color:#4c1d95 }
 
 /* Botón de ánimo */
 .mood-btn{
   min-width:34px; height:28px; padding:0 8px; border:none; border-radius:999px; background:#f5f5f5; cursor:pointer;
-  font-weight:800; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,.06);
-  opacity:.95;
+  font-weight:800; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,.06); opacity:.95;
 }
 .mood-btn[disabled]{ opacity:.5; cursor:not-allowed }
-.mood-btn:hover{ filter:brightness(1.02) }
 
 /* Menús inline */
 .menu{
   position:absolute; left:10px; right:10px; bottom:10px; z-index:5; display:none;
   background:#fff; border:1px solid #eee; border-radius:12px; padding:8px; box-shadow:0 16px 40px rgba(0,0,0,.15);
 }
-.menu .row{ display:flex; gap:8px; flex-wrap:wrap; }
+.menu .row{ display:flex; gap:8px; flex-wrap:wrap }
 .menu .chip{
-  padding:8px 10px; border-radius:999px; border:1px solid #eee; background:#fafafa; font-weight:700; cursor:pointer;
+  padding:8px 10px; border-radius:999px; border:1px solid #eee; background:#fafafa; font-weight:700; cursor:pointer
 }
-.menu .chip:hover{ filter:brightness(1.03) }
 .day.show-flow-menu .flow-menu{ display:block }
 .day.show-emoji-menu .emoji-menu{ display:block }
 
-/* Barra de flujo (clicable) */
+/* Barra de flujo clicable */
 .flow-dot{ width:100%; height:12px; border-radius:7px; background:var(--flow-none); margin-top:auto; border:1px solid rgba(0,0,0,.05); cursor:pointer }
 .flow-low{  background:var(--flow-low) }
 .flow-mid{  background:var(--flow-mid) }
 .flow-high{ background:var(--flow-high) }
 .flow-none{ background:var(--flow-none) }
 
-/* Rango (preview) */
+/* Selección rango */
 .day.range{ box-shadow:0 0 0 3px rgba(232,67,147,.25) inset }
-
-/* Decoración inicio/fin (bordes) */
 .day.start-day{ box-shadow:0 0 0 3px rgba(232,67,147,.55), 0 10px 24px rgba(232,67,147,.18); border-color:#fda4af }
 .day.end-day{   box-shadow:0 0 0 3px rgba(162,155,254,.55), 0 10px 24px rgba(162,155,254,.18); border-color:#c7d2fe }
 
 .help{ color:var(--muted); font-size:.9rem; text-align:center; padding:6px 0 }
 
-/* Responsivo */
-@media (max-width:640px){
-  .container > h1{ font-size:34px }
-  .day{ min-height:100px }
-}
-
-
-
-/* ==== Leyenda ==== */
-.legend { display:grid; gap:14px; }
+/* Leyenda */
+.legend { display:grid; gap:14px }
 .legend-title{ margin:0 0 6px; font-weight:800; font-size:1.05rem }
-.legend-grid{
-  display:grid; gap:14px;
-  grid-template-columns: repeat(3, minmax(0,1fr));
-}
+.legend-grid{ display:grid; gap:14px; grid-template-columns: repeat(3, minmax(0,1fr)) }
 .legend-group{ background:#fafafa; border:1px solid #eee; border-radius:12px; padding:12px }
 .legend-sub{ font-weight:800; margin-bottom:8px; color:#374151; font-size:.95rem }
 .legend-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:6px 0 }
-
-/* Muestras de flujo */
 .legend-swatch{ display:inline-block; width:46px; height:12px; border-radius:7px; border:1px solid rgba(0,0,0,.08) }
 .legend-swatch.none{  background:var(--flow-none) }
 .legend-swatch.low{   background:var(--flow-low) }
 .legend-swatch.mid{   background:var(--flow-mid) }
 .legend-swatch.high{  background:var(--flow-high) }
-
-/* “Hoy” */
 .legend-badge-today{
   display:inline-block; padding:2px 8px; border-radius:999px;
   background:#fcfcff; border:2px dashed var(--secondary-color); font-weight:800; font-size:.8rem;
 }
-
-/* Emojis */
-.emo{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px;
-  background:#fff; border:1px solid #eee; box-shadow:0 1px 3px rgba(0,0,0,.04); font-weight:700; }
+.emo{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:#fff; border:1px solid #eee; box-shadow:0 1px 3px rgba(0,0,0,.04); font-weight:700 }
 .emo b{ font-weight:800 }
-@media (max-width:860px){ .legend-grid{ grid-template-columns:1fr } }
+@media (max-width:980px){ .legend-grid{ grid-template-columns:1fr } }
 
-/* ==== Stats & Charts ==== */
-.stats-toolbar{
-  display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:space-between;
-  background:#fafafa; border:1px solid #eee; border-radius:16px; padding:12px 14px; margin: 0 18px 12px;
-  box-shadow:0 6px 14px rgba(0,0,0,.05);
-}
-.stats-grid{ display:grid; gap:16px; grid-template-columns:repeat(2,minmax(0,1fr)); padding:0 18px 18px; }
+/* Stats & Charts */
 .stat-chip{
   display:inline-flex; align-items:center; gap:8px; background:#fff; border:1px solid #eee; border-radius:12px;
   padding:10px 12px; font-weight:800; box-shadow:0 4px 10px rgba(0,0,0,.05);
 }
 .stat-chip b{ font-size:1.05rem }
+.stats-grid{ display:grid; gap:16px; grid-template-columns:repeat(2,minmax(0,1fr)); }
 .chart-card{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:var(--shadow) }
-.chart-title{ font-weight:800; margin:0 0 8px; }
+.chart-title{ font-weight:800; margin:0 0 8px }
 .stats-note{ color:var(--muted); font-size:.85rem; margin-top:6px }
-@media (max-width:860px){ .stats-grid{ grid-template-columns:1fr } }
-canvas{ width:100%; height:260px; }
+@media (max-width:980px){ .stats-grid{ grid-template-columns:1fr } }
+canvas{ width:100%; height:340px }
 
-
+/* Ocultables */
+.collapsible-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; cursor:pointer; font-weight:800 }
+.collapsible-body{ display:none; margin-top:10px }
+.collapsible.open .collapsible-body{ display:block }
 </style>
 </head>
 <body>
@@ -194,123 +184,146 @@ canvas{ width:100%; height:260px; }
   <h1>Regla Mochita</h1>
   <p class="subtitle">Flujo y ánimo se ponen <b>por día</b>. Rango es solo si quieres aplicar a varios días a la vez.</p>
 
-  <!-- Toolbar -->
-  <div class="toolbar card">
-    <div class="left">
-      <button class="pill" id="rangeToggle" aria-pressed="false">📏 Modo rango</button>
-      <label style="font-weight:700;">Flujo para rango:</label>
-      <select id="rangeFlow" class="pill">
-        <option value="poco">poco</option>
-        <option value="medio" selected>medio</option>
-        <option value="mucho">mucho</option>
-      </select>
-      <button class="pill primary" id="applyRange" disabled>💾 Guardar rango</button>
-      <button class="pill danger" id="clearRange" disabled>🗑️ Borrar rango</button>
-    </div>
-    <div class="right">
-      <button class="pill" id="todayBtn">Hoy</button>
-      <button class="pill danger" id="wipeAllBtn" title="Eliminar todos los registros">🧨 Eliminar TODO</button>
-    </div>
+  <!-- ======= Menú de navegación (2 vistas) ======= -->
+  <div class="tabs">
+    <button class="tab active" data-tab="cal">📅 Calendario</button>
+    <button class="tab" data-tab="rep">📈 Informes</button>
   </div>
 
+  <!-- ==================== VISTA 1: CALENDARIO ==================== -->
+  <section id="view-cal" class="view active">
 
-  <!-- Leyenda -->
-<div class="card legend">
-  <div class="legend-title">Leyenda</div>
-  <div class="legend-grid">
-    <!-- Flujo -->
-    <div class="legend-group">
-      <div class="legend-sub">Flujo</div>
-      <div class="legend-row"><span class="legend-swatch none"></span> Sin</div>
-      <div class="legend-row"><span class="legend-swatch low"></span> Poco</div>
-      <div class="legend-row"><span class="legend-swatch mid"></span> Medio</div>
-      <div class="legend-row"><span class="legend-swatch high"></span> Mucho</div>
-    </div>
-
-    <!-- ⬇️ NUEVO: Estadísticas + Gráficos + Export PDF -->
-<div class="stats-toolbar" id="statsToolbar">
-  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-    <span class="stat-chip">📆
-      <select id="scopeSelect" class="pill">
-        <option value="mes" selected>Este mes</option>
-        <option value="anio">Este año</option>
-      </select>
-    </span>
-    <span class="stat-chip">📄
-      <button class="pill primary" id="btnPdf">Descargar PDF</button>
-    </span>
-  </div>
-  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-    <span class="stat-chip">Media ciclo: <b id="statAvgCycle">—</b> días</span>
-    <span class="stat-chip">Duración regla: <b id="statAvgPeriod">—</b> días</span>
-    <span class="stat-chip">Fase lútea (est.): <b id="statLuteal">≈14</b> días</span>
-    <span class="stat-chip">Regularidad: <b id="statRegularity">—</b></span>
-  </div>
-</div>
-
-<div class="stats-grid" id="statsExportArea">
-  <div class="chart-card">
-    <h4 class="chart-title">Tendencia de flujo</h4>
-    <canvas id="chartFlow"></canvas>
-    <div class="stats-note">0=sin, 1=poco, 2=medio, 3=mucho.</div>
-  </div>
-  <div class="chart-card">
-    <h4 class="chart-title">Ánimo (distribución)</h4>
-    <canvas id="chartMood"></canvas>
-    <div class="stats-note">Conteo por tipo de ánimo en el periodo seleccionado.</div>
-  </div>
-  <div class="chart-card" id="cardPain" style="display:none">
-    <h4 class="chart-title">Dolor (media)</h4>
-    <canvas id="chartPain"></canvas>
-    <div class="stats-note">Si empiezas a registrar dolor (0–10), aparecerá aquí.</div>
-  </div>
-  <div class="chart-card" id="cardEnergy" style="display:none">
-    <h4 class="chart-title">Energía (media)</h4>
-    <canvas id="chartEnergy"></canvas>
-    <div class="stats-note">Si registras energía (0–10), aparecerá aquí.</div>
-  </div>
-</div>
-<!-- ⬆️ FIN NUEVO -->
-
-
-    <!-- Inicio / Fin / Hoy -->
-    <div class="legend-group">
-      <div class="legend-sub">Marcadores</div>
-      <div class="legend-row">
-        <span class="label-chip start">Inicio</span>
-        <span class="label-chip end">Fin</span>
-        <span class="legend-badge-today">Hoy</span>
+    <!-- Toolbar Calendario -->
+    <div class="toolbar card" id="calendarToolbar">
+      <div class="left" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="pill" id="rangeToggle" aria-pressed="false">📏 Modo rango</button>
+        <label style="font-weight:700;">Flujo para rango:</label>
+        <select id="rangeFlow" class="pill">
+          <option value="poco">poco</option>
+          <option value="medio" selected>medio</option>
+          <option value="mucho">mucho</option>
+        </select>
+        <button class="pill primary" id="applyRange" disabled>💾 Guardar rango</button>
+        <button class="pill danger" id="clearRange" disabled>🗑️ Borrar rango</button>
+      </div>
+      <div class="right" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="pill" id="toggleLegend">🧭 Ver/Ocultar leyenda</button>
+        <button class="pill" id="todayBtn">Hoy</button>
+        <button class="pill danger" id="wipeAllBtn" title="Eliminar todos los registros">🧨 Eliminar TODO</button>
       </div>
     </div>
 
-    <!-- Emojis de ánimo -->
-    <div class="legend-group">
-      <div class="legend-sub">Ánimo (elige solo donde quieras)</div>
-      <div class="legend-row" style="gap:8px">
-        <span class="emo">😀 <b>feliz</b></span>
-        <span class="emo">🙂 <b>normal</b></span>
-        <span class="emo">😔 <b>triste</b></span>
-        <span class="emo">😵‍💫 <b>estresada</b></span>
-        <span class="emo">🥺 <b>sensible</b></span>
-        <span class="emo">😴 <b>cansada</b></span>
-        <span class="emo">😠 <b>irritable</b></span>
-        <span class="emo">⚡ <b>con energía</b></span>
+    <!-- Leyenda (colapsable) -->
+    <div class="card collapsible open" id="legendCard">
+      <div class="collapsible-head">
+        <span>📖 Leyenda</span>
+        <span>▼</span>
+      </div>
+      <div class="collapsible-body">
+        <div class="legend">
+          <div class="legend-grid">
+            <!-- Flujo -->
+            <div class="legend-group">
+              <div class="legend-sub">Flujo</div>
+              <div class="legend-row"><span class="legend-swatch none"></span> Sin</div>
+              <div class="legend-row"><span class="legend-swatch low"></span> Poco</div>
+              <div class="legend-row"><span class="legend-swatch mid"></span> Medio</div>
+              <div class="legend-row"><span class="legend-swatch high"></span> Mucho</div>
+            </div>
+            <!-- Marcadores -->
+            <div class="legend-group">
+              <div class="legend-sub">Marcadores</div>
+              <div class="legend-row">
+                <span class="label-chip start">Inicio</span>
+                <span class="label-chip end">Fin</span>
+                <span class="legend-badge-today">Hoy</span>
+              </div>
+            </div>
+            <!-- Emojis -->
+            <div class="legend-group">
+              <div class="legend-sub">Ánimo (elige solo donde quieras)</div>
+              <div class="legend-row" style="gap:8px">
+                <span class="emo">😀 <b>feliz</b></span>
+                <span class="emo">🙂 <b>normal</b></span>
+                <span class="emo">😔 <b>triste</b></span>
+                <span class="emo">😵‍💫 <b>estresada</b></span>
+                <span class="emo">🥺 <b>sensible</b></span>
+                <span class="emo">😴 <b>cansada</b></span>
+                <span class="emo">😠 <b>irritable</b></span>
+                <span class="emo">⚡ <b>con energía</b></span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-</div>
 
-
-  <div class="card">
-    <div class="cal-head">
-      <button class="arrow" id="prevBtn" aria-label="Mes anterior">‹</button>
-      <div class="month-title" id="monthTitle">—</div>
-      <button class="arrow" id="nextBtn" aria-label="Mes siguiente">›</button>
+    <!-- Calendario -->
+    <div class="card" id="calendarCard">
+      <div class="cal-head">
+        <button class="arrow" id="prevBtn" aria-label="Mes anterior">‹</button>
+        <div class="month-title" id="monthTitle">—</div>
+        <button class="arrow" id="nextBtn" aria-label="Mes siguiente">›</button>
+      </div>
+      <div class="week"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div></div>
+      <!-- Área exportable del calendario -->
+      <div id="calendarExportArea">
+        <div class="grid" id="daysGrid"></div>
+      </div>
+      <div class="help" id="rangeHelp" style="display:none;">Elige <b>inicio</b> y <b>fin</b> con un click.</div>
     </div>
-    <div class="week"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div></div>
-    <div class="grid" id="daysGrid"></div>
-    <div class="help" id="rangeHelp" style="display:none;">Elige <b>inicio</b> y <b>fin</b> con un click.</div>
-  </div>
+
+  </section>
+
+  <!-- ==================== VISTA 2: INFORMES ==================== -->
+  <section id="view-rep" class="view">
+
+    <!-- Toolbar Informes -->
+    <div class="stats-toolbar card" id="statsToolbar">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span class="stat-chip">📆
+          <select id="scopeSelect" class="pill">
+            <option value="mes" selected>Este mes</option>
+            <option value="anio">Este año</option>
+          </select>
+        </span>
+        <span class="stat-chip">🗓️
+          <button class="pill accent" id="btnPdf">Descargar PDF (calendario + informes)</button>
+        </span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span class="stat-chip">Media ciclo: <b id="statAvgCycle">—</b> días</span>
+        <span class="stat-chip">Duración regla: <b id="statAvgPeriod">—</b> días</span>
+        <span class="stat-chip">Fase lútea (est.): <b id="statLuteal">≈14</b> días</span>
+        <span class="stat-chip">Regularidad: <b id="statRegularity">—</b></span>
+      </div>
+    </div>
+
+    <!-- Área exportable de estadísticas -->
+    <div class="stats-grid" id="statsExportArea">
+      <div class="chart-card">
+        <h4 class="chart-title">Tendencia de flujo</h4>
+        <canvas id="chartFlow"></canvas>
+        <div class="stats-note">Escala: 0=sin, 1=poco, 2=medio, 3=mucho. Incluye media móvil (7 días) en vista mensual.</div>
+      </div>
+      <div class="chart-card">
+        <h4 class="chart-title">Ánimo (distribución)</h4>
+        <canvas id="chartMood"></canvas>
+        <div class="stats-note">Porcentaje de cada estado en el periodo seleccionado.</div>
+      </div>
+      <div class="chart-card" id="cardPain" style="display:none">
+        <h4 class="chart-title">Dolor (media)</h4>
+        <canvas id="chartPain"></canvas>
+        <div class="stats-note">Aparece si registras dolor (0–10) en algún día.</div>
+      </div>
+      <div class="chart-card" id="cardEnergy" style="display:none">
+        <h4 class="chart-title">Energía (media)</h4>
+        <canvas id="chartEnergy"></canvas>
+        <div class="stats-note">Aparece si registras energía (0–10) en algún día.</div>
+      </div>
+    </div>
+
+  </section>
 </div>
 
 <script>
@@ -343,14 +356,15 @@ const state = {
   m:(new Date()).getMonth()+1,
   entries:{}, // { 'YYYY-MM-DD': {mood, flow} }
   range:{start:null,end:null},
-  rangeMode:false
+  rangeMode:false,
+  allEntries:{} // para informes
 };
 
 // ------- Opciones -------
 const MOODS = ['feliz','normal','triste','estresada','sensible','cansada','irritable','con_energia'];
 const MOOD_EMO = { feliz:'😀', normal:'🙂', triste:'😔', estresada:'😵‍💫', sensible:'🥺', cansada:'😴', irritable:'😠', con_energia:'⚡' };
 
-// ------- Carga (3 meses centrados) -------
+// ====== Carga 3 meses (calendario) ======
 function ymPrev(y,m){ const d=new Date(y,m-2,1); return [d.getFullYear(), d.getMonth()+1]; }
 async function loadMonth(){
   const [py, pm] = ymPrev(state.y, state.m);
@@ -369,7 +383,7 @@ async function loadMonth(){
   renderCalendar();
 }
 
-// ------- Render -------
+// ====== Render Calendario ======
 function setMonthTitle(){ $('#monthTitle').textContent = `${MONTHS[state.m-1][0].toUpperCase()+MONTHS[state.m-1].slice(1)} ${state.y}`; }
 function inPreviewRange(dayIso){ const {start,end}=state.range; return !!(start && end && dayIso>=start && dayIso<=end); }
 
@@ -393,7 +407,7 @@ function renderCalendar(){
 
     const entry = state.entries[id] || {};
 
-    // --- Top: número + botón de emoji (solo si CAN_EDIT o ya hay mood) ---
+    // Top: número + emoji
     const top=document.createElement('div'); top.className='top';
     const num=document.createElement('div'); num.className='num'; num.textContent=d;
 
@@ -402,11 +416,9 @@ function renderCalendar(){
     moodBtn.title = entry.mood ? 'Cambiar ánimo' : 'Añadir ánimo';
     moodBtn.textContent = entry.mood ? (MOOD_EMO[entry.mood]||'🙂') : '＋';
     if(!CAN_EDIT || state.rangeMode){
-      // Mostrar emoji existente, pero sin permitir edición en modo rango o sin permisos
       if(entry.mood){ top.appendChild(num); top.appendChild(moodBtn); moodBtn.disabled = true; }
       else{ top.appendChild(num); }
     }else{
-      // Editar libremente: aparece siempre para poder poner emoji solo donde quiera
       top.appendChild(num); top.appendChild(moodBtn);
       moodBtn.addEventListener('click', (ev)=>{
         ev.stopPropagation();
@@ -416,7 +428,7 @@ function renderCalendar(){
       });
     }
 
-    // --- Chips Inicio/Fin bajo el número (no superponen) ---
+    // Chips Inicio/Fin
     const labels=document.createElement('div'); labels.className='labels';
     const prevId = toIsoDate(addDays(parseIso(id), -1));
     const nextId = toIsoDate(addDays(parseIso(id), +1));
@@ -426,7 +438,7 @@ function renderCalendar(){
     if(hasFlow && !prevFlow){ const c=document.createElement('span'); c.className='label-chip start'; c.textContent='Inicio'; labels.appendChild(c); wrap.classList.add('start-day'); }
     if(hasFlow && !nextFlowB){ const c=document.createElement('span'); c.className='label-chip end';   c.textContent='Fin';    labels.appendChild(c); wrap.classList.add('end-day'); }
 
-    // --- Barra de flujo (abre menú por día) ---
+    // Barra flujo
     const dot=document.createElement('div');
     dot.className='flow-dot ' + (
       entry.flow==='poco'  ? 'flow-low'  :
@@ -444,7 +456,7 @@ function renderCalendar(){
       dot.style.cursor='default';
     }
 
-    // --- Menú flujo (por día) ---
+    // Menú flujo
     const flowMenu=document.createElement('div'); flowMenu.className='menu flow-menu';
     flowMenu.innerHTML = `
       <div class="row">
@@ -458,11 +470,11 @@ function renderCalendar(){
         const val = btn.getAttribute('data-flow')||'';
         await saveOrDelete(id, entry.mood||'', val);
         wrap.classList.remove('show-flow-menu');
-        renderCalendar();
+        renderCalendar(); refreshStatsUI();
       });
     });
 
-    // --- Menú emoji (por día) ---
+    // Menú emoji
     const emojiMenu=document.createElement('div'); emojiMenu.className='menu emoji-menu';
     const emoChips = MOODS.map(k=>`<button class="chip" data-mood="${k}">${MOOD_EMO[k]} ${k.replace('_',' ')}</button>`).join('');
     emojiMenu.innerHTML = `
@@ -475,15 +487,11 @@ function renderCalendar(){
         const m = btn.getAttribute('data-mood')||'';
         await saveOrDelete(id, m, entry.flow||'');
         wrap.classList.remove('show-emoji-menu');
-        renderCalendar();
+        renderCalendar(); refreshStatsUI();
       });
     });
 
-    // --- Rango (clic en tarjeta) ---
-    wrap.addEventListener('click', ()=>{
-      if(!state.rangeMode) return;
-      selectInRange(id);
-    });
+    wrap.addEventListener('click', ()=>{ if(state.rangeMode) selectInRange(id); });
 
     wrap.appendChild(top);
     if(labels.children.length) wrap.appendChild(labels);
@@ -502,9 +510,7 @@ function renderCalendar(){
   $('#clearRange').disabled = !CAN_EDIT || !hasSel;
 }
 
-document.addEventListener('click', (e)=>{
-  if(!e.target.closest('.day')) closeAllMenus();
-});
+document.addEventListener('click', (e)=>{ if(!e.target.closest('.day')) closeAllMenus(); });
 
 // ------- Guardar / borrar -------
 async function saveOneDay(dayIso, mood, flow){
@@ -515,35 +521,27 @@ async function saveOneDay(dayIso, mood, flow){
   });
   if(res.ok){ state.entries[dayIso] = { mood:(mood||''), flow:(flow||'') }; }
 }
-
 async function deleteOneDay(dayIso){
   const fd = new URLSearchParams(); fd.set('for_user','mochita'); fd.set('day',dayIso);
   const res = await fetch(DEL_DAY, { method:'POST', body:fd, credentials:'same-origin' });
   if(res.ok){ delete state.entries[dayIso]; }
 }
-
-// Si ambos vacíos => borrar; si no => guardar
 async function saveOrDelete(dayIso, mood, flow){
   if(!CAN_EDIT) return;
   const mm=(mood||'').trim(), ff=(flow||'').trim();
-  if(!mm && !ff){
-    await deleteOneDay(dayIso);
-  }else{
-    await saveOneDay(dayIso, mm, ff);
-  }
+  if(!mm && !ff){ await deleteOneDay(dayIso); } else { await saveOneDay(dayIso, mm, ff); }
 }
 
-// ------- Rango (opcional) -------
+// ------- Rango -------
 function resetRange(){ state.range={start:null,end:null}; $('#rangeHelp').style.display='none'; renderCalendar(); }
 function selectInRange(id){
   const {start,end}=state.range;
   if(!start){
-  state.range.start=id;
-  const h = $('#rangeHelp');
-  h.style.display='block';
-  h.innerHTML = `Inicio: <b>${id}</b>. Ahora navega al mes anterior/siguiente para elegir el fin.`;
-}
-  else if(!end){
+    state.range.start=id;
+    const h = $('#rangeHelp');
+    h.style.display='block';
+    h.innerHTML = `Inicio: <b>${id}</b>. Ahora navega al mes anterior/siguiente para elegir el fin.`;
+  } else if(!end){
     if(id < start){ state.range={start:id,end:start}; }
     else { state.range.end=id; }
   } else {
@@ -563,13 +561,13 @@ async function applyRange(flowVal){
     const existing = state.entries[d]||{};
     await saveOrDelete(d, existing.mood||'', flowVal||'');
   }
-  resetRange();
+  resetRange(); refreshStatsUI();
 }
 async function clearRange(){
   const {start,end}=state.range; if(!start||!end) return;
   const days = isoList(start,end);
   for(const d of days){ await saveOrDelete(d, (state.entries[d]?.mood||''), ''); }
-  resetRange();
+  resetRange(); refreshStatsUI();
 }
 
 // ------- Eliminar TODO -------
@@ -579,92 +577,54 @@ async function wipeAll(){
   if(!sure) return;
   const extra = confirm('Esta acción no se puede deshacer. ¿Confirmas eliminar TODO?');
   if(!extra) return;
-
   try{
     const res = await fetch(`${API_LIST}?from=2000-01&months=600&user=mochita`, {credentials:'same-origin'});
     const j = await res.json();
     const days = (j.entries||[]).map(e=>(e.day||e.date||'').trim()).filter(Boolean);
     for(const d of days){ await deleteOneDay(d); }
     alert('Listo: se eliminaron todos los registros.');
-  }catch(e){
-    alert('No se pudo eliminar todo.');
-  }
-  loadMonth();
+  }catch(e){ alert('No se pudo eliminar todo.'); }
+  loadMonth(); refreshStatsUI();
 }
 
-// ------- Controles -------
-
+// ------- Controles calendario -------
 function goMonth(delta){
   const dt = new Date(state.y, state.m - 1 + delta, 1);
   state.y = dt.getFullYear();
   state.m = dt.getMonth() + 1;
-
-  // Si estoy en modo rango y ya elegí INICIO pero aún no FIN, NO borres la selección
   const keepRange = (state.rangeMode && state.range.start && !state.range.end);
   if(!keepRange){ resetRange(); }
-
-  loadMonth(); // ya traes prev/actual/siguiente, así que el inicio sigue visible cuando toque
+  loadMonth(); setTimeout(refreshStatsUI, 0);
 }
-
 $('#prevBtn').addEventListener('click', ()=> goMonth(-1));
 $('#nextBtn').addEventListener('click', ()=> goMonth(+1));
-$('#todayBtn').addEventListener('click', ()=>{
-  const t = new Date(); state.y=t.getFullYear(); state.m=t.getMonth()+1; resetRange(); loadMonth();
-});
-
-$('#rangeToggle').addEventListener('click', ()=>{
-  if(!CAN_EDIT) return;
-  state.rangeMode = !state.rangeMode;
-  $('#rangeToggle').classList.toggle('primary', state.rangeMode);
-  $('#rangeToggle').setAttribute('aria-pressed', String(state.rangeMode));
-  $('#rangeHelp').style.display = state.rangeMode ? 'block' : 'none';
-  if(!state.rangeMode) resetRange(); else renderCalendar();
-});
+$('#todayBtn').addEventListener('click', ()=>{ const t=new Date(); state.y=t.getFullYear(); state.m=t.getMonth()+1; resetRange(); loadMonth(); setTimeout(refreshStatsUI, 0); });
+$('#rangeToggle').addEventListener('click', ()=>{ if(!CAN_EDIT) return; state.rangeMode = !state.rangeMode; $('#rangeToggle').classList.toggle('primary', state.rangeMode); $('#rangeToggle').setAttribute('aria-pressed', String(state.rangeMode)); $('#rangeHelp').style.display = state.rangeMode ? 'block' : 'none'; if(!state.rangeMode) resetRange(); else renderCalendar(); });
 $('#applyRange').addEventListener('click', ()=> applyRange($('#rangeFlow').value||'medio'));
 $('#clearRange').addEventListener('click', ()=> clearRange());
 $('#wipeAllBtn').addEventListener('click', wipeAll);
 
-// Permisos
-(function applyPermissions(){
-  if(!CAN_EDIT){
-    $('#rangeToggle').setAttribute('disabled','');
-    $('#rangeFlow').setAttribute('disabled','');
-    $('#applyRange').setAttribute('disabled','');
-    $('#clearRange').setAttribute('disabled','');
-    $('#wipeAllBtn').setAttribute('disabled','');
-  }
-})();
+// Leyenda colapsable
+$('#toggleLegend').addEventListener('click', ()=> $('#legendCard').classList.toggle('open'));
+$('.collapsible-head').addEventListener('click', ()=> $('#legendCard').classList.toggle('open'));
 
 // ------- SSE live -------
 try{
   const es = new EventSource('/events');
   es.addEventListener('cycle_update', (ev)=>{
     const j = JSON.parse(ev.data||'{}');
-    if(!j.user || j.user==='mochita'){ loadMonth(); }
+    if(!j.user || j.user==='mochita'){ loadMonth(); setTimeout(refreshStatsUI, 0); }
   });
 }catch(e){ console.warn('SSE no disponible', e); }
 
-// ------- Init -------
-(function init(){
-  const t=new Date(); state.y=t.getFullYear(); state.m=t.getMonth()+1;
-  loadMonth();
-})();
-
-
-/* ================== NUEVO: Estadísticas + Gráficos + PDF ================== */
-
-// Guardaremos datos extendidos aquí sin tocar tu estado actual
-state.allEntries = {};   // { ISO : {flow,mood,pain,energy} }
-let CHARTS = { flow:null, mood:null, pain:null, energy:null };
-
-// Mapea flujo a número
+// ================== INFORMES ==================
 const FLOW_NUM = { '':0, 'poco':1, 'medio':2, 'mucho':3 };
 
-// Carga extendida (24 meses atrás hasta este mes)
+// Carga extendida (24 meses)
 async function loadAllForStats(){
   try{
     const now = new Date();
-    const fromDate = new Date(now.getFullYear(), now.getMonth() - 23, 1); // 24 meses
+    const fromDate = new Date(now.getFullYear(), now.getMonth() - 23, 1);
     const from = `${fromDate.getFullYear()}-${pad(fromDate.getMonth()+1)}`;
     const months = 24;
     const url = `${API_LIST}?from=${from}&months=${months}&user=mochita`;
@@ -681,17 +641,19 @@ async function loadAllForStats(){
       };
     });
     state.allEntries = map;
-  }catch(e){
-    state.allEntries = {};
-  }
+  }catch(e){ state.allEntries = {}; }
 }
 
-// Utilidades fechas
-function ymd(s){ const [Y,M,D]=s.split('-').map(Number); return {Y,M,D}; }
+// Utils
 function cmpIso(a,b){ return a<b?-1:a>b?1:0; }
 function addDaysIso(s, n){ const d=parseIso(s); d.setDate(d.getDate()+n); return toIsoDate(d); }
+function inSameMonth(isoStr, y, m){ const [Y,M] = isoStr.split('-').map(Number); return Y===y && M===m; }
+function inSameYear(isoStr, y){ const [Y] = isoStr.split('-').map(Number); return Y===y; }
+function mean(arr){ return arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+function stdev(arr){ if(arr.length<2) return 0; const m=mean(arr); const v=mean(arr.map(x=>(x-m)*(x-m))); return Math.sqrt(v); }
+function fmt(n, d=1){ return isFinite(n)? Number(n.toFixed(d)).toString().replace('.',',') : '—'; }
 
-// Detecta spans de regla (días consecutivos con flujo != '')
+// Spans de regla
 function getPeriodSpans(map){
   const days = Object.keys(map).sort(cmpIso);
   const spans=[];
@@ -711,56 +673,34 @@ function getPeriodSpans(map){
   }
   return spans;
 }
-
-// Longitudes de ciclo = diferencia entre INICIOS sucesivos
 function getCycleLengths(spans){
   const starts = spans.map(s=>s.start).sort(cmpIso);
   const out = [];
   for(let i=0;i<starts.length-1;i++){
     const a = parseIso(starts[i]), b = parseIso(starts[i+1]);
     const diff = Math.round((b-a)/(1000*60*60*24));
-    if(diff>5 && diff<60) out.push({start:starts[i], length:diff}); // filtros sanos
+    if(diff>5 && diff<60) out.push({start:starts[i], length:diff});
   }
   return out;
 }
 
-// Filtros por mes/año
-function inSameMonth(isoStr, y, m){ const {Y,M}=ymd(isoStr); return Y===y && M===m; }
-function inSameYear(isoStr, y){ const {Y}=ymd(isoStr); return Y===y; }
-
-// Estadísticos básicos
-function mean(arr){ return arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
-function stdev(arr){
-  if(arr.length<2) return 0;
-  const m = mean(arr);
-  const v = mean(arr.map(x=> (x-m)*(x-m) ));
-  return Math.sqrt(v);
-}
-function fmt(n, digits=1){ return isFinite(n)? Number(n.toFixed(digits)).toString().replace('.',',') : '—'; }
-
-// Construye datos para el alcance seleccionado
+// Dataset por alcance
 function buildDataset(scope){
   const y = state.y, m = state.m;
-
   const map = state.allEntries;
   const spans = getPeriodSpans(map);
   const cycles = getCycleLengths(spans);
 
-  // Filtrado por alcance
   const spansSel = spans.filter(s => scope==='mes' ? inSameMonth(s.start,y,m) : inSameYear(s.start,y) );
   const cyclesSel = cycles.filter(c => scope==='mes' ? inSameMonth(c.start,y,m) : inSameYear(c.start,y) );
 
-  // Stats
   const avgPeriod = mean(spansSel.map(s=>s.lengthDays));
   const cycleLens = cyclesSel.map(c=>c.length);
   const avgCycle = mean(cycleLens);
   const sdCycle = stdev(cycleLens);
-  const cv = (avgCycle>0)? (sdCycle/avgCycle) : 0;
-  const regularity = avgCycle===0 ? '—' : (sdCycle<=2 ? 'alta' : (sdCycle<=4 ? 'media' : 'baja'));
+  const regularity = !avgCycle ? '—' : (sdCycle<=2 ? 'alta' : (sdCycle<=4 ? 'media' : 'baja'));
 
-  // Series para gráficos
-  let labels=[], flowSeries=[], moodCounts={}, painSeries=[], energySeries=[];
-
+  let labels=[], flowSeries=[], moodCounts={}, painSeries=[], energySeries=[], daysWithFlow=[];
   const MOOD_KEYS = Object.keys(MOOD_EMO);
   MOOD_KEYS.forEach(k=>moodCounts[k]=0);
 
@@ -770,176 +710,250 @@ function buildDataset(scope){
       const id = iso(y,m,d);
       labels.push(d.toString());
       const e = map[id]||{};
-      flowSeries.push(FLOW_NUM[e.flow||'']||0);
+      const f = FLOW_NUM[e.flow||'']||0;
+      flowSeries.push(f);
       if(e.mood && moodCounts[e.mood]!=null) moodCounts[e.mood]++;
       if(typeof e.pain === 'number') painSeries.push(e.pain);
       if(typeof e.energy === 'number') energySeries.push(e.energy);
     }
   }else{
-    // año: por mes (1..12) con media de flujo/pain/energy y conteo de moods
     for(let mm=1; mm<=12; mm++){
       labels.push(MONTHS[mm-1].slice(0,3));
       const dim = daysInMonth(y,mm);
-      let flows=[], pains=[], energys=[];
+      let flows=[], pains=[], energys=[], flowDays=0;
       for(let d=1; d<=dim; d++){
         const id = iso(y,mm,d);
         const e = map[id]||{};
-        flows.push(FLOW_NUM[e.flow||'']||0);
+        const f = FLOW_NUM[e.flow||'']||0;
+        flows.push(f);
+        if(f>0) flowDays++;
         if(typeof e.pain === 'number') pains.push(e.pain);
         if(typeof e.energy === 'number') energys.push(e.energy);
         if(e.mood && moodCounts[e.mood]!=null) moodCounts[e.mood]++;
       }
       flowSeries.push(flows.length? mean(flows) : 0);
+      daysWithFlow.push(flowDays);
       painSeries.push(pains.length? mean(pains) : 0);
       energySeries.push(energys.length? mean(energys) : 0);
     }
   }
 
-  const moodsLabels = MOOD_KEYS.map(k=>k.replace('_',' '));
-  const moodsData = MOOD_KEYS.map(k=>moodCounts[k]||0);
-  const hasPain = painSeries.some(v=>typeof v==='number');
-  const hasEnergy = energySeries.some(v=>typeof v==='number');
+  const moodsLabels = Object.keys(MOOD_EMO).map(k=>k.replace('_',' '));
+  const moodsData = Object.keys(MOOD_EMO).map(k=>moodCounts[k]||0);
+  const totalMoods = moodsData.reduce((a,b)=>a+b,0) || 1; // evitar 0
+  const moodsPct = moodsData.map(v=> Math.round(100*v/totalMoods));
 
   return {
-    stats:{ avgPeriod, avgCycle, sdCycle, cv, regularity },
-    charts:{ labels, flowSeries, moodsLabels, moodsData, painSeries, energySeries, hasPain, hasEnergy }
+    stats:{ avgPeriod, avgCycle, sdCycle, regularity },
+    charts:{ labels, flowSeries, moodsLabels, moodsData, moodsPct, painSeries, energySeries, daysWithFlow,
+             hasPain: painSeries.some(v=>typeof v==='number'),
+             hasEnergy: energySeries.some(v=>typeof v==='number') }
   };
 }
 
-// Pinta/actualiza los números de la cabecera
+// Charts
+let CHARTS = { flow:null, mood:null, pain:null, energy:null };
+Chart.defaults.font.family = 'Montserrat, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+const FLOW_TICKS = ['0·Sin','1·Poco','2·Medio','3·Mucho'];
+
+function movingAvg(series, win=7){
+  const out = [];
+  for(let i=0;i<series.length;i++){
+    const a = Math.max(0, i - (win-1));
+    const slice = series.slice(a, i+1);
+    out.push(mean(slice));
+  }
+  return out;
+}
+
+function flowGradient(ctx){
+  const g = ctx.createLinearGradient(0,0,0,300);
+  g.addColorStop(0,'rgba(232,67,147,0.25)');
+  g.addColorStop(1,'rgba(162,155,254,0.05)');
+  return g;
+}
+
+// Actualiza cabecera
 function updateStatsHeader(data){
   const {avgPeriod, avgCycle, regularity} = data.stats;
   $('#statAvgCycle').textContent = avgCycle? fmt(avgCycle) : '—';
   $('#statAvgPeriod').textContent = avgPeriod? fmt(avgPeriod) : '—';
-  $('#statLuteal').textContent = '≈14'; // estimada sin datos de ovulación
+  $('#statLuteal').textContent = '≈14';
   $('#statRegularity').textContent = regularity;
 }
 
-// Crea o actualiza un gráfico Chart.js
-function upsertChart(refKey, ctx, cfg){
-  if(CHARTS[refKey]){ CHARTS[refKey].data = cfg.data; CHARTS[refKey].options = cfg.options||{}; CHARTS[refKey].update(); }
-  else { CHARTS[refKey] = new Chart(ctx, cfg); }
+// Crea/actualiza gráfico
+function upsertChart(key, ctx, cfg){
+  if(CHARTS[key]){ CHARTS[key].data = cfg.data; CHARTS[key].options = cfg.options||{}; CHARTS[key].update(); }
+  else { CHARTS[key] = new Chart(ctx, cfg); }
 }
 
-// Dibuja todos los gráficos
+// Dibuja gráficos
 function drawCharts(scope, charts){
   const isMonth = (scope==='mes');
 
-  // Flujo (línea para mes / barras para año)
-  upsertChart('flow', $('#chartFlow').getContext('2d'), {
-    type: isMonth ? 'line' : 'bar',
-    data: {
+  // FLUJO: mes -> línea + media móvil; año -> barras + línea (días con flujo)
+  const flowCtx = $('#chartFlow').getContext('2d');
+  const grad = flowGradient(flowCtx);
+  const flowCfg = isMonth ? {
+    type:'line',
+    data:{
       labels: charts.labels,
-      datasets: [{
-        label: isMonth ? 'Flujo por día' : 'Flujo medio por mes',
-        data: charts.flowSeries,
-        fill:false,
-        tension:0.25
-      }]
+      datasets:[
+        { label:'Flujo por día', data: charts.flowSeries, fill:true, backgroundColor:grad, borderColor:'#e84393', tension:0.25, pointRadius:2 },
+        { label:'Media móvil (7d)', data: movingAvg(charts.flowSeries,7), borderColor:'#a29bfe', borderDash:[6,4], tension:0.25, pointRadius:0, fill:false }
+      ]
     },
     options:{
       responsive:true,
+      plugins:{ legend:{ display:true }, tooltip:{ callbacks:{ label:(ctx)=> ` ${FLOW_TICKS[Math.round(ctx.parsed.y)]||ctx.parsed.y}` } } },
       scales:{
-        y:{ suggestedMin:0, suggestedMax:3, ticks:{ stepSize:1 } }
-      },
-      plugins:{ legend:{ display:false } }
+        y:{ suggestedMin:0, suggestedMax:3, ticks:{ stepSize:1, callback:(v)=> FLOW_TICKS[v]||v } }
+      }
     }
-  });
-
-  // Ánimo (barras apiladas)
-  upsertChart('mood', $('#chartMood').getContext('2d'), {
+  } : {
     type:'bar',
     data:{
-      labels: charts.moodsLabels,
-      datasets:[{ label:'Ánimo', data: charts.moodsData }]
+      labels: charts.labels,
+      datasets:[
+        { type:'bar', label:'Flujo medio por mes', data: charts.flowSeries, backgroundColor:'#fd79a8' },
+        { type:'line', label:'Días con flujo', data: charts.daysWithFlow, borderColor:'#6c5ce7', yAxisID:'y1', tension:0.25, pointRadius:3, fill:false }
+      ]
     },
-    options:{ responsive:true, plugins:{ legend:{ display:false } } }
+    options:{
+      responsive:true,
+      plugins:{ legend:{ display:true } },
+      scales:{
+        y:{ suggestedMin:0, suggestedMax:3, ticks:{ stepSize:1, callback:(v)=> FLOW_TICKS[v]||v } },
+        y1:{ position:'right', grid:{ drawOnChartArea:false } }
+      }
+    }
+  };
+  upsertChart('flow', flowCtx, flowCfg);
+
+  // ÁNIMO: dona con % y etiquetas
+  upsertChart('mood', $('#chartMood').getContext('2d'), {
+    type:'doughnut',
+    data:{
+      labels: charts.moodsLabels.map((l,i)=> `${l} (${charts.moodsPct[i]}%)`),
+      datasets:[{ data: charts.moodsPct }]
+    },
+    options:{ responsive:true, plugins:{ legend:{ position:'right' } } }
   });
 
-  // Dolor (si hay)
+  // DOLOR
   $('#cardPain').style.display = charts.hasPain ? '' : 'none';
   if(charts.hasPain){
     upsertChart('pain', $('#chartPain').getContext('2d'), {
       type: isMonth ? 'line' : 'bar',
-      data:{ labels: charts.labels, datasets:[{ label:'Dolor (0–10)', data: charts.painSeries, tension:0.25 }] },
-      options:{ responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ suggestedMin:0, suggestedMax:10, ticks:{ stepSize:2 } } } }
+      data:{ labels: charts.labels, datasets:[{ label:'Dolor (0–10)', data: charts.painSeries, tension:0.25, borderColor:'#eb5757', backgroundColor:'rgba(235,87,87,.15)', fill:isMonth }] },
+      options:{ responsive:true, plugins:{ legend:{ display:true } }, scales:{ y:{ suggestedMin:0, suggestedMax:10, ticks:{ stepSize:2 } } } }
     });
   }
 
-  // Energía (si hay)
+  // ENERGÍA
   $('#cardEnergy').style.display = charts.hasEnergy ? '' : 'none';
   if(charts.hasEnergy){
     upsertChart('energy', $('#chartEnergy').getContext('2d'), {
       type: isMonth ? 'line' : 'bar',
-      data:{ labels: charts.labels, datasets:[{ label:'Energía (0–10)', data: charts.energySeries, tension:0.25 }] },
-      options:{ responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ suggestedMin:0, suggestedMax:10, ticks:{ stepSize:2 } } } }
+      data:{ labels: charts.labels, datasets:[{ label:'Energía (0–10)', data: charts.energySeries, tension:0.25, borderColor:'#2d9cdb', backgroundColor:'rgba(45,156,219,.15)', fill:isMonth }] },
+      options:{ responsive:true, plugins:{ legend:{ display:true } }, scales:{ y:{ suggestedMin:0, suggestedMax:10, ticks:{ stepSize:2 } } } }
     });
   }
 }
 
-// Refresca todo (stats + charts) según el alcance seleccionado
 function refreshStatsUI(){
-  const scope = $('#scopeSelect').value; // 'mes' | 'anio'
+  const scope = $('#scopeSelect').value;
   const dataset = buildDataset(scope);
   updateStatsHeader(dataset);
   drawCharts(scope, dataset.charts);
 }
 
-// Exporta la zona de stats+charts a PDF
+// Exporta PDF con 2 páginas: 1) Calendario, 2) Informes
 async function exportPDF(){
-  const area = document.getElementById('statsExportArea');
   const { jsPDF } = window.jspdf;
-
-  const canvas = await html2canvas(area, { scale:2, backgroundColor:'#ffffff' });
-  const imgData = canvas.toDataURL('image/png');
-
   const pdf = new jsPDF({ unit:'pt', format:'a4' });
   const pageWidth = pdf.internal.pageSize.getWidth();
+  const margin = 28;
+
+  // 1) Calendario
+  const calNode = document.getElementById('calendarCard');
+  const calCanvas = await html2canvas(calNode, { scale:2, backgroundColor:'#ffffff' });
+  const calImg = calCanvas.toDataURL('image/png');
+  const calW = pageWidth - margin*2;
+  const calH = calCanvas.height * (calW / calCanvas.width);
+  pdf.setFont('helvetica','bold'); pdf.setFontSize(14);
+  pdf.text(`Calendario · ${$('#monthTitle').textContent}`, margin, 24);
+  pdf.addImage(calImg, 'PNG', margin, 34, calW, calH);
+
+  // 2) Informes
+  pdf.addPage();
+  const repNode = document.getElementById('statsExportArea');
+  const repCanvas = await html2canvas(repNode, { scale:2, backgroundColor:'#ffffff' });
+  const repImg = repCanvas.toDataURL('image/png');
+  const repW = pageWidth - margin*2;
+  const repH = repCanvas.height * (repW / repCanvas.width);
+  pdf.setFont('helvetica','bold'); pdf.setFontSize(14);
+  const scope = $('#scopeSelect').value;
+  pdf.text(`Informes · ${scope==='mes' ? ($('#monthTitle').textContent) : state.y}`, margin, 24);
+
+  // si no cabe en una página, la partimos
   const pageHeight = pdf.internal.pageSize.getHeight();
-
-  // Escalado a ancho página, y paginado si hace falta
-  const imgWidth = pageWidth - 40; // márgenes
-  const imgHeight = canvas.height * (imgWidth / canvas.width);
-
-  let y = 20;
-  if(imgHeight <= pageHeight - 40){
-    pdf.addImage(imgData, 'PNG', 20, y, imgWidth, imgHeight);
+  let y = 34;
+  if(repH <= pageHeight - 40){
+    pdf.addImage(repImg, 'PNG', margin, y, repW, repH);
   }else{
-    // Cortar en varias páginas
     let sY = 0;
-    const pxPage = canvas.width * ((pageHeight - 40) / imgWidth);
-    while(sY < canvas.height){
+    const pxPage = repCanvas.width * ((pageHeight - 40) / repW);
+    while(sY < repCanvas.height){
       const pageCanvas = document.createElement('canvas');
-      pageCanvas.width = canvas.width;
-      pageCanvas.height = Math.min(pxPage, canvas.height - sY);
+      pageCanvas.width = repCanvas.width;
+      pageCanvas.height = Math.min(pxPage, repCanvas.height - sY);
       const ctx = pageCanvas.getContext('2d');
-      ctx.drawImage(canvas, 0, sY, canvas.width, pageCanvas.height, 0, 0, canvas.width, pageCanvas.height);
+      ctx.drawImage(repCanvas, 0, sY, repCanvas.width, pageCanvas.height, 0, 0, pageCanvas.width, pageCanvas.height);
       const pageImg = pageCanvas.toDataURL('image/png');
       if(sY>0) pdf.addPage();
-      pdf.addImage(pageImg, 'PNG', 20, 20, imgWidth, pageCanvas.height*(imgWidth/canvas.width));
+      pdf.addImage(pageImg, 'PNG', margin, 24, repW, pageCanvas.height*(repW/repCanvas.width));
       sY += pxPage;
     }
   }
 
-  const scope = $('#scopeSelect').value;
-  const name = (scope==='mes') ? `resumen_${state.y}-${pad(state.m)}.pdf` : `resumen_${state.y}.pdf`;
+  const name = scope==='mes' ? `resumen_${state.y}-${pad(state.m)}.pdf` : `resumen_${state.y}.pdf`;
   pdf.save(name);
 }
 
-// Eventos UI
+// Eventos informes
 $('#scopeSelect').addEventListener('change', refreshStatsUI);
 $('#btnPdf').addEventListener('click', exportPDF);
 
-// Integración con tu navegación de meses
-const _goMonthOriginal = goMonth;
-goMonth = function(delta){ _goMonthOriginal(delta); setTimeout(refreshStatsUI, 0); };
+// Tabs
+$$('.tab').forEach(b=>b.addEventListener('click', ()=>{
+  $$('.tab').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  const t = b.dataset.tab;
+  $('#view-cal').classList.toggle('active', t==='cal');
+  $('#view-rep').classList.toggle('active', t==='rep');
+  if(t==='rep'){ refreshStatsUI(); }
+}));
 
-// Carga inicial de datos extendidos y primer pintado
-(async function initStats(){
-  await loadAllForStats();
-  refreshStatsUI();
+// Permisos iniciales
+(function applyPermissions(){
+  if(!CAN_EDIT){
+    $('#rangeToggle').setAttribute('disabled','');
+    $('#rangeFlow').setAttribute('disabled','');
+    $('#applyRange').setAttribute('disabled','');
+    $('#clearRange').setAttribute('disabled','');
+    $('#wipeAllBtn').setAttribute('disabled','');
+  }
 })();
 
+// Init
+(async function init(){
+  const t=new Date(); state.y=t.getFullYear(); state.m=t.getMonth()+1;
+  await loadAllForStats();
+  await loadMonth();
+  refreshStatsUI();
+})();
 </script>
 </body>
 </html>

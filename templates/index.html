@@ -5675,7 +5675,97 @@ function sortCards(grid, mode){
   }
 })();
 
+>
+(function(){
+  // normaliza: minúsculas + sin acentos
+  const norm = s => (s||"").toString()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase().trim();
 
+  const selInput = "#media-search";
+  const cardsAll = () =>
+    Array.from(document.querySelectorAll("#towatch-tab .media-card, #watched-tab .media-card"));
+
+  function indexCard(card){
+    const title = card.querySelector(".media-title")?.textContent || "";
+    const plat  = card.dataset.platform || "";   // netflix | prime | both | zzz
+    const notes = card.dataset.notes || "";
+    const kind  = card.dataset.kind  || "";      // movie | show
+    card.__searchIx = norm([title, plat, notes, kind].join(" "));
+  }
+
+  function reindex(){ cardsAll().forEach(indexCard); }
+
+  function ensureNoResNode(grid){
+    if(!grid) return null;
+    if(!grid._nores){
+      const p = document.createElement("p");
+      p.className = "no-results";
+      p.style.cssText = "padding:10px;margin:0;color:#888;font-weight:600";
+      p.textContent = "Sin resultados.";
+      grid.parentNode.insertBefore(p, grid.nextSibling);
+      grid._nores = p;
+    }
+    return grid._nores;
+  }
+
+  function toggleNoRes(tabSel, show){
+    const grid = document.querySelector(`${tabSel} .media-grid`);
+    const nores = ensureNoResNode(grid);
+    if(!nores) return;
+    const isActive = document.querySelector(tabSel)?.classList.contains("active");
+    nores.style.display = show && isActive ? "block" : "none";
+  }
+
+  function applyFilter(q){
+    const needle = norm(q);
+    let visTow = 0, visWat = 0;
+
+    cardsAll().forEach(card => {
+      const hit = !needle || (card.__searchIx||"").includes(needle);
+      if(hit){
+        card.removeAttribute("data-search-hide");
+        if(card.closest("#towatch-tab")) visTow++; else if(card.closest("#watched-tab")) visWat++;
+      }else{
+        card.setAttribute("data-search-hide","1");
+      }
+    });
+
+    toggleNoRes("#towatch-tab", visTow===0 && !!needle);
+    toggleNoRes("#watched-tab", visWat===0 && !!needle);
+  }
+
+  function wire(){
+    const input = document.querySelector(selInput);
+    if(!input) return false;
+
+    // índice inicial + filtro (por si ya hay texto)
+    reindex();
+    applyFilter(input.value||"");
+
+    // escribir filtra, ESC limpia
+    input.addEventListener("input", ()=>applyFilter(input.value), {passive:true});
+    input.addEventListener("keydown", e=>{ if(e.key==="Escape"){ input.value=""; applyFilter(""); }});
+
+    // al cambiar de pestaña, re-evalúa el mensaje "sin resultados"
+    document.querySelectorAll(".media-tab").forEach(tab =>
+      tab.addEventListener("click", () => setTimeout(()=>applyFilter(input.value||""), 0))
+    );
+
+    // si se añaden/editar/eliminan tarjetas, reindexa solo
+    const mediaSection = document.querySelector('.section[data-section="media"]') || document.body;
+    const mo = new MutationObserver(() => { reindex(); applyFilter(input.value||""); });
+    mo.observe(mediaSection, { childList:true, subtree:true });
+
+    return true;
+  }
+
+  // cablea ya; si aún no está el DOM listo, reintenta un poco
+  if(!wire()){
+    let tries = 0;
+    const iv = setInterval(()=>{ if(wire() || ++tries > 20) clearInterval(iv); }, 150);
+  }
+})();
 </script>
 
 

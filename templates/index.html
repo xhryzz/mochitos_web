@@ -1648,6 +1648,8 @@ body.page-media .section:not([data-section="media"]){
 
 
 
+
+
     </style>
 </head>
 
@@ -1778,6 +1780,10 @@ body.page-media .section:not([data-section="media"]){
   <button class="nav-btn" data-goto="intim" title="Intimidad">
     <i class="fas fa-lock" aria-hidden="true"></i>
     <span class="nav-label">Intimidad</span>
+  </button>
+  <button class="nav-btn" title="Ciclo (Regla)" onclick="location.href='{{ url_for('regla_page') }}'">
+    <i class="fa-solid fa-droplet" aria-hidden="true"></i>
+    <span class="nav-label">Regla</span>
   </button>
   <button class="nav-btn" data-goto="profile" title="Perfil">
     <i class="fas fa-user" aria-hidden="true"></i>

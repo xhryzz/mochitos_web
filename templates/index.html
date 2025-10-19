@@ -6262,7 +6262,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }).catch(()=>{});
   }
 });
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      // Registra tu SW (ya lo tienes en /sw.js)
+      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
 
+      // 1) Busca actualización siempre que abres la app/página
+      reg.update();
+
+      // 2) Y también al volver a primer plano (PWA instalada o pestaña)
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update();
+      });
+
+      // 3) Cuando el nuevo SW tome el control, recargamos para aplicar la nueva versión
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+
+      // (Opcional) Si quieres ver que detectó una actualización:
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        nw?.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            // Si usas toasts:
+            window.showToast?.('info', 'Actualizando a la última versión…');
+          }
+        });
+      });
+    } catch (e) {
+      console.warn('SW register error', e);
+    }
+  });
+}
 
   </script>
   

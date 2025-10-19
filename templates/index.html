@@ -5467,70 +5467,39 @@ function sortCards(grid, mode){
 
 
 
-/* ===== Búsqueda en Media: solo título/plataforma/notas ===== */
 (function setupMediaSearch(){
   const input = document.getElementById('media-search');
-  if (!input) return;
+  if(!input) return;
 
-  const cards = Array.from(document.querySelectorAll('.media-card'));
-
-  const norm = (s) => (s||'')
+  // Normaliza: minúsculas + sin acentos
+  const norm = s => (s||'')
     .toString()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu,'');
+    .normalize('NFD').replace(/\p{Diacritic}/gu,'')
+    .toLowerCase();
 
-  function score(tokens, title){
-    // Puntuación simple para que salgan primero coincidencias al inicio del título
-    const t = norm(title||'');
-    let s = 0;
-    tokens.forEach(tok=>{
-      if (!tok) return;
-      if (t.startsWith(tok)) s += 100;
-      const idx = t.indexOf(tok);
-      if (idx === 0) s += 50;
-      else if (idx > 0) s += 10;
-    });
-    return s;
-  }
-
-  input.addEventListener('input', () => {
-    const q = norm(input.value.trim());
-    const tokens = q.split(/\s+/).filter(Boolean);
-
-    // si no hay query, mostramos todo y salimos
-    if (!tokens.length){
-      cards.forEach(c => {
-        c.style.display = '';
-        c.dataset.matchScore = '0';
-      });
-      return;
-    }
-
-    // filtra SOLO por data-title / data-platform / data-notes
-    const containers = new Map(); // para reordenar dentro de cada grid
-    cards.forEach(card=>{
-      const haystack = norm(
-        [card.dataset.title, card.dataset.platform, card.dataset.notes].join(' ')
-      );
-      const ok = tokens.every(t => haystack.includes(t));
-      card.style.display = ok ? '' : 'none';
-      card.dataset.matchScore = ok ? String(score(tokens, card.dataset.title)) : '0';
-      if (ok){
-        const parent = card.parentElement;
-        if (parent) {
-          if (!containers.has(parent)) containers.set(parent, []);
-          containers.get(parent).push(card);
-        }
-      }
-    });
-
-    // opcional: reordenar coincidencias por mejor score dentro de cada grid
-    containers.forEach((list, parent)=>{
-      list.sort((a,b)=> (b.dataset.matchScore|0) - (a.dataset.matchScore|0));
-      list.forEach(el => parent.appendChild(el));
-    });
+  // Indexa todas las tarjetas de Media
+  const cards = [...document.querySelectorAll('.media-card')];
+  cards.forEach(c => {
+    const title = c.dataset.title || c.querySelector('.media-title')?.textContent || '';
+    const platform = c.dataset.platform || '';
+    const notes = c.dataset.notes || '';
+    c._searchIndex = norm([title, platform, notes].join(' '));
   });
+
+  const applyFilter = () => {
+    const q = norm(input.value).trim();
+    if (!q){ cards.forEach(c => c.style.display = ''); return; }
+
+    // NO descartamos “la/el/de”… ni longitud 2
+    const terms = q.split(/\s+/).filter(Boolean);
+
+    cards.forEach(c => {
+      const ok = terms.every(t => c._searchIndex.includes(t));
+      c.style.display = ok ? '' : 'none';
+    });
+  };
+
+  input.addEventListener('input', applyFilter);
 })();
 
 </script>

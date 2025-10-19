@@ -2014,6 +2014,9 @@ body.page-media .section:not([data-section="media"]){
     </div>
   </div>
 
+  <div class="mini-note" style="margin-top:6px; color:#6b7280; font-size:.95rem;">
+    Actualiza la fecha del próximo encuentro para que el chip del banner se ponga en modo “pronto” automáticamente. ✨
+  </div>
   
 
   <form method="POST" class="inline-form">
@@ -3345,7 +3348,6 @@ window.openBasicEditMedia = function(btn){
   </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
-
 
 <script>
   
@@ -6026,208 +6028,6 @@ function setDistanceBar(km){
 })();
 
 
-const CURRENT_USER = "{{ username|default('', true) }}";  // 'mochito' o 'mochita'
-const ME_KEY   = (CURRENT_USER === 'mochito') ? 'christian' : 'clara';
-const OTHER_KEY= (CURRENT_USER === 'mochito') ? 'clara'     : 'christian';
-
-let map, markerMe, markerOther;
-let posMe = null, posOther = null;
-
-function toast(type, msg){ (window.showToast? showToast(type,msg) : alert(msg)); }
-
-function haversineKm(a, b){
-  const R=6371, toRad=(d)=>d*Math.PI/180;
-  const dLat=toRad(b.lat-a.lat), dLon=toRad(b.lon-a.lon);
-  const s1=Math.sin(dLat/2), s2=Math.sin(dLon/2);
-  const h=s1*s1 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*s2*s2;
-  return 2*R*Math.asin(Math.min(1, Math.sqrt(h)));
-}
-
-async function reverseGeocode(lat, lon){
-  try{
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
-    const res = await fetch(url, { headers: { 'Accept-Language':'es' }});
-    const j = await res.json();
-    const a = j.address || {};
-    const city = a.city || a.town || a.village || a.suburb || a.county;
-    const state= a.state || a.region || a.province || '';
-    return [city, state].filter(Boolean).join(', ') || (j.display_name || `${lat.toFixed(5)}, ${lon.toFixed(5)}`);
-  }catch(e){ return `${lat.toFixed(5)}, ${lon.toFixed(5)}`; }
-}
-
-async function geocodeText(q){
-  try{
-    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(q)}`;
-    const r = await fetch(url, { headers: { 'Accept-Language':'es' }});
-    const j = await r.json();
-    if (Array.isArray(j) && j.length){
-      return { lat: Number(j[0].lat), lon: Number(j[0].lon), label: j[0].display_name };
-    }
-  }catch(e){}
-  return null;
-}
-
-function ensureMap(){
-  if (!map && window.L){
-    map = L.map('distanceMap', { zoomControl:true });
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom:19, attribution:'© OpenStreetMap'
-    }).addTo(map);
-  }
-}
-
-function updateDistanceUI(){
-  const chip = document.getElementById('chipDistance');
-  const val  = document.getElementById('distanceValue');
-  const bar  = document.getElementById('distanceFill');
-
-  if (posMe && posOther){
-    const km = haversineKm(posMe, posOther);
-    const txt = `${km.toFixed(1)} km`;
-    if (chip) chip.innerHTML = `<i class="fa-solid fa-route"></i> ${txt}`;
-    if (val)  val.textContent = txt;
-    if (bar)  bar.style.width = `${Math.min(100, (km/500)*100)}%`;
-  }else{
-    if (chip) chip.innerHTML = `<i class="fa-solid fa-route"></i> — km`;
-    if (val)  val.textContent = '—';
-    if (bar)  bar.style.width = '0%';
-  }
-}
-
-function updateBadges(){
-  const idMe    = (ME_KEY==='christian') ? 'christianLocation' : 'claraLocation';
-  const idOther = (OTHER_KEY==='christian') ? 'christianLocation' : 'claraLocation';
-  if (posMe && document.getElementById(idMe))    document.getElementById(idMe).textContent    = posMe.label || `${posMe.lat.toFixed(5)}, ${posMe.lon.toFixed(5)}`;
-  if (posOther && document.getElementById(idOther))document.getElementById(idOther).textContent= posOther.label || `${posOther.lat.toFixed(5)}, ${posOther.lon.toFixed(5)}`;
-}
-
-function fitMap(){
-  if (!map || !posMe || !posOther) return;
-  const bounds = L.latLngBounds([ [posMe.lat,posMe.lon], [posOther.lat,posOther.lon] ]);
-  map.fitBounds(bounds.pad(0.25));
-}
-
-function paintMarkers(){
-  ensureMap();
-  if (!map) return;
-
-  if (posMe){
-    if (!markerMe){
-      markerMe = L.marker([posMe.lat,posMe.lon], { title: ME_KEY==='christian' ? 'Christian' : 'Clara' }).addTo(map);
-    }else{
-      markerMe.setLatLng([posMe.lat,posMe.lon]);
-    }
-    markerMe.bindPopup(`<b>${ME_KEY==='christian' ? 'Christian' : 'Clara'}</b><br>${posMe.label || ''}`);
-  }
-  if (posOther){
-    if (!markerOther){
-      markerOther = L.marker([posOther.lat,posOther.lon], { title: OTHER_KEY==='christian' ? 'Christian' : 'Clara' }).addTo(map);
-    }else{
-      markerOther.setLatLng([posOther.lat,posOther.lon]);
-    }
-    markerOther.bindPopup(`<b>${OTHER_KEY==='christian' ? 'Christian' : 'Clara'}</b><br>${posOther.label || ''}`);
-  }
-  fitMap();
-}
-
-async function setMyPosition(lat, lon){
-  const label = await reverseGeocode(lat, lon);
-  posMe = { lat, lon, label };
-  // guarda localmente por si recargas
-  try{ localStorage.setItem('mochitos:pos:'+ME_KEY, JSON.stringify(posMe)); }catch(e){}
-  updateBadges(); paintMarkers(); updateDistanceUI();
-}
-
-async function loadOtherPositionFromBadges(){
-  // lee texto que ya pintas en plantilla (Algemesí, Córdoba…) y geocodifica 1ª vez
-  const text = (OTHER_KEY==='christian' ? document.getElementById('christianLocation') : document.getElementById('claraLocation'))?.textContent?.trim();
-  if (!text) return;
-
-  // ¿ya lo teníamos cacheado?
-  try{
-    const cached = localStorage.getItem('mochitos:pos:'+OTHER_KEY);
-    if (cached){
-      const obj = JSON.parse(cached);
-      if (obj && typeof obj.lat==='number' && typeof obj.lon==='number'){
-        posOther = obj;
-        return;
-      }
-    }
-  }catch(e){}
-
-  const g = await geocodeText(text);
-  if (g){ posOther = { ...g, label: text }; try{ localStorage.setItem('mochitos:pos:'+OTHER_KEY, JSON.stringify(posOther)); }catch(e){} }
-}
-
-async function autoDetectLocationOnLoad(){
-  // si ya había cache, úsalo para pintar algo rápido
-  try{
-    const cached = localStorage.getItem('mochitos:pos:'+ME_KEY);
-    if (cached){
-      const obj = JSON.parse(cached);
-      if (obj && typeof obj.lat==='number' && typeof obj.lon==='number'){
-        posMe = obj;
-      }
-    }
-  }catch(e){}
-  await loadOtherPositionFromBadges();
-  updateBadges(); ensureMap(); paintMarkers(); updateDistanceUI();
-
-  if (!('geolocation' in navigator)){
-    toast('error','Tu navegador no permite geolocalización');
-    return;
-  }
-  if (!(window.isSecureContext || location.hostname === 'localhost')){
-    toast('error','Activa HTTPS (o usa localhost) para geolocalización automática');
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(async (pos)=>{
-    await setMyPosition(pos.coords.latitude, pos.coords.longitude);
-  }, (err)=>{
-    // Si el usuario deniega, nos quedamos con lo cacheado/tecleado
-    toast('info','No se pudo obtener tu ubicación: ' + err.message);
-  }, { enableHighAccuracy:true, timeout:10000, maximumAge:30000 });
-}
-
-// Vincula también el botón “Usar mi ubicación” a lo mismo
-document.addEventListener('DOMContentLoaded', ()=>{
-  autoDetectLocationOnLoad();
-
-  const btn = document.getElementById('useMyLocationBtn');
-  if (btn){
-    btn.addEventListener('click', ()=>{
-      if (!(window.isSecureContext || location.hostname === 'localhost')){
-        toast('error','Necesitas HTTPS (o localhost) para usar ubicación real');
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(async (pos)=>{
-        await setMyPosition(pos.coords.latitude, pos.coords.longitude);
-        toast('success','Ubicación actualizada ✅');
-      }, (err)=> toast('error','No se pudo obtener tu ubicación: ' + err.message),
-      { enableHighAccuracy:true, timeout:10000, maximumAge:30000 });
-    });
-  }
-
-  // Intercambiar ubicaciones: solo permuta los objetos y repinta
-  const swap = document.getElementById('swapLocations');
-  if (swap){
-    swap.addEventListener('click', ()=>{
-      const tmp = posMe; posMe = posOther; posOther = tmp;
-      paintMarkers(); updateDistanceUI(); updateBadges();
-    });
-  }
-
-  // Pantalla completa del mapa (tu botón ya existe)
-  const toggle = document.getElementById('toggleMapSize');
-  const wrap = document.querySelector('.distance-map-container');
-  if (toggle && wrap){
-    toggle.addEventListener('click', ()=>{
-      wrap.classList.toggle('full');
-      setTimeout(()=> map && map.invalidateSize(), 250);
-    });
-  }
-});
 </script>
 
 

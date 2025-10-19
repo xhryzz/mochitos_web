@@ -811,7 +811,10 @@ def build_calendar_data(year: int, month: int, periods: list[dict], stats: dict)
     import calendar
     first = date(year, month, 1)
     last  = date(year, month, calendar.monthrange(year, month)[1])
-    today = today_madrid().date()
+    from datetime import date as _date, datetime as _datetime
+    t = today_madrid()
+    today = t.date() if isinstance(t, _datetime) else (t if isinstance(t, _date) else _date.today())
+
 
     period_days = set()
     for p in periods:

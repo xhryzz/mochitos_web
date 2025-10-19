@@ -73,6 +73,12 @@ body{
   padding:10px 14px; border:none; border-radius:999px; background:#eee; font-weight:700; cursor:pointer;
   transition:.2s; box-shadow:0 6px 14px rgba(0,0,0,.06);
 }
+a.pill{
+  text-decoration:none;
+  color:inherit;
+  display:inline-flex;
+  align-items:center;
+}
 .pill:hover{ transform:translateY(-2px) }
 .pill.primary{ color:#fff; background:var(--primary) }
 .pill.accent{ color:#fff; background:var(--accent) }
@@ -186,6 +192,7 @@ canvas{ width:100%; height:340px }
 
   <!-- ======= Menú de navegación (2 vistas) ======= -->
   <div class="tabs">
+    <a href="/" class="pill">🏠 Inicio</a>
     <button class="tab active" data-tab="cal">📅 Calendario</button>
     <button class="tab" data-tab="rep">📈 Informes</button>
   </div>
@@ -207,6 +214,7 @@ canvas{ width:100%; height:340px }
         <button class="pill danger" id="clearRange" disabled>🗑️ Borrar rango</button>
       </div>
       <div class="right" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        
         <button class="pill" id="toggleLegend">🧭 Ver/Ocultar leyenda</button>
         <button class="pill" id="todayBtn">Hoy</button>
         <button class="pill danger" id="wipeAllBtn" title="Eliminar todos los registros">🧨 Eliminar TODO</button>

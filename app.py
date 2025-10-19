@@ -4284,10 +4284,26 @@ def api_cycle_get():
 def cycle_save():
     if 'username' not in session:
         return redirect('/')
+
     created_by = session['username']
-    # admite form o JSON
+
+    # 🔒 Solo mochita puede editar/guardar
+    if created_by != 'mochita':
+        try:
+            send_discord("Cycle save FORBIDDEN", {"by": created_by})
+        except Exception:
+            pass
+        if request.is_json or request.headers.get('Accept','').startswith('application/json'):
+            return jsonify({"ok": False, "error": "forbidden"}), 403
+        flash("Solo mochita puede editar el ciclo.", "error")
+        return redirect('/#ciclo')
+
+    # Admite form o JSON
     payload = request.get_json(silent=True) or request.form
-    for_user = (payload.get('for_user') or 'mochita').strip() or 'mochita'
+
+    # Fuerza a guardar SIEMPRE para mochita (ignora 'for_user' entrante)
+    for_user = 'mochita'
+
     day  = (payload.get('day') or '').strip()
     mood = (payload.get('mood') or '').strip() or None
     flow = (payload.get('flow') or '').strip() or None
@@ -4295,7 +4311,10 @@ def cycle_save():
     notes = (payload.get('notes') or '').strip() or None
 
     if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', day or ''):
-        return jsonify({"ok": False, "error": "bad_day"}), 400 if request.is_json else (flash("Fecha inválida.", "error") or redirect('/#ciclo'))
+        if request.is_json or request.headers.get('Accept','').startswith('application/json'):
+            return jsonify({"ok": False, "error": "bad_day"}), 400
+        flash("Fecha inválida.", "error")
+        return redirect('/#ciclo')
 
     if mood and mood not in ALLOWED_MOODS:
         mood = None
@@ -4337,15 +4356,35 @@ def cycle_save():
     flash("Día guardado ✅", "success")
     return redirect('/#ciclo')
 
+
 @app.post('/cycle/delete')
 def cycle_delete():
     if 'username' not in session:
         return redirect('/')
+
     created_by = session['username']
-    day = (request.form.get('day') or '').strip()
-    for_user = (request.form.get('for_user') or 'mochita').strip() or 'mochita'
+
+    # 🔒 Solo mochita puede borrar
+    if created_by != 'mochita':
+        try:
+            send_discord("Cycle delete FORBIDDEN", {"by": created_by})
+        except Exception:
+            pass
+        if request.is_json or request.headers.get('Accept','').startswith('application/json'):
+            return jsonify({"ok": False, "error": "forbidden"}), 403
+        flash("Solo mochita puede editar el ciclo.", "error")
+        return redirect('/#ciclo')
+
+    # Siempre operamos sobre mochita
+    for_user = 'mochita'
+    day = (request.form.get('day') or request.values.get('day') or '').strip()
+
     if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', day or ''):
-        flash("Fecha inválida.", "error"); return redirect('/#ciclo')
+        if request.is_json or request.headers.get('Accept','').startswith('application/json'):
+            return jsonify({"ok": False, "error": "bad_day"}), 400
+        flash("Fecha inválida.", "error")
+        return redirect('/#ciclo')
+
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
@@ -4358,6 +4397,9 @@ def cycle_delete():
             pass
     finally:
         conn.close()
+
+    if request.is_json or request.headers.get('Accept','').startswith('application/json'):
+        return jsonify({"ok": True})
     flash("Día eliminado 🗑️", "info")
     return redirect('/#ciclo')
 

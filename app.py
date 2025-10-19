@@ -4111,7 +4111,61 @@ def cycle_delete():
     return redirect('/#ciclo')
 
 
+@app.route("/regla")
+def regla_page():
+    # TODO: carga desde DB
+    periods = get_periods_for_user()  # -> [{id, start, end, length, flow, pain, notes}, ...]
+    cycle_stats = compute_cycle_stats(periods)  # -> dict con day_of_cycle, next_period_date, fertile_start, fertile_end, ovulation_day, avg_cycle_len, avg_period_len, days_to_next
 
+    # Prepara calendario del mes actual (o del próximo)
+    year, month = date.today().year, date.today().month
+    cal = build_calendar_data(year, month, periods, cycle_stats)  # -> dict con keys esperadas
+
+    return render_template(
+        "regla.html",
+        periods=periods,
+        cycle_stats=cycle_stats,
+        calendar=cal,
+        symptoms_choices=['Cólicos','Dolor lumbar','Hinchazón','Sensibilidad pechos','Dolor de cabeza','Acné','Antojos','Insomnio','Náuseas','Diarrrea/Estreñimiento'],
+        today=date.today().isoformat()
+    )
+
+@app.post("/regla/add_period")
+def add_period():
+    start = request.form.get("start_date")
+    end   = request.form.get("end_date") or None
+    flow  = request.form.get("flow") or "medio"
+    pain  = request.form.get("pain") or None
+    notes = request.form.get("notes") or ""
+    # TODO: valida y guarda
+    save_period(start, end, flow, pain, notes)
+    flash(("success", "Periodo guardado"))
+    return redirect(url_for("regla_page"))
+
+@app.post("/regla/add_symptom")
+def add_symptoms():
+    # recoge checkbox múltiples
+    symptoms = request.form.getlist("symptoms")
+    payload = {
+        "date": request.form.get("sym_date"),
+        "mood": request.form.get("mood"),
+        "energy": request.form.get("energy"),
+        "bbt": request.form.get("bbt"),
+        "had_sex": bool(request.form.get("had_sex")),
+        "protected": bool(request.form.get("protected")),
+        "symptoms": symptoms,
+        "notes": request.form.get("sym_notes") or ""
+    }
+    save_symptoms(payload)
+    flash(("success", "Síntomas guardados"))
+    return redirect(url_for("regla_page"))
+
+@app.post("/regla/delete_period")
+def delete_period():
+    pid = request.form.get("id")
+    delete_period_by_id(pid)
+    flash(("success", "Registro eliminado"))
+    return redirect(url_for("regla_page"))
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1
 if os.environ.get("RUN_SCHEDULER", "1") == "1":

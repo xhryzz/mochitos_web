@@ -2197,6 +2197,10 @@ body.page-media .section:not([data-section="media"]){
 <button type="button" class="map-fab" id="swapLocations" title="Intercambiar ubicaciones" style="right: 60px;">
   <i class="fa-solid fa-shuffle"></i>
 </button>
+<button type="button" class="map-fab" id="requestGeo" title="Activar ubicación" style="right: 105px;">
+  <i class="fa-solid fa-location-dot"></i>
+</button>
+
 
           <div class="distance-info">
             <h4>Distancia entre nosotros</h4>
@@ -6450,6 +6454,53 @@ function setDistanceBar(km){
   // Al cargar
   document.addEventListener('DOMContentLoaded', refreshCTA);
 })();
+
+
+
+
+
+
+
+
+document.addEventListener('DOMContentLoaded', function(){
+  const btn = document.getElementById('requestGeo');
+  if(!btn) return;
+
+  btn.addEventListener('click', function(){
+    // HTTPS o localhost, si no, el móvil NO muestra el permiso
+    if (!(window.isSecureContext || location.hostname === 'localhost')){
+      window.showToast?.('error','Necesitas abrirlo en HTTPS (o localhost) para pedir la ubicación');
+      return;
+    }
+    if (!('geolocation' in navigator)){
+      window.showToast?.('error','Tu navegador no soporta geolocalización');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(async (pos)=>{
+      if (typeof window.setMyPosition === 'function'){
+        await window.setMyPosition(pos.coords.latitude, pos.coords.longitude);
+      } else {
+        // Fallback: guarda y refresca
+        try{
+          const meKey = ("{{ username|default('', true) }}" === 'mochito') ? 'christian' : 'clara';
+          localStorage.setItem('mochitos:pos:'+meKey, JSON.stringify({
+            lat: pos.coords.latitude, lon: pos.coords.longitude, label: ''
+          }));
+        }catch(e){}
+        window.showToast?.('success','Ubicación guardada ✅');
+        location.reload();
+      }
+    }, (err)=>{
+      window.showToast?.('error',
+        err.code === 1 ? 'Permiso denegado en el navegador. Ábrelo en ajustes del sitio.' :
+                         ('No se pudo obtener tu ubicación: ' + err.message)
+      );
+    }, { enableHighAccuracy:true, timeout:10000, maximumAge:30000 });
+  });
+});
+
+
   </script>
 
 

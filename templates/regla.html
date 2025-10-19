@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Regla • Christian y Clara</title>
+
+  <!-- Fuentes / Iconos -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <meta name="theme-color" content="#e84393">
+
+  <style>
+    :root{
+      --primary-color:#e84393; --secondary-color:#fd79a8; --accent-color:#a29bfe;
+      --dark-text:#2d3436; --light-text:#fff; --card-bg:rgba(255,255,255,.95);
+      --gradient:linear-gradient(135deg,#e84393 0%,#fd79a8 50%,#a29bfe 100%);
+      --shadow:0 15px 30px rgba(0,0,0,.1);
+      --ok:#16a34a; --warn:#f59e0b; --muted:#94a3b8;
+      --red:#ff6b6b; --pink:#ff8ab6; --vio:#b197fc; --blue:#60a5fa; --green:#34d399;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:'Montserrat',sans-serif; color:var(--dark-text);
+      background: linear-gradient(135deg,#ffe8f3 0%,#dfe6e9 100%);
+      min-height:100vh; padding-bottom:96px;
+    }
+    .container{max-width:1100px;margin:0 auto;padding:20px}
+    .section{background:var(--card-bg); border-radius:20px; padding:24px; margin:16px 0; box-shadow:var(--shadow); border:1px solid rgba(255,255,255,.5)}
+    .section>h3{font-family:'Playfair Display',serif; font-size:2rem; color:var(--primary-color); margin-bottom:14px; border-bottom:3px solid var(--secondary-color); display:inline-block; padding-bottom:10px}
+
+    /* Navbar igual de look & feel */
+    .app-nav{
+      position:fixed; inset:auto 0 0 0; height:64px; z-index:1100;
+      background:rgba(255,255,255,.9); backdrop-filter:blur(10px);
+      border-top:1px solid rgba(0,0,0,.06);
+      display:grid; grid-auto-flow:column; justify-content:space-around; align-items:center;
+      box-shadow:0 -10px 24px rgba(0,0,0,.06);
+    }
+    .app-nav .nav-btn{appearance:none;border:0;background:transparent;cursor:pointer;width:44px;height:44px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:22px}
+    .app-nav .nav-btn.active{box-shadow:0 6px 14px rgba(232,67,147,.28), inset 0 0 0 1px rgba(0,0,0,.06)}
+    .app-nav .nav-btn i{font-size:20px;color:#6b7280}
+    .app-nav .nav-btn.active i{color:var(--primary-color)}
+    .nav-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(1px,1px,1px,1px)}
+    @media(min-width:992px){
+      .app-nav{inset:0 auto 0 0; width:76px; height:auto; border-top:0; border-right:1px solid rgba(0,0,0,.06); grid-auto-flow:row; justify-content:center; gap:10px; padding:12px 0; box-shadow:10px 0 24px rgba(0,0,0,.06)}
+      .container{padding-left:96px}
+    }
+
+    /* Hero */
+    .hero{position:relative; border-radius:28px; overflow:hidden; box-shadow:0 30px 60px rgba(232,67,147,.18); min-height:220px; display:grid; align-content:end}
+    .hero::before{content:""; position:absolute; inset:0; background: radial-gradient(80% 60% at 50% 30%, rgba(0,0,0,0) 0%, rgba(0,0,0,.18) 100%), linear-gradient(to top, rgba(0,0,0,.35) 0%, rgba(0,0,0,0) 40%); z-index:1}
+    .hero img{width:100%; height:100%; object-fit:cover; display:block; filter:saturate(1.05)}
+    .hero .hero-content{position:absolute; inset:0; z-index:2; display:grid; align-content:end; padding:22px}
+    .hero h1{font-family:'Playfair Display',serif; font-size:clamp(1.8rem,4vw,2.6rem); color:#fff; text-shadow:0 2px 14px rgba(0,0,0,.35)}
+    .hero p{color:#fff; opacity:.9; margin-top:6px}
+
+    /* KPIs */
+    .kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px}
+    .kpi{background:#fff; border:1px solid #f1f1f4; border-left:6px solid var(--accent-color); border-radius:14px; padding:14px; box-shadow:0 8px 22px rgba(0,0,0,.06)}
+    .kpi small{display:block; color:#64748b; font-weight:700}
+    .kpi b{display:block; font-size:1.6rem; margin-top:6px}
+    .kpi .hint{font-size:.9rem; color:#94a3b8}
+
+    /* Formularios */
+    form{display:grid; gap:10px}
+    input[type="text"], input[type="date"], input[type="number"], textarea, select{
+      border:1px solid #eee; border-radius:12px; padding:12px 14px; background:#fff; font-size:1rem
+    }
+    .row2{display:grid; gap:10px}
+    @media(min-width:560px){ .row2{ grid-template-columns: 1fr 1fr } }
+    .actions{display:flex; gap:10px; flex-wrap:wrap}
+    button{border:0; border-radius:12px; padding:10px 14px; font-weight:800; cursor:pointer; background:var(--gradient); color:#fff; box-shadow:0 8px 22px rgba(232,67,147,.25)}
+    button.secondary{background:#fff; color:var(--primary-color); border:1px solid #eee}
+    .chipset{display:flex; gap:8px; flex-wrap:wrap}
+    .chip{background:#f7f7fb; border:1px solid #eee; border-radius:999px; padding:8px 12px; font-weight:700; cursor:pointer}
+    .chip input{display:none}
+    .chip.active{background:linear-gradient(135deg,#ff6aa2,#a29bfe); color:#fff; border-color:transparent}
+
+    /* Calendario */
+    .calendar{background:#fff; border:1px solid #f1f1f4; border-radius:16px; padding:12px; box-shadow:0 8px 22px rgba(0,0,0,.06)}
+    .cal-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px}
+    .cal-title{font-weight:800; color:#374151}
+    .grid{display:grid; grid-template-columns:repeat(7,1fr); gap:6px}
+    .dow{font-weight:800; font-size:.85rem; color:#6b7280; text-align:center}
+    .day{height:42px; border-radius:10px; border:1px solid #eee; display:grid; place-items:center; font-weight:700; background:#fff}
+    .day.muted{opacity:.45}
+    .day.period{background:rgba(232,67,147,.1); border-color:rgba(232,67,147,.35)}
+    .day.fertile{background:rgba(34,197,94,.12); border-color:rgba(34,197,94,.3)}
+    .day.ovul{background:rgba(99,102,241,.12); border-color:rgba(99,102,241,.3)}
+    .legend{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px}
+    .legend .key{display:inline-flex; align-items:center; gap:8px; font-size:.9rem; color:#475569}
+    .swatch{width:14px; height:14px; border-radius:4px; display:inline-block; border:1px solid rgba(0,0,0,.08)}
+    .swatch.p{background:rgba(232,67,147,.35)}
+    .swatch.f{background:rgba(34,197,94,.35)}
+    .swatch.o{background:rgba(99,102,241,.35)}
+
+    /* Tabla historial */
+    table{width:100%; border-collapse:collapse; background:#fff; border:1px solid #f1f1f4; border-radius:14px; overflow:hidden}
+    th,td{padding:10px 12px; border-bottom:1px solid #f3f4f6; text-align:left}
+    th{background:#fafafa; font-weight:800; color:#555}
+    tr:last-child td{border-bottom:0}
+    .tag{display:inline-block; padding:4px 8px; border-radius:999px; font-weight:800; font-size:.85rem}
+    .tag.flow-low{background:#e0f2fe}
+    .tag.flow-mid{background:#fee2e2}
+    .tag.flow-high{background:#fecaca}
+    .muted{color:#94a3b8}
+  </style>
+</head>
+<body>
+
+  <!-- NAV lateral/abajo (consistente con tu app) -->
+  <nav class="app-nav" aria-label="Navegación principal">
+    <button class="nav-btn" title="Inicio" onclick="location.href='{{ url_for('home') if home is defined else '/' }}'">
+      <i class="fas fa-house"></i><span class="nav-label">Inicio</span>
+    </button>
+    <button class="nav-btn active" title="Regla">
+      <i class="fa-solid fa-droplet"></i><span class="nav-label">Regla</span>
+    </button>
+    <button class="nav-btn" title="Perfil" onclick="location.href='{{ url_for('profile_page') if profile_page is defined else '/' }}#profile'">
+      <i class="fas fa-user"></i><span class="nav-label">Perfil</span>
+    </button>
+  </nav>
+
+  <div class="container">
+
+    <!-- HERO -->
+    <div class="section hero" aria-label="Ciclo & Salud menstrual">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 360'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%23e84393'/%3E%3Cstop offset='1' stop-color='%23a29bfe'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1200' height='360' fill='url(%23g)'/%3E%3C/svg%3E" alt="">
+      <div class="hero-content">
+        <h1><i class="fa-solid fa-droplet"></i> Ciclo & salud menstrual</h1>
+        <p>Resumen, registros, síntomas y calendario — todo en un lugar.</p>
+      </div>
+    </div>
+
+    <!-- RESUMEN -->
+    <div class="section">
+      <h3>Resumen del ciclo</h3>
+      <div class="kpis">
+        <div class="kpi">
+          <small>Día del ciclo</small>
+          <b>{{ cycle_stats.day_of_cycle if cycle_stats else '-' }}</b>
+          <span class="hint muted">Desde el último inicio de periodo</span>
+        </div>
+        <div class="kpi">
+          <small>Próximo periodo</small>
+          <b>{{ cycle_stats.next_period_date if cycle_stats else '—' }}</b>
+          <span class="hint">Faltan {{ cycle_stats.days_to_next if cycle_stats else '—' }} días</span>
+        </div>
+        <div class="kpi">
+          <small>Ventana fértil estimada</small>
+          <b>{{ cycle_stats.fertile_start if cycle_stats else '—' }} → {{ cycle_stats.fertile_end if cycle_stats else '—' }}</b>
+          <span class="hint muted">Ovulación: {{ cycle_stats.ovulation_day if cycle_stats else '—' }}</span>
+        </div>
+        <div class="kpi">
+          <small>Promedios</small>
+          <b>{{ cycle_stats.avg_cycle_len if cycle_stats else '—' }} d · {{ cycle_stats.avg_period_len if cycle_stats else '—' }} d</b>
+          <span class="hint muted">Ciclo · Duración de la regla</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- REGISTRAR PERIODO -->
+    <div class="section">
+      <h3>Registrar periodo</h3>
+      <form method="POST" action="{{ url_for('add_period') if add_period is defined else '/regla/add_period' }}">
+        <div class="row2">
+          <div>
+            <label>Inicio *</label>
+            <input type="date" name="start_date" required />
+          </div>
+          <div>
+            <label>Fin (opcional)</label>
+            <input type="date" name="end_date" />
+          </div>
+        </div>
+
+        <div class="row2">
+          <div>
+            <label>Flujo</label>
+            <select name="flow">
+              <option value="ligero">Ligero</option>
+              <option value="medio" selected>Medio</option>
+              <option value="abundante">Abundante</option>
+            </select>
+          </div>
+          <div>
+            <label>Dolor (0–10)</label>
+            <input type="number" name="pain" min="0" max="10" step="1" value="0" />
+          </div>
+        </div>
+
+        <div>
+          <label>Notas (opcional)</label>
+          <textarea name="notes" rows="2" placeholder="Cambios, medicación, etc."></textarea>
+        </div>
+
+        <div class="actions">
+          <button type="submit"><i class="fa-solid fa-plus"></i> Guardar periodo</button>
+          <button type="reset" class="secondary">Limpiar</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- REGISTRAR SÍNTOMAS -->
+    <div class="section">
+      <h3>Registrar síntomas</h3>
+      <form method="POST" action="{{ url_for('add_symptoms') if add_symptoms is defined else '/regla/add_symptom' }}">
+        <div class="row2">
+          <div>
+            <label>Fecha</label>
+            <input type="date" name="sym_date" value="{{ today if today else '' }}">
+          </div>
+          <div>
+            <label>Estado de ánimo</label>
+            <select name="mood">
+              <option>Estable</option>
+              <option>Alegre</option>
+              <option>Ansiosa</option>
+              <option>Irritable</option>
+              <option>Baja</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div>
+            <label>Energía</label>
+            <select name="energy">
+              <option>Alta</option><option>Media</option><option>Baja</option>
+            </select>
+          </div>
+          <div>
+            <label>Temperatura basal (°C)</label>
+            <input type="number" name="bbt" step="0.01" placeholder="Ej. 36.55">
+          </div>
+        </div>
+
+        <div>
+          <label>Síntomas</label>
+          <div class="chipset" id="sym-chips">
+            {% set SYM = symptoms_choices or ['Cólicos','Dolor lumbar','Hinchazón','Sensibilidad pechos','Dolor de cabeza','Acné','Antojos','Insomnio','Náuseas','Diarrrea/Estreñimiento'] %}
+            {% for s in SYM %}
+              <label class="chip"><input type="checkbox" name="symptoms" value="{{ s }}">{{ s }}</label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="row2">
+          <label class="chip"><input type="checkbox" name="had_sex" value="1">Actividad sexual</label>
+          <label class="chip"><input type="checkbox" name="protected" value="1">Protegida</label>
+        </div>
+
+        <div>
+          <label>Notas (opcional)</label>
+          <textarea name="sym_notes" rows="2"></textarea>
+        </div>
+
+        <div class="actions">
+          <button type="submit"><i class="fa-solid fa-heart-pulse"></i> Guardar síntomas</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- CALENDARIO MENSUAL -->
+    <div class="section">
+      <h3>Calendario</h3>
+      <div class="calendar">
+        <div class="cal-head">
+          <div class="cal-title">{{ calendar.month_name if calendar else '' }}</div>
+          <div class="muted">Semanas: L M X J V S D</div>
+        </div>
+        <div class="grid" id="dow-row">
+          <div class="dow">L</div><div class="dow">M</div><div class="dow">X</div><div class="dow">J</div><div class="dow">V</div><div class="dow">S</div><div class="dow">D</div>
+        </div>
+        <div class="grid" id="days-grid" aria-live="polite"></div>
+        <div class="legend">
+          <span class="key"><span class="swatch p"></span>Regla</span>
+          <span class="key"><span class="swatch f"></span>Fértil</span>
+          <span class="key"><span class="swatch o"></span>Ovulación</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORIAL -->
+    <div class="section">
+      <h3>Historial</h3>
+      <table aria-label="Historial de periodos">
+        <thead>
+          <tr>
+            <th>Inicio</th>
+            <th>Fin</th>
+            <th>Días</th>
+            <th>Flujo</th>
+            <th>Dolor</th>
+            <th>Notas</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in periods or [] %}
+          <tr>
+            <td>{{ p.start }}</td>
+            <td>{{ p.end or '—' }}</td>
+            <td>{{ p.length or '—' }}</td>
+            <td>
+              {% if p.flow == 'ligero' %}<span class="tag flow-low">Ligero</span>{% endif %}
+              {% if p.flow == 'medio'   %}<span class="tag flow-mid">Medio</span>{% endif %}
+              {% if p.flow == 'abundante' %}<span class="tag flow-high">Abundante</span>{% endif %}
+            </td>
+            <td>{{ p.pain if p.pain is not none else '—' }}</td>
+            <td class="muted">{{ p.notes or '' }}</td>
+            <td>
+              <form method="POST" action="{{ url_for('delete_period') if delete_period is defined else '/regla/delete_period' }}" onsubmit="return confirm('¿Eliminar este registro?')">
+                <input type="hidden" name="id" value="{{ p.id }}">
+                <button type="submit" class="secondary"><i class="fa-solid fa-trash"></i></button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="muted">Aún no hay registros.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  </div><!-- /container -->
+
+  <script>
+    // chips “activos”
+    document.getElementById('sym-chips')?.addEventListener('click', (e)=>{
+      const lab = e.target.closest('.chip'); if(!lab) return;
+      const inp = lab.querySelector('input'); if(!inp) return;
+      setTimeout(()=> lab.classList.toggle('active', inp.checked), 0);
+    });
+
+    // ==== Calendario: render simple a partir de datos del backend ====
+    // Espera: calendar = {
+    //   year, month (1-12), month_name, days_in_month, start_weekday (1=Lunes..7=Domingo),
+    //   period_dates: ["YYYY-MM-DD", ...],
+    //   fertile_dates: ["YYYY-MM-DD", ...],
+    //   ovulation_date: "YYYY-MM-DD"
+    // }
+    const CAL = {{ (calendar or {}) | tojson }};
+    (function renderCalendar(c){
+      const grid = document.getElementById('days-grid');
+      if(!grid || !c || !c.days_in_month) return;
+
+      const fill = (n, el='div', cls='day muted') => { for(let i=0;i<n;i++){ const d=document.createElement(el); d.className=cls; d.textContent=''; grid.appendChild(d);}};
+
+      // Huecos previos según primer día (1=Lunes)
+      const prev = (c.start_weekday||1) - 1; fill(prev);
+
+      const setP = new Set(c.period_dates||[]);
+      const setF = new Set(c.fertile_dates||[]);
+      const ovu  = c.ovulation_date || '';
+
+      for(let day=1; day<=c.days_in_month; day++){
+        const d = document.createElement('div');
+        d.className = 'day';
+        const y = String(c.year).padStart(4,'0');
+        const m = String(c.month).padStart(2,'0');
+        const ds = String(day).padStart(2,'0');
+        const iso = `${y}-${m}-${ds}`;
+
+        if(setP.has(iso)) d.classList.add('period');
+        if(setF.has(iso)) d.classList.add('fertile');
+        if(iso === ovu)   d.classList.add('ovul');
+
+        d.textContent = String(day);
+        grid.appendChild(d);
+      }
+
+      // Huecos finales para completar filas a múltiplos de 7
+      const totalCells = prev + c.days_in_month;
+      const post = (7 - (totalCells % 7)) % 7; fill(post);
+    })(CAL);
+  </script>
+</body>
+</html>

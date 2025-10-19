@@ -3,309 +3,144 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Regla - Mochita</title>
+<title>Regla - Mochita (Lite)</title>
 <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
+<!-- ====== Estilos ====== -->
 <style>
-    /* ====== Tipografías ====== */
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Dancing+Script:wght@700&display=swap');
-    
-    /* ====== Paleta base (alineada con "Horarios") ====== */
-    :root{
-      --primary:#e84393;      /* rosa principal */
-      --secondary:#fd79a8;    /* rosa claro */
-      --accent:#a29bfe;       /* lila */
-      --ink:#2d3436;          /* texto */
-      --muted:#6b7280;        /* texto apagado */
-      --card:#ffffff;         /* tarjetas */
-      --line:#eee;            /* bordes */
-      --shadow:0 15px 30px rgba(0,0,0,.08);
-      --gradient:linear-gradient(135deg,#e84393, #fd79a8 50%, #a29bfe);
-    
-      /* flujo (editables por paleta 🎨) */
-      --flow-none:#e5e7eb;
-      --flow-low:#60a5fa;
-      --flow-mid:#f59e0b;
-      --flow-high:#ef4444;
-    
-      /* compat con tu código */
-      --bg:#f6f7fb;
-      --brand:var(--primary);
-      --brand-2:var(--accent);
-      --ok:#10b981; --warn:#f59e0b; --err:#ef4444;
-      --secondary-color:var(--accent);
-    }
-    
-    /* ====== Reset mínimo ====== */
-    *{ box-sizing:border-box; }
-    html,body{ margin:0; padding:0; }
-    body{
-      font-family:'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      color:var(--ink);
-      background:linear-gradient(135deg,#ffe8f3,#dfe6e9);
-      min-height:100vh;
-      padding:16px;
-    }
-    
-    /* ====== Contenedor / tarjetas ====== */
-    .container{
-      background:var(--card);
-      border-radius:20px;
-      box-shadow:var(--shadow);
-      overflow:hidden;
-      max-width:1100px;
-      margin:24px auto;
-      border:1px solid rgba(255,255,255,.6);
-      padding:0;
-    }
-    
-    .container > .card:first-of-type{
-      border-radius:0;
-      border:none;
-      box-shadow:none;
-      padding:0 16px 12px;
-    }
-    
-    /* Cabecera visual */
-    .container > h1{
-      font-family:'Dancing Script', cursive;
-      font-size:42px;
-      margin:0;
-      padding:22px 16px 8px;
-      text-align:center;
-      background:var(--gradient);
-      -webkit-background-clip:text;
-      background-clip:text;
-      color:transparent;
-      text-shadow:0 3px 6px rgba(0,0,0,.15);
-    }
-    .subtitle{
-      margin:0 0 18px;
-      text-align:center;
-      color:#fff;
-      padding:0 16px 18px;
-      background:var(--gradient);
-      border-bottom:1px solid rgba(255,255,255,.3);
-      font-weight:600;
-      opacity:.95;
-    }
-    
-    /* Tarjetas internas */
-    .card{
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:16px;
-      box-shadow:var(--shadow);
-      margin:18px;
-    }
-    
-    /* ====== Toolbar ====== */
-    .toolbar{
-      display:flex; flex-wrap:wrap; gap:10px; align-items:center;
-      justify-content:space-between;
-      padding:14px 16px;
-      background:#fafafa;
-      border:1px solid #eee;
-      border-radius:16px;
-      box-shadow:0 6px 14px rgba(0,0,0,.05);
-    }
-    .toolbar .spacer{ flex:1; }
-    
-    /* Botones pill estilo "Horarios" */
-    .chip-toggle{
-      padding:10px 14px;
-      border:none;
-      border-radius:999px;
-      background:#eee;
-      font-weight:700;
-      cursor:pointer;
-      transition:.25s;
-      box-shadow:0 6px 14px rgba(0,0,0,.06);
-    }
-    .chip-toggle:hover{ transform:translateY(-2px); filter:brightness(1.03); }
-    .chip-toggle.active{
-      color:#fff; background:var(--primary);
-    }
-    .chip-toggle[disabled]{ opacity:.55; cursor:not-allowed; }
-    
-    .toolbar .ok{
-      background:var(--accent); color:#fff;
-    }
-    .toolbar .danger{
-      background:#ff7675; color:#fff;
-    }
-    .toolbar .ok:hover,
-    .toolbar .danger:hover{ transform:translateY(-2px); }
-    
-    #rangeFlowSel.chip-toggle{
-      background:#fff; border:2px solid #eee; border-radius:12px; font-weight:700;
-    }
-    
-    /* ====== Calendario ====== */
-    .cal-head{
-      display:flex; align-items:center; gap:10px; margin-bottom:10px; padding:4px 0 8px;
-      border-bottom:1px solid #f0f0f0;
-    }
-    .arrow{
-      width:40px; height:40px; border:none; border-radius:12px; background:var(--card);
-      cursor:pointer; display:grid; place-items:center;
-      box-shadow:0 6px 14px rgba(0,0,0,.06);
-      transition:.25s;
-    }
-    .arrow:hover{ transform:translateY(-2px); background:#f7f7f7; }
-    .month-title{ font-weight:800; font-size:1.15rem; }
-    
-    .week{
-      display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:8px;
-      color:#6b7280; font-weight:700; text-transform:uppercase; font-size:.85rem;
-    }
-    
-    .grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
-    .day{
-      position:relative; background:#fff; border:1px solid #eee; border-radius:14px;
-      min-height:96px; padding:10px; display:flex; flex-direction:column; gap:8px;
-      box-shadow:0 6px 14px rgba(0,0,0,.04);
-      transition:transform .15s ease, box-shadow .15s ease;
-    }
-    .day:hover{ transform:translateY(-2px); box-shadow:0 10px 22px rgba(0,0,0,.08); }
-    .day.muted{ background:#fafafa }
-    .day.today{ outline:2px dashed var(--secondary-color); outline-offset:-6px; background:#fcfcff; }
-    .day .num{ font-weight:800; }
-    
-    .badges{ display:flex; gap:6px; flex-wrap:wrap }
-    .badge{
-      display:inline-flex; align-items:center; gap:6px;
-      padding:6px 10px; border:1px solid #eee; border-radius:999px;
-      background:#f8f8f8; font-size:.82rem; font-weight:700;
-    }
-    .badge.emoji .emo{ font-size:1rem; line-height:1 }
-    
-    /* Indicador de flujo */
-    .flow-dot{
-      width:100%; height:10px; border-radius:7px; background:var(--flow-none);
-      margin-top:auto; border:1px solid rgba(0,0,0,.05)
-    }
-    .flow-low{  background:var(--flow-low) }
-    .flow-mid{  background:var(--flow-mid) }
-    .flow-high{ background:var(--flow-high) }
-    .flow-none{ background:var(--flow-none) }
-    
-    /* Rango (preview) */
-    .day.range{ box-shadow:0 0 0 3px rgba(232,67,147,.25) inset }
-    
-    /* Inicio / fin (más vistosos, estilo etiquetas) */
-    .day.start-day{
-      box-shadow:0 0 0 3px rgba(232,67,147,.55), 0 10px 24px rgba(232,67,147,.18);
-      border-color:#fda4af; position:relative;
-    }
-    .day.end-day{
-      box-shadow:0 0 0 3px rgba(162,155,254,.55), 0 10px 24px rgba(162,155,254,.18);
-      border-color:#c7d2fe; position:relative;
-    }
-    .flag{
-      position:absolute; top:6px; right:6px; font-size:.78rem; padding:4px 10px;
-      border-radius:999px; border:1px solid; font-weight:800;
-    }
-    .flag.start{ background:#ffe4e6; border-color:#fecdd3; color:#9f1239; right:auto; left:6px }
-    .flag.end{   background:#ede9fe; border-color:#ddd6fe; color:#4c1d95 }
-    
-    /* ====== Popover de edición ====== */
-    .pop{
-      position:fixed; z-index:40; left:50%; top:50%; transform:translate(-50%,-50%);
-      width:min(520px,94vw); background:#fff; border:1px solid #eee; border-radius:16px;
-      padding:16px; box-shadow:0 24px 60px rgba(0,0,0,.35); display:none;
-    }
-    .pop.show{ display:block }
-    .pop h3{
-      margin:0 0 12px; text-align:center; color:var(--primary);
-      font-family:'Dancing Script',cursive; font-size:32px;
-    }
-    .form-row{ display:flex; gap:10px; align-items:center; margin:10px 0 }
-    .form-row label{ min-width:120px; font-weight:700 }
-    select, input[type="text"], input[type="number"]{
-      width:100%; padding:10px 12px; border:2px solid #eee; border-radius:10px; background:#fafafa; font-weight:600;
-    }
-    .pop .actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:14px }
-    
-    /* Botones base */
-    .btn{
-      padding:10px 14px; border:none; border-radius:999px; font-weight:700; cursor:pointer;
-      box-shadow:0 6px 14px rgba(0,0,0,.08);
-    }
-    .btn:hover{ transform:translateY(-2px); transition:.25s; }
-    .btn.primary{ background:var(--gradient); color:#fff; }
-    .btn.danger{ background:#ff7675; color:#fff; }
-    .btn:disabled{ opacity:.6; cursor:not-allowed; transform:none; }
-    
-    /* ====== Popover de paleta (🎨) ====== */
-    .popover{
-      position:fixed; z-index:50; right:18px; top:18px; width:360px; background:#fff;
-      border:1px solid #eee; border-radius:16px; padding:14px; display:none;
-      box-shadow:0 24px 60px rgba(0,0,0,.25)
-    }
-    .popover.show{ display:block }
-    #palettePop h3{
-      margin:0 0 8px; font-family:'Dancing Script',cursive; color:var(--primary); font-size:28px; text-align:center;
-    }
-    #palettePop .row{ display:flex; align-items:center; gap:10px; margin:10px 0 }
-    #palettePop label{ min-width:160px; font-weight:700 }
-    #palettePop input[type="color"]{
-      width:46px; height:36px; border:1px solid #e5e7eb; border-radius:8px; cursor:pointer; background:#fff;
-    }
-    
-    /* ====== Info de rango ====== */
-    .range-bar{
-      display:flex; gap:10px; align-items:center; margin:6px 0 0; color:var(--muted); font-size:.95rem;
-    }
-    .range-bar .strong{ font-weight:800; color:#111 }
-    
-    /* ====== Separadores / texto pequeño ====== */
-    hr.sep{ border:none; border-top:1px solid #eee; margin:10px 0 }
-    .small{ font-size:.9rem; color:var(--muted) }
-    
-    /* ====== Accesibilidad ====== */
-    .chip-toggle:focus-visible,
-    .btn:focus-visible,
-    .arrow:focus-visible,
-    select:focus-visible,
-    input:focus-visible{
-      outline:3px solid rgba(232,67,147,.35);
-      outline-offset:2px;
-    }
-    
-    /* ====== Responsivo ====== */
-    @media (max-width:640px){
-      .container > h1{ font-size:34px; }
-      .day{ min-height:86px; }
-      .badge{ font-size:.78rem; }
-    }
-    </style>
-    
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Dancing+Script:wght@700&display=swap');
+
+:root{
+  --primary:#e84393; --secondary:#fd79a8; --accent:#a29bfe;
+  --ink:#2d3436; --muted:#6b7280; --card:#fff; --line:#eee;
+  --shadow:0 15px 30px rgba(0,0,0,.08);
+  --gradient:linear-gradient(135deg,#e84393,#fd79a8 50%,#a29bfe);
+
+  --flow-none:#e5e7eb; --flow-low:#60a5fa; --flow-mid:#f59e0b; --flow-high:#ef4444;
+  --secondary-color:var(--accent);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:'Montserrat',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  color:var(--ink); background:linear-gradient(135deg,#ffe8f3,#dfe6e9); min-height:100vh; padding:16px;
+}
+
+/* Contenedor y cabecera */
+.container{
+  background:var(--card); border-radius:20px; box-shadow:var(--shadow);
+  overflow:hidden; max-width:1100px; margin:24px auto; border:1px solid rgba(255,255,255,.6);
+}
+.container > h1{
+  font-family:'Dancing+Script',cursive; font-size:42px; margin:0; padding:22px 16px 8px;
+  text-align:center; background:var(--gradient); -webkit-background-clip:text; background-clip:text;
+  color:transparent; text-shadow:0 3px 6px rgba(0,0,0,.15);
+}
+.subtitle{
+  margin:0 0 18px; text-align:center; color:#fff; padding:0 16px 18px;
+  background:var(--gradient); border-bottom:1px solid rgba(255,255,255,.3); font-weight:600; opacity:.95;
+}
+
+/* Tarjetas */
+.card{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:var(--shadow); margin:18px; }
+
+/* Toolbar minimal */
+.toolbar{
+  display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:space-between;
+  background:#fafafa; border:1px solid #eee; border-radius:16px; padding:14px 16px; box-shadow:0 6px 14px rgba(0,0,0,.05);
+}
+.toolbar .left, .toolbar .right{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.pill{
+  padding:10px 14px; border:none; border-radius:999px; background:#eee; font-weight:700; cursor:pointer;
+  transition:.2s; box-shadow:0 6px 14px rgba(0,0,0,.06);
+}
+.pill:hover{ transform:translateY(-2px) }
+.pill.primary{ color:#fff; background:var(--primary) }
+.pill.accent{ color:#fff; background:var(--accent) }
+.pill.danger{ color:#fff; background:#ff7675 }
+.pill[disabled]{ opacity:.55; cursor:not-allowed; transform:none }
+select.pill{ background:#fff; border:2px solid #eee; }
+
+/* Calendario */
+.cal-head{ display:flex; align-items:center; gap:10px; margin-bottom:10px; padding:4px 0 8px; border-bottom:1px solid #f0f0f0; }
+.arrow{
+  width:40px; height:40px; border:none; border-radius:12px; background:#fff; cursor:pointer; display:grid; place-items:center;
+  box-shadow:0 6px 14px rgba(0,0,0,.06); transition:.2s;
+}
+.arrow:hover{ transform:translateY(-2px); background:#f7f7f7 }
+.month-title{ font-weight:800; font-size:1.15rem }
+
+.week{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:8px; color:#6b7280; font-weight:700; text-transform:uppercase; font-size:.85rem }
+.grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:8px }
+.day{
+  position:relative; background:#fff; border:1px solid #eee; border-radius:14px;
+  min-height:96px; padding:10px; display:flex; flex-direction:column; gap:8px;
+  box-shadow:0 6px 14px rgba(0,0,0,.04); transition:.15s;
+}
+.day:hover{ transform:translateY(-2px); box-shadow:0 10px 22px rgba(0,0,0,.08) }
+.day.muted{ background:#fafafa }
+.day.today{ outline:2px dashed var(--secondary-color); outline-offset:-6px; background:#fcfcff }
+.day .top{
+  display:flex; align-items:center; justify-content:space-between; gap:6px;
+}
+.day .num{ font-weight:800 }
+.mood-btn{
+  min-width:34px; height:28px; padding:0 8px; border:none; border-radius:999px; background:#f5f5f5; cursor:pointer;
+  font-weight:800; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,.06);
+  opacity:.9;
+}
+.mood-btn[disabled]{ opacity:.5; cursor:not-allowed }
+.mood-btn:hover{ filter:brightness(1.02) }
+
+/* Indicador de flujo (clicable) */
+.flow-dot{ width:100%; height:12px; border-radius:7px; background:var(--flow-none); margin-top:auto; border:1px solid rgba(0,0,0,.05); cursor:pointer }
+.flow-low{  background:var(--flow-low) }
+.flow-mid{  background:var(--flow-mid) }
+.flow-high{ background:var(--flow-high) }
+.flow-none{ background:var(--flow-none) }
+
+/* Selección rango (vista previa) */
+.day.range{ box-shadow:0 0 0 3px rgba(232,67,147,.25) inset }
+
+/* Inicio / fin */
+.day.start-day{ box-shadow:0 0 0 3px rgba(232,67,147,.55), 0 10px 24px rgba(232,67,147,.18); border-color:#fda4af }
+.day.end-day{   box-shadow:0 0 0 3px rgba(162,155,254,.55), 0 10px 24px rgba(162,155,254,.18); border-color:#c7d2fe }
+.flag{
+  position:absolute; top:6px; right:6px; font-size:.75rem; padding:3px 8px; border-radius:999px; border:1px solid; font-weight:800;
+}
+.flag.start{ background:#ffe4e6; border-color:#fecdd3; color:#9f1239; right:auto; left:6px }
+.flag.end{   background:#ede9fe; border-color:#ddd6fe; color:#4c1d95 }
+
+.help{ color:var(--muted); font-size:.9rem; text-align:center; padding:6px 0 }
+
+/* Responsivo */
+@media (max-width:640px){
+  .container > h1{ font-size:34px }
+  .day{ min-height:86px }
+}
+</style>
 </head>
 <body>
 <div class="container">
   <h1>Regla Mochita</h1>
+  <p class="subtitle">Click en la <b>barra de color</b> para flujo · Click en el <b>emoji</b> para ánimo · Rango para varios días.</p>
 
+  <!-- Toolbar simplificada -->
   <div class="toolbar card">
-    <button class="chip-toggle" id="dayModeBtn" aria-pressed="true">🖊️ Editar día</button>
-    <button class="chip-toggle" id="rangeModeBtn" aria-pressed="false">📏 Modo regla (rango)</button>
-
-    <div class="spacer"></div>
-
-    <label class="small">Flujo del rango:</label>
-    <select id="rangeFlowSel" class="chip-toggle" style="padding:8px 10px;border-radius:10px">
-      <option value="poco">poco</option>
-      <option value="medio" selected>medio</option>
-      <option value="mucho">mucho</option>
-    </select>
-
-    <button class="chip-toggle ok" id="saveAllBtn" title="Guardar cambios">💾 Guardar</button>
-    <button class="chip-toggle danger" id="wipeMonthBtn" title="Borrar el mes visible">🧼 Borrar mes</button>
-    <button class="chip-toggle danger" id="wipeRangeBtn" title="Borrar por rango">🧨 Borrar rango</button>
-    <button class="chip-toggle" id="paletteBtn" title="Colores">🎨 Colores</button>
-
-    <div class="range-bar" id="rangeBar" style="display:none">
-      <span id="rangeInfo">Selecciona inicio y fin…</span>
+    <div class="left">
+      <button class="pill" id="rangeToggle" aria-pressed="false">📏 Modo rango</button>
+      <label style="font-weight:700;">Flujo:</label>
+      <select id="rangeFlow" class="pill">
+        <option value="poco">poco</option>
+        <option value="medio" selected>medio</option>
+        <option value="mucho">mucho</option>
+      </select>
+      <button class="pill primary" id="applyRange" disabled>💾 Guardar rango</button>
+      <button class="pill danger" id="clearRange" disabled>🗑️ Borrar rango</button>
+    </div>
+    <div class="right">
+      <button class="pill" id="todayBtn">Hoy</button>
     </div>
   </div>
 
@@ -314,61 +149,10 @@
       <button class="arrow" id="prevBtn" aria-label="Mes anterior">‹</button>
       <div class="month-title" id="monthTitle">—</div>
       <button class="arrow" id="nextBtn" aria-label="Mes siguiente">›</button>
-      <div class="spacer"></div>
-      <button class="chip-toggle" id="todayBtn">Hoy</button>
     </div>
-    <div class="week">
-      <div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>
-    </div>
+    <div class="week"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div></div>
     <div class="grid" id="daysGrid"></div>
-  </div>
-</div>
-
-<!-- Popover edición día -->
-<div class="pop" id="dayPop">
-  <h3 id="popTitle">Editar día</h3>
-  <div class="form-row">
-    <label>Ánimo</label>
-    <select id="moodSel">
-      <option value="">—</option>
-      <option value="feliz">😀 Feliz</option>
-      <option value="normal">🙂 Normal</option>
-      <option value="triste">😔 Triste</option>
-      <option value="estresada">😵‍💫 Estresada</option>
-      <option value="sensible">🥺 Sensible</option>
-      <option value="cansada">😴 Cansada</option>
-      <option value="irritable">😠 Irritable</option>
-      <option value="con_energia">⚡ Con energía</option>
-    </select>
-  </div>
-  <div class="form-row">
-    <label>Flujo</label>
-    <select id="flowSel">
-      <option value="">— (sin dato)</option>
-      <option value="poco">poco</option>
-      <option value="medio">medio</option>
-      <option value="mucho">mucho</option>
-    </select>
-  </div>
-  <div class="actions">
-    <button class="btn" id="popCancel">Cancelar</button>
-    <button class="btn danger" id="popDelete">Eliminar día</button>
-    <button class="btn primary" id="popSave">Guardar</button>
-  </div>
-  <div class="small">Consejo: usa <b>Modo regla</b> para marcar un rango de días y guarda todo de golpe.</div>
-</div>
-
-<!-- Popover paleta de colores (solo mochita) -->
-<div class="popover" id="palettePop">
-  <h3>🎨 Colores</h3><hr class="sep">
-  <div class="row"><label>Sin sangrado</label><input type="color" id="cNone"></div>
-  <div class="row"><label>Poco</label><input type="color" id="cLow"></div>
-  <div class="row"><label>Medio</label><input type="color" id="cMid"></div>
-  <div class="row"><label>Mucho</label><input type="color" id="cHigh"></div>
-  <div class="row"><label>Accento</label><input type="color" id="cAccent"></div>
-  <div class="actions">
-    <button class="btn" id="paletteClose">Cerrar</button>
-    <button class="btn primary" id="paletteApply">Aplicar</button>
+    <div class="help" id="rangeHelp" style="display:none;">Elige <b>inicio</b> y <b>fin</b> con un click.</div>
   </div>
 </div>
 
@@ -376,351 +160,247 @@
 // ------- Permisos (solo mochita edita) -------
 const CAN_EDIT = {{ 'true' if (session.get('username')=='mochita') else 'false' }};
 
-// ------- Utilidades DOM -------
-const $ = (sel, p=document)=>p.querySelector(sel);
-const $$ = (sel, p=document)=>Array.from(p.querySelectorAll(sel));
+// ------- Helpers DOM -------
+const $ = (s,p=document)=>p.querySelector(s);
+const $$ = (s,p=document)=>Array.from(p.querySelectorAll(s));
 
-// ------- Fechas / helpers -------
+// ------- Fechas -------
 const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-const pad = n => (n<10?'0'+n:n);
-const iso = (y,m,d)=>`${y}-${pad(m)}-${pad(d)}`;
-const parseIso = s => { const [Y,M,D]=s.split('-').map(x=>+x); return new Date(Y, M-1, D); };
-const addDays = (date, n)=>{ const d=new Date(date); d.setDate(d.getDate()+n); return d; };
-const toIsoDate = d => iso(d.getFullYear(), d.getMonth()+1, d.getDate());
-const daysInMonth = (y,m)=> new Date(y, m, 0).getDate();
-const firstWeekday = (y,m)=>{ // 0 = Lunes
-  const js = new Date(y, m-1, 1).getDay(); // 0=Dom..6=Sáb
-  return (js+6)%7;
-};
-const isToday = (y,m,d)=>{ const t=new Date(); return t.getFullYear()==y && (t.getMonth()+1)==m && t.getDate()==d; };
+const pad=n=>n<10?'0'+n:n;
+const iso=(y,m,d)=>`${y}-${pad(m)}-${pad(d)}`;
+const parseIso=s=>{const [Y,M,D]=s.split('-').map(Number); return new Date(Y,M-1,D);};
+const addDays=(dt,n)=>{const d=new Date(dt); d.setDate(d.getDate()+n); return d;};
+const toIsoDate=d=>iso(d.getFullYear(), d.getMonth()+1, d.getDate());
+const daysInMonth=(y,m)=>new Date(y,m,0).getDate();
+const firstWeekday=(y,m)=>{const js=new Date(y,m-1,1).getDay(); return (js+6)%7;};
+const isToday=(y,m,d)=>{const t=new Date();return t.getFullYear()==y && t.getMonth()+1==m && t.getDate()==d;};
 
 // ------- API -------
-const API_LIST = '/api/cycle';
-const SAVE_DAY = '/cycle/save';
-const DEL_DAY = '/cycle/delete';
+const API_LIST='/api/cycle';
+const SAVE_DAY='/cycle/save';
+const DEL_DAY='/cycle/delete';
 
 // ------- Estado -------
 const state = {
-  y: (new Date()).getFullYear(),
-  m: (new Date()).getMonth()+1,
-  entries: {},   // { 'YYYY-MM-DD': {mood,flow} }
-  rangeMode: false,
-  range: { start:null, end:null }
+  y:(new Date()).getFullYear(),
+  m:(new Date()).getMonth()+1,
+  entries:{}, // { 'YYYY-MM-DD': {mood, flow} }
+  range:{start:null,end:null},
+  rangeMode:false
 };
 
-// ------- Emojis de ánimo -------
-const MOOD_EMO = {
-  feliz:'😀', normal:'🙂', triste:'😔', estresada:'😵‍💫',
-  sensible:'🥺', cansada:'😴', irritable:'😠', con_energia:'⚡'
-};
+// ------- Ánimos / Flujo -------
+const MOOD_ORDER = ['', 'feliz','normal','triste','estresada','sensible','cansada','irritable','con_energia'];
+const MOOD_EMO = { feliz:'😀', normal:'🙂', triste:'😔', estresada:'😵‍💫', sensible:'🥺', cansada:'😴', irritable:'😠', con_energia:'⚡' };
+const nextMood = (m)=>MOOD_ORDER[(MOOD_ORDER.indexOf(m)+1) % MOOD_ORDER.length];
 
-// ------- Carga datos (3 meses centrados) -------
+const FLOW_ORDER = ['','poco','medio','mucho'];
+const nextFlow = (f)=>FLOW_ORDER[(FLOW_ORDER.indexOf(f)+1) % FLOW_ORDER.length];
+
+// ------- Carga (3 meses centrados) -------
 function ymPrev(y,m){ const d=new Date(y,m-2,1); return [d.getFullYear(), d.getMonth()+1]; }
 async function loadMonth(){
-  // Pedimos 3 meses (anterior, actual, siguiente) para detectar inicios/finales con precisión
   const [py, pm] = ymPrev(state.y, state.m);
   const from = `${py}-${pad(pm)}`;
   const url = `${API_LIST}?from=${from}&months=3&user=mochita`;
-  const res = await fetch(url, { credentials:'same-origin' });
-  const j = await res.json();
-  const map = {};
-  (j.entries||[]).forEach(e=>{
-    const day = (e.day||e.date||'').trim();
-    if(!day) return;
-    map[day] = {
-      mood: (e.mood||'')||'',
-      flow: (e.flow||'')||''
-    };
-  });
-  state.entries = map;
+  try{
+    const res = await fetch(url, {credentials:'same-origin'});
+    const j = await res.json();
+    const map={};
+    (j.entries||[]).forEach(e=>{
+      const day=(e.day||e.date||'').trim(); if(!day) return;
+      map[day]={ mood:(e.mood||'')||'', flow:(e.flow||'')||'' };
+    });
+    state.entries = map;
+  }catch(e){ state.entries = {}; }
   renderCalendar();
 }
 
-// ------- Render calendario -------
-function setMonthTitle(){
-  $('#monthTitle').textContent = `${MONTHS[state.m-1][0].toUpperCase()+MONTHS[state.m-1].slice(1)} ${state.y}`;
-}
-function inPreviewRange(dayIso){
-  const {start,end} = state.range;
-  if(!start || !end) return false;
-  return dayIso >= start && dayIso <= end;
-}
+// ------- Render -------
+function setMonthTitle(){ $('#monthTitle').textContent = `${MONTHS[state.m-1][0].toUpperCase()+MONTHS[state.m-1].slice(1)} ${state.y}`; }
+function inPreviewRange(dayIso){ const {start,end}=state.range; return !!(start && end && dayIso>=start && dayIso<=end); }
+
 function renderCalendar(){
   setMonthTitle();
   const grid = $('#daysGrid'); grid.innerHTML='';
-
   const prev = firstWeekday(state.y, state.m);
   for(let i=0;i<prev;i++){ const d=document.createElement('div'); d.className='day muted'; grid.appendChild(d); }
 
-  const DIM = daysInMonth(state.y, state.m);
+  const DIM=daysInMonth(state.y,state.m);
   for(let d=1; d<=DIM; d++){
-    const wrap = document.createElement('div');
-    wrap.className='day';
+    const wrap=document.createElement('div'); wrap.className='day';
     if(isToday(state.y,state.m,d)) wrap.classList.add('today');
+    const id = iso(state.y,state.m,d); wrap.dataset.iso = id;
 
-    const id = iso(state.y, state.m, d);
-    wrap.dataset.iso = id;
     if(state.rangeMode && inPreviewRange(id)) wrap.classList.add('range');
 
-    // Número
-    const n = document.createElement('div');
-    n.className='num'; n.textContent=d;
-
-    // Badges (ánimo con emoji)
-    const badges = document.createElement('div'); badges.className='badges';
+    // Cálculo inicio/fin de ciclo
     const entry = state.entries[id] || {};
-    if(entry.mood){
-      const b = document.createElement('span'); b.className='badge emoji';
-      const emo = MOOD_EMO[entry.mood] || '🙂';
-      const txt = entry.mood.replace('_',' ');
-      b.innerHTML = `<span class="emo">${emo}</span> <span>${txt}</span>`;
-      badges.appendChild(b);
-    }
+    const prevId = toIsoDate(addDays(parseIso(id), -1));
+    const nextId = toIsoDate(addDays(parseIso(id), +1));
+    const hasFlow = !!entry.flow;
+    const prevFlow = !!(state.entries[prevId]?.flow);
+    const nextFlowB = !!(state.entries[nextId]?.flow);
+    if(hasFlow && !prevFlow){ const f=document.createElement('span'); f.className='flag start'; f.textContent='Inicio'; wrap.appendChild(f); wrap.classList.add('start-day'); }
+    if(hasFlow && !nextFlowB){ const f=document.createElement('span'); f.className='flag end';   f.textContent='Fin';    wrap.appendChild(f); wrap.classList.add('end-day'); }
 
-    // Punto de flujo
-    const dot = document.createElement('span');
-    dot.className = 'flow-dot ' + (
+    // Top row: número + mood button
+    const top=document.createElement('div'); top.className='top';
+    const num=document.createElement('div'); num.className='num'; num.textContent=d;
+    const moodBtn=document.createElement('button'); moodBtn.className='mood-btn'; moodBtn.title='Ánimo';
+    const emo = entry.mood ? (MOOD_EMO[entry.mood]||'🙂') : '🙂';
+    moodBtn.textContent = emo;
+    if(!CAN_EDIT || state.rangeMode) moodBtn.disabled = true;
+    moodBtn.addEventListener('click', async (e)=>{
+      if(!CAN_EDIT || state.rangeMode) return;
+      const newMood = nextMood(entry.mood||'');
+      await saveOrDelete(id, newMood, entry.flow||'');
+      renderCalendar();
+    });
+    top.appendChild(num); top.appendChild(moodBtn);
+
+    // Flow bar (click to cycle)
+    const dot=document.createElement('div');
+    dot.className='flow-dot ' + (
       entry.flow==='poco'  ? 'flow-low'  :
       entry.flow==='medio' ? 'flow-mid'  :
       entry.flow==='mucho' ? 'flow-high' : 'flow-none'
     );
+    if(!CAN_EDIT || state.rangeMode) dot.style.cursor='default';
+    dot.title = CAN_EDIT ? 'Click para cambiar el flujo' : '';
+    dot.addEventListener('click', async ()=>{
+      if(!CAN_EDIT || state.rangeMode) return;
+      const newFlow = nextFlow(entry.flow||'');
+      await saveOrDelete(id, entry.mood||'', newFlow);
+      renderCalendar();
+    });
 
-    // Inicio / fin (considerando días vecinos, incluso fuera del mes: ya los tenemos en entries)
-    const prevId = toIsoDate(addDays(parseIso(id), -1));
-    const nextId = toIsoDate(addDays(parseIso(id), +1));
-    const isFlow = !!(entry.flow && entry.flow!=='');
-    const prevFlow = !!(state.entries[prevId]?.flow);
-    const nextFlow = !!(state.entries[nextId]?.flow);
-    if(isFlow && !prevFlow){
-      const f=document.createElement('span'); f.className='flag start'; f.textContent='Inicio';
-      wrap.appendChild(f); wrap.classList.add('start-day');
-    }
-    if(isFlow && !nextFlow){
-      const f=document.createElement('span'); f.className='flag end'; f.textContent='Fin';
-      wrap.appendChild(f); wrap.classList.add('end-day');
-    }
+    // Click de selección de rango (sobre la tarjeta)
+    wrap.addEventListener('click', ()=>{
+      if(!state.rangeMode) return;
+      selectInRange(id);
+    });
 
-    wrap.appendChild(n);
-    wrap.appendChild(badges);
+    wrap.appendChild(top);
     wrap.appendChild(dot);
-
-    // Click
-    wrap.addEventListener('click', ()=> onDayClick(wrap));
-
     grid.appendChild(wrap);
   }
 
   const total = prev + DIM;
   const post = (7 - (total % 7)) % 7;
   for(let i=0;i<post;i++){ const d=document.createElement('div'); d.className='day muted'; grid.appendChild(d); }
+
+  // Botones de rango habilitados según selección
+  const hasSel = !!(state.range.start && state.range.end);
+  $('#applyRange').disabled = !CAN_EDIT || !hasSel;
+  $('#clearRange').disabled = !CAN_EDIT || !hasSel;
 }
 
-// ------- Interacción -------
-function toggleMode(btn, flag){
-  state.rangeMode = flag;
-  $('#dayModeBtn').classList.toggle('active', !flag);
-  $('#rangeModeBtn').classList.toggle('active', flag);
-  toggleRangeBar(flag);
-  renderCalendar();
-}
-function toggleRangeBar(show){
-  $('#rangeBar').style.display = show ? 'flex' : 'none';
-  setRangeInfo();
-}
-function setRangeInfo(msg){
-  const el = $('#rangeInfo');
-  if(msg){ el.textContent = msg; return; }
-  const {start,end} = state.range;
-  if(start && end) el.innerHTML = `Rango: <span class="strong">${start}</span> → <span class="strong">${end}</span>`;
-  else if(start)   el.innerHTML = `Inicio: <span class="strong">${start}</span> (elige fin)`;
-  else el.textContent = 'Selecciona inicio y fin…';
-}
-function resetRange(){ state.range.start=null; state.range.end=null; setRangeInfo(); }
-
-function isoList(a,b){
-  const A=parseIso(a), B=parseIso(b);
-  const out=[]; for(let d=new Date(A); d<=B; d.setDate(d.getDate()+1)){ out.push(toIsoDate(d)); }
-  return out;
-}
-
-function onDayClick(dayEl){
-  const id = dayEl.dataset.iso;
-  if(!state.rangeMode){
-    openPopover(dayEl);
-  }else{
-    if(!CAN_EDIT) return;
-    if(!state.range.start){ state.range.start = id; }
-    else if(!state.range.end){
-      if(id < state.range.start){ state.range.end = state.range.start; state.range.start = id; }
-      else { state.range.end = id; }
-    }else{ // reset si ya teníamos ambos
-      state.range.start = id; state.range.end = null;
-    }
-    setRangeInfo();
-    renderCalendar();
-  }
-}
-
-// ------- Popover de día -------
-let currentDay = null;
-function openPopover(anchor){
-  currentDay = anchor.dataset.iso;
-  const entry = state.entries[currentDay] || {};
-  $('#popTitle').textContent = `Editar ${currentDay}`;
-  $('#moodSel').value = entry.mood || '';
-  $('#flowSel').value = entry.flow || '';
-
-  // Permisos
-  $('#popSave').disabled = !CAN_EDIT;
-  $('#popDelete').disabled = !CAN_EDIT;
-
-  $('#dayPop').classList.add('show');
-}
-function closePopover(){ $('#dayPop').classList.remove('show'); }
-
-// Guardar / eliminar un día
+// ------- Guardar / borrar -------
 async function saveOneDay(dayIso, mood, flow){
-  if(!CAN_EDIT) return;
-  const payload = { for_user:'mochita', day:dayIso, mood: (mood||''), flow:(flow||'') };
+  const payload = { for_user:'mochita', day:dayIso, mood:(mood||''), flow:(flow||'') };
   const res = await fetch(SAVE_DAY, {
-    method:'POST',
-    headers:{'Content-Type':'application/json','Accept':'application/json'},
-    body: JSON.stringify(payload),
-    credentials:'same-origin'
+    method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'},
+    body: JSON.stringify(payload), credentials:'same-origin'
   });
-  if(!res.ok){ alert('No se pudo guardar'); return; }
-  state.entries[dayIso] = { mood: mood||'', flow: flow||'' };
+  if(res.ok){ state.entries[dayIso] = { mood:(mood||''), flow:(flow||'') }; }
 }
+
 async function deleteOneDay(dayIso){
-  if(!CAN_EDIT) return;
-  const fd = new URLSearchParams();
-  fd.set('for_user','mochita');
-  fd.set('day', dayIso);
+  const fd = new URLSearchParams(); fd.set('for_user','mochita'); fd.set('day',dayIso);
   const res = await fetch(DEL_DAY, { method:'POST', body:fd, credentials:'same-origin' });
   if(res.ok){ delete state.entries[dayIso]; }
 }
 
-// ------- Botones -------
-$('#dayModeBtn').addEventListener('click', ()=> toggleMode(null,false));
-$('#rangeModeBtn').addEventListener('click', ()=> toggleMode(null,true));
-$('#todayBtn').addEventListener('click', ()=>{
-  const t=new Date(); state.y=t.getFullYear(); state.m=t.getMonth()+1; loadMonth();
-});
+// Si ambos vacíos => borrar; si no => guardar
+async function saveOrDelete(dayIso, mood, flow){
+  if(!CAN_EDIT) return;
+  const mm=(mood||'').trim(), ff=(flow||'').trim();
+  if(!mm && !ff){
+    await deleteOneDay(dayIso);
+  }else{
+    await saveOneDay(dayIso, mm, ff);
+  }
+}
+
+// ------- Rango -------
+function resetRange(){ state.range={start:null,end:null}; $('#rangeHelp').style.display='none'; renderCalendar(); }
+function selectInRange(id){
+  const {start,end}=state.range;
+  if(!start){ state.range.start=id; $('#rangeHelp').style.display='block'; }
+  else if(!end){
+    if(id < start){ state.range={start:id,end:start}; }
+    else { state.range.end=id; }
+  } else {
+    state.range={start:id,end:null};
+  }
+  renderCalendar();
+}
+function isoList(a,b){
+  const A=parseIso(a), B=parseIso(b); const out=[];
+  for(let d=new Date(A); d<=B; d.setDate(d.getDate()+1)){ out.push(toIsoDate(d)); }
+  return out;
+}
+async function applyRange(flowVal){
+  const {start,end}=state.range; if(!start||!end) return;
+  const days = isoList(start,end);
+  for(const d of days){
+    const existing = state.entries[d]||{};
+    await saveOrDelete(d, existing.mood||'', flowVal||'');
+  }
+  resetRange();
+}
+async function clearRange(){
+  const {start,end}=state.range; if(!start||!end) return;
+  const days = isoList(start,end);
+  for(const d of days){ await saveOrDelete(d, (state.entries[d]?.mood||''), ''); }
+  resetRange();
+}
+
+// ------- Controles -------
 $('#prevBtn').addEventListener('click', ()=>{
-  const d=new Date(state.y, state.m-2, 1); state.y=d.getFullYear(); state.m=d.getMonth()+1; resetRange(); loadMonth();
+  const dt = new Date(state.y, state.m-2, 1); state.y=dt.getFullYear(); state.m=dt.getMonth()+1; resetRange(); loadMonth();
 });
 $('#nextBtn').addEventListener('click', ()=>{
-  const d=new Date(state.y, state.m, 1); state.y=d.getFullYear(); state.m=d.getMonth()+1; resetRange(); loadMonth();
+  const dt = new Date(state.y, state.m, 1); state.y=dt.getFullYear(); state.m=dt.getMonth()+1; resetRange(); loadMonth();
+});
+$('#todayBtn').addEventListener('click', ()=>{
+  const t = new Date(); state.y=t.getFullYear(); state.m=t.getMonth()+1; resetRange(); loadMonth();
 });
 
-$('#popCancel').addEventListener('click', closePopover);
-$('#popSave').addEventListener('click', async ()=>{
+$('#rangeToggle').addEventListener('click', ()=>{
   if(!CAN_EDIT) return;
-  await saveOneDay(currentDay, $('#moodSel').value, $('#flowSel').value);
-  closePopover(); renderCalendar();
+  state.rangeMode = !state.rangeMode;
+  $('#rangeToggle').classList.toggle('primary', state.rangeMode);
+  $('#rangeToggle').setAttribute('aria-pressed', String(state.rangeMode));
+  $('#rangeHelp').style.display = state.rangeMode ? 'block' : 'none';
+  if(!state.rangeMode) resetRange(); else renderCalendar();
 });
-$('#popDelete').addEventListener('click', async ()=>{
-  if(!CAN_EDIT) return;
-  if(confirm(`Eliminar registro del ${currentDay}?`)){
-    await deleteOneDay(currentDay);
-    closePopover(); renderCalendar();
-  }
-});
+$('#applyRange').addEventListener('click', ()=> applyRange($('#rangeFlow').value||'medio'));
+$('#clearRange').addEventListener('click', ()=> clearRange());
 
-// Guardar / borrar rango / mes
-async function saveRange(){
-  const {start,end} = state.range;
-  if(!start || !end){ alert('Selecciona inicio y fin'); return; }
-  const flow = $('#rangeFlowSel').value || 'medio';
-  const days = isoList(start,end);
-  for(const d of days){ await saveOneDay(d, (state.entries[d]?.mood || ''), flow); }
-  renderCalendar();
-}
-async function wipeMonth(){
-  if(!CAN_EDIT) return;
-  const yes = confirm('¿Borrar TODOS los registros del mes visible?');
-  if(!yes) return;
-  const dim=daysInMonth(state.y,state.m);
-  for(let d=1; d<=dim; d++){
-    const id=iso(state.y,state.m,d);
-    if(state.entries[id]) await deleteOneDay(id);
-  }
-  renderCalendar();
-}
-async function wipeRange(){
-  if(!CAN_EDIT) return;
-  const {start,end} = state.range;
-  if(!start || !end){ alert('Selecciona inicio y fin'); return; }
-  if(!confirm(`¿Borrar del ${start} al ${end}?`)) return;
-  for(const d of isoList(start,end)){ if(state.entries[d]) await deleteOneDay(d); }
-  resetRange(); renderCalendar();
-}
-$('#saveAllBtn').addEventListener('click', saveRange);
-$('#wipeMonthBtn').addEventListener('click', wipeMonth);
-$('#wipeRangeBtn').addEventListener('click', wipeRange);
-
-// ------- Colores (solo sesión; no se guarda en localStorage) -------
-function rgbToHex(rgb){
-  const m = (rgb||'').match(/\d+/g); if(!m) return '#cccccc';
-  const [r,g,b] = m.map(n=>(+n).toString(16).padStart(2,'0'));
-  return `#${r}${g}${b}`;
-}
-function getVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name); }
-function setVar(name,val){ document.documentElement.style.setProperty(name, val); }
-
-function openPalette(anchor){
-  const pop = $('#palettePop');
-  // Posición simple
-  pop.style.left = (window.innerWidth - 380) + 'px';
-  pop.style.top  = '24px';
-  // Cargar actuales
-  $('#cNone').value  = rgbToHex(getVar('--flow-none'));
-  $('#cLow').value   = rgbToHex(getVar('--flow-low'));
-  $('#cMid').value   = rgbToHex(getVar('--flow-mid'));
-  $('#cHigh').value  = rgbToHex(getVar('--flow-high'));
-  $('#cAccent').value= rgbToHex(getVar('--secondary-color'));
-  pop.classList.add('show');
-}
-$('#paletteBtn').addEventListener('click', ()=>{ if(CAN_EDIT) openPalette(); });
-$('#paletteClose').addEventListener('click', ()=> $('#palettePop').classList.remove('show'));
-$('#paletteApply').addEventListener('click', ()=>{
-  if(!CAN_EDIT) return;
-  setVar('--flow-none', $('#cNone').value);
-  setVar('--flow-low',  $('#cLow').value);
-  setVar('--flow-mid',  $('#cMid').value);
-  setVar('--flow-high', $('#cHigh').value);
-  setVar('--secondary-color', $('#cAccent').value);
-  $('#palettePop').classList.remove('show');
-});
-
-// ------- Permisos UI -------
-function applyPermissions(){
+// Habilitar/deshabilitar controles por permiso
+(function applyPermissions(){
   if(!CAN_EDIT){
-    $('#dayModeBtn').setAttribute('disabled','');
-    $('#rangeModeBtn').setAttribute('disabled','');
-    $('#saveAllBtn').setAttribute('disabled','');
-    $('#wipeMonthBtn').setAttribute('disabled','');
-    $('#wipeRangeBtn').setAttribute('disabled','');
-    $('#paletteBtn').setAttribute('disabled','');
-    $('#rangeFlowSel').setAttribute('disabled','');
+    $('#rangeToggle').setAttribute('disabled','');
+    $('#rangeFlow').setAttribute('disabled','');
+    $('#applyRange').setAttribute('disabled','');
+    $('#clearRange').setAttribute('disabled','');
   }
-}
-applyPermissions();
+})();
 
-// ------- SSE: refresco en vivo (ambos lo ven al momento) -------
+// ------- SSE live -------
 try{
   const es = new EventSource('/events');
   es.addEventListener('cycle_update', (ev)=>{
-    // Si el evento es de mochita o general, recargamos el mes
     const j = JSON.parse(ev.data||'{}');
     if(!j.user || j.user==='mochita'){ loadMonth(); }
   });
 }catch(e){ console.warn('SSE no disponible', e); }
 
-// ------- Inicio -------
+// ------- Init -------
 (function init(){
   const t=new Date(); state.y=t.getFullYear(); state.m=t.getMonth()+1;
-  toggleMode(null,false); // por defecto edición de día
   loadMonth();
 })();
 </script>

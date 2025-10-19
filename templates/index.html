@@ -1701,6 +1701,24 @@ body.page-media .section:not([data-section="media"]){
   transition: width .35s ease;
 }
 
+/* CTA ubicación — visible en móvil por encima del tabbar */
+.location-cta{
+  position: fixed; left: 16px; right: 16px;
+  bottom: calc(16px + var(--nav-bottom-mobile, 64px));
+  background:#fff; border:1px solid #eee; border-radius:14px;
+  box-shadow:0 12px 28px rgba(0,0,0,.12);
+  display:flex; align-items:center; gap:12px; padding:12px; z-index:1300;
+}
+.location-cta[hidden]{ display:none; }
+.location-cta .cta-text{ font-weight:700; color:#374151; }
+.location-cta .cta-btn{
+  border:0; border-radius:10px; padding:10px 14px; font-weight:800;
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+  color:#fff; cursor:pointer;
+}
+@media (min-width: 992px){
+  .location-cta{ bottom:16px; left: calc(var(--nav-left-desktop,76px) + 24px); right:24px; }
+}
 
     </style>
 </head>
@@ -6239,6 +6257,111 @@ function setDistanceBar(km){
       });
     }
   });
+
+
+  (function(){
+  const cta = document.getElementById('locationCta');
+  const btn = document.getElementById('grantLocationBtn');
+
+  // Si no es HTTPS ni localhost, mostramos CTA con aviso y deshabilitamos botón
+  function blockIfInsecure(){
+    if (!(window.isSecureContext || location.hostname === 'localhost')){
+      if (cta) {
+        cta.hidden = false;
+        btn.disabled = true;
+        btn.textContent = 'HTTPS requerido';
+      }
+      window.showToast?.('error','En móvil el permiso de ubicación SOLO sale en HTTPS (o localhost)');
+      return true;
+    }
+    return false;
+  }
+
+  // ¿Tenemos ya coordenadas? (por tu cache local del parche anterior)
+  function hasCached(){
+    try{
+      const meKey = ( "{{ username|default('', true) }}" === 'mochito' ) ? 'christian' : 'clara';
+      const cached = localStorage.getItem('mochitos:pos:'+meKey);
+      if (!cached) return false;
+      const obj = JSON.parse(cached);
+      return obj && typeof obj.lat === 'number' && typeof obj.lon === 'number';
+    }catch(e){ return false; }
+  }
+
+  // Mostrar CTA si no tenemos ubicación aún
+  function maybeShowCTA(){
+    if (blockIfInsecure()) return;
+    if (!hasCached() && cta) cta.hidden = false;
+  }
+
+  // Pide ubicación con gesto del usuario (así forzamos el prompt)
+  async function requestOnce(){
+    if (blockIfInsecure()) return;
+
+    if (!('geolocation' in navigator)){
+      window.showToast?.('error','Tu navegador no soporta geolocalización');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(async (pos)=>{
+      // Si tienes la función setMyPosition del parche anterior, úsala
+      if (typeof window.setMyPosition === 'function'){
+        await window.setMyPosition(pos.coords.latitude, pos.coords.longitude);
+      }else{
+        // Fallback: solo guarda en localStorage y refresca
+        try{
+          const meKey = ( "{{ username|default('', true) }}" === 'mochito' ) ? 'christian' : 'clara';
+          const obj = { lat: pos.coords.latitude, lon: pos.coords.longitude, label: '' };
+          localStorage.setItem('mochitos:pos:'+meKey, JSON.stringify(obj));
+        }catch(e){}
+        location.reload();
+      }
+      // Sugerencia: precisión iOS (si es muy baja)
+      if (pos.coords.accuracy > 1000) {
+        window.showToast?.('info','Activa “Ubicación precisa” para mejor exactitud');
+      }
+      if (cta) cta.hidden = true;
+      window.showToast?.('success','Ubicación activada ✅');
+    }, (err)=>{
+      // PERMISSION_DENIED no vuelve a mostrar prompt: hay que ir a ajustes
+      if (err.code === 1) {
+        window.showToast?.('error','Permiso denegado. Ábrelo en los ajustes del sitio y permite la ubicación.');
+        showHowToPermissions();
+      } else {
+        window.showToast?.('error','No se pudo obtener tu ubicación: ' + err.message);
+      }
+    }, { enableHighAccuracy:true, timeout:10000, maximumAge:30000 });
+  }
+
+  function showHowToPermissions(){
+    // Guía rápida (Chrome Android / Safari iOS / PWA iOS)
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes('iphone') || ua.includes('ipad')){
+      window.showToast?.('info','iOS Safari: Ajustes > Safari > Ubicación > “Al usar” (y “Ubicación precisa” activada).');
+      window.showToast?.('info','Si es App en pantalla de inicio: Ajustes > [Nombre de la app web] > Localización > “Al usar”.');
+    } else {
+      window.showToast?.('info','Android Chrome: Toca el candado > Permisos > Ubicación > Permitir.');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    maybeShowCTA();
+
+    // Si tienes el botón "Usar mi ubicación", lo dejamos operativo también
+    document.getElementById('useMyLocationBtn')?.addEventListener('click', (e)=>{
+      e.preventDefault();
+      requestOnce();
+    });
+
+    btn?.addEventListener('click', requestOnce);
+
+    // Si más tarde tu auto-detección consigue coords, ocultamos CTA
+    // (ej.: tras aceptar desde el prompt del navegador)
+    const obs = new MutationObserver(()=>{ if (hasCached() && cta) cta.hidden = true; });
+    obs.observe(document.body, { subtree:true, childList:true, attributes:true });
+    setTimeout(()=> { if (hasCached() && cta) cta.hidden = true; }, 1500);
+  });
+})();
   </script>
 
 
@@ -6246,6 +6369,15 @@ function setDistanceBar(km){
 <button onclick="location.href='/push/debug'" class="debug-fab" aria-label="Debug push">🔧 Notificaciones</button>
 <style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:rgba(232,67,147,.4);color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>
 {% endif %}
+
+<div class="location-cta" id="locationCta" hidden>
+  <div class="cta-text">
+    <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+    &nbsp;Activa tu ubicación para calcular la distancia en tiempo real.
+  </div>
+  <button class="cta-btn" id="grantLocationBtn">Activar</button>
+</div>
+
 
 </body>
 </html>

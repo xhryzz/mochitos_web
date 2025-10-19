@@ -5728,6 +5728,119 @@ function sortCards(grid, mode){
   applyFilter();
 })();
 
+
+>
+// === Buscador automático SOLO por TÍTULO (empieza por → si 0 hits → contiene) ===
+document.addEventListener('DOMContentLoaded', function mediaTitleSearchAutoFix(){
+  const input = document.getElementById('media-search');
+  if (!input) return;
+
+  // Suaviza el placeholder si quieres
+  try { if (!/título/i.test(input.placeholder)) input.placeholder = 'Buscar por título…'; } catch(e){}
+
+  // Normaliza: sin tildes, minúsculas
+  const norm = (s) => (s || '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .trim();
+
+  const needlesOf = (q) => norm(q).split(/\s+/).filter(Boolean);
+
+  function getGrids(){
+    return [
+      ['towatch', document.querySelector('#towatch-tab .media-grid')],
+      ['watched', document.querySelector('#watched-tab .media-grid')]
+    ].filter(([,g]) => !!g);
+  }
+
+  // Saca el título real (dataset o <h3>)
+  function cardTitle(card){
+    const ds = card.dataset?.title || '';
+    const h3 = card.querySelector?.('.media-title')?.textContent || '';
+    return ds || h3 || '';
+  }
+
+  function matchContains(hay, needles){
+    if (needles.length === 0) return true;
+    return needles.every(n => hay.includes(n));
+  }
+
+  // Empieza por: o el título entero empieza por la frase,
+  // o cada palabra buscada casa con el inicio de alguna palabra del título
+  function matchStarts(hay, needles){
+    if (needles.length === 0) return true;
+    const phrase = needles.join(' ');
+    if (hay.startsWith(phrase)) return true;
+    const words = hay.split(/\s+/);
+    return needles.every(n => words.some(w => w.startsWith(n)));
+  }
+
+  // Cuenta coincidencias sin tocar el display (para decidir el modo)
+  function countMatches(needles, mode){
+    let total = 0;
+    getGrids().forEach(([,grid])=>{
+      grid.querySelectorAll('.media-card').forEach(card=>{
+        const hay = norm(cardTitle(card));
+        const ok = needles.length === 0 ? true :
+                   (mode === 'starts' ? matchStarts(hay, needles) : matchContains(hay, needles));
+        if (ok) total++;
+      });
+    });
+    return total;
+  }
+
+  // Aplica el display según el modo final
+  function applyDisplay(needles, mode){
+    getGrids().forEach(([key,grid])=>{
+      grid.querySelectorAll('.media-card').forEach(card=>{
+        const hay = norm(cardTitle(card));
+        const ok = needles.length === 0 ? true :
+                   (mode === 'starts' ? matchStarts(hay, needles) : matchContains(hay, needles));
+        card.style.display = ok ? '' : 'none';
+      });
+      // Si tienes repaginador, lo llamamos sin romper nada si no existe
+      if (typeof window.rePageMedia === 'function'){
+        try { window.rePageMedia(key); } catch(e){}
+      }
+    });
+  }
+
+  function applyFilter(){
+    const q = input.value || '';
+    const needles = needlesOf(q);
+
+    // Sin texto: mostrar todo
+    if (needles.length === 0){
+      applyDisplay(needles, 'contains');
+      return;
+    }
+
+    // 1) Intentar "empieza por" (sin pintar)
+    const hitsStarts = countMatches(needles, 'starts');
+
+    // 2) Si 0 resultados, caer a "contiene"; si no, mantener "empieza por"
+    const mode = (hitsStarts > 0) ? 'starts' : 'contains';
+    applyDisplay(needles, mode);
+  }
+
+  // Evita duplicar listeners si ya había uno
+  if (!input.dataset.titleSearchAutoBound){
+    input.addEventListener('input', applyFilter);
+    input.dataset.titleSearchAutoBound = '1';
+  }
+
+  // Reaplicar al cambiar de pestaña por si el DOM oculta/enseña tarjetas
+  document.addEventListener('click', (e)=>{
+    const tab = e.target.closest?.('.media-tab');
+    if (tab) setTimeout(applyFilter, 0);
+  });
+
+  // Primera pasada
+  applyFilter();
+});
+
 </script>
 
 

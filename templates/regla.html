@@ -266,7 +266,6 @@ canvas{ width:100%; height:340px }
         <button class="arrow" id="nextBtn" aria-label="Mes siguiente">›</button>
       </div>
       <div class="week"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div></div>
-      <!-- Área exportable del calendario -->
       <div id="calendarExportArea">
         <div class="grid" id="daysGrid"></div>
       </div>
@@ -299,7 +298,6 @@ canvas{ width:100%; height:340px }
       </div>
     </div>
 
-    <!-- Área exportable de estadísticas -->
     <div class="stats-grid" id="statsExportArea">
       <div class="chart-card">
         <h4 class="chart-title">Tendencia de flujo</h4>
@@ -740,7 +738,7 @@ function buildDataset(scope){
 
   const moodsLabels = Object.keys(MOOD_EMO).map(k=>k.replace('_',' '));
   const moodsData = Object.keys(MOOD_EMO).map(k=>moodCounts[k]||0);
-  const totalMoods = moodsData.reduce((a,b)=>a+b,0) || 1; // evitar 0
+  const totalMoods = moodsData.reduce((a,b)=>a+b,0) || 1;
   const moodsPct = moodsData.map(v=> Math.round(100*v/totalMoods));
 
   return {
@@ -792,7 +790,6 @@ function upsertChart(key, ctx, cfg){
 function drawCharts(scope, charts){
   const isMonth = (scope==='mes');
 
-  // FLUJO: mes -> línea + media móvil; año -> barras + línea (días con flujo)
   const flowCtx = $('#chartFlow').getContext('2d');
   const grad = flowGradient(flowCtx);
   const flowCfg = isMonth ? {
@@ -807,9 +804,7 @@ function drawCharts(scope, charts){
     options:{
       responsive:true,
       plugins:{ legend:{ display:true }, tooltip:{ callbacks:{ label:(ctx)=> ` ${FLOW_TICKS[Math.round(ctx.parsed.y)]||ctx.parsed.y}` } } },
-      scales:{
-        y:{ suggestedMin:0, suggestedMax:3, ticks:{ stepSize:1, callback:(v)=> FLOW_TICKS[v]||v } }
-      }
+      scales:{ y:{ suggestedMin:0, suggestedMax:3, ticks:{ stepSize:1, callback:(v)=> FLOW_TICKS[v]||v } } }
     }
   } : {
     type:'bar',
@@ -831,7 +826,6 @@ function drawCharts(scope, charts){
   };
   upsertChart('flow', flowCtx, flowCfg);
 
-  // ÁNIMO: dona con % y etiquetas
   upsertChart('mood', $('#chartMood').getContext('2d'), {
     type:'doughnut',
     data:{
@@ -841,7 +835,6 @@ function drawCharts(scope, charts){
     options:{ responsive:true, plugins:{ legend:{ position:'right' } } }
   });
 
-  // DOLOR
   $('#cardPain').style.display = charts.hasPain ? '' : 'none';
   if(charts.hasPain){
     upsertChart('pain', $('#chartPain').getContext('2d'), {
@@ -851,7 +844,6 @@ function drawCharts(scope, charts){
     });
   }
 
-  // ENERGÍA
   $('#cardEnergy').style.display = charts.hasEnergy ? '' : 'none';
   if(charts.hasEnergy){
     upsertChart('energy', $('#chartEnergy').getContext('2d'), {
@@ -869,81 +861,62 @@ function refreshStatsUI(){
   drawCharts(scope, dataset.charts);
 }
 
-// Exporta PDF con 2 páginas: 1) Calendario, 2) Informes
-async function exportPDF(){
-  // --- helpers ---
-  const getJsPdfCtor = () => {
-    // Soporta ambas exposiciones: window.jspdf.jsPDF y window.jsPDF
-    if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
-    if (window.jsPDF) return window.jsPDF;
-    return null;
-  };
-  const ensureLibs = () => {
-    const ctor = getJsPdfCtor();
-    if (!ctor) throw new Error('jsPDF no cargado');
-    if (typeof html2canvas !== 'function') throw new Error('html2canvas no cargado');
-    return ctor;
-  };
-  const temporarilyUnhide = (el) => {
-    // Hace visible fuera de pantalla para que html2canvas pueda medirlo
-    const prev = {
-      display: el.style.display,
-      visibility: el.style.visibility,
-      position: el.style.position,
-      left: el.style.left,
-      top: el.style.top
-    };
-    el.style.visibility = 'hidden';
-    el.style.display = 'block';
-    el.style.position = 'absolute';
-    el.style.left = '-99999px';
-    el.style.top = '0';
-    return () => {
-      el.style.display   = prev.display;
-      el.style.visibility= prev.visibility;
-      el.style.position  = prev.position;
-      el.style.left      = prev.left;
-      el.style.top       = prev.top;
-    };
-  };
+/* =================== EXPORTAR PDF =================== */
+// Cambia de pestaña de forma segura, espera 2 frames para reflow y devuelve función restore
+async function switchToTab(tab){ // 'cal' | 'rep'
+  const current = document.querySelector('.tab.active')?.dataset.tab || 'cal';
+  if(current === tab) return async ()=>{};
+  const btn = document.querySelector(`.tab[data-tab="${tab}"]`);
+  if (btn) btn.click();
+  else {
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById(`view-${tab}`).classList.add('active');
+    document.querySelector(`.tab[data-tab="${tab}"]`)?.classList.add('active');
+  }
+  await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
+  return async ()=>{ if(current !== tab) await switchToTab(current); };
+}
 
-  // --- boton estado ---
+// Exporta PDF con 2 páginas: 1) Calendario (visible), 2) Informes (visible)
+async function exportPDF(){
+  const JSPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+  if(!JSPDF){ alert('jsPDF no cargado'); return; }
+  if(typeof html2canvas !== 'function'){ alert('html2canvas no cargado'); return; }
+
   const btn = document.getElementById('btnPdf');
   const oldTxt = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = 'Generando…'; }
+  if(btn){ btn.disabled = true; btn.textContent = 'Generando…'; }
 
   try{
-    const JSPDF = ensureLibs();
     const pdf = new JSPDF({ unit:'pt', format:'a4' });
     const pageWidth  = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     const margin = 28;
 
-    // Espera a próximo frame por si hay animaciones/Charts
-    await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
+    // ===== 1) CALENDARIO =====
+    const restore = await switchToTab('cal');
+    const calNode = document.getElementById('calendarCard');
+    calNode.style.transform = 'translateZ(0)';
+    await new Promise(r => requestAnimationFrame(r));
+    const calCanvas = await html2canvas(calNode, { scale:2, backgroundColor:'#ffffff', useCORS:true, logging:false });
+    await restore();
 
-    // ===== 1) CALENDARIO (aunque esté en la pestaña oculta) =====
-    const calView  = document.getElementById('view-cal');
-    const restore  = temporarilyUnhide(calView);   // <-- clave
-    const calNode  = document.getElementById('calendarCard');
-
-    const calCanvas = await html2canvas(calNode, { scale:2, backgroundColor:'#ffffff', useCORS:true });
-    const calImg    = calCanvas.toDataURL('image/png');
-    const calW      = pageWidth - margin*2;
-    const calH      = Math.max(1, calCanvas.height * (calW / calCanvas.width)); // evita 0
+    const calImg = calCanvas.toDataURL('image/png');
+    const calW   = pageWidth - margin*2;
+    const calH   = Math.max(1, calCanvas.height * (calW / calCanvas.width));
 
     pdf.setFont('helvetica','bold'); pdf.setFontSize(14);
     pdf.text(`Calendario · ${document.getElementById('monthTitle').textContent}`, margin, 24);
     pdf.addImage(calImg, 'PNG', margin, 34, calW, calH);
 
-    restore(); // vuelve a ocultar
-
     // ===== 2) INFORMES =====
     pdf.addPage();
+    await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
     const repNode   = document.getElementById('statsExportArea');
-    const repCanvas = await html2canvas(repNode, { scale:2, backgroundColor:'#ffffff', useCORS:true });
-    const repW      = pageWidth - margin*2;
-    const repH      = repCanvas.height * (repW / repCanvas.width);
+    const repCanvas = await html2canvas(repNode, { scale:2, backgroundColor:'#ffffff', useCORS:true, logging:false });
+    const repW = pageWidth - margin*2;
+    const repH = repCanvas.height * (repW / repCanvas.width);
 
     pdf.setFont('helvetica','bold'); pdf.setFontSize(14);
     const scope = document.getElementById('scopeSelect').value;
@@ -965,13 +938,14 @@ async function exportPDF(){
 
     const name = scope==='mes' ? `resumen_${state.y}-${String(state.m).padStart(2,'0')}.pdf` : `resumen_${state.y}.pdf`;
     pdf.save(name);
-  }catch(err){
-    console.error('PDF error:', err);
-    alert('No se pudo generar el PDF: ' + (err?.message || err));
+  }catch(e){
+    console.error(e);
+    alert('No se pudo generar el PDF: ' + (e?.message || e));
   }finally{
-    if (btn){ btn.disabled = false; btn.textContent = oldTxt; }
+    if(btn){ btn.disabled = false; btn.textContent = oldTxt; }
   }
 }
+
 // Eventos informes
 $('#scopeSelect').addEventListener('change', refreshStatsUI);
 const btnPdfEl = document.getElementById('btnPdf');

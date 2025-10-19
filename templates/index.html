@@ -6025,11 +6025,7 @@ function setDistanceBar(km){
   });
 })();
 
-/* ====== AUTODETECCIÓN DE UBICACIÓN AL ENTRAR ======
-   - Detecta tu posición al cargar (HTTPS o localhost).
-   - Pinta/actualiza mapa Leaflet, chips y barra de cercanía.
-   - Decide si eres 'mochito' o 'mochita' con la variable de plantilla.
-==================================================== */
+
 const CURRENT_USER = "{{ username|default('', true) }}";  // 'mochito' o 'mochita'
 const ME_KEY   = (CURRENT_USER === 'mochito') ? 'christian' : 'clara';
 const OTHER_KEY= (CURRENT_USER === 'mochito') ? 'clara'     : 'christian';
@@ -6232,8 +6228,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   }
 });
-
-
 </script>
 
 

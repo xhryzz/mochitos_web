@@ -1,6 +1,6 @@
 
 # app.py — con Web Push, notificaciones (Europe/Madrid a medianoche) y seguimiento de precio
-from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash, Response, make_response, abort
+from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash, Response, make_response, abort, url_for
 import psycopg2, psycopg2.extras
 from psycopg2.pool import SimpleConnectionPool
 from datetime import datetime, date, timedelta, timezone
@@ -11,6 +11,7 @@ from base64 import b64encode
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 import re  # <-- Seguimiento de precio
+
 # Web Push
 from pywebpush import webpush, WebPushException
 
@@ -696,6 +697,253 @@ def predict_cycle(user: str, lookback_days: int = 120):
         "fertile_end": fertile_b.isoformat(),
     }
 
+# ======= Ciclo: helpers para /regla (basados en cycle_entries) =======
+FLOW_ORDER = {'nada': 0, 'poco': 1, 'medio': 2, 'mucho': 3}
+
+def _daterange(d1: date, d2: date):
+    cur = d1
+    while cur <= d2:
+        yield cur
+        cur += timedelta(days=1)
+
+def get_periods_for_user(user: str = 'mochita', lookback_days: int = 365):
+    today = today_madrid()
+    start = today - timedelta(days=lookback_days)
+    end   = today
+    entries = get_cycle_entries(user, start, end)
+
+    bleed_days = {}
+    for e in entries:
+        f = (e.get('flow') or 'nada').strip()
+        if f != 'nada':
+            d = _parse_date(e['day'])
+            if d:
+                bleed_days[d] = {
+                    "flow": f,
+                    "pain": e.get('pain'),
+                    "notes": (e.get('notes') or '').strip()
+                }
+
+    if not bleed_days:
+        return []
+
+    # Agrupa días consecutivos como un periodo
+    periods = []
+    sorted_days = sorted(bleed_days.keys())
+    block = [sorted_days[0]]
+    for d in sorted_days[1:]:
+        if d == block[-1] + timedelta(days=1):
+            block.append(d)
+        else:
+            periods.append(block)
+            block = [d]
+    periods.append(block)
+
+    out = []
+    for block in periods:
+        start_d = block[0]
+        end_d   = block[-1]
+        length  = len(block)
+        max_flow = max((FLOW_ORDER.get(bleed_days[d]["flow"], 0) for d in block), default=0)
+        flow_label = next(k for k, v in FLOW_ORDER.items() if v == max_flow)
+        pains = [int(bleed_days[d]["pain"]) for d in block if isinstance(bleed_days[d]["pain"], int)]
+        avg_pain = round(sum(pains)/len(pains), 1) if pains else None
+        notes = "\n".join(sorted({bleed_days[d]["notes"] for d in block if (bleed_days[d]["notes"] or "").strip()}))
+        out.append({
+            "id": f"{start_d.isoformat()}_{end_d.isoformat()}",
+            "start": start_d.isoformat(),
+            "end": end_d.isoformat(),
+            "length": length,
+            "flow": flow_label,
+            "pain": avg_pain,
+            "notes": notes or ""
+        })
+    return out
+
+def compute_cycle_stats(periods: list[dict], default_cycle_len: int = 28):
+    today = today_madrid()
+    starts = sorted([_parse_date(p['start']) for p in periods if _parse_date(p['start'])])
+    if not starts:
+        next_start = today + timedelta(days=default_cycle_len)
+        ovul = next_start - timedelta(days=14)
+        return {
+            "have_data": False,
+            "avg_cycle_len": default_cycle_len,
+            "avg_period_len": None,
+            "last_start": None,
+            "next_period_date": next_start.isoformat(),
+            "ovulation_day": ovul.isoformat(),
+            "fertile_start": (ovul - timedelta(days=4)).isoformat(),
+            "fertile_end": (ovul + timedelta(days=1)).isoformat(),
+            "day_of_cycle": None,
+            "days_to_next": (next_start - today).days
+        }
+
+    gaps = []
+    for i in range(1, len(starts)):
+        gaps.append((starts[i] - starts[i-1]).days)
+    gaps = [g for g in gaps if 21 <= g <= 40]
+    avg_cycle = round(sum(gaps)/len(gaps)) if gaps else default_cycle_len
+
+    last_start = starts[-1]
+    next_start = last_start + timedelta(days=avg_cycle)
+    ovul = next_start - timedelta(days=14)
+    fertile_a = ovul - timedelta(days=4)
+    fertile_b = ovul + timedelta(days=1)
+    lens = [int(p.get('length') or 0) for p in periods if p.get('length')]
+    avg_period_len = round(sum(lens)/len(lens)) if lens else None
+    doc = (today - last_start).days + 1 if today >= last_start else None
+
+    return {
+        "have_data": True,
+        "avg_cycle_len": int(avg_cycle),
+        "avg_period_len": (int(avg_period_len) if avg_period_len else None),
+        "last_start": last_start.isoformat(),
+        "next_period_date": next_start.isoformat(),
+        "ovulation_day": ovul.isoformat(),
+        "fertile_start": fertile_a.isoformat(),
+        "fertile_end": fertile_b.isoformat(),
+        "day_of_cycle": (int(doc) if doc and doc > 0 else None),
+        "days_to_next": (next_start - today).days
+    }
+
+def build_calendar_data(year: int, month: int, periods: list[dict], stats: dict):
+    import calendar
+    first = date(year, month, 1)
+    last  = date(year, month, calendar.monthrange(year, month)[1])
+    today = today_madrid().date()
+
+    period_days = set()
+    for p in periods:
+        s = _parse_date(p["start"])
+        e = _parse_date(p["end"]) or s
+        for d in _daterange(s, e):
+            period_days.add(d)
+
+    fertile_days = set()
+    if stats and stats.get("fertile_start") and stats.get("fertile_end"):
+        fa = _parse_date(stats["fertile_start"])
+        fb = _parse_date(stats["fertile_end"])
+        if fa and fb and fa <= fb:
+            for d in _daterange(fa, fb):
+                fertile_days.add(d)
+
+    ovu_day = _parse_date(stats.get("ovulation_day") or "") if stats else None
+
+    days = []
+    for d in _daterange(first, last):
+        days.append({
+            "iso": d.isoformat(),
+            "day": d.day,
+            "is_today": (d == today),
+            "is_period": (d in period_days),
+            "is_fertile": (d in fertile_days),
+            "is_ovulation": (ovu_day == d)
+        })
+
+    return {
+        "year": year,
+        "month": month,
+        "first_weekday": first.weekday(),  # 0=Lunes
+        "days": days
+    }
+
+def save_period(start: str, end: str | None, flow: str | None, pain: str | None, notes: str | None, user: str = 'mochita'):
+    s = _parse_date(start)
+    e = _parse_date(end) if end else s
+    if not s or not e or e < s:
+        return
+    flow = (flow or 'medio').strip()
+    pval = None
+    try:
+        if pain is not None and str(pain).isdigit():
+            p = int(pain)
+            if 0 <= p <= 10:
+                pval = p
+    except Exception:
+        pval = None
+    now_txt = now_madrid_str()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            for d in _daterange(s, e):
+                c.execute("""
+                    INSERT INTO cycle_entries (username, day, mood, flow, pain, notes, created_by, created_at)
+                    VALUES (%s,%s,NULL,%s,%s,%s,%s,%s)
+                    ON CONFLICT (username, day) DO UPDATE
+                    SET flow=EXCLUDED.flow,
+                        pain=EXCLUDED.pain,
+                        notes=EXCLUDED.notes,
+                        created_by=EXCLUDED.created_by,
+                        created_at=EXCLUDED.created_at
+                """, (user, d.isoformat(), flow, pval, (notes or '').strip() or None, session.get('username','?'), now_txt))
+            conn.commit()
+    finally:
+        conn.close()
+
+def save_symptoms(payload: dict, user: str = 'mochita'):
+    day  = (payload.get("date") or "").strip()
+    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', day or ""):
+        return
+    mood = (payload.get("mood") or "").strip() or None
+    extras = {
+        "energy": (payload.get("energy") or "").strip(),
+        "bbt": (payload.get("bbt") or "").strip(),
+        "had_sex": bool(payload.get("had_sex")),
+        "protected": bool(payload.get("protected")),
+        "symptoms": payload.get("symptoms") or [],
+        "notes": (payload.get("notes") or "").strip()
+    }
+    extras_txt = ("; ".join(
+        [f"Energía: {extras['energy']}" if extras['energy'] else "",
+         f"BBT: {extras['bbt']}" if extras['bbt'] else "",
+         "Sexo: sí" if extras['had_sex'] else "",
+         "Protegido" if extras['protected'] else "",
+         ("Sx: " + ", ".join(extras['symptoms'])) if extras['symptoms'] else "",
+         extras['notes']]
+    )).strip("; ").strip()
+    now_txt = now_madrid_str()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT flow, pain, notes FROM cycle_entries WHERE username=%s AND day=%s", (user, day))
+            prev = c.fetchone()
+            prev_notes = (prev['notes'] if prev else "") or ""
+            new_notes = "\n".join([t for t in [prev_notes.strip(), extras_txt] if t]).strip() or None
+            c.execute("""
+                INSERT INTO cycle_entries (username, day, mood, flow, pain, notes, created_by, created_at)
+                VALUES (%s,%s,%s,NULL,NULL,%s,%s,%s)
+                ON CONFLICT (username, day) DO UPDATE
+                SET mood=EXCLUDED.mood,
+                    notes=EXCLUDED.notes,
+                    created_by=EXCLUDED.created_by,
+                    created_at=EXCLUDED.created_at
+            """, (user, day, mood, new_notes, session.get('username','?'), now_txt))
+            conn.commit()
+    finally:
+        conn.close()
+
+def delete_period_by_id(pid: str, user: str = 'mochita'):
+    if not pid:
+        return
+    conn = get_db_connection()
+    try:
+        if re.fullmatch(r'\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}', pid):
+            s_txt, e_txt = pid.split('_', 1)
+            s = _parse_date(s_txt); e = _parse_date(e_txt)
+            if s and e and e >= s:
+                with conn.cursor() as c:
+                    c.execute("""
+                        DELETE FROM cycle_entries
+                         WHERE username=%s AND day BETWEEN %s AND %s AND COALESCE(flow,'nada') <> 'nada'
+                    """, (user, s.isoformat(), e.isoformat()))
+                    conn.commit()
+        elif pid.isdigit():
+            with conn.cursor() as c:
+                c.execute("DELETE FROM cycle_entries WHERE id=%s AND username=%s", (int(pid), user))
+                conn.commit()
+    finally:
+        conn.close()
 
 def _reviews_dict(v):
     if isinstance(v, dict): return v
@@ -4111,22 +4359,22 @@ def cycle_delete():
     return redirect('/#ciclo')
 
 
+# ======= Página /regla =======
 @app.route("/regla")
 def regla_page():
-    # TODO: carga desde DB
     periods = get_periods_for_user()  # -> [{id, start, end, length, flow, pain, notes}, ...]
-    cycle_stats = compute_cycle_stats(periods)  # -> dict con day_of_cycle, next_period_date, fertile_start, fertile_end, ovulation_day, avg_cycle_len, avg_period_len, days_to_next
+    cycle_stats = compute_cycle_stats(periods)  # -> dict con métricas y predicciones
 
-    # Prepara calendario del mes actual (o del próximo)
+    # Prepara calendario del mes actual
     year, month = date.today().year, date.today().month
-    cal = build_calendar_data(year, month, periods, cycle_stats)  # -> dict con keys esperadas
+    cal = build_calendar_data(year, month, periods, cycle_stats)
 
     return render_template(
         "regla.html",
         periods=periods,
         cycle_stats=cycle_stats,
         calendar=cal,
-        symptoms_choices=['Cólicos','Dolor lumbar','Hinchazón','Sensibilidad pechos','Dolor de cabeza','Acné','Antojos','Insomnio','Náuseas','Diarrrea/Estreñimiento'],
+        symptoms_choices=['Cólicos','Dolor lumbar','Hinchazón','Sensibilidad pechos','Dolor de cabeza','Acné','Antojos','Insomnio','Náuseas','Diarrea/Estreñimiento'],
         today=date.today().isoformat()
     )
 
@@ -4137,14 +4385,12 @@ def add_period():
     flow  = request.form.get("flow") or "medio"
     pain  = request.form.get("pain") or None
     notes = request.form.get("notes") or ""
-    # TODO: valida y guarda
     save_period(start, end, flow, pain, notes)
-    flash(("success", "Periodo guardado"))
+    flash("Periodo guardado", "success")
     return redirect(url_for("regla_page"))
 
 @app.post("/regla/add_symptom")
 def add_symptoms():
-    # recoge checkbox múltiples
     symptoms = request.form.getlist("symptoms")
     payload = {
         "date": request.form.get("sym_date"),
@@ -4157,14 +4403,14 @@ def add_symptoms():
         "notes": request.form.get("sym_notes") or ""
     }
     save_symptoms(payload)
-    flash(("success", "Síntomas guardados"))
+    flash("Síntomas guardados", "success")
     return redirect(url_for("regla_page"))
 
 @app.post("/regla/delete_period")
 def delete_period():
     pid = request.form.get("id")
     delete_period_by_id(pid)
-    flash(("success", "Registro eliminado"))
+    flash("Registro eliminado", "success")
     return redirect(url_for("regla_page"))
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1

@@ -5466,68 +5466,59 @@ function sortCards(grid, mode){
 })();
 
 
-(() => {
-  const searchEl = document.getElementById('media-search');
-  if (!searchEl) return;
 
-  // Normaliza texto: minúsculas, sin acentos
+/* === Buscador Media: filtra por TÍTULO (robusto) === */
+(function mediaSearch(){
+  const input = document.getElementById('media-search');
+  if (!input) return;
+
+  // Normaliza: minúsculas + quita tildes + compacta espacios
   const norm = (s) =>
-    (s || '')
+    (s || "")
       .toString()
       .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")   // requiere navegador moderno
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim();
 
-  // Mapea sinónimos típicos a los valores de data-platform (netflix/prime/both/zzz)
-  const alias = (s) =>
-    norm(s)
-      .replace(/\bamazon(?:\s+prime)?(?:\s+video)?\b/g, 'prime')
-      .replace(/\bprime(?:\s+video)?\b/g, 'prime')
-      .replace(/\bnetfli[x]?\b/g, 'netflix');
-
-  const cards = Array.from(document.querySelectorAll('.media-card'));
+  const getCards = () => Array.from(document.querySelectorAll(".media-card"));
 
   function filter() {
-    const q = alias(searchEl.value.trim());
-    const terms = q.split(/\s+/).filter(Boolean);
+    const q = norm(input.value);
+    const tokens = q.split(" ").filter(Boolean);
 
-    // Si no hay términos, muestra todo
-    if (terms.length === 0) {
-      cards.forEach(c => c.style.display = '');
+    // Si está vacío, muestra todo
+    if (!tokens.length) {
+      getCards().forEach(c => c.style.display = "");
       return;
     }
 
-    cards.forEach(card => {
-      // Campos que queremos buscar
+    getCards().forEach(card => {
+      // Construimos un “haystack” con los campos relevantes
       const haystack = [
-        card.dataset.title,
-        card.dataset.platform,    // 'netflix' | 'prime' | 'both' | 'zzz'
-        card.dataset.notes,
-        card.dataset.link
-      ].map(alias).join(' ');
+        card.dataset.title,                                     // título (data-title)
+        card.querySelector(".media-title")?.textContent,        // título visual
+        card.dataset.platform,                                  // netflix | prime | both | zzz
+        card.dataset.kind,                                      // movie / show
+        card.dataset.notes                                      // notas
+      ].map(norm).join(" ");
 
-      const matches = terms.every(t => haystack.includes(t));
-      card.style.display = matches ? '' : 'none';
+      // Coincidencia por *todas* las palabras (AND)
+      const match = tokens.every(t => haystack.includes(t));
+      card.style.display = match ? "" : "none";
     });
   }
 
-  // Escuchar escribir y el botón "x" del input type=search
-  searchEl.addEventListener('input', filter);
-  searchEl.addEventListener('search', filter);
-
-  // Opcional: limpiar con ESC
-  searchEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      searchEl.value = '';
-      filter();
-      searchEl.blur();
-    }
+  input.addEventListener("input", filter);
+  // Pulsar ESC limpia el buscador
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { input.value = ""; filter(); }
   });
 
-  // Ejecuta una vez al cargar
+  // Primer pintado por si el input tiene valor desde servidor
   filter();
 })();
-
 
 </script>
 

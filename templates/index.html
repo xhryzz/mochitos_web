@@ -5467,57 +5467,70 @@ function sortCards(grid, mode){
 
 
 
-/* === Buscador Media: filtra por TÍTULO (robusto) === */
-(function mediaSearch(){
+/* ===== Búsqueda en Media: solo título/plataforma/notas ===== */
+(function setupMediaSearch(){
   const input = document.getElementById('media-search');
   if (!input) return;
 
-  // Normaliza: minúsculas + quita tildes + compacta espacios
-  const norm = (s) =>
-    (s || "")
-      .toString()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "")   // requiere navegador moderno
-      .replace(/[^\p{L}\p{N}]+/gu, " ")
-      .trim();
+  const cards = Array.from(document.querySelectorAll('.media-card'));
 
-  const getCards = () => Array.from(document.querySelectorAll(".media-card"));
+  const norm = (s) => (s||'')
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu,'');
 
-  function filter() {
-    const q = norm(input.value);
-    const tokens = q.split(" ").filter(Boolean);
+  function score(tokens, title){
+    // Puntuación simple para que salgan primero coincidencias al inicio del título
+    const t = norm(title||'');
+    let s = 0;
+    tokens.forEach(tok=>{
+      if (!tok) return;
+      if (t.startsWith(tok)) s += 100;
+      const idx = t.indexOf(tok);
+      if (idx === 0) s += 50;
+      else if (idx > 0) s += 10;
+    });
+    return s;
+  }
 
-    // Si está vacío, muestra todo
-    if (!tokens.length) {
-      getCards().forEach(c => c.style.display = "");
+  input.addEventListener('input', () => {
+    const q = norm(input.value.trim());
+    const tokens = q.split(/\s+/).filter(Boolean);
+
+    // si no hay query, mostramos todo y salimos
+    if (!tokens.length){
+      cards.forEach(c => {
+        c.style.display = '';
+        c.dataset.matchScore = '0';
+      });
       return;
     }
 
-    getCards().forEach(card => {
-      // Construimos un “haystack” con los campos relevantes
-      const haystack = [
-        card.dataset.title,                                     // título (data-title)
-        card.querySelector(".media-title")?.textContent,        // título visual
-        card.dataset.platform,                                  // netflix | prime | both | zzz
-        card.dataset.kind,                                      // movie / show
-        card.dataset.notes                                      // notas
-      ].map(norm).join(" ");
-
-      // Coincidencia por *todas* las palabras (AND)
-      const match = tokens.every(t => haystack.includes(t));
-      card.style.display = match ? "" : "none";
+    // filtra SOLO por data-title / data-platform / data-notes
+    const containers = new Map(); // para reordenar dentro de cada grid
+    cards.forEach(card=>{
+      const haystack = norm(
+        [card.dataset.title, card.dataset.platform, card.dataset.notes].join(' ')
+      );
+      const ok = tokens.every(t => haystack.includes(t));
+      card.style.display = ok ? '' : 'none';
+      card.dataset.matchScore = ok ? String(score(tokens, card.dataset.title)) : '0';
+      if (ok){
+        const parent = card.parentElement;
+        if (parent) {
+          if (!containers.has(parent)) containers.set(parent, []);
+          containers.get(parent).push(card);
+        }
+      }
     });
-  }
 
-  input.addEventListener("input", filter);
-  // Pulsar ESC limpia el buscador
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { input.value = ""; filter(); }
+    // opcional: reordenar coincidencias por mejor score dentro de cada grid
+    containers.forEach((list, parent)=>{
+      list.sort((a,b)=> (b.dataset.matchScore|0) - (a.dataset.matchScore|0));
+      list.forEach(el => parent.appendChild(el));
+    });
   });
-
-  // Primer pintado por si el input tiene valor desde servidor
-  filter();
 })();
 
 </script>

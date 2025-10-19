@@ -1,6 +1,10 @@
 <!doctype html>
 <html lang="es">
 <head>
+<!-- Charts + Export PDF -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Regla - Mochita</title>
@@ -164,6 +168,23 @@ select.pill{ background:#fff; border:2px solid #eee; }
 .emo b{ font-weight:800 }
 @media (max-width:860px){ .legend-grid{ grid-template-columns:1fr } }
 
+/* ==== Stats & Charts ==== */
+.stats-toolbar{
+  display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:space-between;
+  background:#fafafa; border:1px solid #eee; border-radius:16px; padding:12px 14px; margin: 0 18px 12px;
+  box-shadow:0 6px 14px rgba(0,0,0,.05);
+}
+.stats-grid{ display:grid; gap:16px; grid-template-columns:repeat(2,minmax(0,1fr)); padding:0 18px 18px; }
+.stat-chip{
+  display:inline-flex; align-items:center; gap:8px; background:#fff; border:1px solid #eee; border-radius:12px;
+  padding:10px 12px; font-weight:800; box-shadow:0 4px 10px rgba(0,0,0,.05);
+}
+.stat-chip b{ font-size:1.05rem }
+.chart-card{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:var(--shadow) }
+.chart-title{ font-weight:800; margin:0 0 8px; }
+.stats-note{ color:var(--muted); font-size:.85rem; margin-top:6px }
+@media (max-width:860px){ .stats-grid{ grid-template-columns:1fr } }
+canvas{ width:100%; height:260px; }
 
 
 </style>
@@ -205,6 +226,52 @@ select.pill{ background:#fff; border:2px solid #eee; }
       <div class="legend-row"><span class="legend-swatch mid"></span> Medio</div>
       <div class="legend-row"><span class="legend-swatch high"></span> Mucho</div>
     </div>
+
+    <!-- ⬇️ NUEVO: Estadísticas + Gráficos + Export PDF -->
+<div class="stats-toolbar" id="statsToolbar">
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span class="stat-chip">📆
+      <select id="scopeSelect" class="pill">
+        <option value="mes" selected>Este mes</option>
+        <option value="anio">Este año</option>
+      </select>
+    </span>
+    <span class="stat-chip">📄
+      <button class="pill primary" id="btnPdf">Descargar PDF</button>
+    </span>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span class="stat-chip">Media ciclo: <b id="statAvgCycle">—</b> días</span>
+    <span class="stat-chip">Duración regla: <b id="statAvgPeriod">—</b> días</span>
+    <span class="stat-chip">Fase lútea (est.): <b id="statLuteal">≈14</b> días</span>
+    <span class="stat-chip">Regularidad: <b id="statRegularity">—</b></span>
+  </div>
+</div>
+
+<div class="stats-grid" id="statsExportArea">
+  <div class="chart-card">
+    <h4 class="chart-title">Tendencia de flujo</h4>
+    <canvas id="chartFlow"></canvas>
+    <div class="stats-note">0=sin, 1=poco, 2=medio, 3=mucho.</div>
+  </div>
+  <div class="chart-card">
+    <h4 class="chart-title">Ánimo (distribución)</h4>
+    <canvas id="chartMood"></canvas>
+    <div class="stats-note">Conteo por tipo de ánimo en el periodo seleccionado.</div>
+  </div>
+  <div class="chart-card" id="cardPain" style="display:none">
+    <h4 class="chart-title">Dolor (media)</h4>
+    <canvas id="chartPain"></canvas>
+    <div class="stats-note">Si empiezas a registrar dolor (0–10), aparecerá aquí.</div>
+  </div>
+  <div class="chart-card" id="cardEnergy" style="display:none">
+    <h4 class="chart-title">Energía (media)</h4>
+    <canvas id="chartEnergy"></canvas>
+    <div class="stats-note">Si registras energía (0–10), aparecerá aquí.</div>
+  </div>
+</div>
+<!-- ⬆️ FIN NUEVO -->
+
 
     <!-- Inicio / Fin / Hoy -->
     <div class="legend-group">
@@ -582,6 +649,297 @@ try{
   const t=new Date(); state.y=t.getFullYear(); state.m=t.getMonth()+1;
   loadMonth();
 })();
+
+
+/* ================== NUEVO: Estadísticas + Gráficos + PDF ================== */
+
+// Guardaremos datos extendidos aquí sin tocar tu estado actual
+state.allEntries = {};   // { ISO : {flow,mood,pain,energy} }
+let CHARTS = { flow:null, mood:null, pain:null, energy:null };
+
+// Mapea flujo a número
+const FLOW_NUM = { '':0, 'poco':1, 'medio':2, 'mucho':3 };
+
+// Carga extendida (24 meses atrás hasta este mes)
+async function loadAllForStats(){
+  try{
+    const now = new Date();
+    const fromDate = new Date(now.getFullYear(), now.getMonth() - 23, 1); // 24 meses
+    const from = `${fromDate.getFullYear()}-${pad(fromDate.getMonth()+1)}`;
+    const months = 24;
+    const url = `${API_LIST}?from=${from}&months=${months}&user=mochita`;
+    const res = await fetch(url, {credentials:'same-origin'});
+    const j = await res.json();
+    const map={};
+    (j.entries||[]).forEach(e=>{
+      const day=(e.day||e.date||'').trim(); if(!day) return;
+      map[day] = {
+        mood:(e.mood||'')||'',
+        flow:(e.flow||'')||'',
+        pain: typeof e.pain==='number'? e.pain : null,
+        energy: typeof e.energy==='number'? e.energy : null,
+      };
+    });
+    state.allEntries = map;
+  }catch(e){
+    state.allEntries = {};
+  }
+}
+
+// Utilidades fechas
+function ymd(s){ const [Y,M,D]=s.split('-').map(Number); return {Y,M,D}; }
+function cmpIso(a,b){ return a<b?-1:a>b?1:0; }
+function addDaysIso(s, n){ const d=parseIso(s); d.setDate(d.getDate()+n); return toIsoDate(d); }
+
+// Detecta spans de regla (días consecutivos con flujo != '')
+function getPeriodSpans(map){
+  const days = Object.keys(map).sort(cmpIso);
+  const spans=[];
+  let i=0;
+  while(i<days.length){
+    const d = days[i];
+    if(map[d]?.flow){
+      let start = d, end = d, len=1;
+      while(i+1<days.length){
+        const next = days[i+1];
+        if(next === addDaysIso(end,1) && map[next]?.flow){ end=next; len++; i++; }
+        else break;
+      }
+      spans.push({start, end, lengthDays:len});
+    }
+    i++;
+  }
+  return spans;
+}
+
+// Longitudes de ciclo = diferencia entre INICIOS sucesivos
+function getCycleLengths(spans){
+  const starts = spans.map(s=>s.start).sort(cmpIso);
+  const out = [];
+  for(let i=0;i<starts.length-1;i++){
+    const a = parseIso(starts[i]), b = parseIso(starts[i+1]);
+    const diff = Math.round((b-a)/(1000*60*60*24));
+    if(diff>5 && diff<60) out.push({start:starts[i], length:diff}); // filtros sanos
+  }
+  return out;
+}
+
+// Filtros por mes/año
+function inSameMonth(isoStr, y, m){ const {Y,M}=ymd(isoStr); return Y===y && M===m; }
+function inSameYear(isoStr, y){ const {Y}=ymd(isoStr); return Y===y; }
+
+// Estadísticos básicos
+function mean(arr){ return arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+function stdev(arr){
+  if(arr.length<2) return 0;
+  const m = mean(arr);
+  const v = mean(arr.map(x=> (x-m)*(x-m) ));
+  return Math.sqrt(v);
+}
+function fmt(n, digits=1){ return isFinite(n)? Number(n.toFixed(digits)).toString().replace('.',',') : '—'; }
+
+// Construye datos para el alcance seleccionado
+function buildDataset(scope){
+  const y = state.y, m = state.m;
+
+  const map = state.allEntries;
+  const spans = getPeriodSpans(map);
+  const cycles = getCycleLengths(spans);
+
+  // Filtrado por alcance
+  const spansSel = spans.filter(s => scope==='mes' ? inSameMonth(s.start,y,m) : inSameYear(s.start,y) );
+  const cyclesSel = cycles.filter(c => scope==='mes' ? inSameMonth(c.start,y,m) : inSameYear(c.start,y) );
+
+  // Stats
+  const avgPeriod = mean(spansSel.map(s=>s.lengthDays));
+  const cycleLens = cyclesSel.map(c=>c.length);
+  const avgCycle = mean(cycleLens);
+  const sdCycle = stdev(cycleLens);
+  const cv = (avgCycle>0)? (sdCycle/avgCycle) : 0;
+  const regularity = avgCycle===0 ? '—' : (sdCycle<=2 ? 'alta' : (sdCycle<=4 ? 'media' : 'baja'));
+
+  // Series para gráficos
+  let labels=[], flowSeries=[], moodCounts={}, painSeries=[], energySeries=[];
+
+  const MOOD_KEYS = Object.keys(MOOD_EMO);
+  MOOD_KEYS.forEach(k=>moodCounts[k]=0);
+
+  if(scope==='mes'){
+    const dim = daysInMonth(y,m);
+    for(let d=1; d<=dim; d++){
+      const id = iso(y,m,d);
+      labels.push(d.toString());
+      const e = map[id]||{};
+      flowSeries.push(FLOW_NUM[e.flow||'']||0);
+      if(e.mood && moodCounts[e.mood]!=null) moodCounts[e.mood]++;
+      if(typeof e.pain === 'number') painSeries.push(e.pain);
+      if(typeof e.energy === 'number') energySeries.push(e.energy);
+    }
+  }else{
+    // año: por mes (1..12) con media de flujo/pain/energy y conteo de moods
+    for(let mm=1; mm<=12; mm++){
+      labels.push(MONTHS[mm-1].slice(0,3));
+      const dim = daysInMonth(y,mm);
+      let flows=[], pains=[], energys=[];
+      for(let d=1; d<=dim; d++){
+        const id = iso(y,mm,d);
+        const e = map[id]||{};
+        flows.push(FLOW_NUM[e.flow||'']||0);
+        if(typeof e.pain === 'number') pains.push(e.pain);
+        if(typeof e.energy === 'number') energys.push(e.energy);
+        if(e.mood && moodCounts[e.mood]!=null) moodCounts[e.mood]++;
+      }
+      flowSeries.push(flows.length? mean(flows) : 0);
+      painSeries.push(pains.length? mean(pains) : 0);
+      energySeries.push(energys.length? mean(energys) : 0);
+    }
+  }
+
+  const moodsLabels = MOOD_KEYS.map(k=>k.replace('_',' '));
+  const moodsData = MOOD_KEYS.map(k=>moodCounts[k]||0);
+  const hasPain = painSeries.some(v=>typeof v==='number');
+  const hasEnergy = energySeries.some(v=>typeof v==='number');
+
+  return {
+    stats:{ avgPeriod, avgCycle, sdCycle, cv, regularity },
+    charts:{ labels, flowSeries, moodsLabels, moodsData, painSeries, energySeries, hasPain, hasEnergy }
+  };
+}
+
+// Pinta/actualiza los números de la cabecera
+function updateStatsHeader(data){
+  const {avgPeriod, avgCycle, regularity} = data.stats;
+  $('#statAvgCycle').textContent = avgCycle? fmt(avgCycle) : '—';
+  $('#statAvgPeriod').textContent = avgPeriod? fmt(avgPeriod) : '—';
+  $('#statLuteal').textContent = '≈14'; // estimada sin datos de ovulación
+  $('#statRegularity').textContent = regularity;
+}
+
+// Crea o actualiza un gráfico Chart.js
+function upsertChart(refKey, ctx, cfg){
+  if(CHARTS[refKey]){ CHARTS[refKey].data = cfg.data; CHARTS[refKey].options = cfg.options||{}; CHARTS[refKey].update(); }
+  else { CHARTS[refKey] = new Chart(ctx, cfg); }
+}
+
+// Dibuja todos los gráficos
+function drawCharts(scope, charts){
+  const isMonth = (scope==='mes');
+
+  // Flujo (línea para mes / barras para año)
+  upsertChart('flow', $('#chartFlow').getContext('2d'), {
+    type: isMonth ? 'line' : 'bar',
+    data: {
+      labels: charts.labels,
+      datasets: [{
+        label: isMonth ? 'Flujo por día' : 'Flujo medio por mes',
+        data: charts.flowSeries,
+        fill:false,
+        tension:0.25
+      }]
+    },
+    options:{
+      responsive:true,
+      scales:{
+        y:{ suggestedMin:0, suggestedMax:3, ticks:{ stepSize:1 } }
+      },
+      plugins:{ legend:{ display:false } }
+    }
+  });
+
+  // Ánimo (barras apiladas)
+  upsertChart('mood', $('#chartMood').getContext('2d'), {
+    type:'bar',
+    data:{
+      labels: charts.moodsLabels,
+      datasets:[{ label:'Ánimo', data: charts.moodsData }]
+    },
+    options:{ responsive:true, plugins:{ legend:{ display:false } } }
+  });
+
+  // Dolor (si hay)
+  $('#cardPain').style.display = charts.hasPain ? '' : 'none';
+  if(charts.hasPain){
+    upsertChart('pain', $('#chartPain').getContext('2d'), {
+      type: isMonth ? 'line' : 'bar',
+      data:{ labels: charts.labels, datasets:[{ label:'Dolor (0–10)', data: charts.painSeries, tension:0.25 }] },
+      options:{ responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ suggestedMin:0, suggestedMax:10, ticks:{ stepSize:2 } } } }
+    });
+  }
+
+  // Energía (si hay)
+  $('#cardEnergy').style.display = charts.hasEnergy ? '' : 'none';
+  if(charts.hasEnergy){
+    upsertChart('energy', $('#chartEnergy').getContext('2d'), {
+      type: isMonth ? 'line' : 'bar',
+      data:{ labels: charts.labels, datasets:[{ label:'Energía (0–10)', data: charts.energySeries, tension:0.25 }] },
+      options:{ responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ suggestedMin:0, suggestedMax:10, ticks:{ stepSize:2 } } } }
+    });
+  }
+}
+
+// Refresca todo (stats + charts) según el alcance seleccionado
+function refreshStatsUI(){
+  const scope = $('#scopeSelect').value; // 'mes' | 'anio'
+  const dataset = buildDataset(scope);
+  updateStatsHeader(dataset);
+  drawCharts(scope, dataset.charts);
+}
+
+// Exporta la zona de stats+charts a PDF
+async function exportPDF(){
+  const area = document.getElementById('statsExportArea');
+  const { jsPDF } = window.jspdf;
+
+  const canvas = await html2canvas(area, { scale:2, backgroundColor:'#ffffff' });
+  const imgData = canvas.toDataURL('image/png');
+
+  const pdf = new jsPDF({ unit:'pt', format:'a4' });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+
+  // Escalado a ancho página, y paginado si hace falta
+  const imgWidth = pageWidth - 40; // márgenes
+  const imgHeight = canvas.height * (imgWidth / canvas.width);
+
+  let y = 20;
+  if(imgHeight <= pageHeight - 40){
+    pdf.addImage(imgData, 'PNG', 20, y, imgWidth, imgHeight);
+  }else{
+    // Cortar en varias páginas
+    let sY = 0;
+    const pxPage = canvas.width * ((pageHeight - 40) / imgWidth);
+    while(sY < canvas.height){
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = canvas.width;
+      pageCanvas.height = Math.min(pxPage, canvas.height - sY);
+      const ctx = pageCanvas.getContext('2d');
+      ctx.drawImage(canvas, 0, sY, canvas.width, pageCanvas.height, 0, 0, canvas.width, pageCanvas.height);
+      const pageImg = pageCanvas.toDataURL('image/png');
+      if(sY>0) pdf.addPage();
+      pdf.addImage(pageImg, 'PNG', 20, 20, imgWidth, pageCanvas.height*(imgWidth/canvas.width));
+      sY += pxPage;
+    }
+  }
+
+  const scope = $('#scopeSelect').value;
+  const name = (scope==='mes') ? `resumen_${state.y}-${pad(state.m)}.pdf` : `resumen_${state.y}.pdf`;
+  pdf.save(name);
+}
+
+// Eventos UI
+$('#scopeSelect').addEventListener('change', refreshStatsUI);
+$('#btnPdf').addEventListener('click', exportPDF);
+
+// Integración con tu navegación de meses
+const _goMonthOriginal = goMonth;
+goMonth = function(delta){ _goMonthOriginal(delta); setTimeout(refreshStatsUI, 0); };
+
+// Carga inicial de datos extendidos y primer pintado
+(async function initStats(){
+  await loadAllForStats();
+  refreshStatsUI();
+})();
+
 </script>
 </body>
 </html>

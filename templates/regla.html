@@ -6,7 +6,6 @@
 <title>Regla - Mochita</title>
 <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
 
-<!-- ====== Estilos ====== -->
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Dancing+Script:wght@700&display=swap');
 
@@ -15,7 +14,6 @@
   --ink:#2d3436; --muted:#6b7280; --card:#fff; --line:#eee;
   --shadow:0 15px 30px rgba(0,0,0,.08);
   --gradient:linear-gradient(135deg,#e84393,#fd79a8 50%,#a29bfe);
-
   --flow-none:#e5e7eb; --flow-low:#60a5fa; --flow-mid:#f59e0b; --flow-high:#ef4444;
   --secondary-color:var(--accent);
 }
@@ -33,7 +31,7 @@ body{
   overflow:hidden; max-width:1100px; margin:24px auto; border:1px solid rgba(255,255,255,.6);
 }
 .container > h1{
-  font-family:'Dancing+Script',cursive; font-size:42px; margin:0; padding:22px 16px 8px;
+  font-family:'Dancing Script',cursive; font-size:42px; margin:0; padding:22px 16px 8px;
   text-align:center; background:var(--gradient); -webkit-background-clip:text; background-clip:text;
   color:transparent; text-shadow:0 3px 6px rgba(0,0,0,.15);
 }
@@ -45,12 +43,12 @@ body{
 /* Tarjetas */
 .card{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:var(--shadow); margin:18px; }
 
-/* Toolbar minimal */
+/* Toolbar */
 .toolbar{
   display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:space-between;
   background:#fafafa; border:1px solid #eee; border-radius:16px; padding:14px 16px; box-shadow:0 6px 14px rgba(0,0,0,.05);
 }
-.toolbar .left, .toolbar .right{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.toolbar .left,.toolbar .right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .pill{
   padding:10px 14px; border:none; border-radius:999px; background:#eee; font-weight:700; cursor:pointer;
   transition:.2s; box-shadow:0 6px 14px rgba(0,0,0,.06);
@@ -75,62 +73,76 @@ select.pill{ background:#fff; border:2px solid #eee; }
 .grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:8px }
 .day{
   position:relative; background:#fff; border:1px solid #eee; border-radius:14px;
-  min-height:96px; padding:10px; display:flex; flex-direction:column; gap:8px;
+  min-height:110px; padding:10px; display:flex; flex-direction:column; gap:6px;
   box-shadow:0 6px 14px rgba(0,0,0,.04); transition:.15s;
 }
 .day:hover{ transform:translateY(-2px); box-shadow:0 10px 22px rgba(0,0,0,.08) }
 .day.muted{ background:#fafafa }
 .day.today{ outline:2px dashed var(--secondary-color); outline-offset:-6px; background:#fcfcff }
-.day .top{
-  display:flex; align-items:center; justify-content:space-between; gap:6px;
-}
+.day .top{ display:flex; align-items:center; justify-content:space-between; gap:6px; }
 .day .num{ font-weight:800 }
+
+/* Etiquetas Inicio/Fin (chips bajo el número) */
+.labels{ display:flex; gap:6px; flex-wrap:wrap; }
+.label-chip{ font-size:.75rem; padding:3px 8px; border-radius:999px; border:1px solid; font-weight:800; }
+.label-chip.start{ background:#ffe4e6; border-color:#fecdd3; color:#9f1239 }
+.label-chip.end{   background:#ede9fe; border-color:#ddd6fe; color:#4c1d95 }
+
+/* Botón de ánimo */
 .mood-btn{
   min-width:34px; height:28px; padding:0 8px; border:none; border-radius:999px; background:#f5f5f5; cursor:pointer;
   font-weight:800; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,.06);
-  opacity:.9;
+  opacity:.95;
 }
 .mood-btn[disabled]{ opacity:.5; cursor:not-allowed }
 .mood-btn:hover{ filter:brightness(1.02) }
 
-/* Indicador de flujo (clicable) */
+/* Menús inline */
+.menu{
+  position:absolute; left:10px; right:10px; bottom:10px; z-index:5; display:none;
+  background:#fff; border:1px solid #eee; border-radius:12px; padding:8px; box-shadow:0 16px 40px rgba(0,0,0,.15);
+}
+.menu .row{ display:flex; gap:8px; flex-wrap:wrap; }
+.menu .chip{
+  padding:8px 10px; border-radius:999px; border:1px solid #eee; background:#fafafa; font-weight:700; cursor:pointer;
+}
+.menu .chip:hover{ filter:brightness(1.03) }
+.day.show-flow-menu .flow-menu{ display:block }
+.day.show-emoji-menu .emoji-menu{ display:block }
+
+/* Barra de flujo (clicable) */
 .flow-dot{ width:100%; height:12px; border-radius:7px; background:var(--flow-none); margin-top:auto; border:1px solid rgba(0,0,0,.05); cursor:pointer }
 .flow-low{  background:var(--flow-low) }
 .flow-mid{  background:var(--flow-mid) }
 .flow-high{ background:var(--flow-high) }
 .flow-none{ background:var(--flow-none) }
 
-/* Selección rango (vista previa) */
+/* Rango (preview) */
 .day.range{ box-shadow:0 0 0 3px rgba(232,67,147,.25) inset }
 
-/* Inicio / fin */
+/* Decoración inicio/fin (bordes) */
 .day.start-day{ box-shadow:0 0 0 3px rgba(232,67,147,.55), 0 10px 24px rgba(232,67,147,.18); border-color:#fda4af }
 .day.end-day{   box-shadow:0 0 0 3px rgba(162,155,254,.55), 0 10px 24px rgba(162,155,254,.18); border-color:#c7d2fe }
-.flag{
-  position:absolute; top:6px; right:6px; font-size:.75rem; padding:3px 8px; border-radius:999px; border:1px solid; font-weight:800;
-}
-.flag.start{ background:#ffe4e6; border-color:#fecdd3; color:#9f1239; right:auto; left:6px }
-.flag.end{   background:#ede9fe; border-color:#ddd6fe; color:#4c1d95 }
 
 .help{ color:var(--muted); font-size:.9rem; text-align:center; padding:6px 0 }
 
 /* Responsivo */
 @media (max-width:640px){
   .container > h1{ font-size:34px }
-  .day{ min-height:86px }
+  .day{ min-height:100px }
 }
 </style>
 </head>
 <body>
 <div class="container">
   <h1>Regla Mochita</h1>
-  <p class="subtitle">Click en la <b>barra de color</b> para flujo · Click en el <b>emoji</b> para ánimo · Rango para varios días.</p>
+  <p class="subtitle">Flujo y ánimo se ponen <b>por día</b>. Rango es solo si quieres aplicar a varios días a la vez.</p>
 
-  <!-- Toolbar simplificada -->
+  <!-- Toolbar -->
   <div class="toolbar card">
     <div class="left">
       <button class="pill" id="rangeToggle" aria-pressed="false">📏 Modo rango</button>
-      <label style="font-weight:700;">Flujo:</label>
+      <label style="font-weight:700;">Flujo para rango:</label>
       <select id="rangeFlow" class="pill">
         <option value="poco">poco</option>
         <option value="medio" selected>medio</option>
@@ -141,6 +153,7 @@ select.pill{ background:#fff; border:2px solid #eee; }
     </div>
     <div class="right">
       <button class="pill" id="todayBtn">Hoy</button>
+      <button class="pill danger" id="wipeAllBtn" title="Eliminar todos los registros">🧨 Eliminar TODO</button>
     </div>
   </div>
 
@@ -157,10 +170,10 @@ select.pill{ background:#fff; border:2px solid #eee; }
 </div>
 
 <script>
-// ------- Permisos (solo mochita edita) -------
+// ------- Permisos -------
 const CAN_EDIT = {{ 'true' if (session.get('username')=='mochita') else 'false' }};
 
-// ------- Helpers DOM -------
+// ------- Helpers -------
 const $ = (s,p=document)=>p.querySelector(s);
 const $$ = (s,p=document)=>Array.from(p.querySelectorAll(s));
 
@@ -189,13 +202,9 @@ const state = {
   rangeMode:false
 };
 
-// ------- Ánimos / Flujo -------
-const MOOD_ORDER = ['', 'feliz','normal','triste','estresada','sensible','cansada','irritable','con_energia'];
+// ------- Opciones -------
+const MOODS = ['feliz','normal','triste','estresada','sensible','cansada','irritable','con_energia'];
 const MOOD_EMO = { feliz:'😀', normal:'🙂', triste:'😔', estresada:'😵‍💫', sensible:'🥺', cansada:'😴', irritable:'😠', con_energia:'⚡' };
-const nextMood = (m)=>MOOD_ORDER[(MOOD_ORDER.indexOf(m)+1) % MOOD_ORDER.length];
-
-const FLOW_ORDER = ['','poco','medio','mucho'];
-const nextFlow = (f)=>FLOW_ORDER[(FLOW_ORDER.indexOf(f)+1) % FLOW_ORDER.length];
 
 // ------- Carga (3 meses centrados) -------
 function ymPrev(y,m){ const d=new Date(y,m-2,1); return [d.getFullYear(), d.getMonth()+1]; }
@@ -220,6 +229,11 @@ async function loadMonth(){
 function setMonthTitle(){ $('#monthTitle').textContent = `${MONTHS[state.m-1][0].toUpperCase()+MONTHS[state.m-1].slice(1)} ${state.y}`; }
 function inPreviewRange(dayIso){ const {start,end}=state.range; return !!(start && end && dayIso>=start && dayIso<=end); }
 
+function closeAllMenus(){
+  $$('.day.show-flow-menu').forEach(d=>d.classList.remove('show-flow-menu'));
+  $$('.day.show-emoji-menu').forEach(d=>d.classList.remove('show-emoji-menu'));
+}
+
 function renderCalendar(){
   setMonthTitle();
   const grid = $('#daysGrid'); grid.innerHTML='';
@@ -231,58 +245,107 @@ function renderCalendar(){
     const wrap=document.createElement('div'); wrap.className='day';
     if(isToday(state.y,state.m,d)) wrap.classList.add('today');
     const id = iso(state.y,state.m,d); wrap.dataset.iso = id;
-
     if(state.rangeMode && inPreviewRange(id)) wrap.classList.add('range');
 
-    // Cálculo inicio/fin de ciclo
     const entry = state.entries[id] || {};
+
+    // --- Top: número + botón de emoji (solo si CAN_EDIT o ya hay mood) ---
+    const top=document.createElement('div'); top.className='top';
+    const num=document.createElement('div'); num.className='num'; num.textContent=d;
+
+    const moodBtn=document.createElement('button');
+    moodBtn.className='mood-btn';
+    moodBtn.title = entry.mood ? 'Cambiar ánimo' : 'Añadir ánimo';
+    moodBtn.textContent = entry.mood ? (MOOD_EMO[entry.mood]||'🙂') : '＋';
+    if(!CAN_EDIT || state.rangeMode){
+      // Mostrar emoji existente, pero sin permitir edición en modo rango o sin permisos
+      if(entry.mood){ top.appendChild(num); top.appendChild(moodBtn); moodBtn.disabled = true; }
+      else{ top.appendChild(num); }
+    }else{
+      // Editar libremente: aparece siempre para poder poner emoji solo donde quiera
+      top.appendChild(num); top.appendChild(moodBtn);
+      moodBtn.addEventListener('click', (ev)=>{
+        ev.stopPropagation();
+        if(!CAN_EDIT) return;
+        if(wrap.classList.contains('show-emoji-menu')){ wrap.classList.remove('show-emoji-menu'); return; }
+        closeAllMenus(); wrap.classList.add('show-emoji-menu');
+      });
+    }
+
+    // --- Chips Inicio/Fin bajo el número (no superponen) ---
+    const labels=document.createElement('div'); labels.className='labels';
     const prevId = toIsoDate(addDays(parseIso(id), -1));
     const nextId = toIsoDate(addDays(parseIso(id), +1));
     const hasFlow = !!entry.flow;
     const prevFlow = !!(state.entries[prevId]?.flow);
     const nextFlowB = !!(state.entries[nextId]?.flow);
-    if(hasFlow && !prevFlow){ const f=document.createElement('span'); f.className='flag start'; f.textContent='Inicio'; wrap.appendChild(f); wrap.classList.add('start-day'); }
-    if(hasFlow && !nextFlowB){ const f=document.createElement('span'); f.className='flag end';   f.textContent='Fin';    wrap.appendChild(f); wrap.classList.add('end-day'); }
+    if(hasFlow && !prevFlow){ const c=document.createElement('span'); c.className='label-chip start'; c.textContent='Inicio'; labels.appendChild(c); wrap.classList.add('start-day'); }
+    if(hasFlow && !nextFlowB){ const c=document.createElement('span'); c.className='label-chip end';   c.textContent='Fin';    labels.appendChild(c); wrap.classList.add('end-day'); }
 
-    // Top row: número + mood button
-    const top=document.createElement('div'); top.className='top';
-    const num=document.createElement('div'); num.className='num'; num.textContent=d;
-    const moodBtn=document.createElement('button'); moodBtn.className='mood-btn'; moodBtn.title='Ánimo';
-    const emo = entry.mood ? (MOOD_EMO[entry.mood]||'🙂') : '🙂';
-    moodBtn.textContent = emo;
-    if(!CAN_EDIT || state.rangeMode) moodBtn.disabled = true;
-    moodBtn.addEventListener('click', async (e)=>{
-      if(!CAN_EDIT || state.rangeMode) return;
-      const newMood = nextMood(entry.mood||'');
-      await saveOrDelete(id, newMood, entry.flow||'');
-      renderCalendar();
-    });
-    top.appendChild(num); top.appendChild(moodBtn);
-
-    // Flow bar (click to cycle)
+    // --- Barra de flujo (abre menú por día) ---
     const dot=document.createElement('div');
     dot.className='flow-dot ' + (
       entry.flow==='poco'  ? 'flow-low'  :
       entry.flow==='medio' ? 'flow-mid'  :
       entry.flow==='mucho' ? 'flow-high' : 'flow-none'
     );
-    if(!CAN_EDIT || state.rangeMode) dot.style.cursor='default';
-    dot.title = CAN_EDIT ? 'Click para cambiar el flujo' : '';
-    dot.addEventListener('click', async ()=>{
-      if(!CAN_EDIT || state.rangeMode) return;
-      const newFlow = nextFlow(entry.flow||'');
-      await saveOrDelete(id, entry.mood||'', newFlow);
-      renderCalendar();
+    if(CAN_EDIT && !state.rangeMode){
+      dot.title='Elegir flujo (por día)';
+      dot.addEventListener('click', (ev)=>{
+        ev.stopPropagation();
+        if(wrap.classList.contains('show-flow-menu')){ wrap.classList.remove('show-flow-menu'); return; }
+        closeAllMenus(); wrap.classList.add('show-flow-menu');
+      });
+    }else{
+      dot.style.cursor='default';
+    }
+
+    // --- Menú flujo (por día) ---
+    const flowMenu=document.createElement('div'); flowMenu.className='menu flow-menu';
+    flowMenu.innerHTML = `
+      <div class="row">
+        <button class="chip" data-flow="">Sin</button>
+        <button class="chip" data-flow="poco">Poco</button>
+        <button class="chip" data-flow="medio">Medio</button>
+        <button class="chip" data-flow="mucho">Mucho</button>
+      </div>`;
+    flowMenu.querySelectorAll('[data-flow]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const val = btn.getAttribute('data-flow')||'';
+        await saveOrDelete(id, entry.mood||'', val);
+        wrap.classList.remove('show-flow-menu');
+        renderCalendar();
+      });
     });
 
-    // Click de selección de rango (sobre la tarjeta)
+    // --- Menú emoji (por día) ---
+    const emojiMenu=document.createElement('div'); emojiMenu.className='menu emoji-menu';
+    const emoChips = MOODS.map(k=>`<button class="chip" data-mood="${k}">${MOOD_EMO[k]} ${k.replace('_',' ')}</button>`).join('');
+    emojiMenu.innerHTML = `
+      <div class="row">
+        ${emoChips}
+        <button class="chip" data-mood="">Quitar</button>
+      </div>`;
+    emojiMenu.querySelectorAll('[data-mood]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const m = btn.getAttribute('data-mood')||'';
+        await saveOrDelete(id, m, entry.flow||'');
+        wrap.classList.remove('show-emoji-menu');
+        renderCalendar();
+      });
+    });
+
+    // --- Rango (clic en tarjeta) ---
     wrap.addEventListener('click', ()=>{
       if(!state.rangeMode) return;
       selectInRange(id);
     });
 
     wrap.appendChild(top);
+    if(labels.children.length) wrap.appendChild(labels);
     wrap.appendChild(dot);
+    wrap.appendChild(flowMenu);
+    wrap.appendChild(emojiMenu);
     grid.appendChild(wrap);
   }
 
@@ -290,11 +353,14 @@ function renderCalendar(){
   const post = (7 - (total % 7)) % 7;
   for(let i=0;i<post;i++){ const d=document.createElement('div'); d.className='day muted'; grid.appendChild(d); }
 
-  // Botones de rango habilitados según selección
   const hasSel = !!(state.range.start && state.range.end);
   $('#applyRange').disabled = !CAN_EDIT || !hasSel;
   $('#clearRange').disabled = !CAN_EDIT || !hasSel;
 }
+
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('.day')) closeAllMenus();
+});
 
 // ------- Guardar / borrar -------
 async function saveOneDay(dayIso, mood, flow){
@@ -323,7 +389,7 @@ async function saveOrDelete(dayIso, mood, flow){
   }
 }
 
-// ------- Rango -------
+// ------- Rango (opcional) -------
 function resetRange(){ state.range={start:null,end:null}; $('#rangeHelp').style.display='none'; renderCalendar(); }
 function selectInRange(id){
   const {start,end}=state.range;
@@ -357,6 +423,26 @@ async function clearRange(){
   resetRange();
 }
 
+// ------- Eliminar TODO -------
+async function wipeAll(){
+  if(!CAN_EDIT) return;
+  const sure = confirm('¿Eliminar TODOS los registros del ciclo (todas las fechas) para Mochita?');
+  if(!sure) return;
+  const extra = confirm('Esta acción no se puede deshacer. ¿Confirmas eliminar TODO?');
+  if(!extra) return;
+
+  try{
+    const res = await fetch(`${API_LIST}?from=2000-01&months=600&user=mochita`, {credentials:'same-origin'});
+    const j = await res.json();
+    const days = (j.entries||[]).map(e=>(e.day||e.date||'').trim()).filter(Boolean);
+    for(const d of days){ await deleteOneDay(d); }
+    alert('Listo: se eliminaron todos los registros.');
+  }catch(e){
+    alert('No se pudo eliminar todo.');
+  }
+  loadMonth();
+}
+
 // ------- Controles -------
 $('#prevBtn').addEventListener('click', ()=>{
   const dt = new Date(state.y, state.m-2, 1); state.y=dt.getFullYear(); state.m=dt.getMonth()+1; resetRange(); loadMonth();
@@ -378,14 +464,16 @@ $('#rangeToggle').addEventListener('click', ()=>{
 });
 $('#applyRange').addEventListener('click', ()=> applyRange($('#rangeFlow').value||'medio'));
 $('#clearRange').addEventListener('click', ()=> clearRange());
+$('#wipeAllBtn').addEventListener('click', wipeAll);
 
-// Habilitar/deshabilitar controles por permiso
+// Permisos
 (function applyPermissions(){
   if(!CAN_EDIT){
     $('#rangeToggle').setAttribute('disabled','');
     $('#rangeFlow').setAttribute('disabled','');
     $('#applyRange').setAttribute('disabled','');
     $('#clearRange').setAttribute('disabled','');
+    $('#wipeAllBtn').setAttribute('disabled','');
   }
 })();
 
@@ -406,4 +494,3 @@ try{
 </script>
 </body>
 </html>
-

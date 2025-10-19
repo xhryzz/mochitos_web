@@ -1646,7 +1646,8 @@ body.page-media .section:not([data-section="media"]){
 .brand-icon-toggle input:checked + label.netflix .brand-caption{ color:#e50914; }
 .brand-icon-toggle input:checked + label.prime   .brand-caption{ color:#00a8e1; }
 
-
+/* Fuerza ocultación cuando hay filtro */
+.media-card[data-search-hide="1"]{ display:none !important; }
 
     </style>
 </head>
@@ -5550,6 +5551,130 @@ function sortCards(grid, mode){
     apply();
   });
 })();
+
+
+
+
+(function(){
+  // Normaliza: quita acentos y baja a minúsculas
+  const norm = s => (s||"")
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase()
+    .trim();
+
+  // Devuelve TODAS las tarjetas (por ver + vistas)
+  const getAllCards = () =>
+    Array.from(document.querySelectorAll("#towatch-tab .media-card, #watched-tab .media-card"));
+
+  // Prepara índice SOLO con el título visible (lo que veis en pantalla)
+  const indexCard = (card) => {
+    const t = (card.querySelector(".media-title")?.textContent || "")
+      .replace(/\s+/g," ")
+      .trim();
+    card.__titleIx = norm(t);
+  };
+
+  // Construye/actualiza índice
+  const reindex = () => {
+    getAllCards().forEach(indexCard);
+  };
+
+  // Aplica el filtro actual del input
+  const applyFilter = (q) => {
+    const needle = norm(q);
+    const cards = getAllCards();
+    if(!needle){
+      cards.forEach(c => c.removeAttribute("data-search-hide"));
+      toggleNoResults(false);
+      return;
+    }
+    let visible = 0;
+    cards.forEach(c => {
+      const hit = (c.__titleIx || "").includes(needle);
+      if(hit){ c.removeAttribute("data-search-hide"); visible++; }
+      else   { c.setAttribute("data-search-hide","1"); }
+    });
+    toggleNoResults(visible === 0);
+  };
+
+  // Mensaje "sin resultados" por tab
+  let noResMsgTowatch, noResMsgWatched;
+  const ensureNoResultsNodes = () => {
+    const mk = (txt) => {
+      const p = document.createElement("p");
+      p.className = "no-results";
+      p.style.cssText = "padding:10px;margin:0;color:#888;font-weight:600";
+      p.textContent = txt;
+      return p;
+    };
+    const towGrid = document.querySelector("#towatch-tab .media-grid");
+    const watGrid = document.querySelector("#watched-tab .media-grid");
+    if(towGrid && !noResMsgTowatch){ noResMsgTowatch = mk("Sin resultados en «Por ver»."); towGrid.parentNode.insertBefore(noResMsgTowatch, towGrid.nextSibling); noResMsgTowatch.style.display="none"; }
+    if(watGrid && !noResMsgWatched){ noResMsgWatched = mk("Sin resultados en «Vistas».");   watGrid.parentNode.insertBefore(noResMsgWatched, watGrid.nextSibling); noResMsgWatched.style.display="none"; }
+  };
+
+  // Muestra/oculta mensaje según tab activa y visibilidad
+  const toggleNoResults = (show) => {
+    ensureNoResultsNodes();
+    const activeTabId = document.querySelector(".media-content.active")?.id; // towatch-tab | watched-tab
+    if(activeTabId === "towatch-tab" && noResMsgTowatch){
+      noResMsgTowatch.style.display = show ? "block" : "none";
+      if(noResMsgWatched) noResMsgWatched.style.display = "none";
+    }else if(activeTabId === "watched-tab" && noResMsgWatched){
+      noResMsgWatched.style.display = show ? "block" : "none";
+      if(noResMsgTowatch) noResMsgTowatch.style.display = "none";
+    }else{
+      if(noResMsgTowatch) noResMsgTowatch.style.display = "none";
+      if(noResMsgWatched) noResMsgWatched.style.display = "none";
+    }
+  };
+
+  // Conecta el input una vez exista en el DOM
+  const wire = () => {
+    const input = document.querySelector("#media-search");
+    if(!input) return false;
+
+    // Reindex inicial
+    reindex();
+    // Aplica si ya hay texto (por si vuelven de otra pantalla)
+    applyFilter(input.value || "");
+
+    // Escucha cambios
+    input.addEventListener("input", () => applyFilter(input.value), { passive:true });
+    input.addEventListener("keydown", (e) => {
+      if(e.key === "Escape"){ input.value = ""; applyFilter(""); }
+    });
+
+    // Si cambian las tarjetas (paginación, edición, añadir/quitar), reindexa y re-aplica
+    const mediaSection = document.querySelector('[data-section="media"]') || document.body;
+    const mo = new MutationObserver(() => {
+      reindex();
+      applyFilter(input.value || "");
+    });
+    mo.observe(mediaSection, { childList:true, subtree:true });
+
+    // Cuando cambias de tab (por ver / vistas), vuelve a evaluar el mensaje "sin resultados"
+    document.querySelectorAll(".media-tab").forEach(tabBtn => {
+      tabBtn.addEventListener("click", () => {
+        // Mini delay para que cambien las clases .active
+        setTimeout(() => applyFilter(input.value || ""), 0);
+      });
+    });
+
+    return true;
+  };
+
+  // Intenta cablear ahora; si aún no está montado, reintenta un ratito
+  if(!wire()){
+    let tries = 0;
+    const iv = setInterval(() => {
+      if(wire() || ++tries > 20) clearInterval(iv);
+    }, 150);
+  }
+})();
+
 
 </script>
 

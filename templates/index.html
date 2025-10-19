@@ -1647,7 +1647,59 @@ body.page-media .section:not([data-section="media"]){
 .brand-icon-toggle input:checked + label.prime   .brand-caption{ color:#00a8e1; }
 
 
+/* === Chips rápidos en banner === */
+.home-chips{
+  display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+  margin-top:10px;
+}
+.chip-stat{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:8px 12px; border-radius:999px;
+  background: rgba(255,255,255,.85);
+  border:1px solid rgba(255,255,255,.5);
+  font-weight:800; letter-spacing:.2px;
+  color:#374151;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 22px rgba(0,0,0,.08);
+}
+.chip-stat i{ opacity:.85; }
+.chip-stat.soon{
+  background: linear-gradient(135deg, #ffe8f3, #ffffff);
+  border-color: rgba(232,67,147,.35);
+  box-shadow: 0 10px 26px rgba(232,67,147,.25);
+}
+@media (max-width:600px){
+  .chip-stat{ padding:7px 10px; font-weight:700; }
+}
 
+/* === Utilidades del mapa === */
+.map-fab{
+  position:absolute; bottom:15px; right:15px;
+  width:42px; height:42px; border-radius:12px; border:0; cursor:pointer;
+  background:#fff; color:#e84393;
+  box-shadow:0 10px 24px rgba(0,0,0,.12);
+  display:flex; align-items:center; justify-content:center;
+  z-index: 3;
+  transition: transform .15s ease;
+}
+.map-fab:hover{ transform: translateY(-2px); }
+
+.distance-map-container.full{
+  height: 70vh;
+  box-shadow: 0 16px 40px rgba(0,0,0,.12);
+}
+
+/* Barra de “cercanía” */
+.distance-bar{
+  margin:8px 0 6px;
+  height:10px; border-radius:999px; overflow:hidden;
+  background:#f1f1f5; border:1px solid #ececf4;
+}
+.distance-bar .fill{
+  height:100%;
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+  transition: width .35s ease;
+}
 
 
     </style>
@@ -1806,6 +1858,32 @@ body.page-media .section:not([data-section="media"]){
           <div class="scroll-hint" aria-hidden="true"></div>
 
           <h1>Christian Clara</h1>
+          <!-- CHIPS RÁPIDOS EN BANNER -->
+<div class="home-chips" id="homeChips">
+  <div class="chip-stat">
+    <i class="fa-solid fa-heart"></i>
+    <span>{{ days_together }}</span> días juntos
+  </div>
+
+  <div class="chip-stat" id="chipDistance">
+    <i class="fa-solid fa-route"></i>
+    — km
+  </div>
+
+  {% if days_until_meeting is number and days_until_meeting >= 0 %}
+    <div class="chip-stat {{ 'soon' if days_until_meeting <= 3 else '' }}" id="chipMeeting">
+      <i class="fa-solid fa-calendar-day"></i>
+      {% if days_until_meeting == 0 %}
+        ¡Hoy os veis! ❤️
+      {% elif days_until_meeting == 1 %}
+        Mañana 💫
+      {% else %}
+        En {{ days_until_meeting }} días
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+
           <form method="POST" enctype="multipart/form-data" class="banner-form">
             <label for="banner-upload" class="custom-file-upload">
               <i class="fas fa-image"></i> Elegir imagen
@@ -1935,6 +2013,11 @@ body.page-media .section:not([data-section="media"]){
       {% endif %}
     </div>
   </div>
+
+  <div class="mini-note" style="margin-top:6px; color:#6b7280; font-size:.95rem;">
+    Actualiza la fecha del próximo encuentro para que el chip del banner se ponga en modo “pronto” automáticamente. ✨
+  </div>
+  
 
   <form method="POST" class="inline-form">
     <input type="date" name="meeting_date" required>
@@ -2089,9 +2172,24 @@ body.page-media .section:not([data-section="media"]){
 
         <div class="distance-map-container">
           <div id="distanceMap"></div>
+          <!-- Botones utilitarios del mapa -->
+<button type="button" class="map-fab" id="toggleMapSize" title="Pantalla completa">
+  <i class="fa-solid fa-expand"></i>
+</button>
+<button type="button" class="map-fab" id="swapLocations" title="Intercambiar ubicaciones" style="right: 60px;">
+  <i class="fa-solid fa-shuffle"></i>
+</button>
+
           <div class="distance-info">
             <h4>Distancia entre nosotros</h4>
             <div class="distance-value" id="distanceValue">Cargando...</div>
+            <div class="distance-bar" aria-label="Cercanía">
+              <div class="fill" id="distanceFill" style="width:0%"></div>
+            </div>
+            <small class="distance-scale" style="display:block; opacity:.8;">
+              0 km = juntitos • 500+ km = lejos
+            </small>
+            
             <div id="locationInfo">
               <div class="location-badge">
                 {% if profile_pictures.get('mochito') %}
@@ -5845,6 +5943,90 @@ document.addEventListener('DOMContentLoaded', function mediaTitleSearchAutoFix()
   // Primera pasada
   applyFilter();
 });
+
+/* ========= Mejoras Inicio/Distancia ========= */
+
+/* 1) Chip de distancia en el banner */
+function setChipDistance(km){
+  try{
+    const el = document.getElementById('chipDistance');
+    if(el) el.innerHTML = `<i class="fa-solid fa-route"></i> ${km.toFixed(1)} km`;
+  }catch(e){}
+}
+
+/* 2) Barra de cercanía (0km => 100% | >=500km => 0%) */
+function setDistanceBar(km){
+  const fill = document.getElementById('distanceFill');
+  if(!fill) return;
+  const pct = Math.max(0, Math.min(1, 1 - (km / 500))) * 100;
+  fill.style.width = pct.toFixed(0) + '%';
+}
+
+/* 3) Extiende updateDistanceInfo() para actualizar chips y barra */
+(function(){
+  const _orig = window.updateDistanceInfo;
+  if(typeof _orig === 'function'){
+    window.updateDistanceInfo = function(){
+      const res = _orig.apply(this, arguments);
+      try{
+        const km = calculateDistance(
+          christianLocation.lat, christianLocation.lng,
+          claraLocation.lat, claraLocation.lng
+        );
+        setChipDistance(km);
+        setDistanceBar(km);
+      }catch(e){}
+      return res;
+    };
+  }else{
+    // Si aún no existe, intenta calcular una vez cuando cargue
+    document.addEventListener('DOMContentLoaded', ()=>{
+      if(typeof calculateDistance === 'function' && window.christianLocation && window.claraLocation){
+        const km = calculateDistance(
+          christianLocation.lat, christianLocation.lng,
+          claraLocation.lat, claraLocation.lng
+        );
+        if(isFinite(km)){ setChipDistance(km); setDistanceBar(km); }
+      }
+    });
+  }
+})();
+
+/* 4) Botón “pantalla completa” del mapa */
+(function(){
+  const btn = document.getElementById('toggleMapSize');
+  const wrap = document.querySelector('.distance-map-container');
+  if(!btn || !wrap) return;
+  btn.addEventListener('click', ()=>{
+    wrap.classList.toggle('full');
+    try{ setTimeout(()=> map?.invalidateSize?.(), 220); }catch(e){}
+    btn.innerHTML = wrap.classList.contains('full')
+      ? '<i class="fa-solid fa-compress"></i>'
+      : '<i class="fa-solid fa-expand"></i>';
+  });
+})();
+
+/* 5) Botón “intercambiar ubicaciones” (swap) */
+(function(){
+  const btn = document.getElementById('swapLocations');
+  if(!btn) return;
+  btn.addEventListener('click', ()=>{
+    try{
+      const tmp = {...christianLocation};
+      christianLocation = {...claraLocation};
+      claraLocation     = tmp;
+
+      christianMarker?.setLatLng([christianLocation.lat, christianLocation.lng]);
+      claraMarker?.setLatLng([claraLocation.lat, claraLocation.lng]);
+
+      window.updateDistanceLine?.();
+      window.updateDistanceInfo?.();
+    }catch(e){
+      console.warn('No se pudo hacer swap de ubicaciones', e);
+    }
+  });
+})();
+
 
 </script>
 

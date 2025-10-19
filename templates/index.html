@@ -1916,6 +1916,8 @@ body.page-media .section:not([data-section="media"]){
 </div>
 
 
+
+
         <!-- MODAL EDITAR EVENTO INTIMIDAD -->
   <div id="editIntimModal" class="modal">
     <div class="modal-content">
@@ -2176,6 +2178,12 @@ body.page-media .section:not([data-section="media"]){
 <button type="button" class="map-fab" id="toggleMapSize" title="Pantalla completa">
   <i class="fa-solid fa-expand"></i>
 </button>
+
+<!-- Botón geolocalizar -->
+<button type="button" class="map-fab" id="useMyLocationBtn" title="Usar mi ubicación" style="right:66px">
+  <i class="fa-solid fa-location-crosshairs"></i>
+</button>
+
           <div class="distance-info">
             <h4>Distancia entre nosotros</h4>
             <div class="distance-value" id="distanceValue">Cargando...</div>
@@ -6176,6 +6184,86 @@ function setDistanceBar(km){
     // primer pull del otro usuario (si lo tienes en backend)
     fetchOtherCoords();
   });
+
+
+// === Geolocalización controlada por clic ===
+async function requestGeolocationOnce() {
+  if (!('geolocation' in navigator)) {
+    showToast?.('error', 'Tu navegador no soporta geolocalización');
+    return null;
+  }
+  // HTTPS o localhost es obligatorio
+  if (!window.isSecureContext && location.hostname !== 'localhost') {
+    showToast?.('error', 'Activa HTTPS para usar geolocalización');
+    return null;
+  }
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve(pos),
+      (err) => {
+        let msg = 'No se pudo obtener tu ubicación';
+        if (err && err.code === err.PERMISSION_DENIED) msg = 'Permiso de ubicación denegado';
+        showToast?.('error', msg);
+        resolve(null);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  });
+}
+
+// Actualiza tu marcador de "mi usuario" y el chip de distancia si procede
+function applyMyLocationToMap(lat, lng, label='Mi ubicación') {
+  try {
+    // Si usas Christian como “yo”, actualizamos ese marcador:
+    if (typeof christianMarker !== 'undefined' && christianMarker) {
+      christianMarker.setLatLng([lat, lng]).bindPopup(label);
+      // Si tienes esa variable, actualízala también:
+      if (typeof christianLocation !== 'undefined') {
+        christianLocation.lat = lat;
+        christianLocation.lng = lng;
+        christianLocation.name = label;
+      }
+      map?.panTo([lat, lng]);
+    }
+    // Recalcula línea/distancia si tu lógica lo hace en otra función:
+    if (typeof updateDistanceUI === 'function') updateDistanceUI();
+  } catch (e) {
+    // Silencioso, por si aún no existe el mapa al cargar
+  }
+}
+
+// Evento del botón
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('useMyLocationBtn');
+  btn?.addEventListener('click', async () => {
+    showToast?.('info', 'Solicitando tu ubicación…');
+    const pos = await requestGeolocationOnce();
+    if (!pos) return;
+    const { latitude, longitude } = pos.coords;
+    applyMyLocationToMap(latitude, longitude, 'Aquí estoy');
+
+    // (Opcional) Enviar al backend si tienes endpoint
+    // try {
+    //   await fetch('/update_my_location', {
+    //     method: 'POST',
+    //     headers: {'Content-Type':'application/json'},
+    //     body: JSON.stringify({ lat: latitude, lng: longitude })
+    //   });
+    // } catch {}
+    showToast?.('success', 'Ubicación actualizada');
+  });
+
+  // Estado del permiso (informativo)
+  if (navigator.permissions?.query) {
+    navigator.permissions.query({ name: 'geolocation' }).then((st) => {
+      if (st.state === 'denied') {
+        showToast?.('error','Tienes bloqueada la ubicación en el navegador');
+      }
+    }).catch(()=>{});
+  }
+});
+
+
   </script>
   
 

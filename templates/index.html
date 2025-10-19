@@ -5467,39 +5467,39 @@ function sortCards(grid, mode){
 
 
 
-(function setupMediaSearch(){
+(function mediaTitleSearchOnly(){
   const input = document.getElementById('media-search');
   if(!input) return;
 
   // Normaliza: minúsculas + sin acentos
   const norm = s => (s||'')
     .toString()
-    .normalize('NFD').replace(/\p{Diacritic}/gu,'')
-    .toLowerCase();
+    .normalize('NFD')                // separa acentos
+    .replace(/[\u0300-\u036f]/g,'')  // quita acentos
+    .toLowerCase()
+    .trim();
 
-  // Indexa todas las tarjetas de Media
-  const cards = [...document.querySelectorAll('.media-card')];
+  // Todas las tarjetas (por ver y vistas)
+  const cards = Array.from(document.querySelectorAll('.media-card'));
+
+  // Indexa SOLO el título visible (si no, usa data-title)
   cards.forEach(c => {
-    const title = c.dataset.title || c.querySelector('.media-title')?.textContent || '';
-    const platform = c.dataset.platform || '';
-    const notes = c.dataset.notes || '';
-    c._searchIndex = norm([title, platform, notes].join(' '));
+    const titleEl = c.querySelector('.media-title');
+    const title = (titleEl?.textContent || c.dataset.title || '').replace(/\s+/g,' ').trim();
+    c._titleIndex = norm(title);
   });
 
-  const applyFilter = () => {
-    const q = norm(input.value).trim();
-    if (!q){ cards.forEach(c => c.style.display = ''); return; }
-
-    // NO descartamos “la/el/de”… ni longitud 2
-    const terms = q.split(/\s+/).filter(Boolean);
-
+  const apply = () => {
+    const q = norm(input.value);
+    if (!q) { cards.forEach(c => c.style.display = ''); return; }
     cards.forEach(c => {
-      const ok = terms.every(t => c._searchIndex.includes(t));
-      c.style.display = ok ? '' : 'none';
+      c.style.display = c._titleIndex.includes(q) ? '' : 'none';
     });
   };
 
-  input.addEventListener('input', applyFilter);
+  // Por si había otro handler, nos aseguramos de usar el nuestro
+  input.oninput = apply;  // sobrescribe posibles oninput previos
+  apply();                // primer pintado
 })();
 
 </script>

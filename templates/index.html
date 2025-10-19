@@ -1646,8 +1646,7 @@ body.page-media .section:not([data-section="media"]){
 .brand-icon-toggle input:checked + label.netflix .brand-caption{ color:#e50914; }
 .brand-icon-toggle input:checked + label.prime   .brand-caption{ color:#00a8e1; }
 
-/* Fuerza ocultación cuando hay filtro */
-.media-card[data-search-hide="1"]{ display:none !important; }
+
 
     </style>
 </head>
@@ -5465,339 +5464,184 @@ function sortCards(grid, mode){
     });
   });
 })();
+// === Buscar SOLO por TÍTULO en Películas/Series ===
+(function mediaTitleOnlySearch(){
+  const box = document.getElementById('media-search');
+  if(!box) return;
 
+  // 1) Quita cualquier listener previo (clon) y cambia placeholder
+  const newBox = box.cloneNode(true);
+  box.replaceWith(newBox);
+  newBox.placeholder = 'Buscar por título…';
 
-
-(function mediaTitleSearchOnly(){
-  const input = document.getElementById('media-search');
-  if(!input) return;
-
-  // Normaliza: minúsculas + sin acentos
-  const norm = s => (s||'')
+  // Normaliza (quita acentos, pasa a minúsculas)
+  const norm = (s) => (s || '')
     .toString()
-    .normalize('NFD')                // separa acentos
-    .replace(/[\u0300-\u036f]/g,'')  // quita acentos
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
 
-  // Todas las tarjetas (por ver y vistas)
-  const cards = Array.from(document.querySelectorAll('.media-card'));
+  // Devuelve true si el título contiene TODAS las palabras buscadas
+  function matchTitle(title, q){
+    const hay = norm(title);
+    const needles = norm(q).split(/\s+/).filter(Boolean);
+    if(needles.length === 0) return true;
+    return needles.every(t => hay.includes(t));
+  }
 
-  // Indexa SOLO el título visible (si no, usa data-title)
-  cards.forEach(c => {
-    const titleEl = c.querySelector('.media-title');
-    const title = (titleEl?.textContent || c.dataset.title || '').replace(/\s+/g,' ').trim();
-    c._titleIndex = norm(title);
-  });
+  function applyFilter(){
+    const q = newBox.value;
+    const lists = [
+      document.querySelector('#towatch-tab .media-grid'),
+      document.querySelector('#watched-tab .media-grid')
+    ];
 
-  const apply = () => {
-    const q = norm(input.value);
-    if (!q) { cards.forEach(c => c.style.display = ''); return; }
-    cards.forEach(c => {
-      c.style.display = c._titleIndex.includes(q) ? '' : 'none';
-    });
-  };
+    lists.forEach((grid, idx) => {
+      if(!grid) return;
+      let visibles = 0;
 
-  // Por si había otro handler, nos aseguramos de usar el nuestro
-  input.oninput = apply;  // sobrescribe posibles oninput previos
-  apply();                // primer pintado
-})();
-
-
-(function(){
-  const ready = (fn)=>document.readyState!=="loading" ? fn() : document.addEventListener("DOMContentLoaded", fn);
-
-  ready(() => {
-    const input = document.querySelector("#media-search");
-    if (!input) return;
-
-    const norm = s => (s||"")
-      .toString()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g,"") // quita acentos
-      .toLowerCase()
-      .trim();
-
-    // Todas las tarjetas (por ver y vistas)
-    let cards = Array.from(document.querySelectorAll(".media-card"));
-
-    // Prepara índice SOLO de título visible
-    const prepare = c => {
-      const t = (c.querySelector(".media-title")?.textContent || c.dataset.title || "")
-        .replace(/\s+/g," ")
-        .trim();
-      c.__titleIx = norm(t);
-    };
-    cards.forEach(prepare);
-
-    const apply = () => {
-      const q = norm(input.value);
-      if (!q) { cards.forEach(c => c.hidden = false); return; }
-      cards.forEach(c => { c.hidden = !c.__titleIx.includes(q); });
-    };
-
-    // Eventos robustos (no se pisan)
-    input.addEventListener("input", apply);
-    input.addEventListener("keydown", e => { if (e.key === "Escape") { input.value = ""; apply(); } });
-
-    // Si cambian las tarjetas en el DOM (añadir/eliminar), reindexa y aplica
-    const mo = new MutationObserver(() => {
-      cards = Array.from(document.querySelectorAll(".media-card"));
-      cards.forEach(prepare);
-      apply();
-    });
-    mo.observe(document.querySelector('[data-section="media"]') || document.body, { childList:true, subtree:true });
-
-    apply();
-  });
-})();
-
-
-
-
-(function(){
-  // Normaliza: quita acentos y baja a minúsculas
-  const norm = s => (s||"")
-    .toString()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g,"")
-    .toLowerCase()
-    .trim();
-
-  // Devuelve TODAS las tarjetas (por ver + vistas)
-  const getAllCards = () =>
-    Array.from(document.querySelectorAll("#towatch-tab .media-card, #watched-tab .media-card"));
-
-  // Prepara índice SOLO con el título visible (lo que veis en pantalla)
-  const indexCard = (card) => {
-    const t = (card.querySelector(".media-title")?.textContent || "")
-      .replace(/\s+/g," ")
-      .trim();
-    card.__titleIx = norm(t);
-  };
-
-  // Construye/actualiza índice
-  const reindex = () => {
-    getAllCards().forEach(indexCard);
-  };
-
-  // Aplica el filtro actual del input
-  const applyFilter = (q) => {
-    const needle = norm(q);
-    const cards = getAllCards();
-    if(!needle){
-      cards.forEach(c => c.removeAttribute("data-search-hide"));
-      toggleNoResults(false);
-      return;
-    }
-    let visible = 0;
-    cards.forEach(c => {
-      const hit = (c.__titleIx || "").includes(needle);
-      if(hit){ c.removeAttribute("data-search-hide"); visible++; }
-      else   { c.setAttribute("data-search-hide","1"); }
-    });
-    toggleNoResults(visible === 0);
-  };
-
-  // Mensaje "sin resultados" por tab
-  let noResMsgTowatch, noResMsgWatched;
-  const ensureNoResultsNodes = () => {
-    const mk = (txt) => {
-      const p = document.createElement("p");
-      p.className = "no-results";
-      p.style.cssText = "padding:10px;margin:0;color:#888;font-weight:600";
-      p.textContent = txt;
-      return p;
-    };
-    const towGrid = document.querySelector("#towatch-tab .media-grid");
-    const watGrid = document.querySelector("#watched-tab .media-grid");
-    if(towGrid && !noResMsgTowatch){ noResMsgTowatch = mk("Sin resultados en «Por ver»."); towGrid.parentNode.insertBefore(noResMsgTowatch, towGrid.nextSibling); noResMsgTowatch.style.display="none"; }
-    if(watGrid && !noResMsgWatched){ noResMsgWatched = mk("Sin resultados en «Vistas».");   watGrid.parentNode.insertBefore(noResMsgWatched, watGrid.nextSibling); noResMsgWatched.style.display="none"; }
-  };
-
-  // Muestra/oculta mensaje según tab activa y visibilidad
-  const toggleNoResults = (show) => {
-    ensureNoResultsNodes();
-    const activeTabId = document.querySelector(".media-content.active")?.id; // towatch-tab | watched-tab
-    if(activeTabId === "towatch-tab" && noResMsgTowatch){
-      noResMsgTowatch.style.display = show ? "block" : "none";
-      if(noResMsgWatched) noResMsgWatched.style.display = "none";
-    }else if(activeTabId === "watched-tab" && noResMsgWatched){
-      noResMsgWatched.style.display = show ? "block" : "none";
-      if(noResMsgTowatch) noResMsgTowatch.style.display = "none";
-    }else{
-      if(noResMsgTowatch) noResMsgTowatch.style.display = "none";
-      if(noResMsgWatched) noResMsgWatched.style.display = "none";
-    }
-  };
-
-  // Conecta el input una vez exista en el DOM
-  const wire = () => {
-    const input = document.querySelector("#media-search");
-    if(!input) return false;
-
-    // Reindex inicial
-    reindex();
-    // Aplica si ya hay texto (por si vuelven de otra pantalla)
-    applyFilter(input.value || "");
-
-    // Escucha cambios
-    input.addEventListener("input", () => applyFilter(input.value), { passive:true });
-    input.addEventListener("keydown", (e) => {
-      if(e.key === "Escape"){ input.value = ""; applyFilter(""); }
-    });
-
-    // Si cambian las tarjetas (paginación, edición, añadir/quitar), reindexa y re-aplica
-    const mediaSection = document.querySelector('[data-section="media"]') || document.body;
-    const mo = new MutationObserver(() => {
-      reindex();
-      applyFilter(input.value || "");
-    });
-    mo.observe(mediaSection, { childList:true, subtree:true });
-
-    // Cuando cambias de tab (por ver / vistas), vuelve a evaluar el mensaje "sin resultados"
-    document.querySelectorAll(".media-tab").forEach(tabBtn => {
-      tabBtn.addEventListener("click", () => {
-        // Mini delay para que cambien las clases .active
-        setTimeout(() => applyFilter(input.value || ""), 0);
+      grid.querySelectorAll('.media-card').forEach(card => {
+        const title = card.dataset.title || '';
+        const ok = matchTitle(title, q);
+        card.style.display = ok ? '' : 'none';
+        if(ok) visibles++;
       });
-    });
 
-    return true;
-  };
-
-  // Intenta cablear ahora; si aún no está montado, reintenta un ratito
-  if(!wire()){
-    let tries = 0;
-    const iv = setInterval(() => {
-      if(wire() || ++tries > 20) clearInterval(iv);
-    }, 150);
-  }
-})();
-
-
-(function(){
-  // normaliza: minúsculas + sin acentos
-  const norm = s => (s||"").toString()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
-    .toLowerCase().trim();
-
-  const selInput = "#media-search";
-  const cardsAll = () =>
-    Array.from(document.querySelectorAll("#towatch-tab .media-card, #watched-tab .media-card"));
-
-  function indexCard(card){
-    const title = card.querySelector(".media-title")?.textContent || "";
-    const plat  = card.dataset.platform || "";   // netflix | prime | both | zzz
-    const notes = card.dataset.notes || "";
-    const kind  = card.dataset.kind  || "";      // movie | show
-    card.__searchIx = norm([title, plat, notes, kind].join(" "));
-  }
-
-  function reindex(){ cardsAll().forEach(indexCard); }
-
-  function ensureNoResNode(grid){
-    if(!grid) return null;
-    if(!grid._nores){
-      const p = document.createElement("p");
-      p.className = "no-results";
-      p.style.cssText = "padding:10px;margin:0;color:#888;font-weight:600";
-      p.textContent = "Sin resultados.";
-      grid.parentNode.insertBefore(p, grid.nextSibling);
-      grid._nores = p;
-    }
-    return grid._nores;
-  }
-
-  function toggleNoRes(tabSel, show){
-    const grid = document.querySelector(`${tabSel} .media-grid`);
-    const nores = ensureNoResNode(grid);
-    if(!nores) return;
-    const isActive = document.querySelector(tabSel)?.classList.contains("active");
-    nores.style.display = show && isActive ? "block" : "none";
-  }
-
-  function applyFilter(q){
-    const needle = norm(q);
-    let visTow = 0, visWat = 0;
-
-    cardsAll().forEach(card => {
-      const hit = !needle || (card.__searchIx||"").includes(needle);
-      if(hit){
-        card.removeAttribute("data-search-hide");
-        if(card.closest("#towatch-tab")) visTow++; else if(card.closest("#watched-tab")) visWat++;
-      }else{
-        card.setAttribute("data-search-hide","1");
+      // Si tienes paginación propia, repagina tras el filtro (opcional)
+      // Asegúrate de que tu función exista:
+      if (typeof window.rePageMedia === 'function') {
+        window.rePageMedia(idx === 0 ? 'towatch' : 'watched');
       }
     });
-
-    toggleNoRes("#towatch-tab", visTow===0 && !!needle);
-    toggleNoRes("#watched-tab", visWat===0 && !!needle);
   }
 
-  function wire(){
-    const input = document.querySelector(selInput);
-    if(!input) return false;
-
-    // índice inicial + filtro (por si ya hay texto)
-    reindex();
-    applyFilter(input.value||"");
-
-    // escribir filtra, ESC limpia
-    input.addEventListener("input", ()=>applyFilter(input.value), {passive:true});
-    input.addEventListener("keydown", e=>{ if(e.key==="Escape"){ input.value=""; applyFilter(""); }});
-
-    // al cambiar de pestaña, re-evalúa el mensaje "sin resultados"
-    document.querySelectorAll(".media-tab").forEach(tab =>
-      tab.addEventListener("click", () => setTimeout(()=>applyFilter(input.value||""), 0))
-    );
-
-    // si se añaden/editar/eliminan tarjetas, reindexa solo
-    const mediaSection = document.querySelector('.section[data-section="media"]') || document.body;
-    const mo = new MutationObserver(() => { reindex(); applyFilter(input.value||""); });
-    mo.observe(mediaSection, { childList:true, subtree:true });
-
-    return true;
-  }
-
-  // cablea ya; si aún no está el DOM listo, reintenta un poco
-  if(!wire()){
-    let tries = 0;
-    const iv = setInterval(()=>{ if(wire() || ++tries > 20) clearInterval(iv); }, 150);
-  }
+  // Filtra en tiempo real
+  newBox.addEventListener('input', applyFilter);
+  // Primera pasada (por si el input viene con valor)
+  applyFilter();
 })();
 
-const $input = document.querySelector('#mediaSearch');
-const $listToWatch = document.querySelector('#mediaToWatch');
-const $listWatched = document.querySelector('#mediaWatched');
 
-async function runMediaSearch(q){
-  const r = await fetch('/api/media/search?q=' + encodeURIComponent(q));
-  const j = await r.json();
-  if(!j.ok) return;
 
-  // pinta “Por ver”
-  $listToWatch.innerHTML = j.to_watch.map(m => `
-    <li>
-      ${m.cover_url ? `<img src="${m.cover_url}" alt="">` : ''}
-      <strong>${m.title}</strong>
-      ${m.on_netflix ? ' · Netflix' : ''}${m.on_prime ? ' · Prime' : ''}
-      ${m.priority ? ` · ${m.priority}` : ''}
-      ${m.comment ? `<div class="muted">${m.comment}</div>` : ''}
-    </li>
-  `).join('');
+// === Buscador SOLO por título con 3 modos: Contiene | Empieza por | Ambos ===
+(function mediaTitleSearchWithModes(){
+  const box = document.getElementById('media-search');
+  if(!box) return;
 
-  // pinta “Vistas”
-  $listWatched.innerHTML = j.watched.map(m => `
-    <li>
-      <strong>${m.title}</strong>
-      ${m.avg_rating ? ` · ⭐ ${m.avg_rating}` : ''}
-    </li>
-  `).join('');
-}
+  // 1) Sustituimos el input para limpiar listeners previos y ajustamos placeholder
+  const input = box.cloneNode(true);
+  box.replaceWith(input);
+  input.placeholder = 'Buscar por título…';
 
-$input.addEventListener('input', (e)=> runMediaSearch(e.target.value));
+  // 2) Inyectamos un toggle de modo al lado del input
+  const tools = input.parentElement; // .media-tools
+  const toggle = document.createElement('div');
+  toggle.id = 'media-search-mode';
+  toggle.className = 'sort-toggle';
+  toggle.setAttribute('role','group');
+  toggle.setAttribute('aria-label','Modo de búsqueda');
+  toggle.innerHTML = `
+    <div class="slider" aria-hidden="true"></div>
+    <button type="button" data-mode="contains" aria-pressed="true"  class="active"><i class="fas fa-magnifying-glass"></i> Contiene</button>
+    <button type="button" data-mode="starts"   aria-pressed="false"><i class="fas fa-arrow-right-to-bracket"></i> Empieza</button>
+    <button type="button" data-mode="either"   aria-pressed="false"><i class="fas fa-toggle-on"></i> Ambos</button>
+  `;
+  tools.appendChild(toggle);
 
+  // === Helpers de UI (slider del toggle) ===
+  function positionSlider(group){
+    const slider = group.querySelector('.slider');
+    const active = group.querySelector('button.active');
+    if(!slider || !active) return;
+    const r = active.getBoundingClientRect();
+    const g = group.getBoundingClientRect();
+    slider.style.width = r.width + 'px';
+    slider.style.transform = `translateX(${r.left - g.left}px)`;
+  }
+  window.addEventListener('resize', () => positionSlider(toggle));
+  // end helpers
+
+  // 3) Normalizador (quita tildes, minúsculas)
+  const norm = (s) => (s||'').toString()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().trim();
+
+  // 4) Estrategias de matching
+  function needlesOf(q){ return norm(q).split(/\s+/).filter(Boolean); }
+
+  function matchContains(hay, needles){
+    if(needles.length===0) return true;
+    return needles.every(n => hay.includes(n));
+  }
+
+  // "Empieza por": o bien el título empieza por toda la frase,
+  // o bien cada palabra buscada empareja el inicio de alguna palabra del título.
+  function matchStarts(hay, needles){
+    if(needles.length===0) return true;
+    const phrase = needles.join(' ');
+    if(hay.startsWith(phrase)) return true;
+    const words = hay.split(/\s+/);
+    return needles.every(n => words.some(w => w.startsWith(n)));
+  }
+
+  function matchEither(hay, needles){
+    return matchContains(hay, needles) || matchStarts(hay, needles);
+  }
+
+  let mode = 'contains'; // por defecto
+
+  // 5) Aplicar filtro a ambas listas (Por ver / Vistas)
+  function applyFilter(){
+    const q = input.value;
+    const needles = needlesOf(q);
+
+    const lists = [
+      document.querySelector('#towatch-tab .media-grid'),
+      document.querySelector('#watched-tab .media-grid')
+    ];
+
+    lists.forEach((grid, idx) => {
+      if(!grid) return;
+      grid.querySelectorAll('.media-card').forEach(card => {
+        const title = card.dataset.title || '';
+        const hay = norm(title);
+
+        let ok = true;
+        if(mode === 'contains') ok = matchContains(hay, needles);
+        else if(mode === 'starts') ok = matchStarts(hay, needles);
+        else ok = matchEither(hay, needles);
+
+        card.style.display = ok ? '' : 'none';
+      });
+
+      // Si tienes repaginador, lo llamamos (si no existe, no pasa nada)
+      if (typeof window.rePageMedia === 'function') {
+        window.rePageMedia(idx === 0 ? 'towatch' : 'watched');
+      }
+    });
+  }
+
+  // 6) Eventos
+  input.addEventListener('input', applyFilter);
+
+  toggle.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-mode]');
+    if(!btn) return;
+    // actualizar estado visual
+    toggle.querySelectorAll('button').forEach(b=>{
+      b.classList.toggle('active', b===btn);
+      b.setAttribute('aria-pressed', b===btn ? 'true' : 'false');
+    });
+    mode = btn.dataset.mode || 'contains';
+    positionSlider(toggle);
+    applyFilter();
+  });
+
+  // Primera pasada + posicionar slider
+  positionSlider(toggle);
+  applyFilter();
+})();
 
 
 </script>

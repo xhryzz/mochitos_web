@@ -871,43 +871,89 @@ function refreshStatsUI(){
 
 // Exporta PDF con 2 páginas: 1) Calendario, 2) Informes
 async function exportPDF(){
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ unit:'pt', format:'a4' });
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const margin = 28;
+  // --- helpers ---
+  const getJsPdfCtor = () => {
+    // Soporta ambas exposiciones: window.jspdf.jsPDF y window.jsPDF
+    if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
+    if (window.jsPDF) return window.jsPDF;
+    return null;
+  };
+  const ensureLibs = () => {
+    const ctor = getJsPdfCtor();
+    if (!ctor) throw new Error('jsPDF no cargado');
+    if (typeof html2canvas !== 'function') throw new Error('html2canvas no cargado');
+    return ctor;
+  };
+  const temporarilyUnhide = (el) => {
+    // Hace visible fuera de pantalla para que html2canvas pueda medirlo
+    const prev = {
+      display: el.style.display,
+      visibility: el.style.visibility,
+      position: el.style.position,
+      left: el.style.left,
+      top: el.style.top
+    };
+    el.style.visibility = 'hidden';
+    el.style.display = 'block';
+    el.style.position = 'absolute';
+    el.style.left = '-99999px';
+    el.style.top = '0';
+    return () => {
+      el.style.display   = prev.display;
+      el.style.visibility= prev.visibility;
+      el.style.position  = prev.position;
+      el.style.left      = prev.left;
+      el.style.top       = prev.top;
+    };
+  };
 
-  // 1) Calendario
-  const calNode = document.getElementById('calendarCard');
-  const calCanvas = await html2canvas(calNode, { scale:2, backgroundColor:'#ffffff' });
-  const calImg = calCanvas.toDataURL('image/png');
-  const calW = pageWidth - margin*2;
-  const calH = calCanvas.height * (calW / calCanvas.width);
-  pdf.setFont('helvetica','bold'); pdf.setFontSize(14);
-  pdf.text(`Calendario · ${$('#monthTitle').textContent}`, margin, 24);
-  pdf.addImage(calImg, 'PNG', margin, 34, calW, calH);
+  // --- boton estado ---
+  const btn = document.getElementById('btnPdf');
+  const oldTxt = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Generando…'; }
 
-  // 2) Informes
-  pdf.addPage();
-  const repNode = document.getElementById('statsExportArea');
-  const repCanvas = await html2canvas(repNode, { scale:2, backgroundColor:'#ffffff' });
-  const repImg = repCanvas.toDataURL('image/png');
-  const repW = pageWidth - margin*2;
-  const repH = repCanvas.height * (repW / repCanvas.width);
-  pdf.setFont('helvetica','bold'); pdf.setFontSize(14);
-  const scope = $('#scopeSelect').value;
-  pdf.text(`Informes · ${scope==='mes' ? ($('#monthTitle').textContent) : state.y}`, margin, 24);
+  try{
+    const JSPDF = ensureLibs();
+    const pdf = new JSPDF({ unit:'pt', format:'a4' });
+    const pageWidth  = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 28;
 
-  // si no cabe en una página, la partimos
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  let y = 34;
-  if(repH <= pageHeight - 40){
-    pdf.addImage(repImg, 'PNG', margin, y, repW, repH);
-  }else{
+    // Espera a próximo frame por si hay animaciones/Charts
+    await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
+
+    // ===== 1) CALENDARIO (aunque esté en la pestaña oculta) =====
+    const calView  = document.getElementById('view-cal');
+    const restore  = temporarilyUnhide(calView);   // <-- clave
+    const calNode  = document.getElementById('calendarCard');
+
+    const calCanvas = await html2canvas(calNode, { scale:2, backgroundColor:'#ffffff', useCORS:true });
+    const calImg    = calCanvas.toDataURL('image/png');
+    const calW      = pageWidth - margin*2;
+    const calH      = Math.max(1, calCanvas.height * (calW / calCanvas.width)); // evita 0
+
+    pdf.setFont('helvetica','bold'); pdf.setFontSize(14);
+    pdf.text(`Calendario · ${document.getElementById('monthTitle').textContent}`, margin, 24);
+    pdf.addImage(calImg, 'PNG', margin, 34, calW, calH);
+
+    restore(); // vuelve a ocultar
+
+    // ===== 2) INFORMES =====
+    pdf.addPage();
+    const repNode   = document.getElementById('statsExportArea');
+    const repCanvas = await html2canvas(repNode, { scale:2, backgroundColor:'#ffffff', useCORS:true });
+    const repW      = pageWidth - margin*2;
+    const repH      = repCanvas.height * (repW / repCanvas.width);
+
+    pdf.setFont('helvetica','bold'); pdf.setFontSize(14);
+    const scope = document.getElementById('scopeSelect').value;
+    pdf.text(`Informes · ${scope==='mes' ? (document.getElementById('monthTitle').textContent) : state.y}`, margin, 24);
+
     let sY = 0;
     const pxPage = repCanvas.width * ((pageHeight - 40) / repW);
     while(sY < repCanvas.height){
       const pageCanvas = document.createElement('canvas');
-      pageCanvas.width = repCanvas.width;
+      pageCanvas.width  = repCanvas.width;
       pageCanvas.height = Math.min(pxPage, repCanvas.height - sY);
       const ctx = pageCanvas.getContext('2d');
       ctx.drawImage(repCanvas, 0, sY, repCanvas.width, pageCanvas.height, 0, 0, pageCanvas.width, pageCanvas.height);
@@ -916,15 +962,25 @@ async function exportPDF(){
       pdf.addImage(pageImg, 'PNG', margin, 24, repW, pageCanvas.height*(repW/repCanvas.width));
       sY += pxPage;
     }
+
+    const name = scope==='mes' ? `resumen_${state.y}-${String(state.m).padStart(2,'0')}.pdf` : `resumen_${state.y}.pdf`;
+    pdf.save(name);
+  }catch(err){
+    console.error('PDF error:', err);
+    alert('No se pudo generar el PDF: ' + (err?.message || err));
+  }finally{
+    if (btn){ btn.disabled = false; btn.textContent = oldTxt; }
   }
-
-  const name = scope==='mes' ? `resumen_${state.y}-${pad(state.m)}.pdf` : `resumen_${state.y}.pdf`;
-  pdf.save(name);
 }
-
 // Eventos informes
 $('#scopeSelect').addEventListener('change', refreshStatsUI);
-$('#btnPdf').addEventListener('click', exportPDF);
+const btnPdfEl = document.getElementById('btnPdf');
+if (btnPdfEl){
+  btnPdfEl.addEventListener('click', async (e)=>{
+    e.preventDefault();
+    await exportPDF();
+  });
+}
 
 // Tabs
 $$('.tab').forEach(b=>b.addEventListener('click', ()=>{

@@ -512,6 +512,28 @@ def init_db():
 
 
 
+                # === Ciclo (menstrual / estado de ánimo) ===
+        c.execute("""
+        CREATE TABLE IF NOT EXISTS cycle_entries (
+            id          SERIAL PRIMARY KEY,
+            username    TEXT        NOT NULL,                -- propietaria de los datos (normalmente 'mochita')
+            day         TEXT        NOT NULL,                -- 'YYYY-MM-DD' (fecha local Madrid)
+            mood        TEXT        CHECK (mood IN (
+                           'feliz','normal','triste','estresada','sensible','cansada','irritable','con_energia'
+                         )),
+            flow        TEXT        CHECK (flow IN ('nada','poco','medio','mucho')),
+            pain        INTEGER     CHECK (pain BETWEEN 0 AND 10),
+            notes       TEXT,
+            created_by  TEXT,
+            created_at  TEXT,
+            UNIQUE (username, day)
+        )
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_cycle_user_day ON cycle_entries (username, day DESC)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_cycle_flow ON cycle_entries (flow)")
+
+
+
         # === Preguntas (banco editable por admin) ===
         c.execute("""
         CREATE TABLE IF NOT EXISTS question_bank (
@@ -599,6 +621,80 @@ def _parse_dt(txt: str):
             except Exception:
                 pass
     return dt  # último recurso (naive) — pero ya no restamos naive con aware en tu código
+
+
+def _parse_date(dtxt: str):
+    try: return datetime.strptime(dtxt.strip(), "%Y-%m-%d").date()
+    except Exception: return None
+
+ALLOWED_MOODS = ('feliz','normal','triste','estresada','sensible','cansada','irritable','con_energia')
+ALLOWED_FLOWS = ('nada','poco','medio','mucho')
+
+def get_cycle_entries(user: str, d_from: date, d_to: date):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT username, day, mood, flow, pain, notes
+                FROM cycle_entries
+                WHERE username=%s AND day BETWEEN %s AND %s
+                ORDER BY day ASC
+            """, (user, d_from.isoformat(), d_to.isoformat()))
+            rows = c.fetchall()
+            return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+def predict_cycle(user: str, lookback_days: int = 120):
+    """Predicción simple:
+       - Detecta inicios de regla como días con flow != 'nada' cuya víspera no tiene sangrado.
+       - Calcula longitud media entre los dos últimos inicios; si no, 28.
+       - Predice próximo inicio = último_inicio + longitud.
+       - Ovulación ≈ 14 días antes del próximo inicio; fértil = ovul-4 .. ovul+1
+    """
+    today = today_madrid()
+    start = today - timedelta(days=lookback_days)
+    entries = get_cycle_entries(user, start, today)
+    bleed_days = set()
+    for e in entries:
+        if (e.get('flow') or 'nada') != 'nada':
+            d = _parse_date(e['day'])
+            if d: bleed_days.add(d)
+    if not bleed_days:
+        return {"have_data": False, "cycle_length": 28}
+
+    # inicios = días con sangrado y día anterior SIN sangrado
+    inicios = []
+    for d in sorted(bleed_days):
+        prev = d - timedelta(days=1)
+        if prev not in bleed_days:
+            inicios.append(d)
+    if not inicios:
+        inicios = sorted(bleed_days)
+
+    last_start = inicios[-1]
+    cycle_len = 28
+    if len(inicios) >= 2:
+        cycle_len = (inicios[-1] - inicios[-2]).days or 28
+        if cycle_len < 21 or cycle_len > 40:
+            cycle_len = 28
+
+    next_start = last_start + timedelta(days=cycle_len)
+    ovulation = next_start - timedelta(days=14)
+    fertile_a = ovulation - timedelta(days=4)
+    fertile_b = ovulation + timedelta(days=1)
+    period_end = next_start + timedelta(days=4)
+
+    return {
+        "have_data": True,
+        "cycle_length": int(cycle_len),
+        "last_start": last_start.isoformat(),
+        "next_start": next_start.isoformat(),
+        "period_end": period_end.isoformat(),
+        "ovulation": ovulation.isoformat(),
+        "fertile_start": fertile_a.isoformat(),
+        "fertile_end": fertile_b.isoformat(),
+    }
 
 
 def _reviews_dict(v):
@@ -2215,6 +2311,27 @@ def index():
     intim_stats = get_intim_stats()
     intim_events = get_intim_events(200) if intim_unlocked else []
 
+
+     # --- Ciclo para interfaz ---
+    cycle_user = 'mochita'  # por defecto lo guardamos para ella; cambia si quieres
+    today = today_madrid()
+    month_start = today.replace(day=1)
+    # mostramos 3 meses: actual y los 2 siguientes para planificar
+    from datetime import timedelta as _td
+    # último día del tercer mes
+    def _last_day_of_month(y, m):
+        import calendar
+        return date(y, m, calendar.monthrange(y, m)[1])
+    m3_y = month_start.year + (month_start.month + 2 - 1)//12
+    m3_m = (month_start.month + 2 - 1) % 12 + 1
+    month_end = _last_day_of_month(m3_y, m3_m)
+
+    cycle_entries = get_cycle_entries(cycle_user, month_start, month_end)
+    cycle_pred = predict_cycle(cycle_user)
+
+    moods_for_select = list(ALLOWED_MOODS)
+    flows_for_select = list(ALLOWED_FLOWS)
+
     return render_template('index.html',
                            question=question_text,
                            show_answers=show_answers,
@@ -2241,7 +2358,12 @@ def index():
                            intim_events=intim_events,
                            media_to_watch=media_to_watch,
                            media_watched=media_watched,
-                           wishlist=wishlist_items
+                           wishlist=wishlist_items,
+                           cycle_user=cycle_user,
+                           cycle_entries=cycle_entries,
+                           cycle_pred=cycle_pred,
+                           moods_for_select=moods_for_select,
+                           flows_for_select=flows_for_select
                            )
 
 # ======= Rutas REST extra (con broadcast) =======
@@ -3878,6 +4000,115 @@ def media_update():
 
 
 
+@app.get('/api/cycle')
+def api_cycle_get():
+    if 'username' not in session:
+        return jsonify({"error": "unauthenticated"}), 401
+    # Por defecto mostramos 3 meses centrados en el actual
+    who = (request.args.get('user') or 'mochita').strip() or 'mochita'
+    ym  = request.args.get('from')  # 'YYYY-MM'
+    months = int(request.args.get('months') or 3)
+    today = today_madrid()
+    if ym and re.fullmatch(r'\d{4}-\d{2}', ym):
+        y, m = map(int, ym.split('-'))
+        first = date(y, m, 1)
+    else:
+        first = today.replace(day=1)
+    # rango de meses
+    from datetime import timedelta as _td
+    # primer día del bloque (mes inicial)
+    start = first
+    # último día del bloque
+    y = first.year + (first.month - 1 + months - 1) // 12
+    m = (first.month - 1 + months - 1) % 12 + 1
+    if m == 12:
+        end = date(y, 12, 31)
+    else:
+        end = (date(y, m+1, 1) - _td(days=1))
+    data = get_cycle_entries(who, start, end)
+    pred = predict_cycle(who)
+    return jsonify({"ok": True, "user": who, "from": start.isoformat(), "to": end.isoformat(), "entries": data, "prediction": pred})
+
+@app.post('/cycle/save')
+def cycle_save():
+    if 'username' not in session:
+        return redirect('/')
+    created_by = session['username']
+    # admite form o JSON
+    payload = request.get_json(silent=True) or request.form
+    for_user = (payload.get('for_user') or 'mochita').strip() or 'mochita'
+    day  = (payload.get('day') or '').strip()
+    mood = (payload.get('mood') or '').strip() or None
+    flow = (payload.get('flow') or '').strip() or None
+    pain_raw = (payload.get('pain') or '').strip()
+    notes = (payload.get('notes') or '').strip() or None
+
+    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', day or ''):
+        return jsonify({"ok": False, "error": "bad_day"}), 400 if request.is_json else (flash("Fecha inválida.", "error") or redirect('/#ciclo'))
+
+    if mood and mood not in ALLOWED_MOODS:
+        mood = None
+    if flow and flow not in ALLOWED_FLOWS:
+        flow = None
+
+    pain = None
+    if pain_raw.isdigit():
+        pr = int(pain_raw)
+        if 0 <= pr <= 10:
+            pain = pr
+
+    now_txt = now_madrid_str()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO cycle_entries (username, day, mood, flow, pain, notes, created_by, created_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (username, day) DO UPDATE
+                SET mood=EXCLUDED.mood,
+                    flow=EXCLUDED.flow,
+                    pain=EXCLUDED.pain,
+                    notes=EXCLUDED.notes,
+                    created_by=EXCLUDED.created_by,
+                    created_at=EXCLUDED.created_at
+            """, (for_user, day, mood, flow, pain, notes, created_by, now_txt))
+            conn.commit()
+        try:
+            send_discord("Cycle save", {"by": created_by, "for": for_user, "day": day, "flow": flow, "mood": mood, "pain": pain})
+            broadcast("cycle_update", {"user": for_user, "day": day})
+        except Exception:
+            pass
+    finally:
+        conn.close()
+
+    if request.is_json or request.headers.get('Accept','').startswith('application/json'):
+        return jsonify({"ok": True})
+    flash("Día guardado ✅", "success")
+    return redirect('/#ciclo')
+
+@app.post('/cycle/delete')
+def cycle_delete():
+    if 'username' not in session:
+        return redirect('/')
+    created_by = session['username']
+    day = (request.form.get('day') or '').strip()
+    for_user = (request.form.get('for_user') or 'mochita').strip() or 'mochita'
+    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', day or ''):
+        flash("Fecha inválida.", "error"); return redirect('/#ciclo')
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("DELETE FROM cycle_entries WHERE username=%s AND day=%s", (for_user, day))
+            conn.commit()
+        try:
+            send_discord("Cycle delete", {"by": created_by, "for": for_user, "day": day})
+            broadcast("cycle_update", {"user": for_user, "day": day, "deleted": True})
+        except Exception:
+            pass
+    finally:
+        conn.close()
+    flash("Día eliminado 🗑️", "info")
+    return redirect('/#ciclo')
 
 
 

@@ -5767,6 +5767,38 @@ function sortCards(grid, mode){
   }
 })();
 
+const $input = document.querySelector('#mediaSearch');
+const $listToWatch = document.querySelector('#mediaToWatch');
+const $listWatched = document.querySelector('#mediaWatched');
+
+async function runMediaSearch(q){
+  const r = await fetch('/api/media/search?q=' + encodeURIComponent(q));
+  const j = await r.json();
+  if(!j.ok) return;
+
+  // pinta “Por ver”
+  $listToWatch.innerHTML = j.to_watch.map(m => `
+    <li>
+      ${m.cover_url ? `<img src="${m.cover_url}" alt="">` : ''}
+      <strong>${m.title}</strong>
+      ${m.on_netflix ? ' · Netflix' : ''}${m.on_prime ? ' · Prime' : ''}
+      ${m.priority ? ` · ${m.priority}` : ''}
+      ${m.comment ? `<div class="muted">${m.comment}</div>` : ''}
+    </li>
+  `).join('');
+
+  // pinta “Vistas”
+  $listWatched.innerHTML = j.watched.map(m => `
+    <li>
+      <strong>${m.title}</strong>
+      ${m.avg_rating ? ` · ⭐ ${m.avg_rating}` : ''}
+    </li>
+  `).join('');
+}
+
+$input.addEventListener('input', (e)=> runMediaSearch(e.target.value));
+
+
 
 </script>
 

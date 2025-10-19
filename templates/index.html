@@ -5502,6 +5502,55 @@ function sortCards(grid, mode){
   apply();                // primer pintado
 })();
 
+
+(function(){
+  const ready = (fn)=>document.readyState!=="loading" ? fn() : document.addEventListener("DOMContentLoaded", fn);
+
+  ready(() => {
+    const input = document.querySelector("#media-search");
+    if (!input) return;
+
+    const norm = s => (s||"")
+      .toString()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g,"") // quita acentos
+      .toLowerCase()
+      .trim();
+
+    // Todas las tarjetas (por ver y vistas)
+    let cards = Array.from(document.querySelectorAll(".media-card"));
+
+    // Prepara índice SOLO de título visible
+    const prepare = c => {
+      const t = (c.querySelector(".media-title")?.textContent || c.dataset.title || "")
+        .replace(/\s+/g," ")
+        .trim();
+      c.__titleIx = norm(t);
+    };
+    cards.forEach(prepare);
+
+    const apply = () => {
+      const q = norm(input.value);
+      if (!q) { cards.forEach(c => c.hidden = false); return; }
+      cards.forEach(c => { c.hidden = !c.__titleIx.includes(q); });
+    };
+
+    // Eventos robustos (no se pisan)
+    input.addEventListener("input", apply);
+    input.addEventListener("keydown", e => { if (e.key === "Escape") { input.value = ""; apply(); } });
+
+    // Si cambian las tarjetas en el DOM (añadir/eliminar), reindexa y aplica
+    const mo = new MutationObserver(() => {
+      cards = Array.from(document.querySelectorAll(".media-card"));
+      cards.forEach(prepare);
+      apply();
+    });
+    mo.observe(document.querySelector('[data-section="media"]') || document.body, { childList:true, subtree:true });
+
+    apply();
+  });
+})();
+
 </script>
 
 

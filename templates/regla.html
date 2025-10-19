@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Regla - Mochita</title>
+<title>Regla - Mochita (Lite, por día)</title>
 <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
 
 <style>
@@ -131,6 +131,41 @@ select.pill{ background:#fff; border:2px solid #eee; }
   .container > h1{ font-size:34px }
   .day{ min-height:100px }
 }
+
+
+
+/* ==== Leyenda ==== */
+.legend { display:grid; gap:14px; }
+.legend-title{ margin:0 0 6px; font-weight:800; font-size:1.05rem }
+.legend-grid{
+  display:grid; gap:14px;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+}
+.legend-group{ background:#fafafa; border:1px solid #eee; border-radius:12px; padding:12px }
+.legend-sub{ font-weight:800; margin-bottom:8px; color:#374151; font-size:.95rem }
+.legend-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:6px 0 }
+
+/* Muestras de flujo */
+.legend-swatch{ display:inline-block; width:46px; height:12px; border-radius:7px; border:1px solid rgba(0,0,0,.08) }
+.legend-swatch.none{  background:var(--flow-none) }
+.legend-swatch.low{   background:var(--flow-low) }
+.legend-swatch.mid{   background:var(--flow-mid) }
+.legend-swatch.high{  background:var(--flow-high) }
+
+/* “Hoy” */
+.legend-badge-today{
+  display:inline-block; padding:2px 8px; border-radius:999px;
+  background:#fcfcff; border:2px dashed var(--secondary-color); font-weight:800; font-size:.8rem;
+}
+
+/* Emojis */
+.emo{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px;
+  background:#fff; border:1px solid #eee; box-shadow:0 1px 3px rgba(0,0,0,.04); font-weight:700; }
+.emo b{ font-weight:800 }
+@media (max-width:860px){ .legend-grid{ grid-template-columns:1fr } }
+
+
+
 </style>
 </head>
 <body>
@@ -156,6 +191,48 @@ select.pill{ background:#fff; border:2px solid #eee; }
       <button class="pill danger" id="wipeAllBtn" title="Eliminar todos los registros">🧨 Eliminar TODO</button>
     </div>
   </div>
+
+
+  <!-- Leyenda -->
+<div class="card legend">
+  <div class="legend-title">Leyenda</div>
+  <div class="legend-grid">
+    <!-- Flujo -->
+    <div class="legend-group">
+      <div class="legend-sub">Flujo</div>
+      <div class="legend-row"><span class="legend-swatch none"></span> Sin</div>
+      <div class="legend-row"><span class="legend-swatch low"></span> Poco</div>
+      <div class="legend-row"><span class="legend-swatch mid"></span> Medio</div>
+      <div class="legend-row"><span class="legend-swatch high"></span> Mucho</div>
+    </div>
+
+    <!-- Inicio / Fin / Hoy -->
+    <div class="legend-group">
+      <div class="legend-sub">Marcadores</div>
+      <div class="legend-row">
+        <span class="label-chip start">Inicio</span>
+        <span class="label-chip end">Fin</span>
+        <span class="legend-badge-today">Hoy</span>
+      </div>
+    </div>
+
+    <!-- Emojis de ánimo -->
+    <div class="legend-group">
+      <div class="legend-sub">Ánimo (elige solo donde quieras)</div>
+      <div class="legend-row" style="gap:8px">
+        <span class="emo">😀 <b>feliz</b></span>
+        <span class="emo">🙂 <b>normal</b></span>
+        <span class="emo">😔 <b>triste</b></span>
+        <span class="emo">😵‍💫 <b>estresada</b></span>
+        <span class="emo">🥺 <b>sensible</b></span>
+        <span class="emo">😴 <b>cansada</b></span>
+        <span class="emo">😠 <b>irritable</b></span>
+        <span class="emo">⚡ <b>con energía</b></span>
+      </div>
+    </div>
+  </div>
+</div>
+
 
   <div class="card">
     <div class="cal-head">
@@ -393,7 +470,12 @@ async function saveOrDelete(dayIso, mood, flow){
 function resetRange(){ state.range={start:null,end:null}; $('#rangeHelp').style.display='none'; renderCalendar(); }
 function selectInRange(id){
   const {start,end}=state.range;
-  if(!start){ state.range.start=id; $('#rangeHelp').style.display='block'; }
+  if(!start){
+  state.range.start=id;
+  const h = $('#rangeHelp');
+  h.style.display='block';
+  h.innerHTML = `Inicio: <b>${id}</b>. Ahora navega al mes anterior/siguiente para elegir el fin.`;
+}
   else if(!end){
     if(id < start){ state.range={start:id,end:start}; }
     else { state.range.end=id; }
@@ -444,12 +526,21 @@ async function wipeAll(){
 }
 
 // ------- Controles -------
-$('#prevBtn').addEventListener('click', ()=>{
-  const dt = new Date(state.y, state.m-2, 1); state.y=dt.getFullYear(); state.m=dt.getMonth()+1; resetRange(); loadMonth();
-});
-$('#nextBtn').addEventListener('click', ()=>{
-  const dt = new Date(state.y, state.m, 1); state.y=dt.getFullYear(); state.m=dt.getMonth()+1; resetRange(); loadMonth();
-});
+
+function goMonth(delta){
+  const dt = new Date(state.y, state.m - 1 + delta, 1);
+  state.y = dt.getFullYear();
+  state.m = dt.getMonth() + 1;
+
+  // Si estoy en modo rango y ya elegí INICIO pero aún no FIN, NO borres la selección
+  const keepRange = (state.rangeMode && state.range.start && !state.range.end);
+  if(!keepRange){ resetRange(); }
+
+  loadMonth(); // ya traes prev/actual/siguiente, así que el inicio sigue visible cuando toque
+}
+
+$('#prevBtn').addEventListener('click', ()=> goMonth(-1));
+$('#nextBtn').addEventListener('click', ()=> goMonth(+1));
 $('#todayBtn').addEventListener('click', ()=>{
   const t = new Date(); state.y=t.getFullYear(); state.m=t.getMonth()+1; resetRange(); loadMonth();
 });

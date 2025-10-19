@@ -4416,6 +4416,156 @@ def delete_period():
     flash("Registro eliminado", "success")
     return redirect(url_for("regla_page"))
 
+
+
+# ======= Ciclo: batch-save y borrados masivos + tema =======
+
+@app.post('/cycle/batch_save')
+def cycle_batch_save():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "unauthenticated"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    for_user = (payload.get('for_user') or 'mochita').strip() or 'mochita'
+    items = payload.get('items') or []
+    if not isinstance(items, list) or not items:
+        return jsonify({"ok": False, "error": "empty"}), 400
+
+    now_txt = now_madrid_str()
+    created_by = session['username']
+    saved = 0
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            for it in items:
+                day  = (it.get('day') or '').strip()
+                mood = (it.get('mood') or None)
+                flow = (it.get('flow') or None)
+                # Validaciones
+                if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', day or ''):
+                    continue
+                if mood and mood not in ALLOWED_MOODS:
+                    mood = None
+                if flow and flow not in ALLOWED_FLOWS:
+                    flow = None
+                c.execute("""
+                    INSERT INTO cycle_entries (username, day, mood, flow, pain, notes, created_by, created_at)
+                    VALUES (%s,%s,%s,%s,NULL,NULL,%s,%s)
+                    ON CONFLICT (username, day) DO UPDATE
+                    SET mood=EXCLUDED.mood,
+                        flow=EXCLUDED.flow,
+                        created_by=EXCLUDED.created_by,
+                        created_at=EXCLUDED.created_at
+                """, (for_user, day, mood, flow, created_by, now_txt))
+                saved += 1
+        conn.commit()
+        try:
+            send_discord("Cycle batch_save", {"by": created_by, "for": for_user, "count": saved})
+            broadcast("cycle_update", {"user": for_user, "bulk": True})
+        except Exception:
+            pass
+    finally:
+        conn.close()
+    return jsonify({"ok": True, "saved": saved})
+
+
+@app.post('/cycle/bulk_delete')
+def cycle_bulk_delete():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "unauthenticated"}), 401
+
+    payload   = request.get_json(silent=True) or {}
+    for_user  = (payload.get('for_user') or 'mochita').strip() or 'mochita'
+    scope     = (payload.get('scope') or 'month').strip()  # 'month' | 'range' | 'all'
+    ym        = (payload.get('ym') or '').strip()          # 'YYYY-MM' cuando scope='month'
+    start_txt = (payload.get('start') or '').strip()
+    end_txt   = (payload.get('end') or '').strip()
+
+    from datetime import date as _date, timedelta as _td
+    def last_day_of_month(y, m):
+        import calendar
+        return _date(y, m, calendar.monthrange(y, m)[1])
+
+    start = end = None
+    if scope == 'all':
+        # borra todo para ese usuario
+        start = _date(1900,1,1); end = _date(9999,12,31)
+    elif scope == 'month' and re.fullmatch(r'\d{4}-\d{2}', ym or ''):
+        y, m = map(int, ym.split('-'))
+        start = _date(y, m, 1); end = last_day_of_month(y, m)
+    elif scope == 'range' and re.fullmatch(r'\d{4}-\d{2}-\d{2}', start_txt or '') and re.fullmatch(r'\d{4}-\d{2}-\d{2}', end_txt or ''):
+        start = datetime.strptime(start_txt, "%Y-%m-%d").date()
+        end   = datetime.strptime(end_txt,   "%Y-%m-%d").date()
+        if end < start:
+            start, end = end, start
+    else:
+        return jsonify({"ok": False, "error": "bad_scope"}), 400
+
+    deleted = 0
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                DELETE FROM cycle_entries
+                 WHERE username=%s AND day BETWEEN %s AND %s
+            """, (for_user, start.isoformat(), end.isoformat()))
+            deleted = c.rowcount or 0
+            conn.commit()
+        try:
+            send_discord("Cycle bulk_delete", {"by": session['username'], "for": for_user,
+                                               "from": start.isoformat(), "to": end.isoformat(), "deleted": deleted})
+            broadcast("cycle_update", {"user": for_user, "bulk_deleted": True,
+                                       "from": start.isoformat(), "to": end.isoformat()})
+        except Exception:
+            pass
+    finally:
+        conn.close()
+    return jsonify({"ok": True, "deleted": int(deleted)})
+
+
+@app.get('/api/cycle/theme')
+def api_cycle_theme():
+    if 'username' not in session:
+        return jsonify({"error": "unauthenticated"}), 401
+    for_user = (request.args.get('for_user') or 'mochita').strip() or 'mochita'
+    key = f"cycle_theme::{for_user}"
+    raw = state_get(key, "")
+    try:
+        saved = json.loads(raw) if raw else {}
+    except Exception:
+        saved = {}
+    # Valores por defecto (coinciden con tus CSS variables)
+    default = {
+        "primary": "#e84393", "secondary": "#fd79a8", "accent": "#a29bfe",
+        "flow_none": "#cbd5e1", "flow_low": "#fecdd3", "flow_mid": "#fb7185", "flow_high": "#dc2626",
+        "range_bg": "rgba(232,67,147,.10)"
+    }
+    theme = {**default, **(saved or {})}
+    return jsonify({"ok": True, "theme": theme, "for_user": for_user})
+
+
+@app.post('/api/cycle/theme')
+def api_cycle_theme_save():
+    if 'username' not in session:
+        return jsonify({"error": "unauthenticated"}), 401
+    payload = request.get_json(silent=True) or {}
+    for_user = (payload.get('for_user') or 'mochita').strip() or 'mochita'
+    theme    = payload.get('theme') or {}
+    if not isinstance(theme, dict):
+        return jsonify({"ok": False, "error": "bad_theme"}), 400
+    # Filtro simple de claves permitidas
+    allowed = {"primary","secondary","accent","flow_none","flow_low","flow_mid","flow_high","range_bg"}
+    clean = {k: v for k, v in theme.items() if k in allowed and isinstance(v, str) and v.strip()}
+    key = f"cycle_theme::{for_user}"
+    state_set(key, json.dumps(clean, ensure_ascii=False))
+    try:
+        send_discord("Cycle theme saved", {"by": session['username'], "for": for_user})
+        broadcast("cycle_theme", {"user": for_user})
+    except Exception:
+        pass
+    return jsonify({"ok": True})
+
+
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1
 if os.environ.get("RUN_SCHEDULER", "1") == "1":
     threading.Thread(target=background_loop, daemon=True).start()

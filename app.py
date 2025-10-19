@@ -4608,6 +4608,44 @@ def api_cycle_theme_save():
     return jsonify({"ok": True})
 
 
+
+@app.post("/api/location")
+def api_location():
+    if "username" not in session: abort(401)
+    data = request.get_json(force=True) or {}
+    lat = float(data.get("lat", 0))
+    lng = float(data.get("lng", 0))
+    acc = float(data.get("acc", 0))
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        return jsonify({"ok": False, "error": "coords"}), 400
+
+    with pool.getconn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO user_locations (username, lat, lng, accuracy)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (username) DO UPDATE
+                SET lat=EXCLUDED.lat, lng=EXCLUDED.lng, accuracy=EXCLUDED.accuracy, updated_at=now()
+            """, (session["username"], lat, lng, acc))
+        conn.commit()
+        pool.putconn(conn)
+    return jsonify({"ok": True})
+
+@app.get("/api/other_location")
+def api_other_location():
+    if "username" not in session: abort(401)
+    other = request.args.get("user") or ""
+    with pool.getconn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT lat, lng, accuracy, updated_at FROM user_locations WHERE username=%s", (other,))
+            row = cur.fetchone()
+        pool.putconn(conn)
+    if not row: return jsonify({})
+    lat, lng, acc, ts = row
+    return jsonify({"lat": lat, "lng": lng, "acc": acc, "updated_at": (ts.isoformat() if ts else None)})
+
+
+
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1
 if os.environ.get("RUN_SCHEDULER", "1") == "1":
     threading.Thread(target=background_loop, daemon=True).start()

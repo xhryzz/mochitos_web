@@ -312,6 +312,128 @@ def is_due_or_overdue(now_madrid: datetime, hhmm: str, grace_minutes: int = 720)
 def now_madrid_str() -> str:
     return europe_madrid_now().strftime("%Y-%m-%d %H:%M:%S")
 
+EDVX_BASE = "https://estrenosdivx.net"
+EDVX_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/124.0.0.0 Safari/537.36",
+    "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+    "Referer": EDVX_BASE + "/",
+}
+
+def _get(url, timeout=12):
+    r = requests.get(url, headers=EDVX_HEADERS, timeout=timeout)
+    r.raise_for_status()
+    return r
+
+def _abs(url):
+    return url if bool(urlparse(url).netloc) else urljoin(EDVX_BASE, url)
+
+def _parse_results(html):
+    soup = BeautifulSoup(html, "html.parser")
+    results = []
+    seen = set()
+
+    # Selectores generosos (WordPress + plantillas típicas)
+    candidates = soup.select(
+        "h2.entry-title a, .entry-title a, article h2 a, "
+        ".post-title a, .result-item h2 a, .titulo a, "
+        "a[href*='/pelicula/'], a[href*='/series/'], a[href*='/estreno/']"
+    )
+
+    for a in candidates:
+        href = a.get("href") or ""
+        title = (a.get_text(" ", strip=True) or "").strip()
+        if not href or not title:
+            continue
+        url = _abs(href)
+
+        # Filtramos cosas del propio buscador o navegación
+        if any(x in url for x in ("/?s=", "/page/", "/category/", "/buscar/")) and "pelicula" not in url and "series" not in url:
+            continue
+        # Solo enlaces del propio dominio
+        if urlparse(url).netloc and "estrenosdivx.net" not in urlparse(url).netloc:
+            continue
+        if url in seen:
+            continue
+
+        # Imagen (tratamos de encontrar la más cercana)
+        img_tag = None
+        for up in (a.parent, getattr(a, "parent", None) and a.parent.parent, soup):
+            if not up:
+                continue
+            img_tag = up.select_one("img")
+            if img_tag and img_tag.get("src"):
+                break
+
+        thumb = img_tag.get("src") if img_tag and img_tag.get("src") else None
+
+        # Año si aparece entre paréntesis en el título
+        m = re.search(r"\((19|20)\d{2}\)", title)
+        year = m.group(0)[1:-1] if m else None
+
+        results.append({
+            "title": title,
+            "url": url,
+            "image": _abs(thumb) if thumb else None,
+            "year": year,
+            "source": "estrenosdivx"
+        })
+        seen.add(url)
+
+    return results
+
+def _search_edvx(query):
+    # 1) Búsqueda clásica WP (?s=), suele funcionar mejor
+    url_wp = f"{EDVX_BASE}/?s={requests.utils.quote(query)}"
+    try:
+        r = _get(url_wp)
+        res = _parse_results(r.text)
+        if res:
+            return res, url_wp
+    except Exception:
+        pass
+
+    # 2) Ruta /buscar/{query}/ (algunas instalaciones la requieren)
+    url_buscar = f"{EDVX_BASE}/buscar/{requests.utils.quote(query)}/"
+    try:
+        r = _get(url_buscar)
+        res = _parse_results(r.text)
+        if res:
+            return res, url_buscar
+    except Exception:
+        pass
+
+    return [], None
+
+def _search_ddg_fallback(query, max_items=12):
+    # Fallback: DuckDuckGo (HTML) con site:
+    url = "https://duckduckgo.com/html/?q=" + requests.utils.quote(f"site:estrenosdivx.net {query}") + "&kl=es-es"
+    try:
+        r = _get(url)
+        soup = BeautifulSoup(r.text, "html.parser")
+        out = []
+        for a in soup.select("a.result__a"):
+            href = a.get("href") or ""
+            title = a.get_text(" ", strip=True)
+            if not href or not title:
+                continue
+            if "estrenosdivx.net" not in urlparse(href).netloc:
+                continue
+            out.append({
+                "title": title,
+                "url": href,
+                "image": None,
+                "year": None,
+                "source": "duckduckgo"
+            })
+            if len(out) >= max_items:
+                break
+        return out, url
+    except Exception:
+        return [], url
+
+
 # ========= SSE =========
 _subscribers_lock = threading.Lock()
 _subscribers: set[queue.Queue] = set()
@@ -4667,6 +4789,32 @@ def api_other_location():
     lng = row['longitude'] if isinstance(row, dict) else row[1]
     ts  = row['updated_at'] if isinstance(row, dict) else row[2]
     return jsonify({'lat': lat, 'lng': lng, 'updated_at': (ts.isoformat() if ts else None)})
+
+
+
+@app.get("/api/edvx_search")
+def api_edvx_search():
+    q = (request.args.get("q") or "").strip()
+    if not q:
+        return jsonify({"ok": False, "error": "missing_query"}), 400
+
+    try:
+        results, used = _search_edvx(q)
+        source = used or EDVX_BASE
+        if not results:
+            # Fallback a DDG si el sitio devuelve su página de “Ups…”
+            results, used = _search_ddg_fallback(q)
+            source = used
+
+        return jsonify({
+            "ok": True,
+            "query": q,
+            "count": len(results),
+            "source": source,
+            "results": results
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1

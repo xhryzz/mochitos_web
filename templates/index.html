@@ -3078,10 +3078,10 @@ body.page-media .section:not([data-section="media"]){
       <h2>Buscar en estrenosdivx.net</h2>
       <span class="close-modal" aria-label="Cerrar">&times;</span>
     </div>
-    <div class="modal-body" style="padding:0;flex:1;position:relative;">
-      <div id="edvxSpinner" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
-        Cargando…
-      </div>
+    <!-- Reemplaza el cuerpo del modal EDVX por esto -->
+<div class="modal-body" style="padding:16px; max-height: calc(80vh - 60px); overflow:auto;">
+  <div id="edvxResults" class="media-grid"></div>
+</div>
       <iframe id="edvxIframe" style="width:100%;height:100%;border:0;display:none;"
               referrerpolicy="no-referrer-when-downgrade"></iframe>
     </div>
@@ -6332,89 +6332,98 @@ if ('serviceWorker' in navigator) {
   });
 }
 
- // ===== Buscador específico: estrenosdivx.net =====
-  (function(){
-    const form   = document.getElementById('edvxForm');
-    const qEl    = document.getElementById('edvxQuery');
-    const openHereBtn = document.getElementById('edvxOpenHere');
 
-    // Si existe el buscador interno de tu grid, lo usamos para pre-rellenar
-    const mediaSearch = document.getElementById('media-search');
-    if (mediaSearch && mediaSearch.value && qEl) qEl.value = mediaSearch.value;
-
-    // URL directa típica de WordPress: ?s=termino
-    function directSearchURL(query){
-      return `https://estrenosdivx.net/?s=${encodeURIComponent(query)}`;
-    }
-    // Fallback con Google (solo listados del dominio)
-    function googleSiteURL(query){
-      const q = `site:estrenosdivx.net ${query}`;
-      return `https://www.google.com/search?q=${encodeURIComponent(q)}&hl=es`;
-    }
-
-    // Enviar: abrir en pestaña nueva
-    window.edvxSearch = function(e){
-      e.preventDefault();
-      const query = qEl?.value?.trim();
-      if(!query){ window.showToast?.('error','Escribe un título 😉'); return false; }
-
-      const url = directSearchURL(query);
-      // Abrimos primero la directa; si no carga por X motivo, el usuario siempre puede repetir desde Google
-      window.open(url, '_blank', 'noopener');
-      return false;
-    };
-
-    // Ver aquí (modal con iframe) + fallback si el sitio bloquea iframes
-    openHereBtn?.addEventListener('click', () => {
-      const query = qEl?.value?.trim();
-      if(!query){ window.showToast?.('error','Escribe un título 😉'); return; }
-
-      const modal   = document.getElementById('edvxModal');
-      const iframe  = document.getElementById('edvxIframe');
-      const spinner = document.getElementById('edvxSpinner');
-
-      if (!modal || !iframe || !spinner) return;
-
-      const directURL  = directSearchURL(query);
-      const fallbackURL= googleSiteURL(query);
-
-      spinner.style.display = 'flex';
-      iframe.style.display  = 'none';
-      iframe.removeAttribute('data-ok');
-
-      modal.style.display = 'block';
-
-      // Si el sitio no permite embebido, hacemos fallback a Google
-      let fallbackTimer = setTimeout(() => {
-        if (!iframe.dataset.ok) {
-          iframe.src = fallbackURL; // segundo intento: Google site:
-        }
-      }, 2500);
-
-      // Segundo temporizador: si tampoco Google carga (muy raro), abrir en pestaña nueva
-      let finalTimer = setTimeout(() => {
-        if (!iframe.dataset.ok) {
-          window.showToast?.('info','No puedo mostrarlo aquí; abro en una pestaña nueva.');
-          window.open(fallbackURL, '_blank', 'noopener');
-          modal.style.display = 'none';
-        }
-      }, 5000);
-
-      iframe.onload = () => {
-        iframe.dataset.ok = '1';
-        spinner.style.display = 'none';
-        iframe.style.display  = 'block';
-        clearTimeout(fallbackTimer);
-        clearTimeout(finalTimer);
-      };
-
-      // Carga inicial directa
-      iframe.src = directURL;
-    });
-  })();
 
   </script>
   
+<script>
+/* ===== Buscador estrenosdivx.net (scraping vía backend) ===== */
+(function(){
+  const form        = document.getElementById('edvxForm');
+  const qEl         = document.getElementById('edvxQuery');
+  const openHereBtn = document.getElementById('edvxOpenHere');
+
+  const modal   = document.getElementById('edvxModal');
+  const results = document.getElementById('edvxResults');
+
+  if(!form || !qEl || !openHereBtn || !modal || !results){
+    console.warn('[EDVX] Faltan elementos del buscador/modal.');
+    return;
+  }
+
+  function cardHTML(item){
+    const img = item.image ? `<div class="media-cover"><img src="${item.image}" alt=""></div>` : '';
+    const year = item.year ? ` <span class="chip muted">(${item.year})</span>` : '';
+    const src  = item.source === 'duckduckgo' ? 'DDG' : 'EDVX';
+    return `
+      <div class="media-card">
+        <div class="media-status badge-wanted">${src}</div>
+        ${img}
+        <h3 class="media-title" title="${item.title}">${item.title}</h3>
+        <div class="media-actions">
+          <a class="media-link" href="${item.url}" target="_blank" rel="noopener">
+            <i class="fas fa-link"></i> Abrir
+          </a>
+        </div>
+        ${year}
+      </div>
+    `;
+  }
+
+  async function doSearch(query){
+    results.innerHTML = `<div style="padding:20px">Buscando <b>${query}</b>…</div>`;
+    modal.style.display = 'block';
+
+    try{
+      const res = await fetch(`/api/edvx_search?q=${encodeURIComponent(query)}`, {
+        headers: { 'Accept':'application/json' }
+      });
+      const data = await res.json();
+
+      if(!data.ok){
+        results.innerHTML = `<div style="padding:20px;color:#b91c1c">Error: ${data.error || 'falló la búsqueda'}</div>`;
+        return;
+      }
+
+      if(!data.results || !data.results.length){
+        results.innerHTML = `
+          <div style="padding:20px">
+            Sin resultados directos. Prueba otro título.
+            <div style="margin-top:10px">
+              <a class="media-link" target="_blank" rel="noopener"
+                 href="https://duckduckgo.com/?q=${encodeURIComponent('site:estrenosdivx.net ' + query)}&kl=es-es">
+                Abrir en DuckDuckGo
+              </a>
+            </div>
+          </div>`;
+        return;
+      }
+
+      results.innerHTML = data.results.map(cardHTML).join('');
+    }catch(err){
+      results.innerHTML = `<div style="padding:20px;color:#b91c1c">Error de red: ${err?.message||err}</div>`;
+    }
+  }
+
+  // Enviar (abrir aquí por defecto)
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const query = (qEl.value || '').trim();
+    if(!query){ window.showToast?.('error','Escribe un título 😉'); return; }
+    doSearch(query);
+  });
+
+  // Botón “Ver aquí”
+  openHereBtn.addEventListener('click', () => {
+    const query = (qEl.value || '').trim();
+    if(!query){ window.showToast?.('error','Escribe un título 😉'); return; }
+    doSearch(query);
+  });
+
+  // Cerrar modal si haces click fuera (ya lo tienes en tu setup de modales)
+})();
+
+</script>
 
 
 

@@ -449,24 +449,67 @@ def _search_ddg_fallback(query, max_items=12):
     return out, url
 
 def search_estrenos(query: str, max_items: int = 24):
+    # 1) Primero intenta en el propio sitio
     res, src = _search_edvx(query)
     if not res:
+        # 2) Si no hay nada útil, usa DuckDuckGo
+        ddg, src = _search_ddg_fallback(query, max_items=max_items)
+        res = ddg
+
+    toks = _tokens(query)
+
+    def relevant(it):
+        url = it.get("url",""); title = it.get("title","")
+        if not _looks_like_detail_url(url):
+            return False
+        t = _norm_text(title)
+        # Al menos un token del query dentro del título (“peaky” → “peaky blinders”)
+        return any(tok in t for tok in toks)
+
+    # 3) Filtra por URL de detalle + match en título
+    filtered = [it for it in res if relevant(it)]
+
+    # 4) Si aún así no hay, reintenta por DDG y vuelve a filtrar (por si el WP no devuelve nada)
+    if not filtered:
         ddg, src2 = _search_ddg_fallback(query, max_items=max_items)
-        res, src = ddg, src2
+        res = ddg
+        filtered = [it for it in res if relevant(it)]
 
-    by_url, by_title = {}, set()
-    for item in res:
-        url = item.get("url"); title = item.get("title") or ""
-        if not url or not title: continue
-        tn = _norm_text(title)
-        if url in by_url or tn in by_title: continue
-        item["_score"] = _score_title(title, query)
-        by_url[url] = item; by_title.add(tn)
+    # 5) Último recurso: acepta sólo URLs de detalle (evita /series/hd)
+    if not filtered:
+        filtered = [it for it in res if _looks_like_detail_url(it.get("url",""))]
 
-    ranked = sorted(by_url.values(), key=lambda x: x.get("_score", 0), reverse=True)
-    for it in ranked: it.pop("_score", None)
+    # 6) Rank por “empieza por”, “contiene”, solape de tokens
+    for it in filtered:
+        it["_score"] = _score_title(it.get("title",""), query)
+    ranked = sorted(filtered, key=lambda x: x.get("_score", 0), reverse=True)
+    for it in ranked:
+        it.pop("_score", None)
+
     return ranked[:max_items], src
 
+BAD_SLUGS = {
+    "hd","4k","1080p","720p","series","peliculas","categoria","category",
+    "estrenos","ver","descargar","latino","castellano","tag","genres","genero","page"
+}
+
+def _looks_like_detail_url(u: str) -> bool:
+    try:
+        p = urlparse(u).path.rstrip("/")
+        parts = [s for s in p.split("/") if s]
+        if len(parts) < 2:
+            return False
+        if parts[0] not in ("pelicula","series","estreno"):
+            return False
+        # Evita índices tipo /series/hd, /series/page/2, etc.
+        if parts[1] in BAD_SLUGS or any(seg in BAD_SLUGS for seg in parts[1:]):
+            return False
+        return True
+    except Exception:
+        return False
+
+def _tokens(q: str) -> list[str]:
+    return [t for t in re.split(r"[\s\-\._]+", _norm_text(q)) if len(t) >= 3]
 
 
 # ========= SSE =========

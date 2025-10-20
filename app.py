@@ -11,6 +11,9 @@ from base64 import b64encode
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 import re  # <-- Seguimiento de precio
+from urllib.parse import urljoin, urlparse, quote_plus
+import unicodedata
+
 
 # Web Push
 from pywebpush import webpush, WebPushException
@@ -327,111 +330,143 @@ def _get(url, timeout=12):
     return r
 
 def _abs(url):
-    return url if bool(urlparse(url).netloc) else urljoin(EDVX_BASE, url)
+    try:
+        return url if bool(urlparse(url).netloc) else urljoin(EDVX_BASE, url)
+    except Exception:
+        return url
+
+def _norm_text(s: str) -> str:
+    if not s: return ""
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    return " ".join(s.lower().strip().split())
+
+def _score_title(title: str, q: str) -> int:
+    t = _norm_text(title); qn = _norm_text(q)
+    if not t or not qn: return 0
+    score = 0
+    if t.startswith(qn): score += 120
+    elif qn in t:       score += 80
+    score += min(40, 10 * len(set(t.split()) & set(qn.split())))
+    return score
 
 def _parse_results(html):
-    soup = BeautifulSoup(html, "html.parser")
-    results = []
-    seen = set()
-
-    # Selectores generosos (WordPress + plantillas típicas)
-    candidates = soup.select(
-        "h2.entry-title a, .entry-title a, article h2 a, "
-        ".post-title a, .result-item h2 a, .titulo a, "
-        "a[href*='/pelicula/'], a[href*='/series/'], a[href*='/estreno/']"
-    )
-
-    for a in candidates:
-        href = a.get("href") or ""
-        title = (a.get_text(" ", strip=True) or "").strip()
-        if not href or not title:
-            continue
-        url = _abs(href)
-
-        # Filtramos cosas del propio buscador o navegación
-        if any(x in url for x in ("/?s=", "/page/", "/category/", "/buscar/")) and "pelicula" not in url and "series" not in url:
-            continue
-        # Solo enlaces del propio dominio
-        if urlparse(url).netloc and "estrenosdivx.net" not in urlparse(url).netloc:
-            continue
-        if url in seen:
-            continue
-
-        # Imagen (tratamos de encontrar la más cercana)
-        img_tag = None
-        for up in (a.parent, getattr(a, "parent", None) and a.parent.parent, soup):
-            if not up:
+    results, seen = [], set()
+    if BeautifulSoup:
+        soup = BeautifulSoup(html, "html.parser")
+        candidates = soup.select(
+            "h2.entry-title a, .entry-title a, article h2 a, "
+            ".post-title a, .result-item h2 a, .titulo a, "
+            "a[href*='/pelicula/'], a[href*='/series/'], a[href*='/estreno/']"
+        )
+        for a in candidates:
+            href = (a.get("href") or "").strip()
+            title = (a.get_text(" ", strip=True) or "").strip()
+            if not href or not title: continue
+            url = _abs(href)
+            netloc = urlparse(url).netloc or ""
+            if netloc and "estrenosdivx.net" not in netloc: continue
+            if any(x in url for x in ("/?s=", "/page/", "/category/", "/buscar/")) and "pelicula" not in url and "series" not in url:
                 continue
-            img_tag = up.select_one("img")
-            if img_tag and img_tag.get("src"):
-                break
+            if url in seen: continue
 
-        thumb = img_tag.get("src") if img_tag and img_tag.get("src") else None
+            thumb = None
+            img_tag = a.find_previous("img") or a.find_next("img")
+            if img_tag and img_tag.get("src"): thumb = img_tag.get("src")
 
-        # Año si aparece entre paréntesis en el título
-        m = re.search(r"\((19|20)\d{2}\)", title)
-        year = m.group(0)[1:-1] if m else None
+            m = re.search(r"\((19|20)\d{2}\)", title)
+            year = m.group(0)[1:-1] if m else None
 
-        results.append({
-            "title": title,
-            "url": url,
-            "image": _abs(thumb) if thumb else None,
-            "year": year,
-            "source": "estrenosdivx"
-        })
+            results.append({
+                "title": title,
+                "url": _abs(url),
+                "image": _abs(thumb) if thumb else None,
+                "year": year,
+                "source": "estrenosdivx"
+            })
+            seen.add(url)
+        return results
+
+    # Fallback sin bs4
+    for m in re.finditer(r'<a[^>]+href="(?P<h>[^"]+)"[^>]*>(?P<t>.*?)</a>', html, flags=re.I|re.S):
+        href = m.group("h") or ""
+        traw = re.sub(r"<[^>]+>", " ", m.group("t") or "")
+        title = " ".join((traw or "").split()).strip()
+        if not href or not title: continue
+        url = _abs(href)
+        nu = urlparse(url)
+        if nu.netloc and "estrenosdivx.net" not in nu.netloc: continue
+        if all(k not in url for k in ("/pelicula/", "/series/", "/estreno/", "/ver-")): continue
+        if url in seen: continue
+        m2 = re.search(r"\((19|20)\d{2}\)", title)
+        year = m2.group(0)[1:-1] if m2 else None
+        results.append({"title": title, "url": url, "image": None, "year": year, "source": "estrenosdivx"})
         seen.add(url)
-
     return results
 
 def _search_edvx(query):
-    # 1) Búsqueda clásica WP (?s=), suele funcionar mejor
-    url_wp = f"{EDVX_BASE}/?s={requests.utils.quote(query)}"
+    # 1) ?s=
+    url_wp = f"{EDVX_BASE}/?s={quote_plus(query)}"
     try:
         r = _get(url_wp)
         res = _parse_results(r.text)
-        if res:
-            return res, url_wp
+        if res: return res, url_wp
     except Exception:
         pass
-
-    # 2) Ruta /buscar/{query}/ (algunas instalaciones la requieren)
-    url_buscar = f"{EDVX_BASE}/buscar/{requests.utils.quote(query)}/"
+    # 2) /buscar/
+    url_buscar = f"{EDVX_BASE}/buscar/{quote_plus(query)}/"
     try:
         r = _get(url_buscar)
         res = _parse_results(r.text)
-        if res:
-            return res, url_buscar
+        if res: return res, url_buscar
     except Exception:
         pass
-
     return [], None
 
 def _search_ddg_fallback(query, max_items=12):
-    # Fallback: DuckDuckGo (HTML) con site:
     url = "https://duckduckgo.com/html/?q=" + requests.utils.quote(f"site:estrenosdivx.net {query}") + "&kl=es-es"
+    out = []
     try:
         r = _get(url)
-        soup = BeautifulSoup(r.text, "html.parser")
-        out = []
-        for a in soup.select("a.result__a"):
-            href = a.get("href") or ""
-            title = a.get_text(" ", strip=True)
-            if not href or not title:
-                continue
-            if "estrenosdivx.net" not in urlparse(href).netloc:
-                continue
-            out.append({
-                "title": title,
-                "url": href,
-                "image": None,
-                "year": None,
-                "source": "duckduckgo"
-            })
-            if len(out) >= max_items:
-                break
-        return out, url
+        if BeautifulSoup:
+            soup = BeautifulSoup(r.text, "html.parser")
+            for a in soup.select("a.result__a, a.result__url"):
+                href = (a.get("href") or "").strip()
+                title = (a.get_text(" ", strip=True) or "").strip()
+                if not href or not title: continue
+                if "estrenosdivx.net" not in (urlparse(href).netloc or ""): continue
+                out.append({"title": title, "url": href, "image": None, "year": None, "source": "duckduckgo"})
+                if len(out) >= max_items: break
+        else:
+            for m in re.finditer(r'<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>(.*?)</a>', r.text, flags=re.I|re.S):
+                href = m.group(1).strip()
+                title = re.sub(r"<[^>]+>", " ", m.group(2)).strip()
+                if "estrenosdivx.net" not in (urlparse(href).netloc or ""): continue
+                out.append({"title": title, "url": href, "image": None, "year": None, "source": "duckduckgo"})
+                if len(out) >= max_items: break
     except Exception:
-        return [], url
+        pass
+    return out, url
+
+def search_estrenos(query: str, max_items: int = 24):
+    res, src = _search_edvx(query)
+    if not res:
+        ddg, src2 = _search_ddg_fallback(query, max_items=max_items)
+        res, src = ddg, src2
+
+    by_url, by_title = {}, set()
+    for item in res:
+        url = item.get("url"); title = item.get("title") or ""
+        if not url or not title: continue
+        tn = _norm_text(title)
+        if url in by_url or tn in by_title: continue
+        item["_score"] = _score_title(title, query)
+        by_url[url] = item; by_title.add(tn)
+
+    ranked = sorted(by_url.values(), key=lambda x: x.get("_score", 0), reverse=True)
+    for it in ranked: it.pop("_score", None)
+    return ranked[:max_items], src
+
 
 
 # ========= SSE =========
@@ -4815,6 +4850,23 @@ def api_edvx_search():
         })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.get('/api/estrenos/search')
+def api_estrenos_search():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "unauthenticated"}), 401
+    q = (request.args.get('q') or '').strip()
+    if not q:
+        return jsonify({"ok": False, "error": "missing q"}), 400
+    results, used_url = search_estrenos(q)
+    # Log ligerito para ver qué camino tomó
+    try:
+        send_discord("Estrenos search", {"q": q, "count": len(results), "source": used_url})
+    except Exception:
+        pass
+    return jsonify({"ok": True, "count": len(results), "source": used_url, "results": results})
+
 
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1

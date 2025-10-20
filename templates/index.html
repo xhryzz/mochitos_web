@@ -6339,10 +6339,6 @@ if ('serviceWorker' in navigator) {
 <script>
 /* ===== Buscador estrenosdivx.net (scraping vía backend) ===== */
 (function(){
-  // Endpoint de redirección sin referrer (Flask)
-  const BOUNCE = "{{ url_for('bounce') }}";  // ← único uso de Jinja aquí
-  const EDVX_SEARCH_BASE = "https://estrenosdivx.net/?s=";
-
   const form        = document.getElementById('edvxForm');
   const qEl         = document.getElementById('edvxQuery');
   const openHereBtn = document.getElementById('edvxOpenHere');
@@ -6355,68 +6351,55 @@ if ('serviceWorker' in navigator) {
     return;
   }
 
-  // Guarda la última query para usarla como plan B en el enlace "Buscar ahí"
-  let lastQuery = '';
-
-  function escapeHtml(s){
-    return String(s || '').replace(/[&<>"']/g, m => ({
-      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-    }[m]));
-  }
+  let lastSearchUrl = null; // el /?s=<query> que devuelve el backend
 
   function cardHTML(item){
-    const title = escapeHtml(item.title || '');
-    const img   = item.image ? `<div class="media-cover"><img src="${escapeHtml(item.image)}" alt="${title}"></div>` : '';
-    const year  = item.year ? ` <span class="chip muted">(${escapeHtml(item.year)})</span>` : '';
-    const src   = item.source === 'duckduckgo' ? 'DDG' : 'EDVX';
-
-    // Enlace principal: pasa por /bounce para que EDVX no reciba Referer
-    const openLink = item.url
-      ? `<a href="${BOUNCE}?u=${encodeURIComponent(item.url)}" target="_blank" rel="noopener">Abrir</a>`
-      : '';
-
-    // Plan C: abrir su buscador oficial con el título (o con la última query)
-    const qForSearch = encodeURIComponent(item.title || lastQuery || '');
-    const searchLink = `<a href="${EDVX_SEARCH_BASE}${qForSearch}" target="_blank" rel="noreferrer noopener" referrerpolicy="no-referrer">Buscar ahí</a>`;
-
+    const img  = item.image ? `<div class="media-cover"><img src="${item.image}" alt=""></div>` : '';
+    const year = item.year ? ` <span class="chip muted">(${item.year})</span>` : '';
+    const src  = item.source === 'duckduckgo' ? 'DDG' : 'EDVX';
     return `
       <div class="media-card">
         <div class="media-status badge-wanted">${src}</div>
         ${img}
-        <h3 class="media-title" title="${title}">${title}</h3>
+        <h3 class="media-title" title="${item.title}">${item.title}${year}</h3>
         <div class="media-actions">
-          ${openLink}
-          ${searchLink}
+          ${ lastSearchUrl ? `
+            <a class="media-link" href="${lastSearchUrl}" target="_blank" rel="noopener">
+              Abrir búsqueda en EDVX
+            </a>` : '' }
+          <a class="media-link" href="/bounce?u=${encodeURIComponent(item.url)}" target="_blank" rel="noopener">
+            Abrir ficha (puede fallar)
+          </a>
         </div>
-        ${year}
       </div>
     `;
   }
 
   async function doSearch(query){
-    lastQuery = query;  // para el botón "Buscar ahí"
-    results.innerHTML = `<div style="padding:20px">Buscando <b>${escapeHtml(query)}</b>…</div>`;
+    results.innerHTML = `<div style="padding:20px">Buscando <b>${query}</b>…</div>`;
     modal.style.display = 'block';
 
     try{
-      const res = await fetch(`/api/edvx_search?q=${encodeURIComponent(query)}`, {
+      const res  = await fetch(`/api/edvx_search?q=${encodeURIComponent(query)}`, {
         headers: { 'Accept':'application/json' }
       });
       const data = await res.json();
 
+      // Guarda la URL del buscador de EDVX que usó el backend (/?s=...)
+      lastSearchUrl = data.from || `https://estrenosdivx.net/?s=${encodeURIComponent(query)}`;
+
       if(!data.ok){
-        results.innerHTML = `<div style="padding:20px;color:#b91c1c">Error: ${escapeHtml(data.error || 'falló la búsqueda')}</div>`;
+        results.innerHTML = `<div style="padding:20px;color:#b91c1c">Error: ${data.error || 'falló la búsqueda'}</div>`;
         return;
       }
 
       if(!data.results || !data.results.length){
-        const ddgHref = `https://duckduckgo.com/?q=${encodeURIComponent('site:estrenosdivx.net ' + query)}&kl=es-es`;
         results.innerHTML = `
           <div style="padding:20px">
-            Sin resultados directos. Prueba otro título.
+            Sin resultados directos.
             <div style="margin-top:10px">
-              <a class="media-link" target="_blank" rel="noreferrer noopener" referrerpolicy="no-referrer" href="${ddgHref}">
-                Abrir en DuckDuckGo
+              <a class="media-link" target="_blank" rel="noopener" href="${lastSearchUrl}">
+                Abrir búsqueda en EDVX
               </a>
             </div>
           </div>`;
@@ -6425,7 +6408,7 @@ if ('serviceWorker' in navigator) {
 
       results.innerHTML = data.results.map(cardHTML).join('');
     }catch(err){
-      results.innerHTML = `<div style="padding:20px;color:#b91c1c">Error de red: ${escapeHtml(err?.message||String(err))}</div>`;
+      results.innerHTML = `<div style="padding:20px;color:#b91c1c">Error de red: ${err?.message||err}</div>`;
     }
   }
 
@@ -6443,9 +6426,6 @@ if ('serviceWorker' in navigator) {
     if(!query){ window.showToast?.('error','Escribe un título 😉'); return; }
     doSearch(query);
   });
-
-  // Cerrar modal si haces click fuera (si ya tienes handlers globales, déjalo)
-  // Aquí no añadimos nada más para no pisar tu lógica de modales.
 })();
 </script>
 

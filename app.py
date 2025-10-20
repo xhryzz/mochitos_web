@@ -1367,6 +1367,38 @@ def push_wishlist_notice(creator: str, is_gift: bool):
         tag   = "wishlist-item"
     send_push_to(other, title, body, url="/#wishlist", tag=tag)
 
+
+
+def push_media_added(creator: str, mid: int, title: str,
+                     on_netflix: bool = False, on_prime: bool = False,
+                     link_url: str | None = None):
+    """🔔 Notifica al otro cuando se añade un título a 'Por ver'."""
+    other = other_of(creator)
+    plataformas = []
+    if on_netflix: plataformas.append("Netflix")
+    if on_prime:   plataformas.append("Prime Video")
+    suf = f" ({' · '.join(plataformas)})" if plataformas else ""
+    send_push_to(
+        other,
+        title="🎬 Nueva para ver",
+        body=f"Tu pareja ha añadido “{title}”{suf}.",
+        url="/#pelis",
+        tag=f"media-add-{mid}"
+    )
+
+def push_media_watched(watcher: str, mid: int, title: str, rating: int | None = None):
+    """🔔 Notifica al otro cuando se marca como vista (incluye nota si hay)."""
+    other = other_of(watcher)
+    stars = f" · {rating}/5 ⭐" if (isinstance(rating, int) and 1 <= rating <= 5) else ""
+    send_push_to(
+        other,
+        title="👀 Marcada como vista",
+        body=f"Tu pareja ha marcado “{title}” como vista{stars}.",
+        url="/#pelis",
+        tag=f"media-watched-{mid}"
+    )
+
+
 def push_answer_notice(responder: str):
     other = 'mochita' if responder == 'mochito' else 'mochito'
     who   = "tu pareja" if responder in ("mochito", "mochita") else responder
@@ -3840,11 +3872,27 @@ def media_add():
             c.execute("""
                 INSERT INTO media_items
                     (title, cover_url, link_url, on_netflix, on_prime, priority, comment,
-                     created_by, created_at, is_watched)
+                    created_by, created_at, is_watched)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,FALSE)
+                RETURNING id
             """, (title, cover_url, link_url, on_netflix, on_prime, priority, comment,
-                  user, now_madrid_str()))
+                user, now_madrid_str()))
+            mid = c.fetchone()[0]
             conn.commit()
+
+            # 🔔 Push al otro
+            try:
+                push_media_added(
+                    creator=user,
+                    mid=int(mid),
+                    title=title,
+                    on_netflix=bool(on_netflix),
+                    on_prime=bool(on_prime),
+                    link_url=link_url or None
+                )
+            except Exception as e:
+                print("[push media_added]", e)
+
         try: send_discord('Media add', {'by': user, 'title': title, 'priority': priority})
         except Exception: pass
         flash('Añadido a "Por ver" 🎬', 'success')
@@ -3882,54 +3930,37 @@ def media_mark_watched():
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # Cargar reviews actuales (JSONB) si existen
-            c.execute("SELECT reviews FROM media_items WHERE id=%s", (mid,))
+            # Cargar título + reviews (traemos title para la notificación)
+            c.execute("SELECT title, reviews FROM media_items WHERE id=%s", (mid,))
             row = c.fetchone()
             if not row:
                 flash('Elemento no encontrado.', 'error')
-                return redirect('/#pelis')
+                return redirect('/#pelis')  
 
-            raw_reviews = row['reviews'] if isinstance(row, dict) else row[0]
+            # ⬇️ AQUÍ:
+            title_row = (row['title'] if isinstance(row, dict) else row[0]) or ''
+
+            # Ojo: como ahora seleccionamos 2 columnas, si no es dict, reviews es row[1]
+            raw_reviews = row['reviews'] if isinstance(row, dict) else row[1]
             rv = {}
-            # Puede venir como dict (psycopg2) o como str; cubrimos ambos casos
-            if isinstance(raw_reviews, dict):
-                rv = dict(raw_reviews)
-            elif isinstance(raw_reviews, str) and raw_reviews.strip():
-                try:
-                    rv = json.loads(raw_reviews)
-                except Exception:
-                    rv = {}
-
-            # Upsert de TU reseña
-            rv[user] = {
-                "rating": rating,                    # puede ser None si no puntúa
-                "comment": watched_comment or ""     # string (incl. vacío)
-            }
-
-            # Recalcular media a partir de todas las reseñas válidas (1..5)
-            vals = []
-            for _, obj in (rv or {}).items():
-                try:
-                    rr = int((obj or {}).get("rating") or 0)
-                    if 1 <= rr <= 5:
-                        vals.append(rr)
-                except Exception:
-                    pass
-            avg = round(sum(vals) / len(vals), 1) if vals else None
-
-            # Guardar: marcamos como vista, fijamos watched_at y escribimos JSONB + avg
+            ...
             c.execute("""
                 UPDATE media_items
-                   SET is_watched    = TRUE,
-                       watched_at     = %s,
-                       reviews        = %s::jsonb,
-                       avg_rating     = %s,
-                       -- Campos legacy a NULL para no confundir al front
-                       rating         = NULL,
-                       watched_comment= NULL
-                 WHERE id = %s
+                SET is_watched    = TRUE,
+                    watched_at     = %s,
+                    reviews        = %s::jsonb,
+                    avg_rating     = %s,
+                    rating         = NULL,
+                    watched_comment= NULL
+                WHERE id = %s
             """, (now_madrid_str(), json.dumps(rv, ensure_ascii=False), avg, mid))
             conn.commit()
+
+        # 🔔 después del commit, usa title_row en la noti
+        try:
+            push_media_watched(watcher=user, mid=int(mid), title=title_row, rating=rating)
+        except Exception as e:
+            print("[push media_watched]", e)
 
         try:
             send_discord('Media watched', {'by': user, 'id': int(mid), 'rating': rating})
@@ -4049,7 +4080,6 @@ def media_delete():
     return redirect('/#pelis')
 
 
-
 @app.route('/media/update', methods=['GET','POST'])
 def media_update():
     # GET directo → vuelve a Pelis
@@ -4091,7 +4121,21 @@ def media_update():
 
     conn = get_db_connection()
     try:
+        did_push = False
+        title_row = ''
+
         with conn.cursor() as c:
+            # 0) Leer estado previo (para detectar transición y tener el título)
+            c.execute("SELECT is_watched, title, reviews FROM media_items WHERE id=%s", (mid,))
+            base = c.fetchone()
+            if not base:
+                flash('Elemento no encontrado.', 'error')
+                return redirect('/#pelis')
+
+            prev_watched = bool(base['is_watched'] if isinstance(base, dict) else base[0])
+            title_row    = (base['title']      if isinstance(base, dict) else base[1]) or ''
+            raw_reviews0 =  base['reviews']    if isinstance(base, dict) else base[2]
+
             # 1) Actualiza metadatos si vienen en el form
             c.execute("""
                 UPDATE media_items SET
@@ -4115,24 +4159,19 @@ def media_update():
                            watched_comment = NULL
                      WHERE id=%s
                 """, (mid,))
+
             # 3) Marcar vista / guardar review en JSONB (+avg) si procede
             elif mark_watched or rating is not None or watched_comment:
-                c.execute("SELECT reviews FROM media_items WHERE id=%s", (mid,))
-                row = c.fetchone()
-                if not row:
-                    flash('Elemento no encontrado.', 'error')
-                    conn.rollback()
-                    return redirect('/#pelis')
-
-                raw_reviews = row['reviews'] if isinstance(row, dict) else row[0]
+                # Partimos de las reviews que ya había
                 try:
-                    rv = dict(raw_reviews) if isinstance(raw_reviews, dict) else (json.loads(raw_reviews) if (isinstance(raw_reviews, str) and raw_reviews.strip()) else {})
+                    rv = (dict(raw_reviews0) if isinstance(raw_reviews0, dict)
+                          else (json.loads(raw_reviews0) if (isinstance(raw_reviews0, str) and raw_reviews0.strip()) else {}))
                 except Exception:
                     rv = {}
 
                 prev = rv.get(u) or {}
                 rv[u] = {
-                    "rating": rating if rating is not None else prev.get("rating"),
+                    "rating":  rating if rating is not None else prev.get("rating"),
                     "comment": (watched_comment or prev.get("comment") or "")
                 }
 
@@ -4140,7 +4179,8 @@ def media_update():
                 for obj in rv.values():
                     try:
                         r = int((obj or {}).get('rating') or 0)
-                        if 1 <= r <= 5: vals.append(r)
+                        if 1 <= r <= 5:
+                            vals.append(r)
                     except Exception:
                         pass
                 avg = round(sum(vals)/len(vals), 1) if vals else None
@@ -4157,19 +4197,32 @@ def media_update():
                      WHERE id=%s
                 """, (now_madrid_str(), json.dumps(rv, ensure_ascii=False), avg, mid))
 
+                # Si antes no estaba vista y ahora sí, luego notificamos
+                if not prev_watched:
+                    did_push = True
+
         conn.commit()
+
+        # 4) Notificar (ya fuera de la transacción)
+        if did_push:
+            try:
+                push_media_watched(watcher=u, mid=int(mid), title=title_row, rating=rating)
+            except Exception as e:
+                print("[push media_watched/update]", e)
+
         flash('Actualizado 🎬', 'success')
+
     except Exception as e:
         print('[media_update] ', e)
-        try: conn.rollback()
-        except Exception: pass
+        try:
+            conn.rollback()
+        except Exception:
+            pass
         flash('No se pudo actualizar.', 'error')
     finally:
         conn.close()
 
     return redirect('/#pelis')
-
-
 
 @app.get('/api/cycle')
 def api_cycle_get():

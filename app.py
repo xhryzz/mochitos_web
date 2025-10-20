@@ -2040,7 +2040,7 @@ def index():
             # ------------ POST acciones ------------
             # 1) Foto perfil
             if request.method == 'POST' and 'update_profile' in request.form and 'profile_picture' in request.files:
-               file = request.files['profile_picture']
+                file = request.files['profile_picture']
                 if file and file.filename:
                     raw = file.read()
                     img_bytes, mime_over = _maybe_shrink_image(raw)  # ⬅️ aquí se optimiza
@@ -2060,6 +2060,7 @@ def index():
                     broadcast('profile_update', {'user': user})
 
                 return redirect('/')
+
 
 
             # 2) Cambio de contraseña

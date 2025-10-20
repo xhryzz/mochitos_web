@@ -3912,7 +3912,7 @@ def media_mark_watched():
         return redirect('/')
     user = session['username']
 
-    mid = request.form.get('id')
+    mid = (request.form.get('id') or '').strip()
     rating_raw = (request.form.get('rating') or '').strip()
     watched_comment = (request.form.get('watched_comment') or '').strip()
 
@@ -3929,38 +3929,69 @@ def media_mark_watched():
 
     conn = get_db_connection()
     try:
+        did_push = False
+        title_row = ''
+
         with conn.cursor() as c:
-            # Cargar título + reviews (traemos title para la notificación)
-            c.execute("SELECT title, reviews FROM media_items WHERE id=%s", (mid,))
+            # Leemos estado previo para notificación y transición
+            c.execute("SELECT is_watched, title, reviews FROM media_items WHERE id=%s", (mid,))
             row = c.fetchone()
             if not row:
                 flash('Elemento no encontrado.', 'error')
-                return redirect('/#pelis')  
+                return redirect('/#pelis')
 
-            # ⬇️ AQUÍ:
-            title_row = (row['title'] if isinstance(row, dict) else row[0]) or ''
+            prev_watched = bool(row['is_watched'] if isinstance(row, dict) else row[0])
+            title_row    = (row['title'] if isinstance(row, dict) else row[1]) or ''
+            raw_reviews  =  row['reviews'] if isinstance(row, dict) else row[2]
 
-            # Ojo: como ahora seleccionamos 2 columnas, si no es dict, reviews es row[1]
-            raw_reviews = row['reviews'] if isinstance(row, dict) else row[1]
-            rv = {}
-            ...
+            # Normaliza reviews (dict/json/empty)
+            try:
+                rv = dict(raw_reviews) if isinstance(raw_reviews, dict) else (
+                    json.loads(raw_reviews) if (isinstance(raw_reviews, str) and raw_reviews.strip()) else {}
+                )
+            except Exception:
+                rv = {}
+
+            prev = rv.get(user) or {}
+            rv[user] = {
+                "rating":  rating if rating is not None else prev.get("rating"),
+                "comment": (watched_comment or prev.get("comment") or "")
+            }
+
+            # Recalcular media
+            vals = []
+            for obj in rv.values():
+                try:
+                    rr = int((obj or {}).get('rating') or 0)
+                    if 1 <= rr <= 5:
+                        vals.append(rr)
+                except Exception:
+                    pass
+            avg = round(sum(vals)/len(vals), 1) if vals else None
+
+            # Persistir como vista (y dejar legacy a NULL)
             c.execute("""
                 UPDATE media_items
-                SET is_watched    = TRUE,
-                    watched_at     = %s,
-                    reviews        = %s::jsonb,
-                    avg_rating     = %s,
-                    rating         = NULL,
-                    watched_comment= NULL
-                WHERE id = %s
+                   SET is_watched     = TRUE,
+                       watched_at      = %s,
+                       reviews         = %s::jsonb,
+                       avg_rating      = %s,
+                       rating          = NULL,
+                       watched_comment = NULL
+                 WHERE id=%s
             """, (now_madrid_str(), json.dumps(rv, ensure_ascii=False), avg, mid))
-            conn.commit()
 
-        # 🔔 después del commit, usa title_row en la noti
-        try:
-            push_media_watched(watcher=user, mid=int(mid), title=title_row, rating=rating)
-        except Exception as e:
-            print("[push media_watched]", e)
+            if not prev_watched:
+                did_push = True
+
+        conn.commit()
+
+        # Notificar fuera de la transacción
+        if did_push:
+            try:
+                push_media_watched(watcher=user, mid=int(mid), title=title_row, rating=rating)
+            except Exception as e:
+                print("[push media_watched]", e)
 
         try:
             send_discord('Media watched', {'by': user, 'id': int(mid), 'rating': rating})
@@ -3970,10 +4001,8 @@ def media_mark_watched():
 
     except Exception as e:
         print('[media_mark_watched] ', e)
-        try:
-            conn.rollback()
-        except Exception:
-            pass
+        try: conn.rollback()
+        except Exception: pass
         flash('No se pudo marcar como visto.', 'error')
     finally:
         conn.close()

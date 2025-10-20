@@ -2644,6 +2644,20 @@ body.page-media .section:not([data-section="media"]){
   <p>Lo que queremos ver y lo que ya vimos 💫</p>
 
   <div class="media-tools">
+    <!-- Buscador en estrenosdivx.net -->
+<div class="media-tools" id="edvx-tools">
+  <form id="edvxForm" onsubmit="return edvxSearch(event)" class="inline-form" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <input type="search" id="edvxQuery" placeholder="Buscar en estrenosdivx.net…" required>
+    <button type="submit" title="Abrir resultados en pestaña nueva">
+      <i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir pestaña
+    </button>
+    <button type="button" id="edvxOpenHere" title="Ver resultados dentro de la web">
+      <i class="fa-solid fa-eye"></i> Ver aquí
+    </button>
+  </form>
+  <small style="opacity:.7;">Solo consulta de resultados. Respeta los derechos de autor.</small>
+</div>
+
     <input type="search" id="media-search" placeholder="Buscar título/plataforma…">
     <div id="media-sort-toggle" class="sort-toggle" role="group" aria-label="Ordenar" tabindex="0">
       <div class="slider" aria-hidden="true"></div>
@@ -3056,6 +3070,24 @@ body.page-media .section:not([data-section="media"]){
     </div>
   </div>
 </div>
+
+<!-- MODAL: Resultados estrenosdivx.net -->
+<div id="edvxModal" class="modal" aria-modal="true" role="dialog">
+  <div class="modal-content" style="width:min(1200px,95%);height:80vh;display:flex;flex-direction:column;">
+    <div class="modal-header">
+      <h2>Buscar en estrenosdivx.net</h2>
+      <span class="close-modal" aria-label="Cerrar">&times;</span>
+    </div>
+    <div class="modal-body" style="padding:0;flex:1;position:relative;">
+      <div id="edvxSpinner" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+        Cargando…
+      </div>
+      <iframe id="edvxIframe" style="width:100%;height:100%;border:0;display:none;"
+              referrerpolicy="no-referrer-when-downgrade"></iframe>
+    </div>
+  </div>
+</div>
+
 
 <!-- ===== JS para los dos modales ===== -->
 <script>
@@ -6299,6 +6331,87 @@ if ('serviceWorker' in navigator) {
     }
   });
 }
+
+ // ===== Buscador específico: estrenosdivx.net =====
+  (function(){
+    const form   = document.getElementById('edvxForm');
+    const qEl    = document.getElementById('edvxQuery');
+    const openHereBtn = document.getElementById('edvxOpenHere');
+
+    // Si existe el buscador interno de tu grid, lo usamos para pre-rellenar
+    const mediaSearch = document.getElementById('media-search');
+    if (mediaSearch && mediaSearch.value && qEl) qEl.value = mediaSearch.value;
+
+    // URL directa típica de WordPress: ?s=termino
+    function directSearchURL(query){
+      return `https://estrenosdivx.net/?s=${encodeURIComponent(query)}`;
+    }
+    // Fallback con Google (solo listados del dominio)
+    function googleSiteURL(query){
+      const q = `site:estrenosdivx.net ${query}`;
+      return `https://www.google.com/search?q=${encodeURIComponent(q)}&hl=es`;
+    }
+
+    // Enviar: abrir en pestaña nueva
+    window.edvxSearch = function(e){
+      e.preventDefault();
+      const query = qEl?.value?.trim();
+      if(!query){ window.showToast?.('error','Escribe un título 😉'); return false; }
+
+      const url = directSearchURL(query);
+      // Abrimos primero la directa; si no carga por X motivo, el usuario siempre puede repetir desde Google
+      window.open(url, '_blank', 'noopener');
+      return false;
+    };
+
+    // Ver aquí (modal con iframe) + fallback si el sitio bloquea iframes
+    openHereBtn?.addEventListener('click', () => {
+      const query = qEl?.value?.trim();
+      if(!query){ window.showToast?.('error','Escribe un título 😉'); return; }
+
+      const modal   = document.getElementById('edvxModal');
+      const iframe  = document.getElementById('edvxIframe');
+      const spinner = document.getElementById('edvxSpinner');
+
+      if (!modal || !iframe || !spinner) return;
+
+      const directURL  = directSearchURL(query);
+      const fallbackURL= googleSiteURL(query);
+
+      spinner.style.display = 'flex';
+      iframe.style.display  = 'none';
+      iframe.removeAttribute('data-ok');
+
+      modal.style.display = 'block';
+
+      // Si el sitio no permite embebido, hacemos fallback a Google
+      let fallbackTimer = setTimeout(() => {
+        if (!iframe.dataset.ok) {
+          iframe.src = fallbackURL; // segundo intento: Google site:
+        }
+      }, 2500);
+
+      // Segundo temporizador: si tampoco Google carga (muy raro), abrir en pestaña nueva
+      let finalTimer = setTimeout(() => {
+        if (!iframe.dataset.ok) {
+          window.showToast?.('info','No puedo mostrarlo aquí; abro en una pestaña nueva.');
+          window.open(fallbackURL, '_blank', 'noopener');
+          modal.style.display = 'none';
+        }
+      }, 5000);
+
+      iframe.onload = () => {
+        iframe.dataset.ok = '1';
+        spinner.style.display = 'none';
+        iframe.style.display  = 'block';
+        clearTimeout(fallbackTimer);
+        clearTimeout(finalTimer);
+      };
+
+      // Carga inicial directa
+      iframe.src = directURL;
+    });
+  })();
 
   </script>
   

@@ -321,67 +321,50 @@ from urllib.parse import urlparse, urljoin
 
 EDVX_BASE = "https://estrenosdivx.net"
 EDVX_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                  "AppleWebKit/537.36 (KHTML, like Gecko) "
-                  "Chrome/124.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
     "Referer": EDVX_BASE + "/",
     "Cache-Control": "no-cache",
 }
 
-def _get(url, timeout=12):
-    r = requests.get(url, headers=EDVX_HEADERS, timeout=timeout, allow_redirects=True)
-    r.raise_for_status()
-    return r
-
-def _abs(url):
-    return url if bool(urlparse(url).netloc) else urljoin(EDVX_BASE, url)
-
-# Slugs/categorías que NO queremos como resultado (p. ej. /series/hd)
 _BAD_SLUGS = {
     "hd","4k","1080p","720p","series","peliculas","categoria","category","estrenos",
     "ver","descargar","latino","castellano","tag","tags","genres","genero","genre",
     "page","buscar","s","blog","noticias"
 }
 
+def _abs(u: str) -> str:
+    return u if urlparse(u).netloc else urljoin(EDVX_BASE, u)
+
 def _looks_like_detail_url(u: str) -> bool:
     try:
-        if not u or "estrenosdivx.net" not in (urlparse(u).netloc or ""):
+        p = urlparse(u)
+        if "estrenosdivx.net" not in (p.netloc or ""):
             return False
-        p = urlparse(u).path.strip("/")
-        if not p:
-            return False
-        parts = [seg for seg in p.split("/") if seg]
-        # Queremos algo tipo /pelicula/<slug> … /series/<slug>[/algo-mas]
+        parts = [seg for seg in p.path.strip("/").split("/") if seg]
         if len(parts) < 2:
             return False
-        if parts[0] not in ("pelicula", "peliculas", "series", "estreno", "estrenos"):
+        if parts[0] not in ("pelicula","peliculas","series","estreno","estrenos"):
             return False
-        # Evita categorías genéricas como /series/hd
-        if parts[1] in _BAD_SLUGS:
-            return False
-        # Evita listados/paginación
-        if any(seg in _BAD_SLUGS for seg in parts[1:]):
-            return False
-        # Heurística simple: el slug debería tener letras
-        if not re.search(r"[a-zA-Z]", parts[1]):
-            return False
-        return True
+        if parts[1] in _BAD_SLUGS: return False
+        if any(seg in _BAD_SLUGS for seg in parts[1:]): return False
+        return bool(re.search(r"[a-zA-Z]", parts[1]))
     except Exception:
         return False
 
-def _parse_results(html):
-    if not BeautifulSoup:
-        return []
+def _parse_results(html: str):
     soup = BeautifulSoup(html, "html.parser")
     results, seen = [], set()
 
-    # 1) Preferimos enlaces dentro de cada post/resultado
     containers = soup.select("article, .post, .result-item, .search-result, .loop-item, .entry")
-    for cont in containers:
-        a = cont.select_one("h2.entry-title a, h2 a, .entry-title a, a[href]")
-        if not a:
-            continue
+    if not containers:
+        containers = [soup]  # fallback: buscar <a> globales
+
+    anchors = []
+    for c in containers:
+        anchors += c.select("h2.entry-title a, h2 a, .entry-title a, a[href]")
+
+    for a in anchors:
         href = (a.get("href") or "").strip()
         title = (a.get_text(" ", strip=True) or "").strip()
         if not href or not title:
@@ -389,87 +372,89 @@ def _parse_results(html):
         url = _abs(href)
         if not _looks_like_detail_url(url):
             continue
-
         if url in seen:
             continue
         seen.add(url)
 
-        # Imagen cercana dentro del contenedor
-        img_tag = cont.select_one("img")
+        # imagen cercana
+        img_tag = None
+        for up in (getattr(a, "parent", None), getattr(a, "parent", None) and a.parent.parent):
+            if not up: continue
+            img_tag = up.select_one("img")
+            if img_tag and img_tag.get("src"):
+                break
         thumb = img_tag.get("src") if (img_tag and img_tag.get("src")) else None
 
-        # Año si está en el título
         m = re.search(r"\b((19|20)\d{2})\b", title)
-        year = m.group(1) if m else None
-
         results.append({
             "title": title,
             "url": url,
             "image": _abs(thumb) if thumb else None,
-            "year": year,
+            "year": (m.group(1) if m else None),
             "source": "estrenosdivx"
         })
 
-    # 2) Si no encontramos nada, fallback a buscar <a> globales bien formadas
-    if not results:
-        for a in soup.select("a[href]"):
-            href = (a.get("href") or "").strip()
-            title = (a.get_text(" ", strip=True) or "").strip()
-            if not href or not title:
-                continue
-            url = _abs(href)
-            if not _looks_like_detail_url(url):
-                continue
-            if url in seen:
-                continue
-            seen.add(url)
-            m = re.search(r"\b((19|20)\d{2})\b", title)
-            year = m.group(1) if m else None
-            results.append({
-                "title": title,
-                "url": url,
-                "image": None,
-                "year": year,
-                "source": "estrenosdivx"
-            })
-
     return results
 
-def _search_edvx(query: str):
+def _search_edvx_form(query: str):
     """
-    Scraping del buscador oficial de EDVX:
-    1) WordPress: /?s=<query>
-    2) Alternativa /buscar/<query>/
+    Intenta usar el FORMULARIO real del sitio:
+      1) GET a la home para cookies/CF.
+      2) Detecta <form> de búsqueda y su 'action' + name del input.
+      3) Envía la búsqueda con el método del form (GET/POST).
     """
-    # 1) Búsqueda WP
-    url_wp = f"{EDVX_BASE}/?s={requests.utils.quote(query)}"
-    try:
-        r = _get(url_wp)
+    s = requests.Session()
+    s.headers.update(EDVX_HEADERS)
+
+    # 1) Arranque para cookies
+    r0 = s.get(EDVX_BASE + "/", timeout=12)
+    r0.raise_for_status()
+    soup = BeautifulSoup(r0.text, "html.parser")
+
+    # 2) localizar formulario
+    form = soup.select_one("form[role=search], form.search-form, form[action*='?s='], form[action*='/buscar']")
+    if not form:
+        # fallback: si no hay form, probamos ?s=
+        r = s.get(EDVX_BASE + "/?s=" + requests.utils.quote(query), timeout=12)
+        r.raise_for_status()
         res = _parse_results(r.text)
-        if res:
-            return res, url_wp
-    except Exception:
-        pass
+        return (res, r.url) if res else ([], None)
 
-    # 2) Búsqueda alternativa
-    url_buscar = f"{EDVX_BASE}/buscar/{requests.utils.quote(query)}/"
-    try:
-        r = _get(url_buscar)
-        res = _parse_results(r.text)
-        if res:
-            return res, url_buscar
-    except Exception:
-        pass
+    action = _abs((form.get("action") or "/").strip())
+    method = (form.get("method") or "get").lower()
 
-    return [], None
+    # nombre del input de búsqueda
+    input_el = form.select_one("input[name]")
+    name = "s"
+    if input_el and input_el.get("name"):
+        name = input_el.get("name").strip()
 
-def _search_ddg_fallback(query, max_items=12):
-    """Último recurso: resultados externos pero siempre del dominio."""
+    data = {name: query}
+
+    # incluir inputs ocultos (por si hay honeypots/csrf — sin romper)
+    for hidden in form.select("input[type=hidden][name]"):
+        hn = hidden.get("name"); hv = hidden.get("value")
+        if hn and (hn not in data):
+            data[hn] = hv or ""
+
+    # 3) enviar como indica el form
+    if method == "post":
+        r = s.post(action, data=data, timeout=12, headers={"Referer": EDVX_BASE + "/"})
+    else:
+        url = action
+        sep = "&" if ("?" in url) else "?"
+        url = f"{url}{sep}{urlencode(data)}"
+        r = s.get(url, timeout=12, headers={"Referer": EDVX_BASE + "/"})
+
+    r.raise_for_status()
+    results = _parse_results(r.text)
+    return (results, r.url) if results else ([], r.url)
+
+def _search_ddg_fallback(query: str, max_items: int = 12):
     url = "https://duckduckgo.com/html/?q=" + requests.utils.quote(f"site:estrenosdivx.net {query}") + "&kl=es-es"
     try:
-        r = _get(url)
-        if not BeautifulSoup:
-            return [], url
+        r = requests.get(url, headers=EDVX_HEADERS, timeout=12)
+        r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
         out = []
         for a in soup.select("a.result__a"):
@@ -481,13 +466,7 @@ def _search_ddg_fallback(query, max_items=12):
                 continue
             if not _looks_like_detail_url(href):
                 continue
-            out.append({
-                "title": title,
-                "url": href,
-                "image": None,
-                "year": None,
-                "source": "duckduckgo"
-            })
+            out.append({"title": title, "url": href, "image": None, "year": None, "source": "duckduckgo"})
             if len(out) >= max_items:
                 break
         return out, url
@@ -4894,16 +4873,31 @@ def api_estrenos_search():
 
 
 
-# ======= API pública para tu front =======
 @app.get("/api/edvx_search")
 def api_edvx_search():
     q = (request.args.get("q") or "").strip()
     if not q:
         return jsonify({"ok": False, "error": "missing q"}), 400
-    res, src = _search_edvx(q)
+
+    # 1) buscador real (form) — requiere que tengas _search_edvx_form y _parse_results definidos
+    res, src = _search_edvx_form(q)
+
+    # 2) fallback WP ?s=
+    if not res:
+        try:
+            r = requests.get(EDVX_BASE + "/?s=" + requests.utils.quote(q), headers=EDVX_HEADERS, timeout=12)
+            r.raise_for_status()
+            res = _parse_results(r.text)
+            src = r.url
+        except Exception:
+            res = []
+
+    # 3) último recurso: DDG site:
     if not res:
         res, src = _search_ddg_fallback(q, max_items=24)
+
     return jsonify({"ok": True, "from": src, "results": res})
+
 
 
 
@@ -4932,15 +4926,6 @@ def bounce():
         }
     )
 
-@app.get("/api/edvx_search2")
-def api_edvx_search2():
-    q = (request.args.get("q") or "").strip()
-    if not q:
-        return jsonify({"ok": False, "error": "missing q"}), 400
-    res, src = _search_edvx(q)
-    if not res:
-        res, src = _search_ddg_fallback(q, max_items=24)
-    return jsonify({"ok": True, "from": src, "results": res})
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1
 if os.environ.get("RUN_SCHEDULER", "1") == "1":

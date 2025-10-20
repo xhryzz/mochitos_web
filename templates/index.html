@@ -6337,97 +6337,73 @@ if ('serviceWorker' in navigator) {
   </script>
   
 <script>
-/* ===== Buscador estrenosdivx.net (scraping vía backend) ===== */
-(function(){
-  const form        = document.getElementById('edvxForm');
-  const qEl         = document.getElementById('edvxQuery');
-  const openHereBtn = document.getElementById('edvxOpenHere');
-
-  const modal   = document.getElementById('edvxModal');
-  const results = document.getElementById('edvxResults');
-
-  if(!form || !qEl || !openHereBtn || !modal || !results){
-    console.warn('[EDVX] Faltan elementos del buscador/modal.');
-    return;
-  }
-
-  let lastSearchUrl = null; // el /?s=<query> que devuelve el backend
-
-  function cardHTML(item){
-    const img  = item.image ? `<div class="media-cover"><img src="${item.image}" alt=""></div>` : '';
-    const year = item.year ? ` <span class="chip muted">(${item.year})</span>` : '';
-    const src  = item.source === 'duckduckgo' ? 'DDG' : 'EDVX';
-    return `
-      <div class="media-card">
-        <div class="media-status badge-wanted">${src}</div>
-        ${img}
-        <h3 class="media-title" title="${item.title}">${item.title}${year}</h3>
-        <div class="media-actions">
-          ${ lastSearchUrl ? `
-            <a class="media-link" href="${lastSearchUrl}" target="_blank" rel="noopener">
-              Abrir búsqueda en EDVX
-            </a>` : '' }
-          <a class="media-link" href="/bounce?u=${encodeURIComponent(item.url)}" target="_blank" rel="noopener">
-            Abrir ficha (puede fallar)
-          </a>
-        </div>
-      </div>
-    `;
-  }
-
-  async function doSearch(query){
-    results.innerHTML = `<div style="padding:20px">Buscando <b>${query}</b>…</div>`;
-    modal.style.display = 'block';
-
-    try{
-      const res  = await fetch(`/api/edvx_search2?q=${encodeURIComponent(query)}`, {
-
-        headers: { 'Accept':'application/json' }
-      });
-      const data = await res.json();
-
-      // Guarda la URL del buscador de EDVX que usó el backend (/?s=...)
-      lastSearchUrl = data.from || `https://estrenosdivx.net/?s=${encodeURIComponent(query)}`;
-
-      if(!data.ok){
-        results.innerHTML = `<div style="padding:20px;color:#b91c1c">Error: ${data.error || 'falló la búsqueda'}</div>`;
-        return;
-      }
-
-      if(!data.results || !data.results.length){
-        results.innerHTML = `
-          <div style="padding:20px">
-            Sin resultados directos.
-            <div style="margin-top:10px">
-              <a class="media-link" target="_blank" rel="noopener" href="${lastSearchUrl}">
-                Abrir búsqueda en EDVX
-              </a>
-            </div>
-          </div>`;
-        return;
-      }
-
-      results.innerHTML = data.results.map(cardHTML).join('');
-    }catch(err){
-      results.innerHTML = `<div style="padding:20px;color:#b91c1c">Error de red: ${err?.message||err}</div>`;
-    }
-  }
-
-  // Enviar (abrir aquí por defecto)
-  form.addEventListener('submit', (e) => {
+  // SUBMIT: "Abrir pestaña" -> abre la búsqueda oficial en EDVX en una nueva pestaña
+  function edvxSearch(e){
     e.preventDefault();
-    const query = (qEl.value || '').trim();
-    if(!query){ window.showToast?.('error','Escribe un título 😉'); return; }
-    doSearch(query);
-  });
+    const q = document.getElementById('edvxQuery').value.trim();
+    if(!q) return false;
+    window.open(`https://www.estrenosdivx.net/?s=${encodeURIComponent(q)}`, '_blank', 'noopener');
+    return false;
+  }
 
-  // Botón “Ver aquí”
-  openHereBtn.addEventListener('click', () => {
-    const query = (qEl.value || '').trim();
-    if(!query){ window.showToast?.('error','Escribe un título 😉'); return; }
-    doSearch(query);
-  });
-})();
+  // CLICK: "Ver aquí" -> usa tu API /api/edvx_search y renderiza en el modal
+  (function bindEdvxHere(){
+    const btn = document.getElementById('edvxOpenHere');
+    if(!btn) return;
+    btn.addEventListener('click', async () => {
+      const q = document.getElementById('edvxQuery').value.trim();
+      if(!q){
+        window.showToast?.('info','Escribe algo para buscar');
+        return;
+      }
+      try{
+        const r = await fetch(`/api/edvx_search?q=${encodeURIComponent(q)}`);
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        const data = await r.json();
+        if(!data.ok || !Array.isArray(data.results) || data.results.length === 0){
+          window.showToast?.('error','Sin resultados');
+          return;
+        }
+        renderEdvxResults(data.results);
+        // abre el modal
+        document.getElementById('edvxModal').style.display = 'block';
+      }catch(err){
+        console.error(err);
+        window.showToast?.('error','Error al buscar');
+      }
+    });
+  })();
+
+  // Pinta tarjetas dentro de #edvxResults (usa /bounce para abrir)
+  function renderEdvxResults(items){
+    const wrap = document.getElementById('edvxResults');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+    items.forEach(it => {
+      const card = document.createElement('div');
+      card.className = 'media-card';
+      card.innerHTML = `
+        <div class="media-head">
+          <span class="media-kind movie">Resultado</span>
+        </div>
+        <h3 class="media-title">${escapeHtml(it.title || 'Sin título')}</h3>
+        ${it.image ? `<div class="media-cover"><img src="${it.image}" alt=""></div>` : ''}
+        <a class="media-link" href="/bounce?u=${encodeURIComponent(it.url || '')}" target="_blank" rel="noopener">
+          <i class="fas fa-link"></i> Abrir en estrenosdivx.net
+        </a>
+        ${it.year ? `<div class="chip muted">Año: ${String(it.year)}</div>` : ''}
+      `;
+      wrap.appendChild(card);
+    });
+  }
+
+  // util mínima para texto seguro
+  function escapeHtml(s){
+    return String(s||'')
+      .replaceAll('&','&amp;').replaceAll('<','&lt;')
+      .replaceAll('>','&gt;').replaceAll('"','&quot;')
+      .replaceAll("'","&#39;");
+  }
 </script>
 
 

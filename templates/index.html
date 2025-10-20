@@ -2644,20 +2644,6 @@ body.page-media .section:not([data-section="media"]){
   <p>Lo que queremos ver y lo que ya vimos 💫</p>
 
   <div class="media-tools">
-    <!-- Buscador en estrenosdivx.net -->
-<div class="media-tools" id="edvx-tools">
-  <form id="edvxForm" onsubmit="return edvxSearch(event)" class="inline-form" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-    <input type="search" id="edvxQuery" placeholder="Buscar en estrenosdivx.net…" required>
-    <button type="submit" title="Abrir resultados en pestaña nueva">
-      <i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir pestaña
-    </button>
-    <button type="button" id="edvxOpenHere" title="Ver resultados dentro de la web">
-      <i class="fa-solid fa-eye"></i> Ver aquí
-    </button>
-  </form>
-  <small style="opacity:.7;">Solo consulta de resultados. Respeta los derechos de autor.</small>
-</div>
-
     <input type="search" id="media-search" placeholder="Buscar título/plataforma…">
     <div id="media-sort-toggle" class="sort-toggle" role="group" aria-label="Ordenar" tabindex="0">
       <div class="slider" aria-hidden="true"></div>
@@ -3070,24 +3056,6 @@ body.page-media .section:not([data-section="media"]){
     </div>
   </div>
 </div>
-
-<!-- MODAL: Resultados estrenosdivx.net -->
-<div id="edvxModal" class="modal" aria-modal="true" role="dialog">
-  <div class="modal-content" style="width:min(1200px,95%);height:80vh;display:flex;flex-direction:column;">
-    <div class="modal-header">
-      <h2>Buscar en estrenosdivx.net</h2>
-      <span class="close-modal" aria-label="Cerrar">&times;</span>
-    </div>
-    <!-- Reemplaza el cuerpo del modal EDVX por esto -->
-<div class="modal-body" style="padding:16px; max-height: calc(80vh - 60px); overflow:auto;">
-  <div id="edvxResults" class="media-grid"></div>
-</div>
-      <iframe id="edvxIframe" style="width:100%;height:100%;border:0;display:none;"
-              referrerpolicy="no-referrer-when-downgrade"></iframe>
-    </div>
-  </div>
-</div>
-
 
 <!-- ===== JS para los dos modales ===== -->
 <script>
@@ -6332,79 +6300,9 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-
-
   </script>
   
-<script>
-  // SUBMIT: "Abrir pestaña" -> abre la búsqueda oficial en EDVX en una nueva pestaña
-  function edvxSearch(e){
-    e.preventDefault();
-    const q = document.getElementById('edvxQuery').value.trim();
-    if(!q) return false;
-    window.open(`https://www.estrenosdivx.net/?s=${encodeURIComponent(q)}`, '_blank', 'noopener');
-    return false;
-  }
 
-  // CLICK: "Ver aquí" -> usa tu API /api/edvx_search y renderiza en el modal
-  (function bindEdvxHere(){
-    const btn = document.getElementById('edvxOpenHere');
-    if(!btn) return;
-    btn.addEventListener('click', async () => {
-      const q = document.getElementById('edvxQuery').value.trim();
-      if(!q){
-        window.showToast?.('info','Escribe algo para buscar');
-        return;
-      }
-      try{
-        const r = await fetch(`/api/edvx_search?q=${encodeURIComponent(q)}`);
-        if(!r.ok) throw new Error('HTTP ' + r.status);
-        const data = await r.json();
-        if(!data.ok || !Array.isArray(data.results) || data.results.length === 0){
-          window.showToast?.('error','Sin resultados');
-          return;
-        }
-        renderEdvxResults(data.results);
-        // abre el modal
-        document.getElementById('edvxModal').style.display = 'block';
-      }catch(err){
-        console.error(err);
-        window.showToast?.('error','Error al buscar');
-      }
-    });
-  })();
-
-  // Pinta tarjetas dentro de #edvxResults (usa /bounce para abrir)
-  function renderEdvxResults(items){
-    const wrap = document.getElementById('edvxResults');
-    if(!wrap) return;
-    wrap.innerHTML = '';
-    items.forEach(it => {
-      const card = document.createElement('div');
-      card.className = 'media-card';
-      card.innerHTML = `
-        <div class="media-head">
-          <span class="media-kind movie">Resultado</span>
-        </div>
-        <h3 class="media-title">${escapeHtml(it.title || 'Sin título')}</h3>
-        ${it.image ? `<div class="media-cover"><img src="${it.image}" alt=""></div>` : ''}
-        <a class="media-link" href="/bounce?u=${encodeURIComponent(it.url || '')}" target="_blank" rel="noopener">
-          <i class="fas fa-link"></i> Abrir en estrenosdivx.net
-        </a>
-        ${it.year ? `<div class="chip muted">Año: ${String(it.year)}</div>` : ''}
-      `;
-      wrap.appendChild(card);
-    });
-  }
-
-  // util mínima para texto seguro
-  function escapeHtml(s){
-    return String(s||'')
-      .replaceAll('&','&amp;').replaceAll('<','&lt;')
-      .replaceAll('>','&gt;').replaceAll('"','&quot;')
-      .replaceAll("'","&#39;");
-  }
-</script>
 
 
 

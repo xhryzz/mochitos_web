@@ -315,6 +315,10 @@ def is_due_or_overdue(now_madrid: datetime, hhmm: str, grace_minutes: int = 720)
 def now_madrid_str() -> str:
     return europe_madrid_now().strftime("%Y-%m-%d %H:%M:%S")
 
+# ======== EDVX: búsqueda y scraping del buscador oficial ========
+import re
+from urllib.parse import urlparse, urljoin
+
 EDVX_BASE = "https://estrenosdivx.net"
 EDVX_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -322,195 +326,173 @@ EDVX_HEADERS = {
                   "Chrome/124.0.0.0 Safari/537.36",
     "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
     "Referer": EDVX_BASE + "/",
+    "Cache-Control": "no-cache",
 }
 
 def _get(url, timeout=12):
-    r = requests.get(url, headers=EDVX_HEADERS, timeout=timeout)
+    r = requests.get(url, headers=EDVX_HEADERS, timeout=timeout, allow_redirects=True)
     r.raise_for_status()
     return r
 
 def _abs(url):
-    try:
-        return url if bool(urlparse(url).netloc) else urljoin(EDVX_BASE, url)
-    except Exception:
-        return url
+    return url if bool(urlparse(url).netloc) else urljoin(EDVX_BASE, url)
 
-def _norm_text(s: str) -> str:
-    if not s: return ""
-    s = unicodedata.normalize("NFKD", s)
-    s = "".join(ch for ch in s if not unicodedata.combining(ch))
-    return " ".join(s.lower().strip().split())
-
-def _score_title(title: str, q: str) -> int:
-    t = _norm_text(title); qn = _norm_text(q)
-    if not t or not qn: return 0
-    score = 0
-    if t.startswith(qn): score += 120
-    elif qn in t:       score += 80
-    score += min(40, 10 * len(set(t.split()) & set(qn.split())))
-    return score
-
-def _parse_results(html):
-    results, seen = [], set()
-    if BeautifulSoup:
-        soup = BeautifulSoup(html, "html.parser")
-        candidates = soup.select(
-            "h2.entry-title a, .entry-title a, article h2 a, "
-            ".post-title a, .result-item h2 a, .titulo a, "
-            "a[href*='/pelicula/'], a[href*='/series/'], a[href*='/estreno/']"
-        )
-        for a in candidates:
-            href = (a.get("href") or "").strip()
-            title = (a.get_text(" ", strip=True) or "").strip()
-            if not href or not title: continue
-            url = _abs(href)
-            netloc = urlparse(url).netloc or ""
-            if netloc and "estrenosdivx.net" not in netloc: continue
-            if any(x in url for x in ("/?s=", "/page/", "/category/", "/buscar/")) and "pelicula" not in url and "series" not in url:
-                continue
-            if url in seen: continue
-
-            thumb = None
-            img_tag = a.find_previous("img") or a.find_next("img")
-            if img_tag and img_tag.get("src"): thumb = img_tag.get("src")
-
-            m = re.search(r"\((19|20)\d{2}\)", title)
-            year = m.group(0)[1:-1] if m else None
-
-            results.append({
-                "title": title,
-                "url": _abs(url),
-                "image": _abs(thumb) if thumb else None,
-                "year": year,
-                "source": "estrenosdivx"
-            })
-            seen.add(url)
-        return results
-
-    # Fallback sin bs4
-    for m in re.finditer(r'<a[^>]+href="(?P<h>[^"]+)"[^>]*>(?P<t>.*?)</a>', html, flags=re.I|re.S):
-        href = m.group("h") or ""
-        traw = re.sub(r"<[^>]+>", " ", m.group("t") or "")
-        title = " ".join((traw or "").split()).strip()
-        if not href or not title: continue
-        url = _abs(href)
-        nu = urlparse(url)
-        if nu.netloc and "estrenosdivx.net" not in nu.netloc: continue
-        if all(k not in url for k in ("/pelicula/", "/series/", "/estreno/", "/ver-")): continue
-        if url in seen: continue
-        m2 = re.search(r"\((19|20)\d{2}\)", title)
-        year = m2.group(0)[1:-1] if m2 else None
-        results.append({"title": title, "url": url, "image": None, "year": year, "source": "estrenosdivx"})
-        seen.add(url)
-    return results
-
-def _search_edvx(query):
-    # 1) ?s=
-    url_wp = f"{EDVX_BASE}/?s={quote_plus(query)}"
-    try:
-        r = _get(url_wp)
-        res = _parse_results(r.text)
-        if res: return res, url_wp
-    except Exception:
-        pass
-    # 2) /buscar/
-    url_buscar = f"{EDVX_BASE}/buscar/{quote_plus(query)}/"
-    try:
-        r = _get(url_buscar)
-        res = _parse_results(r.text)
-        if res: return res, url_buscar
-    except Exception:
-        pass
-    return [], None
-
-def _search_ddg_fallback(query, max_items=12):
-    url = "https://duckduckgo.com/html/?q=" + requests.utils.quote(f"site:estrenosdivx.net {query}") + "&kl=es-es"
-    out = []
-    try:
-        r = _get(url)
-        if BeautifulSoup:
-            soup = BeautifulSoup(r.text, "html.parser")
-            for a in soup.select("a.result__a, a.result__url"):
-                href = (a.get("href") or "").strip()
-                title = (a.get_text(" ", strip=True) or "").strip()
-                if not href or not title: continue
-                if "estrenosdivx.net" not in (urlparse(href).netloc or ""): continue
-                out.append({"title": title, "url": href, "image": None, "year": None, "source": "duckduckgo"})
-                if len(out) >= max_items: break
-        else:
-            for m in re.finditer(r'<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>(.*?)</a>', r.text, flags=re.I|re.S):
-                href = m.group(1).strip()
-                title = re.sub(r"<[^>]+>", " ", m.group(2)).strip()
-                if "estrenosdivx.net" not in (urlparse(href).netloc or ""): continue
-                out.append({"title": title, "url": href, "image": None, "year": None, "source": "duckduckgo"})
-                if len(out) >= max_items: break
-    except Exception:
-        pass
-    return out, url
-
-def search_estrenos(query: str, max_items: int = 24):
-    # 1) Primero intenta en el propio sitio
-    res, src = _search_edvx(query)
-    if not res:
-        # 2) Si no hay nada útil, usa DuckDuckGo
-        ddg, src = _search_ddg_fallback(query, max_items=max_items)
-        res = ddg
-
-    toks = _tokens(query)
-
-    def relevant(it):
-        url = it.get("url",""); title = it.get("title","")
-        if not _looks_like_detail_url(url):
-            return False
-        t = _norm_text(title)
-        # Al menos un token del query dentro del título (“peaky” → “peaky blinders”)
-        return any(tok in t for tok in toks)
-
-    # 3) Filtra por URL de detalle + match en título
-    filtered = [it for it in res if relevant(it)]
-
-    # 4) Si aún así no hay, reintenta por DDG y vuelve a filtrar (por si el WP no devuelve nada)
-    if not filtered:
-        ddg, src2 = _search_ddg_fallback(query, max_items=max_items)
-        res = ddg
-        filtered = [it for it in res if relevant(it)]
-
-    # 5) Último recurso: acepta sólo URLs de detalle (evita /series/hd)
-    if not filtered:
-        filtered = [it for it in res if _looks_like_detail_url(it.get("url",""))]
-
-    # 6) Rank por “empieza por”, “contiene”, solape de tokens
-    for it in filtered:
-        it["_score"] = _score_title(it.get("title",""), query)
-    ranked = sorted(filtered, key=lambda x: x.get("_score", 0), reverse=True)
-    for it in ranked:
-        it.pop("_score", None)
-
-    return ranked[:max_items], src
-
-BAD_SLUGS = {
-    "hd","4k","1080p","720p","series","peliculas","categoria","category",
-    "estrenos","ver","descargar","latino","castellano","tag","genres","genero","page"
+# Slugs/categorías que NO queremos como resultado (p. ej. /series/hd)
+_BAD_SLUGS = {
+    "hd","4k","1080p","720p","series","peliculas","categoria","category","estrenos",
+    "ver","descargar","latino","castellano","tag","tags","genres","genero","genre",
+    "page","buscar","s","blog","noticias"
 }
 
 def _looks_like_detail_url(u: str) -> bool:
     try:
-        p = urlparse(u).path.rstrip("/")
-        parts = [s for s in p.split("/") if s]
+        if not u or "estrenosdivx.net" not in (urlparse(u).netloc or ""):
+            return False
+        p = urlparse(u).path.strip("/")
+        if not p:
+            return False
+        parts = [seg for seg in p.split("/") if seg]
+        # Queremos algo tipo /pelicula/<slug> … /series/<slug>[/algo-mas]
         if len(parts) < 2:
             return False
-        if parts[0] not in ("pelicula","series","estreno"):
+        if parts[0] not in ("pelicula", "peliculas", "series", "estreno", "estrenos"):
             return False
-        # Evita índices tipo /series/hd, /series/page/2, etc.
-        if parts[1] in BAD_SLUGS or any(seg in BAD_SLUGS for seg in parts[1:]):
+        # Evita categorías genéricas como /series/hd
+        if parts[1] in _BAD_SLUGS:
+            return False
+        # Evita listados/paginación
+        if any(seg in _BAD_SLUGS for seg in parts[1:]):
+            return False
+        # Heurística simple: el slug debería tener letras
+        if not re.search(r"[a-zA-Z]", parts[1]):
             return False
         return True
     except Exception:
         return False
 
-def _tokens(q: str) -> list[str]:
-    return [t for t in re.split(r"[\s\-\._]+", _norm_text(q)) if len(t) >= 3]
+def _parse_results(html):
+    if not BeautifulSoup:
+        return []
+    soup = BeautifulSoup(html, "html.parser")
+    results, seen = [], set()
 
+    # 1) Preferimos enlaces dentro de cada post/resultado
+    containers = soup.select("article, .post, .result-item, .search-result, .loop-item, .entry")
+    for cont in containers:
+        a = cont.select_one("h2.entry-title a, h2 a, .entry-title a, a[href]")
+        if not a:
+            continue
+        href = (a.get("href") or "").strip()
+        title = (a.get_text(" ", strip=True) or "").strip()
+        if not href or not title:
+            continue
+        url = _abs(href)
+        if not _looks_like_detail_url(url):
+            continue
+
+        if url in seen:
+            continue
+        seen.add(url)
+
+        # Imagen cercana dentro del contenedor
+        img_tag = cont.select_one("img")
+        thumb = img_tag.get("src") if (img_tag and img_tag.get("src")) else None
+
+        # Año si está en el título
+        m = re.search(r"\b((19|20)\d{2})\b", title)
+        year = m.group(1) if m else None
+
+        results.append({
+            "title": title,
+            "url": url,
+            "image": _abs(thumb) if thumb else None,
+            "year": year,
+            "source": "estrenosdivx"
+        })
+
+    # 2) Si no encontramos nada, fallback a buscar <a> globales bien formadas
+    if not results:
+        for a in soup.select("a[href]"):
+            href = (a.get("href") or "").strip()
+            title = (a.get_text(" ", strip=True) or "").strip()
+            if not href or not title:
+                continue
+            url = _abs(href)
+            if not _looks_like_detail_url(url):
+                continue
+            if url in seen:
+                continue
+            seen.add(url)
+            m = re.search(r"\b((19|20)\d{2})\b", title)
+            year = m.group(1) if m else None
+            results.append({
+                "title": title,
+                "url": url,
+                "image": None,
+                "year": year,
+                "source": "estrenosdivx"
+            })
+
+    return results
+
+def _search_edvx(query: str):
+    """
+    Scraping del buscador oficial de EDVX:
+    1) WordPress: /?s=<query>
+    2) Alternativa /buscar/<query>/
+    """
+    # 1) Búsqueda WP
+    url_wp = f"{EDVX_BASE}/?s={requests.utils.quote(query)}"
+    try:
+        r = _get(url_wp)
+        res = _parse_results(r.text)
+        if res:
+            return res, url_wp
+    except Exception:
+        pass
+
+    # 2) Búsqueda alternativa
+    url_buscar = f"{EDVX_BASE}/buscar/{requests.utils.quote(query)}/"
+    try:
+        r = _get(url_buscar)
+        res = _parse_results(r.text)
+        if res:
+            return res, url_buscar
+    except Exception:
+        pass
+
+    return [], None
+
+def _search_ddg_fallback(query, max_items=12):
+    """Último recurso: resultados externos pero siempre del dominio."""
+    url = "https://duckduckgo.com/html/?q=" + requests.utils.quote(f"site:estrenosdivx.net {query}") + "&kl=es-es"
+    try:
+        r = _get(url)
+        if not BeautifulSoup:
+            return [], url
+        soup = BeautifulSoup(r.text, "html.parser")
+        out = []
+        for a in soup.select("a.result__a"):
+            href = a.get("href") or ""
+            title = a.get_text(" ", strip=True)
+            if not href or not title:
+                continue
+            if "estrenosdivx.net" not in (urlparse(href).netloc or ""):
+                continue
+            if not _looks_like_detail_url(href):
+                continue
+            out.append({
+                "title": title,
+                "url": href,
+                "image": None,
+                "year": None,
+                "source": "duckduckgo"
+            })
+            if len(out) >= max_items:
+                break
+        return out, url
+    except Exception:
+        return [], url
 
 # ========= SSE =========
 _subscribers_lock = threading.Lock()
@@ -4909,6 +4891,19 @@ def api_estrenos_search():
     except Exception:
         pass
     return jsonify({"ok": True, "count": len(results), "source": used_url, "results": results})
+
+
+
+# ======= API pública para tu front =======
+@app.get("/api/edvx_search")
+def api_edvx_search():
+    q = (request.args.get("q") or "").strip()
+    if not q:
+        return jsonify({"ok": False, "error": "missing q"}), 400
+    res, src = _search_edvx(q)
+    if not res:
+        res, src = _search_ddg_fallback(q, max_items=24)
+    return jsonify({"ok": True, "from": src, "results": res})
 
 
 

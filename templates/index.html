@@ -6361,9 +6361,13 @@ if ('serviceWorker' in navigator) {
         ${img}
         <h3 class="media-title" title="${item.title}">${item.title}</h3>
         <div class="media-actions">
-          <a class="media-link" href="${item.url}" target="_blank" rel="noopener">
-            <i class="fas fa-link"></i> Abrir
-          </a>
+          <a
+  href="{{ url_for('bounce') }}?u={{ item.url | urlencode }}"
+  target="_blank"
+  rel="noopener"
+>
+  Abrir en EDVX
+</a>
         </div>
         ${year}
       </div>

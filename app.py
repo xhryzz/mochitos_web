@@ -4912,6 +4912,32 @@ def api_estrenos_search():
 
 
 
+@app.get("/bounce")
+def bounce():
+    u = (request.args.get("u") or "").strip()
+    if not u:
+        abort(400)
+    host = (urlparse(u).netloc or "").lower()
+    if host not in ("estrenosdivx.net", "www.estrenosdivx.net"):
+        abort(400)  # evita open redirect
+
+    html = f"""<!doctype html>
+<meta charset="utf-8">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="refresh" content="0; url={u}">
+<title>Redirigiendo…</title>
+<script>location.replace({json.dumps(u)});</script>"""
+
+    return Response(
+        html,
+        mimetype="text/html",
+        headers={
+            "Referrer-Policy": "no-referrer",
+            "Content-Security-Policy": "default-src 'none'; script-src 'unsafe-inline'; base-uri 'none';",
+        }
+    )
+
+
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1
 if os.environ.get("RUN_SCHEDULER", "1") == "1":
     threading.Thread(target=background_loop, daemon=True).start()

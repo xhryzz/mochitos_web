@@ -55,15 +55,22 @@ except Exception:
     pass
 
 # ⬇️ AÑADE ESTO AQUÍ (justo después de la config)
+import os, tempfile, pathlib
 try:
     from jinja2 import FileSystemBytecodeCache
+
+    JINJA_CACHE_DIR = os.environ.get(
+        "JINJA_CACHE_DIR",
+        os.path.join(tempfile.gettempdir(), "jinja_cache")  # normalmente /tmp/jinja_cache en Render
+    )
+    pathlib.Path(JINJA_CACHE_DIR).mkdir(parents=True, exist_ok=True)
+
     app.jinja_env.bytecode_cache = FileSystemBytecodeCache(
-        directory='/tmp/jinja_cache',
+        directory=JINJA_CACHE_DIR,
         pattern='mochitos-%s.cache'
     )
-except Exception:
-    pass
-# ⬆️ FIN BLOQUE JINJA
+except Exception as e:
+    app.logger.warning("Jinja bytecode cache desactivado: %s", e)
 
 # ========= Discord logs (asíncrono) =========
 DISCORD_WEBHOOK = os.environ.get('DISCORD_WEBHOOK', '')

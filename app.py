@@ -4831,30 +4831,6 @@ def api_other_location():
 
 
 
-@app.get("/api/edvx_search")
-def api_edvx_search():
-    q = (request.args.get("q") or "").strip()
-    if not q:
-        return jsonify({"ok": False, "error": "missing_query"}), 400
-
-    try:
-        results, used = _search_edvx(q)
-        source = used or EDVX_BASE
-        if not results:
-            # Fallback a DDG si el sitio devuelve su página de “Ups…”
-            results, used = _search_ddg_fallback(q)
-            source = used
-
-        return jsonify({
-            "ok": True,
-            "query": q,
-            "count": len(results),
-            "source": source,
-            "results": results
-        })
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
 
 @app.get('/api/estrenos/search')
 def api_estrenos_search():

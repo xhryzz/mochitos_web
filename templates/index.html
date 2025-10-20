@@ -6303,7 +6303,89 @@ if ('serviceWorker' in navigator) {
   </script>
   
 
-
+  <script>
+    // Identidades
+    const CURRENT_USER = {{ username|tojson }};
+    const OTHER_USER   = (CURRENT_USER === 'mochito') ? 'mochita' : 'mochito';
+  
+    // Referencias a tus marcadores existentes (ajusta estos nombres a tu código)
+    // Asume Leaflet (L). Si tus variables ya existen, reutilízalas:
+    let mochitoMarker = window.mochitoMarker || null;
+    let mochitaMarker = window.mochitaMarker || null;
+    let distanceLine  = window.distanceLine  || null;
+  
+    // Si no tienes helpers, crea uno mínimo:
+    function setUserLocation(who, lat, lng, label){
+      if (lat == null || lng == null) return;
+  
+      if (who === 'mochito') {
+        if (!mochitoMarker) mochitoMarker = L.marker([lat, lng]).addTo(map);
+        mochitoMarker.setLatLng([lat, lng]).bindTooltip(label || 'Mochito', {permanent:false});
+      } else {
+        if (!mochitaMarker) mochitaMarker = L.marker([lat, lng]).addTo(map);
+        mochitaMarker.setLatLng([lat, lng]).bindTooltip(label || 'Mochita', {permanent:false});
+      }
+      drawLineAndDistance();
+    }
+  
+    function drawLineAndDistance(){
+      if (!mochitoMarker || !mochitaMarker) return;
+      const a = mochitoMarker.getLatLng();
+      const b = mochitaMarker.getLatLng();
+  
+      if (!distanceLine) distanceLine = L.polyline([a,b], {weight:3}).addTo(map);
+      distanceLine.setLatLngs([a,b]);
+  
+      // Distancia (Haversine) y UI opcional
+      const R = 6371;
+      const dLat = (b.lat - a.lat) * Math.PI/180;
+      const dLng = (b.lng - a.lng) * Math.PI/180;
+      const la1 = a.lat * Math.PI/180, la2 = b.lat * Math.PI/180;
+      const hav = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2;
+      const km = Math.round(R * 2 * Math.atan2(Math.sqrt(hav), Math.sqrt(1-hav)));
+      (document.getElementById('distanceValue') || {}).textContent = `${km.toLocaleString('es-ES')} km`;
+      const fill = document.getElementById('distanceFill');
+      if (fill) fill.style.width = Math.max(0, Math.min(100, (km/500)*100)) + '%';
+    }
+  
+    // 2.1 Escuchar Server-Sent Events
+    const es = new EventSource('/events');
+    es.addEventListener('location_update', (ev) => {
+      try {
+        const d = JSON.parse(ev.data);  // {user, name, lat, lng, updated_at}
+        if (!d || !d.user) return;
+        // Evitamos movernos a nosotros mismos
+        if (d.user === CURRENT_USER) return;
+        setUserLocation(d.user, d.lat, d.lng, d.name || '');
+      } catch(e) { /* no-op */ }
+    });
+  
+    // 2.2 (Recomendado) Cargar posiciones iniciales al abrir
+    fetch('/api/locations')
+      .then(r => r.json())
+      .then(j => {
+        if (!j.ok) return;
+        j.items.forEach(it => setUserLocation(it.user, it.lat, it.lng, it.name || ''));
+      })
+      .catch(()=>{});
+  
+    // 2.3 (Opcional) Botón "Usar mi ubicación" vía fetch JSON (sin recargar)
+    document.getElementById('useMyLocationBtn')?.addEventListener('click', () => {
+      if (!navigator.geolocation) return alert('Tu navegador no permite geolocalización');
+      navigator.geolocation.getCurrentPosition(pos => {
+        const lat = pos.coords.latitude, lng = pos.coords.longitude;
+        // Pinta local al instante
+        setUserLocation(CURRENT_USER, lat, lng, (CURRENT_USER === 'mochito' ? 'Mochito (GPS)' : 'Mochita (GPS)'));
+        // Llama al backend (este responderá JSON y hará broadcast)
+        fetch('/update_location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ latitude: lat, longitude: lng, location_name: 'GPS' })
+        }).catch(()=>{});
+      }, () => alert('No se pudo obtener tu ubicación'), { enableHighAccuracy:true, maximumAge:10000, timeout:10000 });
+    });
+  </script>
+  
 
 
 {% if username in ('mochito','mochita') %}

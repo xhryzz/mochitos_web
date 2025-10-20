@@ -2771,39 +2771,94 @@ def edit_wishlist_item():
 @app.route('/update_location', methods=['POST'])
 def update_location():
     if 'username' not in session:
+        if request.is_json or request.headers.get('Accept','').startswith('application/json'):
+            return jsonify({"ok": False, "error": "unauthenticated"}), 401
         return redirect('/')
+
     try:
         user = session['username']
-        location_name = (request.form.get('location_name') or '').strip()
-        lat = request.form.get('latitude')
-        lon = request.form.get('longitude')
+
+        # Lee de form o JSON (compat)
+        data = request.get_json(silent=True) or request.form
+        def g(*keys):
+            for k in keys:
+                if k in data and data.get(k) not in (None, ''):
+                    return data.get(k)
+            return None
+
+        location_name = (g('location_name','name') or '').strip()
+        lat = g('latitude','lat')
+        lon = g('longitude','lng','lon')
+
         lat = float(lat) if lat not in (None, '') else None
         lon = float(lon) if lon not in (None, '') else None
+
         now_txt = now_madrid_str()
 
         conn = get_db_connection()
-        with conn.cursor() as c:
-            c.execute("""
-                INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
-                VALUES (%s,%s,%s,%s,%s)
-                ON CONFLICT (username) DO UPDATE
-                SET location_name=EXCLUDED.location_name,
-                    latitude=EXCLUDED.latitude,
-                    longitude=EXCLUDED.longitude,
-                    updated_at=EXCLUDED.updated_at
-            """, (user, location_name, lat, lon, now_txt))
-            conn.commit()
-        flash("Ubicación actualizada 📍", "success")
+        try:
+            with conn.cursor() as c:
+                c.execute("""
+                    INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
+                    VALUES (%s,%s,%s,%s,%s)
+                    ON CONFLICT (username) DO UPDATE
+                    SET location_name=EXCLUDED.location_name,
+                        latitude=EXCLUDED.latitude,
+                        longitude=EXCLUDED.longitude,
+                        updated_at=EXCLUDED.updated_at
+                """, (user, location_name, lat, lon, now_txt))
+                conn.commit()
+        finally:
+            conn.close()
+
+        # 🔔 ahora SÍ broadcast con coords
+        payload = {"user": user, "name": location_name, "lat": lat, "lng": lon, "updated_at": now_txt}
         send_discord("Location updated", {"user": user, "name": location_name, "lat": lat, "lon": lon})
-        broadcast("location_update", {"user": user})
+        try:
+            broadcast("location_update", payload)
+        except Exception:
+            pass
+
+        # Respuesta según tipo
+        if request.is_json or request.headers.get('Accept','').startswith('application/json'):
+            return jsonify({"ok": True, **payload})
+        flash("Ubicación actualizada 📍", "success")
         return redirect('/')
+
     except Exception as e:
         print(f"Error en update_location: {e}")
+        if request.is_json or request.headers.get('Accept','').startswith('application/json'):
+            return jsonify({"ok": False, "error": "server_error"}), 500
         flash("No se pudo actualizar la ubicación.", "error")
         return redirect('/')
+
+
+
+@app.get('/api/locations')
+def api_locations():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "unauthenticated"}), 401
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT username, location_name, latitude, longitude, updated_at
+                FROM locations
+                WHERE username IN ('mochito','mochita')
+            """)
+            items = []
+            for r in c.fetchall():
+                items.append({
+                    "user": r['username'],
+                    "name": (r['location_name'] or ''),
+                    "lat":  r['latitude'],
+                    "lng":  r['longitude'],
+                    "updated_at": r['updated_at']
+                })
     finally:
-        if 'conn' in locals():
-            conn.close()
+        conn.close()
+    return jsonify({"ok": True, "items": items})
+
 
 # ======= Logout =======
 @app.route('/logout')

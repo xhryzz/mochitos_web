@@ -1702,6 +1702,103 @@ body.page-media .section:not([data-section="media"]){
 }
 
 
+/* =========================================
+   🎄 NAVIDAD — rojo total + gorro + nieve
+   Activo solo cuando <body> tiene .xmas
+   ========================================= */
+
+/* Paleta y fondo: solo en temporada */
+body.xmas{
+  /* Variables de color para tu UI existente */
+  --primary-color: #b8001f;   /* rojo principal */
+  --secondary-color: #d90429; /* rojo vivo */
+  --accent-color: #0fb36c;    /* verde navidad */
+  --gradient: linear-gradient(135deg, #8b0000 0%, #b8001f 40%, #d90429 100%);
+  --light-pink: #fff7f8;
+
+  /* Fondo general menos rosado */
+  background:
+    radial-gradient(120% 80% at 110% 0%, rgba(216, 18, 43, .06), transparent 50%),
+    linear-gradient(135deg, #fff7f7 0%, #f7f7f9 100%);
+}
+
+/* Cambia la onda tenue de tu body::before a rojo suave */
+body.xmas::before{
+  content: "";
+  position: fixed; inset: 0; height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%23b8001f' fill-opacity='0.05' d='M0,224L48,213.3C96,203,192,181,288,160C384,139,480,117,576,122.7C672,128,768,160,864,170.7C960,181,1056,171,1152,165.3C1248,160,1344,160,1392,160L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'/%3E%3C/svg%3E");
+  background-size: cover;
+  z-index: -1;
+}
+
+/* Botones degradados en rojo */
+body.xmas button{
+  background: linear-gradient(135deg, var(--secondary-color), var(--primary-color)) !important;
+  box-shadow: 0 8px 22px rgba(184,0,31,.25) !important;
+}
+
+/* Tarjetas y títulos: ligero acento dorado/verde */
+body.xmas .section{
+  border: 1px solid rgba(184,0,31,.08);
+  background:
+    radial-gradient(120% 90% at -20% 0%, rgba(11,179,108,.06), transparent 40%),
+    rgba(255,255,255,.95);
+}
+body.xmas .section h3{ border-bottom: 3px solid #f6c453; }
+body.xmas .section h3::after{
+  background: linear-gradient(90deg, #f6c453, var(--accent-color));
+  box-shadow: 0 6px 20px rgba(246,196,83,.35);
+}
+
+/* Corazones flotantes en rojo tenue (si los usas) */
+body.xmas .floating-hearts .heart{ color: rgba(184, 0, 31, 0.30); }
+
+/* Banner con sombra algo más dramática */
+body.xmas .section.banner{ box-shadow: 0 30px 60px rgba(184,0,31,.18); }
+
+/* ========= GORRO visible sobre el título del banner ========= */
+body.xmas .banner-overlay{ position: relative; z-index: 3; }
+body.xmas .banner-overlay h1{ position: relative; z-index: 2; }
+
+/* Gorro dibujado en SVG incrustado (no necesitas HTML extra) */
+body.xmas .banner-overlay h1::after{
+  content: "";
+  position: absolute;
+  top: -6px;          /* mueve si quieres: -6 a 8px */
+  right: -4px;        /* mueve si quieres */
+  width: 92px; 
+  height: 62px;
+  transform: rotate(-12deg);
+  pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 80'%3E%3Cpath d='M10 70 L80 20 L98 46 L10 70 Z' fill='%23d90429'/%3E%3Crect x='18' y='60' width='76' height='16' rx='8' fill='%23ffffff'/%3E%3Ccircle cx='98' cy='30' r='12' fill='%23ffffff'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+/* ============== ❄️ NIEVE (capa visual) ============== */
+#xmasSnow{
+  position: fixed;
+  inset: 0;
+  pointer-events: none;   /* no bloquea clics */
+  z-index: 950;           /* debajo de tus modales (1000) y navbar (1100) */
+}
+#xmasSnow .flake{
+  position: absolute;
+  top: -10vh;
+  width: 6px; height: 6px;
+  background: #fff;
+  border-radius: 50%;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.15));
+  opacity: .9;
+  animation: snow-fall linear infinite;
+}
+@keyframes snow-fall{ to { transform: translateY(110vh); } }
+
+/* Respeta accesibilidad */
+@media (prefers-reduced-motion: reduce){
+  #xmasSnow{ display: none; }
+}
+
+
+
     </style>
 </head>
 
@@ -6304,6 +6401,83 @@ if ('serviceWorker' in navigator) {
   
 
 
+<script>
+(function(){
+  const SNOW_COUNT = 120;                  // nº de copos (sube/baja a gusto)
+  const XMAS_COLOR = '#b8001f';            // rojo barra móvil
+  let initialThemeColor;                   // para restaurar color fuera de temporada
+  let snowWrap = null;
+
+  // Devuelve true si hoy está entre 1 nov y 8 ene (inclusive)
+  function isXmasSeason(d = new Date()){
+    const m = d.getMonth();  // 0=ene ... 10=nov, 11=dic
+    const day = d.getDate();
+    return (m === 10 /*nov*/ ) || (m === 11 /*dic*/) || (m === 0 /*ene*/ && day <= 8);
+  }
+
+  function getThemeMeta(){
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta){
+      meta = document.createElement('meta');
+      meta.setAttribute('name','theme-color');
+      meta.content = '#ffffff';
+      document.head.appendChild(meta);
+    }
+    return meta;
+  }
+
+  function setThemeColor(active){
+    const meta = getThemeMeta();
+    if (initialThemeColor === undefined) initialThemeColor = meta.content || '#ffffff';
+    meta.content = active ? XMAS_COLOR : initialThemeColor;
+  }
+
+  function buildSnow(){
+    if (snowWrap || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    snowWrap = document.createElement('div');
+    snowWrap.id = 'xmasSnow';
+    const frag = document.createDocumentFragment();
+
+    for (let i = 0; i < SNOW_COUNT; i++){
+      const s = document.createElement('i');
+      s.className = 'flake';
+      const size  = 2 + Math.random()*5;                // 2–7px
+      const dur   = 7 + Math.random()*10;               // 7–17s
+      const delay = Math.random()*8;                    // 0–8s
+      s.style.left = (Math.random()*100)+'vw';
+      s.style.width = s.style.height = size+'px';
+      s.style.opacity = (0.35 + Math.random()*0.55).toFixed(2);
+      s.style.animationDuration = dur.toFixed(2)+'s';
+      s.style.animationDelay = delay.toFixed(2)+'s';
+      frag.appendChild(s);
+    }
+    snowWrap.appendChild(frag);
+    document.body.appendChild(snowWrap);
+  }
+
+  function clearSnow(){
+    if (snowWrap){ snowWrap.remove(); snowWrap = null; }
+  }
+
+  function applyXmas(active){
+    document.body.classList.toggle('xmas', !!active);
+    setThemeColor(!!active);
+    if (active) buildSnow(); else clearSnow();
+  }
+
+  // Aplica ahora según la fecha
+  applyXmas(isXmasSeason());
+
+  // Re-evalúa cada día a las 00:05 por si la página queda abierta
+  (function scheduleMidnightTick(){
+    const now = new Date();
+    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0, 5, 0); // 00:05
+    const ms = next - now;
+    setTimeout(() => { applyXmas(isXmasSeason()); scheduleMidnightTick(); }, ms);
+  })();
+
+})();
+</script>
 
 
 {% if username in ('mochito','mochita') %}

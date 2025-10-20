@@ -27,6 +27,8 @@ except Exception:
     BeautifulSoup = None
 
 app = Flask(__name__)
+# Límite de subida (ajustable por env MAX_UPLOAD_MB). Evita BYTEA enormes que disparan RAM.
+app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_UPLOAD_MB', '2')) * 1024 * 1024
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
 
 @app.before_request
@@ -40,6 +42,8 @@ app.config['TEMPLATES_AUTO_RELOAD'] = False
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
+
+
 # ======= Compresión (si está) =======
 try:
     from flask_compress import Compress
@@ -49,6 +53,17 @@ try:
     Compress(app)
 except Exception:
     pass
+
+# ⬇️ AÑADE ESTO AQUÍ (justo después de la config)
+try:
+    from jinja2 import FileSystemBytecodeCache
+    app.jinja_env.bytecode_cache = FileSystemBytecodeCache(
+        directory='/tmp/jinja_cache',
+        pattern='mochitos-%s.cache'
+    )
+except Exception:
+    pass
+# ⬆️ FIN BLOQUE JINJA
 
 # ========= Discord logs (asíncrono) =========
 DISCORD_WEBHOOK = os.environ.get('DISCORD_WEBHOOK', '')
@@ -152,22 +167,21 @@ def touch_presence(user: str, device: str = 'page-view'):
 
 
 def _init_pool():
-    """Crea el pool una sola vez."""
     global PG_POOL
     if PG_POOL:
         return
     if not DATABASE_URL:
-        raise RuntimeError("Falta DATABASE_URL para PostgreSQL")
+        raise RuntimeError('Falta DATABASE_URL para PostgreSQL')
+
+    # Máximo 3 conexiones por defecto (suficiente en 512 MB). Sube con DB_MAX_CONN si lo necesitas.
+    maxconn = max(3, int(os.environ.get('DB_MAX_CONN', '3')))
     PG_POOL = SimpleConnectionPool(
-        1,
-        int(os.environ.get("DB_MAX_CONN", "10")),
+        1, maxconn,
         dsn=DATABASE_URL,
-        keepalives=1,
-        keepalives_idle=30,
-        keepalives_interval=10,
-        keepalives_count=5,
-        connect_timeout=8,
+        keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=5,
+        connect_timeout=8
     )
+
 
 class PooledConn:
     """Wrapper que inicializa la sesión y se autorecupera si la conexión está rota."""
@@ -1652,37 +1666,89 @@ def other_of(u: str) -> str:
 
 
 
-def fetch_price(url: str) -> tuple[int | None, str | None, str | None]:
+def fetch_price(url:str)->tuple[int|None,str|None,str|None]:
     try:
-        resp = requests.get(url, timeout=8, headers={"User-Agent": PRICE_UA})
-        html = resp.text
+        # Stream con tope de bytes: evita tragarse HTML de 10-20 MB
+        with requests.get(
+            url,
+            timeout=(3.05, 6),
+            headers={'User-Agent': PRICE_UA},
+            stream=True
+        ) as resp:
+            resp.raise_for_status()
+            max_bytes = int(os.environ.get('PRICE_MAX_BYTES', '1200000'))  # ~1.2MB
+            buf = io.BytesIO()
+            for chunk in resp.iter_content(chunk_size=16384):
+                if not chunk:
+                    break
+                buf.write(chunk)
+                if buf.tell() >= max_bytes:
+                    break
+            html = buf.getvalue().decode(resp.encoding or 'utf-8', errors='ignore')
+
+        # Título sin BeautifulSoup si no hace falta
+        mtitle = re.search(r'<title>(.*?)</title>', html, flags=re.I|re.S)
+        title = (mtitle.group(1).strip() if mtitle else None)
+
+        # Prioriza JSON-LD (rápido)
         c_jsonld, curr = _find_in_jsonld(html)
+
         cents_dom = None
-        soup = BeautifulSoup(html, "html.parser") if BeautifulSoup else None
-        if soup:
+        soup = None
+        # Solo parsea con BS4 si el HTML no es gigante
+        if BeautifulSoup and len(html) <= 400_000:
+            soup = BeautifulSoup(html, 'html.parser')
             cents_dom = _meta_price(soup)
-            title = (soup.title.text.strip() if soup.title else None)
-        else:
-            title = None
+
         cents_rx = None
-        for pat in [r"€\s*\d[\d\.\,]*", r"\d[\d\.\,]*\s*€", r"\b\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})\b"]:
+        for pat in [r'€\s*\d[\d\.\,]*', r'\d[\d\.\,]*\s*€', r'\b\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})\b']:
             m = re.search(pat, html)
             if m:
-                cents_rx = _to_cents_from_str(m.group(0)); break
+                cents_rx = _to_cents_from_str(m.group(0))
+                break
+
         price = c_jsonld or cents_dom or cents_rx
         if price:
             if not curr:
-                curr = "EUR" if "€" in html else None
+                curr = 'EUR' if '€' in html else None
             return price, curr, title
         return None, None, title
     except Exception as e:
-        print("[price] fetch error:", e)
+        print('[price] fetch error:', e)
         return None, None, None
+
 
 def fmt_eur(cents: int | None) -> str:
     if cents is None: return "—"
     euros = cents/100.0
     return f"{euros:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _maybe_shrink_image(image_data: bytes, max_px: int = 1600, max_kb: int = 500):
+    """
+    Devuelve (bytes_optimizados, mime_override_o_None). Intenta convertir a WebP y limitar tamaño.
+    Si no hay PIL, corta a max_kb como red de seguridad (no cambia funcionalidad visible).
+    """
+    try:
+        from PIL import Image  # pip install Pillow (opcional)
+        im = Image.open(io.BytesIO(image_data)).convert('RGB')
+        w, h = im.size
+        if max(w, h) > max_px:
+            ratio = max_px / float(max(w, h))
+            im = im.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+        out = io.BytesIO()
+        im.save(out, format='WEBP', quality=82, method=6)
+        out_bytes = out.getvalue()
+        if len(out_bytes) <= len(image_data):
+            return out_bytes, 'image/webp'
+    except Exception:
+        pass
+
+    if len(image_data) > max_kb * 1024:
+        # Último recurso: recorte duro para evitar BYTEA gigantes (mantiene “una imagen”, no cambia rutas)
+        return image_data[:max_kb * 1024], None
+    return image_data, None
+
 
 def notify_price_drop(row, old_cents: int, new_cents: int):
     """Notifica bajada de precio.
@@ -1914,179 +1980,17 @@ def run_scheduled_jobs(now=None):
         print("[tick price sweep]", e)
 
 
-# ========= Background scheduler (recordatorios) =========
 def background_loop():
-    """Bucles de ~45s para:
-       - crear pregunta del día y notificar (una vez/día)
-       - aviso romántico diario (ventana 09:00–23:59, con tolerancia si el server estuvo dormido)
-       - hitos 75/100/150/200/250/300/365
-       - notificaciones programadas (admin)
-       - countdown meeting (1/2/3 días) con tolerancia
-       - recordatorio últimas 3h si falta responder
-       - barrido de seguimiento de precios cada ~3h
-    """
-    # Helper local: considera "atraso" hasta N minutos por si el servicio estuvo dormido
-    def _is_due_or_overdue(now_madrid: datetime, hhmm: str, grace_minutes: int = 720) -> bool:
-        try:
-            hh, mm = map(int, hhmm.split(":"))
-        except Exception:
-            return False
-        scheduled = now_madrid.replace(hour=hh, minute=mm, second=0, microsecond=0)
-        delta = (now_madrid - scheduled).total_seconds()
-        return (delta >= 0) and (delta <= grace_minutes * 60)
-
-    print("[bg] scheduler iniciado")
+    """Bucle ligero que delega en run_scheduled_jobs()."""
+    print('[bg] scheduler iniciado (thin)')
+    # Si quieres el mismo ritmo que antes (~45s), dejo 45 por defecto
+    interval = int(os.environ.get('SCHEDULER_INTERVAL', '45'))
     while True:
         try:
-            now = europe_madrid_now()
-            today = now.date()
-
-            # 1) Pregunta del día + notificación (una vez/día)
-            last_dq_push = state_get("last_dq_push_date", "")
-            if str(today) != last_dq_push:
-                qid, _qtext = get_today_question(today)   # usar fecha local (Madrid)
-                if qid:
-                    push_daily_new_question()
-                    state_set("last_dq_push_date", str(today))
-                    cache_invalidate('compute_streaks')
-                else:
-                    # Banco vacío: avisa por Discord para que añadas preguntas
-                    send_discord("Daily question skipped (empty bank)", {"date": str(today)})
-
-            # 2) Aviso diario "Hoy cumplís X días..." (ventana 09:00–23:59)
-            #    Primero dejamos tu lógica original:
-            try:
-                maybe_push_relationship_daily_windowed(now)
-            except Exception as e:
-                print("[bg rel_daily_window]", e)
-            #    Luego un "catch-up" por si la hora quedó atrás mientras el servicio dormía:
-            try:
-                dcount = days_together()
-                if dcount > 0 and dcount not in {75, 100, 150, 200, 250, 300, 365}:
-                    day = now.date()
-                    hhmm = ensure_rel_daily_time(day, now)   # fija/recupera la hora del día
-                    if hhmm:
-                        sent_key = _rel_daily_sent_key(day, hhmm)
-                        if not state_get(sent_key, "") and _is_due_or_overdue(now, hhmm, 720):
-                            send_push_both(
-                                title=f"💖 Hoy cumplís {dcount} días juntos",
-                                body="Un día más, y cada vez mejor 🥰",
-                                url="/#contador",
-                                tag=f"relationship-day-{dcount}"
-                            )
-                            state_set(sent_key, "1")
-            except Exception as e:
-                print("[bg rel_daily_catchup]", e)
-
-            # 3) Hitos 75/100/150/200/250/300/365 (solo el día exacto)
-            try:
-                push_relationship_milestones()
-            except Exception as e:
-                print("[bg milestone]", e)
-
-            # 4) Notificaciones programadas (admin)
-            try:
-                conn = get_db_connection()
-                try:
-                    with conn.cursor() as c:
-                        c.execute("""
-                            SELECT id, target, title, body, url, tag, icon, badge, when_at
-                            FROM scheduled_notifications
-                            WHERE status='pending'
-                            ORDER BY when_at ASC
-                            LIMIT 25
-                        """)
-                        rows = c.fetchall()
-
-                    now_local = europe_madrid_now()
-                    for r in rows:
-                        when_dt = _parse_dt(r['when_at'] or "")
-                        if when_dt and when_dt <= now_local:
-                            target = r['target']
-                            if target == 'both':
-                                send_push_both(
-                                    title=r['title'],
-                                    body=(r['body'] or None),
-                                    url=r['url'], tag=r['tag'], icon=r['icon'], badge=r['badge']
-                                )
-                            else:
-                                send_push_to(
-                                    target,
-                                    title=r['title'],
-                                    body=(r['body'] or None),
-                                    url=r['url'], tag=r['tag'], icon=r['icon'], badge=r['badge']
-                                )
-                            with conn.cursor() as c2:
-                                c2.execute("""
-                                   UPDATE scheduled_notifications
-                                   SET status='sent', sent_at=%s
-                                   WHERE id=%s
-                                """, (now_madrid_str(), r['id']))
-                                conn.commit()
-                            send_discord("Admin: push sent (scheduled)", {"id": int(r['id']), "title": r['title']})
-                finally:
-                    conn.close()
-            except Exception as e:
-                print("[bg scheduled push]", e)
-
-            # 5) Countdown para meeting (1–3 días) con tolerancia a atrasos
-            try:
-                d = days_until_meeting()
-                if d is not None and d in (1, 2, 3):
-                    times = ensure_meet_times(today)  # lista de HH:MM
-                    for hhmm in times:
-                        sent_key = _meet_sent_key(today, hhmm)
-                        if not state_get(sent_key, "") and _is_due_or_overdue(now, hhmm, 720):
-                            push_meeting_countdown(d)
-                            state_set(sent_key, "1")
-                else:
-                    # resetea la lista del día para que mañana se regenere
-                    state_set(_meet_times_key(today), json.dumps([]))
-            except Exception as e:
-                print("[bg meeting countdown]", e)
-
-            # 6) Últimas 3 horas para responder la pregunta del día
-            try:
-                qid, _ = get_today_question(today)
-            except Exception:
-                qid = None
-            if qid:
-                conn = get_db_connection()
-                try:
-                    with conn.cursor() as c:
-                        c.execute("SELECT username FROM answers WHERE question_id=%s", (qid,))
-                        have = {r[0] for r in c.fetchall()}
-                finally:
-                    conn.close()
-
-                secs_left = seconds_until_next_midnight_madrid()
-                if secs_left <= 3 * 3600:
-                    for u in ('mochito', 'mochita'):
-                        if u not in have:
-                            key = f"late_reminder_{today.isoformat()}_{u}"
-                            if not state_get(key, ""):
-                                push_last_hours(u)
-                                state_set(key, "1")
-
-            # 7) Barrido de precios cada ~3h
-            try:
-                last_sweep = state_get("last_price_sweep", "")
-                do = True
-                if last_sweep:
-                    dt = _parse_dt(last_sweep)
-                    if dt:
-                        from datetime import timedelta as _td
-                        do = (europe_madrid_now() - dt) >= _td(hours=3)
-                if do:
-                    sweep_price_checks(max_items=6, min_age_minutes=180)
-                    state_set("last_price_sweep", now_madrid_str())
-            except Exception as e:
-                print("[bg price sweep]", e)
-
+            run_scheduled_jobs()  # aquí ya están: DQ diaria, aviso romántico, hitos, scheduled, meeting, último aviso, precios...
         except Exception as e:
             print(f"[bg] error: {e}")
-
-        time.sleep(45)
+        time.sleep(interval)
 
 
 # ========= Rutas =========
@@ -2136,22 +2040,25 @@ def index():
             # ------------ POST acciones ------------
             # 1) Foto perfil
             if request.method == 'POST' and 'update_profile' in request.form and 'profile_picture' in request.files:
-                file = request.files['profile_picture']
+               file = request.files['profile_picture']
                 if file and file.filename:
-                    image_data = file.read()
+                    raw = file.read()
+                    img_bytes, mime_over = _maybe_shrink_image(raw)  # ⬅️ aquí se optimiza
                     filename = secure_filename(file.filename)
-                    mime_type = file.mimetype
+                    mime_type = mime_over or file.mimetype
                     c.execute("""
                         INSERT INTO profile_pictures (username, image_data, filename, mime_type, uploaded_at)
                         VALUES (%s,%s,%s,%s,%s)
                         ON CONFLICT (username) DO UPDATE
                         SET image_data=EXCLUDED.image_data, filename=EXCLUDED.filename,
                             mime_type=EXCLUDED.mime_type, uploaded_at=EXCLUDED.uploaded_at
-                    """, (user, image_data, filename, mime_type, now_madrid_str()))
-                    conn.commit(); flash("Foto de perfil actualizada ✅", "success")
-                    send_discord("Profile picture updated", {"user": user, "filename": filename})
+                    """, (user, img_bytes, filename, mime_type, now_madrid_str()))
+                    conn.commit()
+                    flash('Foto de perfil actualizada ✅','success')
+                    send_discord('Profile picture updated', {'user': user, 'filename': filename})
                     cache_invalidate('get_profile_pictures')
-                    broadcast("profile_update", {"user": user})
+                    broadcast('profile_update', {'user': user})
+
                 return redirect('/')
 
 
@@ -2235,15 +2142,20 @@ def index():
             if request.method == 'POST' and 'banner' in request.files:
                 file = request.files['banner']
                 if file and file.filename:
-                    image_data = file.read()
+                    raw = file.read()
+                    img_bytes, mime_over = _maybe_shrink_image(raw, max_px=1800, max_kb=700)
                     filename = secure_filename(file.filename)
-                    mime_type = file.mimetype
-                    c.execute("INSERT INTO banner (image_data, filename, mime_type, uploaded_at) VALUES (%s,%s,%s,%s)",
-                              (image_data, filename, mime_type, now_madrid_str()))
-                    conn.commit(); flash("Banner actualizado 🖼️", "success")
-                    send_discord("Banner updated", {"user": user, "filename": filename})
+                    mime_type = mime_over or file.mimetype
+                    c.execute(
+                        "INSERT INTO banner (image_data, filename, mime_type, uploaded_at) VALUES (%s,%s,%s,%s)",
+                        (img_bytes, filename, mime_type, now_madrid_str())
+                    )
+                    conn.commit()
+                    flash('Banner actualizado 🖼️', 'success')
+                    send_discord('Banner updated', {'user': user, 'filename': filename})
                     cache_invalidate('get_banner')
-                    broadcast("banner_update", {"by": user})
+                    broadcast('banner_update', {'by': user})
+
                 return redirect('/')
 
             # 6) Nuevo viaje
@@ -4609,51 +4521,72 @@ def api_cycle_theme_save():
 
 
 
-@app.post("/api/location")
+@app.post('/api/location')
 def api_location():
-    if "username" not in session: abort(401)
+    if 'username' not in session:
+        abort(401)
     data = request.get_json(force=True) or {}
-    lat = float(data.get("lat", 0))
-    lng = float(data.get("lng", 0))
-    acc = float(data.get("acc", 0))
+    lat = float(data.get('lat', 0))
+    lng = float(data.get('lng', 0))
+    acc = float(data.get('acc', 0))
     if not (-90 <= lat <= 90 and -180 <= lng <= 180):
-        return jsonify({"ok": False, "error": "coords"}), 400
+        return jsonify({'ok': False, 'error': 'coords'}), 400
 
-    with pool.getconn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO user_locations (username, lat, lng, accuracy)
-                VALUES (%s, %s, %s, %s)
+    user = session['username']
+    now_txt = now_madrid_str()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
+                VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT (username) DO UPDATE
-                SET lat=EXCLUDED.lat, lng=EXCLUDED.lng, accuracy=EXCLUDED.accuracy, updated_at=now()
-            """, (session["username"], lat, lng, acc))
-        conn.commit()
-        pool.putconn(conn)
-    return jsonify({"ok": True})
+                SET latitude = EXCLUDED.latitude,
+                    longitude = EXCLUDED.longitude,
+                    updated_at = EXCLUDED.updated_at
+            """, (user, None, lat, lng, now_txt))
+            conn.commit()
+    finally:
+        conn.close()
+    try:
+        broadcast('location_update', {'user': user})
+    except Exception:
+        pass
+    return jsonify({'ok': True})
 
-@app.get("/api/other_location")
+@app.get('/api/other_location')
 def api_other_location():
-    if "username" not in session: abort(401)
-    other = request.args.get("user") or ""
-    with pool.getconn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT lat, lng, accuracy, updated_at FROM user_locations WHERE username=%s", (other,))
-            row = cur.fetchone()
-        pool.putconn(conn)
-    if not row: return jsonify({})
-    lat, lng, acc, ts = row
-    return jsonify({"lat": lat, "lng": lng, "acc": acc, "updated_at": (ts.isoformat() if ts else None)})
-
+    if 'username' not in session:
+        abort(401)
+    other = request.args.get('user') or ('mochita' if session['username'] == 'mochito' else 'mochito')
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT latitude, longitude, updated_at
+                FROM locations
+                WHERE username=%s
+            """, (other,))
+            row = c.fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return jsonify({})
+    # row puede ser DictRow o tupla, usa claves seguras:
+    lat = row['latitude'] if isinstance(row, dict) else row[0]
+    lng = row['longitude'] if isinstance(row, dict) else row[1]
+    ts  = row['updated_at'] if isinstance(row, dict) else row[2]
+    return jsonify({'lat': lat, 'lng': lng, 'updated_at': (ts.isoformat() if ts else None)})
 
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1
 if os.environ.get("RUN_SCHEDULER", "1") == "1":
     threading.Thread(target=background_loop, daemon=True).start()
 
+
 # ======= WSGI / Run =======
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
-
 
 

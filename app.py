@@ -4932,6 +4932,15 @@ def bounce():
         }
     )
 
+@app.get("/api/edvx_search2")
+def api_edvx_search2():
+    q = (request.args.get("q") or "").strip()
+    if not q:
+        return jsonify({"ok": False, "error": "missing q"}), 400
+    res, src = _search_edvx(q)
+    if not res:
+        res, src = _search_ddg_fallback(q, max_items=24)
+    return jsonify({"ok": True, "from": src, "results": res})
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1
 if os.environ.get("RUN_SCHEDULER", "1") == "1":

@@ -6380,7 +6380,8 @@ if ('serviceWorker' in navigator) {
     modal.style.display = 'block';
 
     try{
-      const res  = await fetch(`/api/edvx_search?q=${encodeURIComponent(query)}`, {
+      const res  = await fetch(`/api/edvx_search2?q=${encodeURIComponent(query)}`, {
+
         headers: { 'Accept':'application/json' }
       });
       const data = await res.json();

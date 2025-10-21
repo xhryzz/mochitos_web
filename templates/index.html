@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -98,13 +100,7 @@
 
         /* Efectos */
         .floating-hearts { position: fixed; inset: 0; pointer-events: none; z-index: -1; }
-        /* AFTER (scopeado) */
-.floating-hearts .heart { 
-  position: absolute; 
-  color: rgba(232, 67, 147, 0.3); 
-  font-size: 20px; 
-  animation: float 8s ease-in-out infinite; 
-}
+        .heart { position: absolute; color: rgba(232, 67, 147, 0.3); font-size: 20px; animation: float 8s ease-in-out infinite; }
         @keyframes float { 0% { transform: translateY(100vh) rotate(0deg); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(-100px) rotate(360deg); opacity: 0; } }
 
         /* Viajes */
@@ -194,47 +190,10 @@
         .profile-form label { background: var(--gradient); color: white; padding: 10px 15px; border-radius: 50px; cursor: pointer; text-align: center; transition: all .3s; }
         .profile-form label:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(232,67,147,.4); }
 
-/* Asegúrate de que el footer esté fijo al fondo de la ventana */
-.site-footer {
-    background: var(--gradient);
-    color: white;
-    text-align: center;
-    padding: 20px;
-    border-top-left-radius: 20px;
-    border-top-right-radius: 20px;
-    box-shadow: 0 -5px 15px rgba(0,0,0,.1);
-    position: fixed;
-    bottom: 0; /* Se posiciona al fondo de la pantalla */
-    width: 100%; /* Asegúrate de que ocupe todo el ancho */
-    left: 0;
-    transform: translateY(100%); /* Ocultar el footer inicialmente */
-    transition: transform 0.3s ease-in-out; /* Transición suave */
-}
-
-/* Efecto de línea superior */
-.site-footer::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: rgba(255,255,255,.3);
-}
-
-.site-footer p {
-    margin: 0;
-    font-weight: 500;
-    font-size: 1rem;
-}
-
-/* Para dispositivos pequeños, podrías ajustar el tamaño del padding o del texto */
-@media (max-width: 768px) {
-    .site-footer {
-        padding: 15px;
-    }
-}
-
+        /* Footer */
+        .site-footer { background: var(--gradient); color: white; text-align: center; padding: 20px; margin-top: 40px; border-top-left-radius: 20px; border-top-right-radius: 20px; box-shadow: 0 -5px 15px rgba(0,0,0,.1); position: relative; }
+        .site-footer::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: rgba(255,255,255,.3); }
+        .site-footer p { margin: 0; font-weight: 500; font-size: 1rem; }
 
         /* Icono ajustes */
         .settings-icon { position: fixed; top: 30px; left: 30px; width: 50px; height: 50px; border-radius: 50%; background: white; color: var(--primary-color); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; box-shadow: var(--shadow); z-index: 1000; cursor: pointer; transition: all .3s; }
@@ -1277,6 +1236,12 @@
 
 
 
+/* Footer pegado al final con tabbar */
+.site-footer { margin-bottom: 72px; }
+@media (min-width:992px){ .site-footer { margin-left: 76px; margin-bottom: 0; } }
+
+
+
 /* Navbar con Font Awesome: color al activo */
 .app-nav .nav-btn i { font-size: 20px; color: #6b7280; pointer-events: none; }
 .app-nav .nav-btn.active i { color: var(--primary-color); }
@@ -1366,339 +1331,6 @@
 #presenceChip{ box-shadow: 0 8px 20px rgba(0,0,0,.08); }
 .settings-icon,
 .admin-icon{ box-shadow: var(--shadow); }
-
-
-
-
-/* ===== Películas & Series ===== */
-.media-tools{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
-.media-tools input[type="search"]{ flex:1; min-width:220px; background:#f8f8f8; border:2px solid #eee; border-radius:12px; padding:10px 14px; font-size:1rem; }
-
-.media-tabs{ display:flex; border-bottom:2px solid #eee; margin:8px 0 12px; flex-wrap:wrap; }
-.media-tab{ padding:10px 16px; cursor:pointer; font-weight:700; border-bottom:3px solid transparent; }
-.media-tab.active{ color:var(--primary-color); border-bottom-color:var(--primary-color); }
-.media-tab:hover:not(.active){ color:var(--secondary-color); }
-
-.media-content{ display:none; }
-.media-content.active{ display:block; }
-
-.media-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap:18px; }
-.media-card{
-  background:#fff; border-radius:16px; padding:16px; box-shadow:0 8px 22px rgba(0,0,0,.08);
-  position:relative; border:1px solid #f1f1f4; display:flex; flex-direction:column; min-height: 220px;
-}
-.media-card:hover{ transform: translateY(-3px); box-shadow:0 12px 28px rgba(0,0,0,.10); }
-.media-card.watched{ border-left:5px solid var(--visited-color); }
-.media-card:not(.watched){ border-left:5px solid var(--wishlist-color); }
-
-.media-status{
-  position:absolute; top:12px; right:12px; padding:4px 10px; border-radius:999px; font-size:.78rem; font-weight:800; color:#fff;
-  box-shadow:0 6px 16px rgba(0,0,0,.10);
-}
-.badge-wanted{ background: var(--wishlist-color); }
-.badge-watched{ background: var(--visited-color); }
-
-.media-head{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-.media-kind{ font-weight:800; font-size:.82rem; padding:4px 8px; border-radius:999px; background:#f7f7fb; border:1px solid #eee; color:#6b7280; }
-.media-kind.movie{ background:#fff7f9; border-color:#ffe0eb; color:#b91c1c; }
-.media-kind.show { background:#f1f8ff; border-color:#dbeafe; color:#1d4ed8; }
-
-.platform-chip{ display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:10px; background:#f8f8f8; border:1px solid #eee; font-weight:700; color:#374151; }
-
-.media-title{ font-family:'Playfair Display', serif; font-size:1.2rem; margin:6px 0 8px; }
-.media-link{ display:inline-flex; gap:8px; align-items:center; font-weight:700; text-decoration:none; background:#f7f7fb; border:1px solid #eee; padding:7px 12px; border-radius:10px; margin-bottom:8px; }
-.media-link:hover{ background:#f1f1f9; color:var(--primary-color); }
-
-.media-notes{ color:#555; font-style:italic; margin-top:6px; }
-
-.progress-row{ display:flex; align-items:center; gap:10px; justify-content:space-between; margin-top:6px; }
-.progress-row.muted{ opacity:.8; }
-.progress-form .icon-btn{ width:30px; height:30px; border-radius:8px; }
-
-.media-meta{ margin-top:auto; display:flex; align-items:center; justify-content:space-between; gap:8px; color:#8a8fa3; font-size:.9rem; padding-top:8px; border-top:1px dashed #eee; }
-.media-actions{ display:flex; gap:8px; margin-top:8px; }
-
-.media-form .grid2{ display:grid; gap:10px; }
-@media (min-width:520px){ .media-form .grid2{ grid-template-columns:1fr 1fr; } }
-.media-form .input-wrap{ display:flex; flex-direction:column; gap:6px; }
-.media-form input[type="text"],
-.media-form input[type="url"],
-.media-form input[type="number"],
-.media-form select,
-.media-form textarea{
-  padding:10px 12px; border:1px solid rgba(0,0,0,.12); border-radius:10px; background:#fff;
-}
-
-/* Rating (estrellas) */
-.rating{ display:flex; align-items:center; gap:6px; margin:8px 0 2px; }
-.rating i.fa-star{ font-size:1.1rem; }
-.rating.readonly i.fas{ color:#f59e0b; }
-.rating.editable i{ cursor:pointer; }
-.rating.editable i.fas{ color:#f59e0b; }
-.rating .rating-help{ font-size:.85rem; color:#8a8fa3; margin-left:6px; }
-
-/* Paginación específica media */
-#media-pager-towatch, #media-pager-watched{ margin-top:12px; }
-
-
-
-
-
-/* ===== Páginas: Media ===== */
-/* Oculto por defecto en Inicio */
-.section[data-section="media"]{ display:none; }
-
-/* Cuando estamos en la página "media" */
-body.page-media .section[data-section="media"]{ display:block; }
-
-/* En "media", ocultamos el resto de secciones del inicio (banner y otras tarjetas) */
-body.page-media .banner,
-body.page-media .section:not([data-section="media"]){
-  display:none !important;
-}
-
-
-
-/* Portada en tarjetas Media */
-.media-cover{
-  position: relative;
-  height: 160px;
-  overflow: hidden;
-  border-radius: 12px;
-  margin: -4px -4px 10px -4px;
-  background:#f6f7fb;
-}
-.media-cover img{
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-
-/* Media grid: garantiza columnas “reales” medibles */
-.media-grid{
-  display:grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap:18px;
-  /* opcional: pack si las alturas varían mucho (suele no hacer falta) */
-  /* grid-auto-flow: dense; */
-}
-
-/* Logos de plataformas como imagen */
-.platform-chip{
-  display:inline-flex; align-items:center;
-  padding:0; border:0; background:transparent;
-}
-.platform-chip img{
-  height:18px; width:auto; display:block;
-}
-
-/* Accesibilidad: texto solo para lectores de pantalla */
-.sr-only{
-  position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
-  clip:rect(0 0 0 0);white-space:nowrap;border:0;
-}
-
-/* === Brand toggles (Netflix / Prime) === */
-.brand-toggles{ display:grid; gap:12px; }
-@media (min-width:520px){ .brand-toggles{ grid-template-columns:1fr 1fr; } }
-
-.brand-toggle{ position:relative; }
-.brand-toggle input{
-  position:absolute; inset:0; opacity:0; pointer-events:none;
-}
-
-/* Botón pastilla con logo */
-.brand-toggle .brand{
-  position:relative;
-  display:inline-flex; align-items:center; justify-content:center;
-  gap:10px; width:100%; height:48px;
-  border-radius:12px; border:1px solid #eee; background:#fff;
-  box-shadow:0 8px 20px rgba(0,0,0,.06);
-  cursor:pointer; font-weight:800; letter-spacing:.1px;
-  transition:.18s transform,.18s box-shadow,.18s border-color,.18s filter;
-}
-
-.brand-toggle .brand img{ height:20px; width:auto; display:block; }
-
-/* Colores de marca */
-.brand-toggle .brand.netflix{ --brand:#e50914; }
-.brand-toggle .brand.prime  { --brand:#00a8e1; }
-
-/* Estado activo (checked) */
-.brand-toggle input:checked + .brand{
-  transform: translateY(-1px);
-  border-color: var(--brand);
-  box-shadow: 0 12px 28px rgba(0,0,0,.12), 0 0 0 2px var(--brand) inset;
-}
-
-/* Hover/focus */
-.brand-toggle .brand:hover{ transform:translateY(-1px); }
-.brand-toggle input:focus-visible + .brand{
-  outline:2px solid var(--accent-color); outline-offset:2px;
-}
-
-/* Modo oscuro opcional (si usas dark mode global) */
-@media (prefers-color-scheme: dark){
-  .brand-toggle .brand{ background:#111827; border-color:#1f2937; }
-}
-
-
-/* Solo-logo, mini toggles */
-:root{
-  --brand-size: 34px; /* cambia a 28–36px si quieres más/menos pequeño */
-  --brand-img: 20px;
-}
-@media (max-width:480px){
-  :root{ --brand-size: 30px; --brand-img: 18px; }
-}
-
-.sr-only{
-  position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
-  clip:rect(0 0 0 0);white-space:nowrap;border:0;
-}
-
-.brand-toggles-min{
-  display:flex; gap:10px; align-items:center; /* fila compacta */
-}
-
-.brand-icon-toggle{ position:relative; }
-
-.brand-icon-toggle input{
-  position:absolute; inset:0; opacity:0; pointer-events:none;
-}
-
-.brand-icon-toggle label{
-  display:inline-flex; align-items:center; justify-content:center;
-  width:var(--brand-size); height:var(--brand-size);
-  /* Sin fondo, sin borde — “sin cuadro” */
-  background:transparent; border:0; border-radius:8px;
-  cursor:pointer; transition: transform .12s ease, filter .15s ease;
-}
-
-.brand-icon-toggle label img{
-  height:var(--brand-img); width:auto; display:block;
-  filter: grayscale(100%) opacity(.6);
-  transition: filter .15s ease, transform .12s ease;
-}
-
-.brand-icon-toggle label:hover img{ transform: translateY(-1px); }
-.brand-icon-toggle input:focus-visible + label{ outline:2px solid var(--accent-color); outline-offset:2px; }
-
-/* Activo: solo el logo se pone a color (sin recuadro) */
-.brand-icon-toggle input:checked + label img{
-  filter: none; opacity:1;
-}
-
-
-/* Solo-logo, mini toggles — versión con etiqueta */
-:root{
-  /* ajusta aquí el tamaño general */
-  --brand-size: 52px;  /* ancho del botón/columna */
-  --brand-img: 30px;   /* alto del logo */
-}
-@media (max-width:480px){
-  :root{ --brand-size: 46px; --brand-img: 26px; }
-}
-
-.brand-toggles-min{
-  display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap;
-}
-
-.brand-icon-toggle{ position:relative; }
-
-.brand-icon-toggle input{
-  position:absolute; inset:0; opacity:0; pointer-events:none;
-}
-
-.brand-icon-toggle label{
-  display:inline-flex; flex-direction:column; align-items:center; justify-content:flex-start;
-  gap:6px;
-  width:var(--brand-size); /* columna compacta */
-  height:auto; padding:4px 0;
-  background:transparent; border:0; border-radius:8px; /* sin cuadro */
-  cursor:pointer; transition: transform .12s ease, filter .15s ease;
-}
-
-.brand-icon-toggle label img{
-  height:var(--brand-img); width:auto; display:block;
-  filter: grayscale(100%) opacity(.6);
-  transition: filter .15s ease, transform .12s ease;
-}
-.brand-icon-toggle label:hover img{ transform: translateY(-1px); }
-.brand-icon-toggle input:focus-visible + label{ outline:2px solid var(--accent-color); outline-offset:2px; }
-
-/* Etiqueta visible bajo el icono */
-.brand-caption{
-  font-size:.75rem; line-height:1;
-  font-weight:700; letter-spacing:.2px;
-  color:#8a8fa3;
-  user-select:none;
-}
-
-/* Activo: logo a color + etiqueta con color de marca */
-.brand-icon-toggle input:checked + label img{ filter:none; opacity:1; }
-.brand-icon-toggle input:checked + label .brand-caption{ color:#374151; } /* fallback */
-
-.brand-icon-toggle input:checked + label.netflix .brand-caption{ color:#e50914; }
-.brand-icon-toggle input:checked + label.prime   .brand-caption{ color:#00a8e1; }
-
-
-/* === Chips rápidos en banner === */
-.home-chips{
-  display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
-  margin-top:10px;
-}
-.chip-stat{
-  display:inline-flex; align-items:center; gap:8px;
-  padding:8px 12px; border-radius:999px;
-  background: rgba(255,255,255,.85);
-  border:1px solid rgba(255,255,255,.5);
-  font-weight:800; letter-spacing:.2px;
-  color:#374151;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 8px 22px rgba(0,0,0,.08);
-}
-.chip-stat i{ opacity:.85; }
-.chip-stat.soon{
-  background: linear-gradient(135deg, #ffe8f3, #ffffff);
-  border-color: rgba(232,67,147,.35);
-  box-shadow: 0 10px 26px rgba(232,67,147,.25);
-}
-@media (max-width:600px){
-  .chip-stat{ padding:7px 10px; font-weight:700; }
-}
-
-/* === Utilidades del mapa === */
-.map-fab{
-  position:absolute; bottom:15px; right:15px;
-  width:42px; height:42px; border-radius:12px; border:0; cursor:pointer;
-  background:#fff; color:#e84393;
-  box-shadow:0 10px 24px rgba(0,0,0,.12);
-  display:flex; align-items:center; justify-content:center;
-  z-index: 3;
-  transition: transform .15s ease;
-}
-.map-fab:hover{ transform: translateY(-2px); }
-
-.distance-map-container.full{
-  height: 70vh;
-  box-shadow: 0 16px 40px rgba(0,0,0,.12);
-}
-
-/* Barra de “cercanía” */
-.distance-bar{
-  margin:8px 0 6px;
-  height:10px; border-radius:999px; overflow:hidden;
-  background:#f1f1f5; border:1px solid #ececf4;
-}
-.distance-bar .fill{
-  height:100%;
-  background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
-  transition: width .35s ease;
-}
-
 
     </style>
 </head>
@@ -1815,10 +1447,6 @@ body.page-media .section:not([data-section="media"]){
     <i class="fa-solid fa-gifts" aria-hidden="true"></i>
     <span class="nav-label">Wishlist</span>
   </button>
-  <button class="nav-btn" data-goto="media" title="Películas y Series">
-  <i class="fas fa-film" aria-hidden="true"></i>
-  <span class="nav-label">Películas/Series</span>
-</button>
   <button class="nav-btn" data-goto="travels" title="Viajes">
     <i class="fa-solid fa-plane" aria-hidden="true"></i> 
     <span class="nav-label">Viajes</span>
@@ -1830,10 +1458,6 @@ body.page-media .section:not([data-section="media"]){
   <button class="nav-btn" data-goto="intim" title="Intimidad">
     <i class="fas fa-lock" aria-hidden="true"></i>
     <span class="nav-label">Intimidad</span>
-  </button>
-  <button class="nav-btn" title="Ciclo (Regla)" onclick="location.href='{{ url_for('regla_page') }}'">
-    <i class="fa-solid fa-droplet" aria-hidden="true"></i>
-    <span class="nav-label">Regla</span>
   </button>
   <button class="nav-btn" data-goto="profile" title="Perfil">
     <i class="fas fa-user" aria-hidden="true"></i>
@@ -1855,33 +1479,7 @@ body.page-media .section:not([data-section="media"]){
         <div class="banner-overlay">
           <div class="scroll-hint" aria-hidden="true"></div>
 
-          <h1>Christian Clara</h1>
-          <!-- CHIPS RÁPIDOS EN BANNER -->
-<div class="home-chips" id="homeChips">
-  <div class="chip-stat">
-    <i class="fa-solid fa-heart"></i>
-    <span>{{ days_together }}</span> días juntos
-  </div>
-
-  <div class="chip-stat" id="chipDistance">
-    <i class="fa-solid fa-route"></i>
-    — km
-  </div>
-
-  {% if days_until_meeting is number and days_until_meeting >= 0 %}
-    <div class="chip-stat {{ 'soon' if days_until_meeting <= 3 else '' }}" id="chipMeeting">
-      <i class="fa-solid fa-calendar-day"></i>
-      {% if days_until_meeting == 0 %}
-        ¡Hoy os veis! ❤️
-      {% elif days_until_meeting == 1 %}
-        Mañana 💫
-      {% else %}
-        En {{ days_until_meeting }} días
-      {% endif %}
-    </div>
-  {% endif %}
-</div>
-
+          <h1>Christian <span class="heart">❤️</span> Clara</h1>
           <form method="POST" enctype="multipart/form-data" class="banner-form">
             <label for="banner-upload" class="custom-file-upload">
               <i class="fas fa-image"></i> Elegir imagen
@@ -1914,8 +1512,6 @@ body.page-media .section:not([data-section="media"]){
 </div>
 
 
-
-
         <!-- MODAL EDITAR EVENTO INTIMIDAD -->
   <div id="editIntimModal" class="modal">
     <div class="modal-content">
@@ -1941,7 +1537,6 @@ body.page-media .section:not([data-section="media"]){
       </div>
     </div>
   </div>
-
 
       <!-- MODAL PERFIL -->
       <div id="profileModal" class="modal">
@@ -2013,11 +1608,6 @@ body.page-media .section:not([data-section="media"]){
       {% endif %}
     </div>
   </div>
-
-  <div class="mini-note" style="margin-top:6px; color:#6b7280; font-size:.95rem;">
-    Actualiza la fecha del próximo encuentro para que el chip del banner se ponga en modo “pronto” automáticamente. ✨
-  </div>
-  
 
   <form method="POST" class="inline-form">
     <input type="date" name="meeting_date" required>
@@ -2172,26 +1762,9 @@ body.page-media .section:not([data-section="media"]){
 
         <div class="distance-map-container">
           <div id="distanceMap"></div>
-          <!-- Botones utilitarios del mapa -->
-<button type="button" class="map-fab" id="toggleMapSize" title="Pantalla completa">
-  <i class="fa-solid fa-expand"></i>
-</button>
-
-<!-- Botón geolocalizar -->
-<button type="button" class="map-fab" id="useMyLocationBtn" title="Usar mi ubicación" style="right:66px">
-  <i class="fa-solid fa-location-crosshairs"></i>
-</button>
-
           <div class="distance-info">
             <h4>Distancia entre nosotros</h4>
             <div class="distance-value" id="distanceValue">Cargando...</div>
-            <div class="distance-bar" aria-label="Cercanía">
-              <div class="fill" id="distanceFill" style="width:0%"></div>
-            </div>
-            <small class="distance-scale" style="display:block; opacity:.8;">
-              0 km = juntitos • 500+ km = lejos
-            </small>
-            
             <div id="locationInfo">
               <div class="location-badge">
                 {% if profile_pictures.get('mochito') %}
@@ -2212,7 +1785,16 @@ body.page-media .section:not([data-section="media"]){
             </div>
 
             <!-- 🌍 FORM: Actualizar ubicación (manual o automática) -->
-            
+            <form class="location-form" id="locationForm">
+              <div class="row">
+                <input type="text" id="userLocation" placeholder="Tu ciudad/barrio (opcional si usas el botón)">
+                <button type="button" id="useMyLocationBtn">
+                  <i class="fas fa-location-arrow"></i> Usar mi ubicación
+                </button>
+              </div>
+              <button type="submit"><i class="fas fa-map-marker-alt"></i> Actualizar con texto</button>
+              <small style="opacity:.8; display:block; margin-top:6px;">Consejo: en HTTPS el navegador te permite usar la ubicación real.</small>
+            </form>
           </div>
         </div>
       </div>
@@ -2436,7 +2018,7 @@ body.page-media .section:not([data-section="media"]){
             <h3 class="wishlist-product">{{ product_name }}</h3>
 
             {% if product_link %}
-              <a href="{{ product_link }}" target="_blank" rel="noopener noreferrer" class="wishlist-link">
+              <a href="{{ product_link }}" target="_blank" class="wishlist-link">
                 <i class="fas fa-link"></i> Ver producto
               </a>
               {% if (size or '')|trim %}
@@ -2537,7 +2119,7 @@ body.page-media .section:not([data-section="media"]){
             <h3 class="wishlist-product">{{ product_name }}</h3>
 
             {% if product_link %}
-              <a href="{{ product_link }}" target="_blank" rel="noopener noreferrer" class="wishlist-link">
+              <a href="{{ product_link }}" target="_blank" class="wishlist-link">
                 <i class="fas fa-link"></i> Ver producto
               </a>
               {% if (size or '')|trim %}
@@ -2587,7 +2169,7 @@ body.page-media .section:not([data-section="media"]){
             </button>
 
             {% if created_by == username %}
-            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+            <form method="POST" action="/delete_wishlist_item" onsubmit="return confirm("¿Estás seguro de que quieres eliminar este producto?");">
               <input type="hidden" name="item_id" value="{{ id }}">
               <button type="submit" class="icon-btn" title="Eliminar">
                 <i class="fas fa-trash"></i>
@@ -2634,514 +2216,6 @@ body.page-media .section:not([data-section="media"]){
     </div>
   </div>
 </div>
-<!-- =========================
-     PELÍCULAS & SERIES
-     ========================= -->
-<div class="section animate-in" data-section="media">
-  <h3>Películas & Series</h3>
-  <p>Lo que queremos ver y lo que ya vimos 💫</p>
-
-  <div class="media-tools">
-    <input type="search" id="media-search" placeholder="Buscar título/plataforma…">
-    <div id="media-sort-toggle" class="sort-toggle" role="group" aria-label="Ordenar" tabindex="0">
-      <div class="slider" aria-hidden="true"></div>
-      <button type="button" data-mode="recent"   aria-pressed="true"><i class="fas fa-clock"></i> Recientes</button>
-      <button type="button" data-mode="rating"   aria-pressed="false"><i class="fas fa-star"></i> Rating</button>
-      <button type="button" data-mode="platform" aria-pressed="false"><i class="fas fa-tv"></i> Plataforma</button>
-    </div>
-  </div>
-
-  <div class="media-tabs">
-    <div class="media-tab active" data-tab="towatch">Por ver</div>
-    <div class="media-tab" data-tab="watched">Vistas</div>
-    <div class="media-tab" data-tab="add-media">Añadir</div>
-  </div>
-
-  <!-- Por ver -->
-  <div class="media-content active" id="towatch-tab">
-    <div class="media-grid">
-      {% for m in media_to_watch %}
-      <div class="media-card"
-           data-id="{{ m.get('id') }}"
-           data-title="{{ (m.get('title') or '')|e }}"
-           data-kind="{{ (m.get('kind') or 'movie')|e }}"
-           data-platform="{% if m.get('on_netflix') and m.get('on_prime') %}both{% elif m.get('on_netflix') %}netflix{% elif m.get('on_prime') %}prime{% else %}zzz{% endif %}"
-           data-link="{{ (m.get('link_url') or '')|e }}"
-           data-notes="{{ (m.get('comment') or '')|e }}"
-           data-priority="{{ (m.get('priority') or 'media') }}"
-           data-cover="{{ (m.get('cover_url') or '')|e }}"
-           data-created="{{ (m.get('created_at') or '') }}"
-           data-rating-me="{{ (m.get('reviews', {}).get(username, {}).get('rating') or m.get('rating_me') or 0) }}"
-           data-rating-other="{{ (m.get('reviews', {}).get(other_user, {}).get('rating') or m.get('rating_other') or 0) }}"
-           data-comment-me="{{ (m.get('reviews', {}).get(username, {}).get('comment') or m.get('comment_me') or '')|e }}"
-           data-comment-other="{{ (m.get('reviews', {}).get(other_user, {}).get('comment') or m.get('comment_other') or '')|e }}"
-           data-avg="{{ (m.get('avg_rating') or m.get('rating') or 0) }}"
-           data-watched="0">
-        <div class="media-status badge-wanted">Por ver</div>
-
-        <div class="media-head">
-          <span class="media-kind movie">Título</span>
-          {% if m.get('on_netflix') %}
-  <span class="platform-chip" aria-label="Netflix">
-    <img src="{{ url_for('static', filename='icons/netflix.png') }}" alt="Netflix" loading="lazy">
-  </span>
-{% endif %}
-{% if m.get('on_prime') %}
-  <span class="platform-chip" aria-label="Prime Video">
-    <img src="{{ url_for('static', filename='icons/prime-video.png') }}" alt="Prime Video" loading="lazy">
-  </span>
-{% endif %}
-
-
-        </div>
-
-        {% if m.get('cover_url') %}
-          <div class="media-cover">
-            <img src="{{ m.get('cover_url') }}" alt="Portada de {{ m.get('title')|e }}">
-          </div>
-        {% endif %}
-
-        <h3 class="media-title">{{ m.get('title') }}</h3>
-
-        {% if m.get('link_url') %}
-          <a class="media-link" href="{{ m.get('link_url') }}" target="_blank" rel="noopener">
-            <i class="fas fa-link"></i> Abrir enlace
-          </a>
-        {% endif %}
-
-        {% if m.get('comment') %}<p class="media-notes">{{ m.get('comment') }}</p>{% endif %}
-
-        <div class="media-meta">
-          {% set who = m.get('created_by') or '' %}
-          <span>
-            <div class="user-avatar" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:5px;">
-              {% if profile_pictures.get(who) %}
-                <img src="{{ profile_pictures.get(who) }}" alt="{{ who }}">
-              {% else %}
-                {{ (who[:1] or '?')|upper }}
-              {% endif %}
-            </div>
-            {{ who or '—' }}
-          </span>
-          <span>{{ (m.get('created_at') or '')[:10] }}</span>
-        </div>
-
-        <div class="media-actions">
-          <!-- Valorar/comentar (modal B) -->
-          <button type="button" class="icon-btn" title="Marcar como vista y valorar"
-                  onclick="openRateMedia(this)">
-            <i class="fas fa-check"></i>
-          </button>
-
-          <!-- Editar ficha (modal A) -->
-          <button type="button" class="icon-btn" title="Editar ficha"
-                  onclick="openBasicEditMedia(this)">
-            <i class="fas fa-pen-to-square"></i>
-          </button>
-
-          {% if m.get('created_by') == username %}
-          <form method="POST" action="/media/delete" onsubmit="return confirm('¿Eliminar este título?');">
-            <input type="hidden" name="id" value="{{ m.get('id') }}">
-            <button class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button>
-          </form>
-          {% endif %}
-        </div>
-      </div>
-      {% else %}
-        <p>No hay títulos por ver. ¡Añade alguno!</p>
-      {% endfor %}
-    </div>
-    <div class="pager" id="media-pager-towatch"></div>
-  </div>
-
-  <!-- Vistas -->
-  <div class="media-content" id="watched-tab">
-    <div class="media-grid">
-      {% for m in media_watched %}
-      {% set reviews = m.get('reviews') or {} %}
-      {% set avg = m.get('avg_rating') or m.get('rating') or 0 %}
-      {% set my_rating = reviews.get(username, {}).get('rating') or m.get('rating_me') or 0 %}
-      {% set other_rating = reviews.get(other_user, {}).get('rating') or m.get('rating_other') or 0 %}
-      {% set my_comment = reviews.get(username, {}).get('comment') or m.get('comment_me') or (m.get('watched_comment') if m.get('created_by') == username else '') %}
-      {% set other_comment = reviews.get(other_user, {}).get('comment') or m.get('comment_other') %}
-      <div class="media-card watched"
-           data-id="{{ m.get('id') }}"
-           data-title="{{ (m.get('title') or '')|e }}"
-           data-kind="{{ (m.get('kind') or 'movie')|e }}"
-           data-platform="{% if m.get('on_netflix') and m.get('on_prime') %}both{% elif m.get('on_netflix') %}netflix{% elif m.get('on_prime') %}prime{% else %}zzz{% endif %}"
-           data-link="{{ (m.get('link_url') or '')|e }}"
-           data-notes="{{ (m.get('comment') or '')|e }}"
-           data-priority="{{ (m.get('priority') or 'media') }}"
-           data-cover="{{ (m.get('cover_url') or '')|e }}"
-           data-created="{{ (m.get('watched_at') or m.get('created_at') or '') }}"
-           data-rating-me="{{ my_rating }}"
-           data-rating-other="{{ other_rating }}"
-           data-comment-me="{{ (my_comment or '')|e }}"
-           data-comment-other="{{ (other_comment or '')|e }}"
-           data-avg="{{ avg }}"
-           data-watched="1">
-        <div class="media-status badge-watched">Vista</div>
-
-        <div class="media-head">
-          <span class="media-kind movie">Título</span>
-          {% if m.get('on_netflix') %}
-  <span class="platform-chip" aria-label="Netflix">
-    <img src="{{ url_for('static', filename='icons/netflix.png') }}" alt="Netflix" loading="lazy">
-  </span>
-{% endif %}
-{% if m.get('on_prime') %}
-  <span class="platform-chip" aria-label="Prime Video">
-    <img src="{{ url_for('static', filename='icons/prime-video.png') }}" alt="Prime Video" loading="lazy">
-  </span>
-{% endif %}
-
-        </div>
-
-        {% if m.get('cover_url') %}
-          <div class="media-cover">
-            <img src="{{ m.get('cover_url') }}" alt="Portada de {{ m.get('title')|e }}">
-          </div>
-        {% endif %}
-
-        <h3 class="media-title">{{ m.get('title') }}</h3>
-
-        {% if m.get('link_url') %}
-          <a class="media-link" href="{{ m.get('link_url') }}" target="_blank" rel="noopener">
-            <i class="fas fa-link"></i> Abrir enlace
-          </a>
-        {% endif %}
-
-        <!-- Media de ambos (con medias) -->
-<div class="rating readonly" aria-label="Valoración media">
-  {% set av = (avg or 0)|float %}
-  {% for i in range(1, 6) %}
-    {% set diff = av - (i - 1) %}
-    {% if diff >= 1 %}
-      <i class="fas fa-star"></i>
-    {% elif diff >= 0.5 %}
-      <i class="fas fa-star-half-stroke"></i>
-    {% else %}
-      <i class="far fa-star"></i>
-    {% endif %}
-  {% endfor %}
-</div>
-
-        <!-- Chips por usuario -->
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin:6px 0;">
-          {% if my_rating %}
-            <span class="chip">⭐ {{ my_rating }}/5 Tú</span>
-          {% endif %}
-          {% if other_rating %}
-            <span class="chip">⭐ {{ other_rating }}/5 {{ other_user }}</span>
-          {% endif %}
-        </div>
-
-        <!-- Comentarios separados -->
-        <div class="review-duo" style="display:grid; gap:10px;">
-          {% if my_comment %}
-          <div class="answer-item">
-            <div class="user-avatar">
-              {% if profile_pictures.get(username) %}<img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">{% else %}{{ username[0]|upper }}{% endif %}
-            </div>
-            <div><b>Tú:</b> <span class="answer-text">{{ my_comment }}</span></div>
-          </div>
-          {% endif %}
-
-          {% if other_comment %}
-          <div class="answer-item">
-            <div class="user-avatar">
-              {% if profile_pictures.get(other_user) %}<img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">{% else %}{{ other_user[0]|upper }}{% endif %}
-            </div>
-            <div><b>{{ other_user }}:</b> <span class="answer-text">{{ other_comment }}</span></div>
-          </div>
-          {% endif %}
-        </div>
-
-        <div class="media-meta">
-          <span>Vista: {{ ((m.get('watched_at') or '')|string)[:10] }}</span>
-          <span>⭐ {{ avg }}/5</span>
-        </div>
-
-        <div class="media-actions">
-          <form method="POST" action="/media/unwatch">
-            <input type="hidden" name="id" value="{{ m.get('id') }}">
-            <button class="icon-btn" title="Marcar como no vista"><i class="fas fa-undo"></i></button>
-          </form>
-
-          <!-- Valorar/comentar (modal B) -->
-          <button type="button" class="icon-btn" title="Editar valoración/comentario"
-                  onclick="openRateMedia(this)">
-            <i class="fas fa-star"></i>
-          </button>
-
-          <!-- Editar ficha (modal A) -->
-          <button type="button" class="icon-btn" title="Editar ficha"
-                  onclick="openBasicEditMedia(this)">
-            <i class="fas fa-pen-to-square"></i>
-          </button>
-
-          {% if m.get('created_by') == username %}
-          <form method="POST" action="/media/delete" onsubmit="return confirm('¿Eliminar este título?');">
-            <input type="hidden" name="id" value="{{ m.get('id') }}">
-            <button class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button>
-          </form>
-          {% endif %}
-        </div>
-      </div>
-      {% else %}
-        <p>No hay títulos vistos aún.</p>
-      {% endfor %}
-    </div>
-    <div class="pager" id="media-pager-watched"></div>
-  </div>
-
-  <!-- Añadir -->
-  <div class="media-content" id="add-media-tab">
-    <div class="media-form">
-      <h4>Añadir título</h4>
-      <form method="POST" action="/media/add" id="addMediaForm">
-        <div class="grid2">
-          <div class="input-wrap">
-            <label>Título</label>
-            <input type="text" name="title" required>
-          </div>
-          <div class="input-wrap">
-            <label>Portada (URL, opcional)</label>
-            <input type="url" name="cover_url" placeholder="https://…">
-          </div>
-        </div>
-
-        <div class="grid2">
-          <div class="input-wrap">
-            <label>Enlace (opcional)</label>
-            <input type="url" name="link_url" placeholder="https://…">
-          </div>
-          <div class="input-wrap">
-            <label>Prioridad</label>
-            <select name="priority">
-              <option value="alta">Alta</option>
-              <option value="media" selected>Media</option>
-              <option value="baja">Baja</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="input-wrap">
-          <label style="font-weight:800;">Disponible en</label>
-          <div class="brand-toggles-min" role="group" aria-label="Disponible en plataformas">
-            <!-- Netflix -->
-            <div class="brand-icon-toggle">
-              <input type="checkbox" id="on_netflix" name="on_netflix">
-              <label for="on_netflix" class="netflix" title="Está en Netflix">
-                <img src="{{ url_for('static', filename='icons/Netflix_N.png') }}" alt="Netflix">
-                <span class="brand-caption">Netflix</span>
-                <span class="sr-only">Está en Netflix</span>
-              </label>
-            </div>
-        
-            <!-- Prime Video -->
-            <div class="brand-icon-toggle">
-              <input type="checkbox" id="on_prime" name="on_prime">
-              <label for="on_prime" class="prime" title="Está en Prime Video">
-                <img src="{{ url_for('static', filename='icons/prime_logo.png') }}" alt="Prime Video">
-                <span class="brand-caption">Prime</span>
-                <span class="sr-only">Está en Prime</span>
-              </label>
-            </div>
-          </div>
-        </div>
-        
-        
-        
-
-        <div class="input-wrap">
-          <label>Notas (opcional)</label>
-          <textarea name="comment" rows="3" placeholder="Por qué queremos verla, recordatorios…"></textarea>
-        </div>
-
-        <button type="submit"><i class="fas fa-plus"></i> Añadir</button>
-      </form>
-    </div>
-  </div>
-</div>
-
-
-<!-- MODAL B: Valorar / comentar -->
-<div id="editMediaModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2 id="editMediaHeading">Valorar / comentar</h2>
-      <span class="close-modal">&times;</span>
-    </div>
-    <div class="modal-body">
-      <form method="POST" action="/media/watch" id="editMediaForm">
-        <input type="hidden" name="id" id="mediaId">
-
-        <div class="rating editable" aria-label="Valoración" id="ratingStars">
-          <i class="fa-star far" data-val="1"></i>
-          <i class="fa-star far" data-val="2"></i>
-          <i class="fa-star far" data-val="3"></i>
-          <i class="fa-star far" data-val="4"></i>
-          <i class="fa-star far" data-val="5"></i>
-          <span class="rating-help">Haz clic para valorar</span>
-        </div>
-        <!-- vacío = sin nota (mejor que poner 0) -->
-        <input type="hidden" name="rating" id="ratingInput" value="">
-
-        <div class="input-wrap">
-          <label>Tu comentario</label>
-          <textarea name="watched_comment" id="mediaComment" rows="3" placeholder="¿Qué tal estuvo?"></textarea>
-        </div>
-
-        <!-- Esta casilla es opcional; el backend /media/watch SIEMPRE marca como vista -->
-        <label class="checkbox" style="display:inline-flex;gap:8px;align-items:center;margin:8px 0 16px">
-          <input type="checkbox" id="markWatched" name="mark_watched" checked> Marcar como vista
-        </label>
-
-        <button type="submit"><i class="fas fa-save"></i> Guardar</button>
-      </form>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL A: Editar ficha (título/link/portada/plataformas/prioridad) -->
-<div id="basicEditMediaModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2>Editar ficha</h2>
-      <span class="close-modal">&times;</span>
-    </div>
-    <div class="modal-body">
-      <form method="POST" action="/media/update" id="basicEditMediaForm">
-        <input type="hidden" name="id" id="basicMediaId">
-
-        <div class="input-wrap">
-          <label>Título</label>
-          <input type="text" name="title" id="basicTitle" required>
-        </div>
-
-        <div class="input-wrap">
-          <label>Portada (URL)</label>
-          <input type="url" name="cover_url" id="basicCover" placeholder="https://…">
-        </div>
-
-        <div class="input-wrap">
-          <label>Enlace</label>
-          <input type="url" name="link_url" id="basicLink" placeholder="https://…">
-        </div>
-
-        <div class="grid2" style="margin:10px 0;">
-          <label class="checkbox"><input type="checkbox" name="on_netflix" id="basicNetflix"> Está en Netflix</label>
-          <label class="checkbox"><input type="checkbox" name="on_prime"   id="basicPrime"> Está en Prime</label>
-        </div>
-
-        <div class="input-wrap">
-          <label>Prioridad</label>
-          <select name="priority" id="basicPriority">
-            <option value="alta">Alta</option>
-            <option value="media">Media</option>
-            <option value="baja">Baja</option>
-          </select>
-        </div>
-
-        <div class="input-wrap">
-          <label>Notas (lista)</label>
-          <textarea name="comment" id="basicNotes" rows="3" placeholder="Notas generales (no es la reseña)"></textarea>
-        </div>
-
-        <button type="submit"><i class="fas fa-save"></i> Guardar ficha</button>
-      </form>
-    </div>
-  </div>
-</div>
-
-<!-- ===== JS para los dos modales ===== -->
-<script>
-function getCardFromBtn(btn){ return btn.closest('.media-card'); }
-/* Pinta estrellas (fas/far) dentro del contenedor dado */
-function paintStars(container, val){
-  if(!container) return;
-  const n = Number(val || 0);
-  container.querySelectorAll('.fa-star').forEach((i, idx) => {
-    i.classList.toggle('fas', idx < n);
-    i.classList.toggle('far',  idx >= n);
-  });
-}
-
-/* Bind click de estrellas (con toggle para quitar) */
-(function bindStarsOnce(){
-  const starsEl = document.getElementById('ratingStars');
-  if(!starsEl) return;
-  const inputEl = document.getElementById('ratingInput');
-
-  starsEl.addEventListener('click', (e) => {
-    const i = e.target.closest('.fa-star');
-    if(!i) return;
-    const val = Number(i.dataset.val || 0);
-    // si clicas la misma, quita la nota (vacío)
-    if (Number(inputEl.value || 0) === val) {
-      inputEl.value = '';
-      paintStars(starsEl, 0);
-    } else {
-      inputEl.value = String(val);
-      paintStars(starsEl, val);
-    }
-  });
-})();
-
-/* Modal B: Valorar/Comentar (por usuario) */
-window.openRateMedia = function(btn){
-  const card = getCardFromBtn(btn);
-  if(!card) return;
-
-  const modal   = document.getElementById('editMediaModal');
-  const idEl    = document.getElementById('mediaId');
-  const starsEl = document.getElementById('ratingStars');
-  const inputEl = document.getElementById('ratingInput');
-  const textEl  = document.getElementById('mediaComment');
-  const checkEl = document.getElementById('markWatched');
-  const formEl  = document.getElementById('editMediaForm');
-
-  const id        = card.dataset.id;
-  const rawRating = card.dataset.ratingMe;                 // <- puede venir vacío
-  const myRating  = rawRating ? Number(rawRating) : 0;     // número para pintar estrellas
-  const myCom     = card.dataset.commentMe || '';
-  const watched   = card.dataset.watched === '1';
-
-  idEl.value      = id || '';
-  inputEl.value   = rawRating ? String(myRating) : '';     // <- VACÍO si no hay nota
-  textEl.value    = myCom;
-  checkEl.checked = watched;
-
-  // usa el endpoint existente (no 404)
-  formEl.action = "/media/watch";
-
-  paintStars(starsEl, myRating);
-  modal.style.display = 'block';
-};
-
-
-/* Modal A: Editar ficha (título, portada, enlace, plataformas, prioridad, notas) */
-window.openBasicEditMedia = function(btn){
-  const card = getCardFromBtn(btn);
-  if(!card) return;
-
-  const modal = document.getElementById('basicEditMediaModal');
-
-  document.getElementById('basicMediaId').value = card.dataset.id || '';
-  document.getElementById('basicTitle').value   = card.dataset.title || '';
-  document.getElementById('basicCover').value   = card.dataset.cover || '';
-  document.getElementById('basicLink').value    = card.dataset.link  || '';
-  document.getElementById('basicNotes').value   = card.dataset.notes || '';
-  document.getElementById('basicPriority').value= card.dataset.priority || 'media';
-
-  const plat = (card.dataset.platform || '').toLowerCase();
-  document.getElementById('basicNetflix').checked = plat.includes('netflix') || plat.includes('both');
-  document.getElementById('basicPrime').checked   = plat.includes('prime')   || plat.includes('both');
-
-  modal.style.display = 'block';
-};
-</script>
 
 
       <!-- Viajes -->
@@ -3810,116 +2884,6 @@ function paginateGrid(gridEl, pagerEl, pageSize = 6) {
     if (!opts.disabled && onClick) b.addEventListener('click', onClick);
     return b;
   }
-
-
-
-// --- Utils ---
-function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
-function countGridColumns(gridEl){
-  const cs = getComputedStyle(gridEl);
-  const cols = cs.gridTemplateColumns?.split(' ').filter(Boolean).length || 1;
-  return cols;
-}
-
-// --- Paginación que rellena filas completas en grids de media ---
-function setupMediaPagination(gridEl, pagerEl){
-  if(!gridEl || !pagerEl) return { refresh(){} };
-
-  let current = 1;
-  let pageSize = 9; // se recalcula
-  let cards = Array.from(gridEl.querySelectorAll(':scope > .media-card'));
-
-
-    // --- Inicialización de paginadores de Media ---
-    document.addEventListener('DOMContentLoaded', () => {
-    const gToWatch = document.querySelector('#towatch-tab .media-grid');
-    const pToWatch = document.getElementById('media-pager-towatch');
-    const gWatched = document.querySelector('#watched-tab .media-grid');
-    const pWatched = document.getElementById('media-pager-watched');
-
-    // Crea los dos paginadores (si existen los nodos)
-    window.mediaTowatchPager = gToWatch && pToWatch
-      ? setupMediaPagination(gToWatch, pToWatch)
-      : null;
-
-    window.mediaWatchedPager = gWatched && pWatched
-      ? setupMediaPagination(gWatched, pWatched)
-      : null;
-
-    // Útil cuando filtras/ordenas/buscas
-    window.refreshMediaPagination = function () {
-      window.mediaTowatchPager?.refresh();
-      window.mediaWatchedPager?.refresh();
-    };
-  });
-
-  // calcula tamaño de página en múltiplos de columnas (3 filas desktop, 2 móvil/tablet)
-  function computePageSize(){
-    const cols = Math.max(1, countGridColumns(gridEl));
-    const rows = (window.innerWidth >= 992) ? 3 : 2; // 3 filas desktop; 2 en móvil/tablet
-    pageSize = cols * rows;
-  }
-
-
-
-
-  function renderPager(totalPages){
-    pagerEl.innerHTML = '';
-    const mk = (txt, on, opts={})=>{
-      const b=document.createElement('button');
-      b.textContent=txt;
-      b.className = 'page-btn' + (opts.active?' active':'');
-      if(opts.title) b.title=opts.title;
-      if(opts.disabled){ b.disabled=true; return b; }
-      b.addEventListener('click', on); return b;
-    };
-    pagerEl.appendChild(mk('«', ()=>{ current=1; render(); }, {disabled: current===1, title:'Primera'}));
-    pagerEl.appendChild(mk('‹', ()=>{ current=Math.max(1,current-1); render(); }, {disabled: current===1, title:'Anterior'}));
-    const windowSize = 5;
-    let from = Math.max(1, current - Math.floor(windowSize/2));
-    let to   = Math.min(totalPages, from + windowSize - 1);
-    from = Math.max(1, to - windowSize + 1);
-    for(let p=from; p<=to; p++){
-      pagerEl.appendChild(mk(String(p), ()=>{ current=p; render(); }, {active:p===current}));
-    }
-    pagerEl.appendChild(mk('›', ()=>{ current=Math.min(totalPages,current+1); render(); }, {disabled: current===totalPages, title:'Siguiente'}));
-    pagerEl.appendChild(mk('»', ()=>{ current=totalPages; render(); }, {disabled: current===totalPages, title:'Última'}));
-  }
-
-  function render(){
-    computePageSize(); // <- clave: siempre múltiplo de columnas
-    const total = cards.length;
-    const totalPages = Math.max(1, Math.ceil(total / pageSize));
-    if(current > totalPages) current = totalPages;
-
-    // Mostrar solo los de la página actual
-    const start = (current-1)*pageSize, end = current*pageSize;
-    cards.forEach((el,i)=>{ el.style.display = (i>=start && i<end) ? '' : 'none'; });
-
-    // Pager visible solo si hace falta
-    if(totalPages <= 1){ pagerEl.style.display='none'; pagerEl.innerHTML=''; }
-    else { pagerEl.style.display='flex'; renderPager(totalPages); }
-  }
-
-  // Recalcular al redimensionar (cambian columnas -> cambia pageSize)
-  const onResize = debounce(()=>{ 
-    const old = pageSize; 
-    computePageSize(); 
-    if(pageSize !== old) render();
-  }, 120);
-  window.addEventListener('resize', onResize);
-
-  // API para recontar si añades/eliminás cartas dinámicamente
-  function refresh(){
-    cards = Array.from(gridEl.querySelectorAll(':scope > .media-card'));
-    render();
-  }
-
-  render();
-  return { refresh };
-}
-
-
   function renderPager(totalPages) {
     pagerEl.innerHTML = '';
     pagerEl.appendChild(makeBtn('«', () => { current = 1; renderPage(); }, { disabled: current === 1, title: 'Primera' }));
@@ -4594,88 +3558,126 @@ window.addEventListener('beforeunload', () => {
 
 /* ===== Wishlist: orden por "Más recientes" o "Prioridad" ===== */
 (function(){
-  const RANK = { alta:3, media:2, baja:1 };
+  const RANK = { alta: 3, media: 2, baja: 1 };
 
+  // "YYYY-MM-DD HH:MM:SS[.xxxxx]" -> timestamp seguro
   function toTs(s){
     if (!s) return 0;
-    const core = String(s).trim().slice(0,19).replace(' ','T');
+    const str = String(s).trim().replace('T',' ');
+    const core = str.slice(0, 19).replace(' ', 'T'); // corta microsegundos y normaliza
     const t = Date.parse(core);
     return Number.isFinite(t) ? t : 0;
   }
 
   function sortGrid(grid, mode){
     const cards = Array.from(grid.querySelectorAll('.wishlist-card'));
-    const pos = new Map(cards.map((el,i)=>[el,i]));
-    cards.sort((a,b)=>{
-      const A = { p: RANK[(a.dataset.priority||'').toLowerCase()]||0, t: toTs(a.dataset.created) };
-      const B = { p: RANK[(b.dataset.priority||'').toLowerCase()]||0, t: toTs(b.dataset.created) };
-      if (mode==='priority') return (B.p-A.p) || (B.t-A.t) || (pos.get(a)-pos.get(b));
-      return (B.t-A.t) || (B.p-A.p) || (pos.get(a)-pos.get(b));
+    const pos = new Map(cards.map((el, i) => [el, i])); // orden estable
+
+    cards.sort((a, b) => {
+      const A = { p: RANK[(a.dataset.priority||'').toLowerCase()] || 0,
+                  t: toTs(a.dataset.created) };
+      const B = { p: RANK[(b.dataset.priority||'').toLowerCase()] || 0,
+                  t: toTs(b.dataset.created) };
+
+      if (mode === 'priority') {
+        if (B.p !== A.p) return B.p - A.p;   // alta > media > baja
+        if (B.t !== A.t) return B.t - A.t;   // más nuevo primero
+      } else { // 'recent'
+        if (B.t !== A.t) return B.t - A.t;   // más nuevo primero
+        if (B.p !== A.p) return B.p - A.p;   // desempate por prioridad
+      }
+      return pos.get(a) - pos.get(b);
     });
-    cards.forEach(c=>grid.appendChild(c));
+
+    cards.forEach(c => grid.appendChild(c));
   }
 
   function applyWishlistSort(mode){
-    ['wanted-tab','purchased-tab'].forEach(id=>{
-      const grid = document.querySelector(`#${id} .wishlist-grid`);
-      if (grid) sortGrid(grid, mode);
+    const m = mode || (document.getElementById('wishlist-sort')?.value || 'recent');
+    ['wanted-tab','purchased-tab'].forEach(tabId => {
+      const grid = document.querySelector(`#${tabId} .wishlist-grid`);
+      if (grid) sortGrid(grid, m);
     });
-    try{ localStorage.setItem('wishlist_sort', mode); }catch{}
+    try { localStorage.setItem('wishlist_sort', m); } catch {}
   }
 
-  function initToggle(){
-    const toggle = document.getElementById('wishlist-sort-toggle');
-    if (!toggle) return;
-    const btns = Array.from(toggle.querySelectorAll('button[data-mode]'));
-    const slider = toggle.querySelector('.slider');
+  function setupWishlistSorting(){
+    const select = document.getElementById('wishlist-sort');
+    if (!select) return;
 
-    function positionSlider(){
-      const active = toggle.querySelector('button.active');
-      if (!active || !slider) return;
-      slider.style.width = active.offsetWidth + 'px';
-      slider.style.transform = `translateX(${active.offsetLeft}px)`;
-    }
+    // restaura preferencia guardada
+    try {
+      const saved = localStorage.getItem('wishlist_sort');
+      if (saved) select.value = saved;
+    } catch {}
 
-    function setMode(mode){
-      btns.forEach(b=>{
-        const on = b.dataset.mode === mode;
-        b.classList.toggle('active', on);
-        b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      });
-      positionSlider();
-      applyWishlistSort(mode);
-    }
-
-    // Estado inicial
-    let initial = 'recent';
-    try{ initial = localStorage.getItem('wishlist_sort') || initial; }catch{}
-    setMode(initial);
-
-    // Eventos
-    btns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
-    window.addEventListener('resize', positionSlider);
-
-    // Accesibilidad teclado
-    toggle.addEventListener('keydown', (e)=>{
-      if (e.key!=='ArrowRight' && e.key!=='ArrowLeft') return;
-      e.preventDefault();
-      const idx = btns.findIndex(b=>b.classList.contains('active'));
-      const next = e.key==='ArrowRight' ? Math.min(btns.length-1, idx+1) : Math.max(0, idx-1);
-      setMode(btns[next].dataset.mode);
-    });
+    select.addEventListener('change', () => applyWishlistSort(select.value));
+    applyWishlistSort(select.value);
   }
 
-  // Exponer si lo necesitas
+  // expone helpers por si luego añades/eliminás cards dinámicamente
+  window.setupWishlistSorting = setupWishlistSorting;
   window.applyWishlistSort = applyWishlistSort;
 
-  document.addEventListener('DOMContentLoaded', initToggle);
+
+function setupWishlistSortToggle(){
+  const toggle = document.getElementById('wishlist-sort-toggle');
+  if (!toggle || !window.applyWishlistSort) return;
+  const btns = Array.from(toggle.querySelectorAll('button[data-mode]'));
+  const slider = toggle.querySelector('.slider');
+
+  function positionSlider(){
+    const active = toggle.querySelector('button.active');
+    if (!active || !slider) return;
+    slider.style.width = active.offsetWidth + 'px';
+    slider.style.transform = `translateX(${active.offsetLeft}px)`;
+  }
+
+  function setMode(mode){
+    btns.forEach(b=>{
+      const on = b.dataset.mode === mode;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    positionSlider();
+    window.applyWishlistSort(mode); // ya guarda en localStorage
+  }
+
+  // Init con preferencia guardada o 'recent'
+  let initial = 'recent';
+  try{ initial = localStorage.getItem('wishlist_sort') || initial; }catch(e){}
+  setMode(initial);
+
+  // Eventos
+  btns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  window.addEventListener('resize', positionSlider);
+
+  // Soporte teclado (izq/der)
+  toggle.addEventListener('keydown', (e)=>{
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    const idx = btns.findIndex(b => b.classList.contains('active'));
+    const next = e.key === 'ArrowRight' ? Math.min(btns.length-1, idx+1) : Math.max(0, idx-1);
+    setMode(btns[next].dataset.mode);
+    btns[next].focus();
+  });
+}
+
+// Llama a esta función en tu DOMContentLoaded grande:
+document.addEventListener('DOMContentLoaded', () => {
+  setupWishlistSortToggle();
+});
+
+
+
+  // arranca cuando el DOM esté listo
+  document.addEventListener('DOMContentLoaded', setupWishlistSorting);
 })();
 
 
   // El backend ya pasa 'username' a la plantilla:
-// --- El backend ya pasa 'username'...
-const ME = "{{ username }}";
-const OTHER = (ME === "mochito") ? "mochita" : "mochito";
+  const ME = "{{ username }}";
+  const OTHER = (ME === "mochito") ? "mochita" : "mochito";
 
   // 1) Mantener mi presencia viva
   async function pingPresence() {
@@ -4692,7 +3694,7 @@ const OTHER = (ME === "mochito") ? "mochita" : "mochito";
   setInterval(pingPresence, 45_000);
 
   // 2) Mostrar estado del OTRO usuario (cambia los selectores a los tuyos)
-  const dot   = document.querySelector('#presenceDot');   //...
+  const dot   = document.querySelector('#presenceDot');   // ⬅️ círculo/semáforo
   const label = document.querySelector('#presenceText');  // ⬅️ texto “En línea/Desconectado/Comprobando…”
 
   function humanizeAgo(sec){
@@ -4917,1391 +3919,7 @@ function humanizeAgo(seconds){
   }
 })();
 
-
-/* ========= Media: tabs ========= */
-function setupMediaTabs(){
-  document.querySelectorAll('.media-tabs .media-tab').forEach(tab=>{
-    tab.addEventListener('click', ()=>{
-      document.querySelectorAll('.media-tabs .media-tab').forEach(t=>t.classList.remove('active'));
-      document.querySelectorAll('.media-content').forEach(c=>c.classList.remove('active'));
-      tab.classList.add('active');
-      const id = tab.getAttribute('data-tab');
-      document.getElementById(id + '-tab')?.classList.add('active');
-      // Reaplica búsqueda al cambiar de tab
-      const q = document.getElementById('media-search')?.value || '';
-      applyMediaSearch(q);
-      // Reposiciona slider del toggle
-      positionMediaSortSlider();
-      // Refresca paginación del tab visible
-      refreshMediaPagination();
-    });
-  });
-}
-
-/* ========= Media: sort ========= */
-function positionMediaSortSlider(){
-  const toggle = document.getElementById('media-sort-toggle');
-  if (!toggle) return;
-  const slider = toggle.querySelector('.slider');
-  const active = toggle.querySelector('button.active');
-  if (!slider || !active) return;
-  slider.style.width = active.offsetWidth + 'px';
-  slider.style.transform = `translateX(${active.offsetLeft}px)`;
-}
-function applyMediaSort(mode){
-  const grids = [
-    document.querySelector('#towatch-tab .media-grid'),
-    document.querySelector('#watched-tab .media-grid')
-  ];
-  grids.forEach(grid=>{
-    if (!grid) return;
-    const cards = Array.from(grid.querySelectorAll(':scope > .media-card'));
-    const pos = new Map(cards.map((el,i)=>[el,i]));
-    const ts = s => {
-      if (!s) return 0;
-      const core = String(s).trim().slice(0,19).replace(' ','T');
-      const t = Date.parse(core);
-      return Number.isFinite(t) ? t : 0;
-    };
-    cards.sort((a,b)=>{
-      const A = {
-        t: ts(a.dataset.created),
-        r: +a.dataset.rating || 0,
-        p: (a.dataset.platform || 'zzz'),
-        title: (a.dataset.title || '')
-      };
-      const B = {
-        t: ts(b.dataset.created),
-        r: +b.dataset.rating || 0,
-        p: (b.dataset.platform || 'zzz'),
-        title: (b.dataset.title || '')
-      };
-      if (mode === 'rating')   return (B.r - A.r) || (B.t - A.t) || (pos.get(a)-pos.get(b));
-      if (mode === 'platform') return (A.p.localeCompare(B.p)) || A.title.localeCompare(B.title) || (B.t - A.t);
-      // recent
-      return (B.t - A.t) || (B.r - A.r) || (pos.get(a)-pos.get(b));
-    });
-    cards.forEach(c=>grid.appendChild(c));
-  });
-}
-function setupMediaSortToggle(){
-  const toggle = document.getElementById('media-sort-toggle');
-  if (!toggle) return;
-  const btns = Array.from(toggle.querySelectorAll('button[data-mode]'));
-  let current = 'recent';
-  try { current = localStorage.getItem('media_sort') || 'recent'; } catch {}
-  function setMode(mode){
-    current = mode;
-    btns.forEach(b=>{
-      const on = b.dataset.mode === mode;
-      b.classList.toggle('active', on);
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    });
-    applyMediaSort(mode);
-    positionMediaSortSlider();
-    try{ localStorage.setItem('media_sort', mode); }catch{}
-  }
-  btns.forEach(b=> b.addEventListener('click', ()=> setMode(b.dataset.mode)));
-  toggle.addEventListener('keydown', (e)=>{
-    if (e.key!=='ArrowRight' && e.key!=='ArrowLeft') return;
-    e.preventDefault();
-    const i = btns.findIndex(b=>b.classList.contains('active'));
-    const next = e.key==='ArrowRight' ? Math.min(btns.length-1, i+1) : Math.max(0, i-1);
-    setMode(btns[next].dataset.mode);
-  });
-  // init
-  setMode(current);
-  window.addEventListener('resize', positionMediaSortSlider);
-}
-
-/* ========= Media: búsqueda + paginación ========= */
-function activeMediaGrid(){
-  if (document.getElementById('towatch-tab')?.classList.contains('active'))
-    return {grid: document.querySelector('#towatch-tab .media-grid'), pager: document.getElementById('media-pager-towatch')};
-  if (document.getElementById('watched-tab')?.classList.contains('active'))
-    return {grid: document.querySelector('#watched-tab .media-grid'), pager: document.getElementById('media-pager-watched')};
-  return null;
-}
-let mediaPager = { refresh(){}, goToFirst(){} };
-function paginateMediaGrid(gridEl, pagerEl, pageSize = 8){
-  if (!gridEl || !pagerEl) return { refresh(){}, goToFirst(){} };
-  const allCards = Array.from(gridEl.querySelectorAll(':scope > .media-card'));
-  let current = 1;
-  let emptyMsg = gridEl.querySelector('.no-results');
-  if (!emptyMsg){
-    emptyMsg = document.createElement('p');
-    emptyMsg.className = 'no-results';
-    emptyMsg.textContent = 'Sin resultados.';
-    emptyMsg.style.display = 'none';
-    emptyMsg.style.gridColumn = '1/-1';
-    gridEl.appendChild(emptyMsg);
-  }
-  function getMatched(){ return allCards.filter(el => el.dataset.match !== '0'); }
-  function hideAll(){ allCards.forEach(el=> el.style.display='none'); }
-  function makeBtn(label, onClick, opts={}){
-    const b = document.createElement('button');
-    b.textContent = label;
-    b.className = 'page-btn' + (opts.active ? ' active' : '');
-    if (opts.title) b.title = opts.title;
-    if (opts.disabled) b.disabled = true;
-    if (!opts.disabled && onClick) b.addEventListener('click', onClick);
-    return b;
-  }
-  function render(){
-    const matched = getMatched();
-    const total = matched.length;
-    const totalPages = Math.max(1, Math.ceil(total / pageSize));
-    if (current > totalPages) current = totalPages;
-    if (total === 0){
-      hideAll(); emptyMsg.style.display = ''; pagerEl.style.display='none'; pagerEl.innerHTML=''; return;
-    } else { emptyMsg.style.display='none'; }
-    if (totalPages <= 1){
-      pagerEl.style.display='none'; pagerEl.innerHTML='';
-      hideAll(); matched.forEach(el=> el.style.display='');
-      return;
-    }
-    pagerEl.style.display='flex';
-    const start = (current - 1) * pageSize;
-    const end   = start + pageSize;
-    hideAll();
-    matched.forEach((el,i)=>{ el.style.display = (i>=start && i<end) ? '' : 'none'; });
-    // controls
-    pagerEl.innerHTML='';
-    pagerEl.appendChild(makeBtn('«', ()=>{ current=1; render(); }, {disabled: current===1, title:'Primera'}));
-    pagerEl.appendChild(makeBtn('‹', ()=>{ current=Math.max(1,current-1); render(); }, {disabled: current===1, title:'Anterior'}));
-    const windowSize = 5;
-    let from = Math.max(1, current - Math.floor(windowSize/2));
-    let to   = Math.min(totalPages, from + windowSize - 1);
-    from = Math.max(1, to - windowSize + 1);
-    for(let p=from;p<=to;p++){
-      pagerEl.appendChild(makeBtn(String(p), ()=>{ current=p; render(); }, {active: p===current}));
-    }
-    pagerEl.appendChild(makeBtn('›', ()=>{ current=Math.min(totalPages,current+1); render(); }, {disabled: current===totalPages, title:'Siguiente'}));
-    pagerEl.appendChild(makeBtn('»', ()=>{ current=totalPages; render(); }, {disabled: current===totalPages, title:'Última'}));
-  }
-  render();
-  return {
-    refresh: render,
-    goToFirst: ()=>{ current = 1; render(); }
-  };
-}
-function setupMediaPagination(){
-  const act = activeMediaGrid();
-  if (!act) return;
-  mediaPager = paginateMediaGrid(act.grid, act.pager, 8);
-}
-function refreshMediaPagination(){
-  const act = activeMediaGrid();
-  if (!act) return;
-  mediaPager = paginateMediaGrid(act.grid, act.pager, 8);
-}
-function applyMediaSearch(termRaw){
-  const act = activeMediaGrid();
-  if (!act) return;
-  const term = (termRaw || '').trim().toLowerCase();
-  const cards = Array.from(act.grid.querySelectorAll(':scope > .media-card'));
-  cards.forEach(card=>{
-    const title = (card.dataset.title || '');
-    const platf = (card.dataset.platform || '');
-    const match = term === '' || title.includes(term) || platf.includes(term);
-    card.dataset.match = match ? '1' : '0';
-  });
-  mediaPager.goToFirst?.();
-  mediaPager.refresh?.();
-}
-function setupMediaSearch(){
-  const input = document.getElementById('media-search');
-  if (!input) return;
-  input.addEventListener('input', ()=> applyMediaSearch(input.value));
-  applyMediaSearch(input.value);
-}
-
-/* ========= Media: rating widgets ========= */
-function attachRating(container){
-  const box = (typeof container === 'string') ? document.querySelector(container) : container;
-  if (!box) return;
-  const stars = Array.from(box.querySelectorAll('i.fa-star'));
-  const inputId = box.getAttribute('data-target');
-  const hidden = inputId ? document.getElementById(inputId) : box.querySelector('input[type="hidden"][name="rating"]');
-  if (!hidden) return;
-  function paint(val){
-    stars.forEach(st => {
-      const v = +st.dataset.v;
-      st.classList.toggle('fas', v <= val);
-      st.classList.toggle('far', v >  val);
-    });
-    hidden.value = val;
-  }
-  stars.forEach(st=>{
-    st.addEventListener('mouseenter', ()=> paint(+st.dataset.v));
-    st.addEventListener('click',      ()=> paint(+st.dataset.v));
-  });
-  box.addEventListener('mouseleave', ()=> paint(+hidden.value || 0));
-  // init
-  paint(+hidden.value || 0);
-}
-function initAllEditableRatings(){
-  document.querySelectorAll('.rating.editable').forEach(attachRating);
-}
-
-/* ========= Media: modal edición ========= */
-function toggleEpisodesRow(selectEl, rowEl){
-  if (!selectEl || !rowEl) return;
-  rowEl.style.display = (selectEl.value === 'show') ? '' : 'none';
-}
-window.openEditMediaModal = function(id, title, kind, platform, link, notes, rating, epsTotal, epsSeen, isWatched){
-  const modal = document.getElementById('editMediaModal');
-  if (!modal) return;
-
-  // fill
-  document.getElementById('mediaId').value = id || '';
-  document.getElementById('mediaTitle').value = title || '';
-  document.getElementById('mediaKind').value = kind || 'movie';
-  document.getElementById('mediaPlatform').value = platform || '';
-  document.getElementById('mediaLink').value = link || '';
-  document.getElementById('mediaNotes').value = notes || '';
-  document.getElementById('mediaRating').value = Number(rating||0);
-
-  const row = document.getElementById('editEpisodesRow');
-  const sel = document.getElementById('mediaKind');
-  toggleEpisodesRow(sel, row);
-  document.getElementById('mediaEpsTotal').value = Number(epsTotal||0);
-  document.getElementById('mediaEpsSeen').value  = Number(epsSeen||0);
-
-  const watched = document.getElementById('mediaWatchedToggle');
-  watched.checked = !!isWatched;
-
-  // init stars
-  initAllEditableRatings();
-
-  // open
-  modal.style.display = 'block';
-};
-
-// Cerrar modal genérico ya lo tienes (delegación .close-modal)
-
-/* ========= Media: init on DOMContentLoaded ========= */
-document.addEventListener('DOMContentLoaded', ()=>{
-  setupMediaTabs();
-  setupMediaSortToggle();
-  setupMediaPagination();
-  setupMediaSearch();
-  initAllEditableRatings();
-
-  // "Añadir" — mostrar episodios si es serie
-  const addKind = document.getElementById('addKind');
-  const addRow  = document.getElementById('addEpisodesRow');
-  if (addKind && addRow){
-    toggleEpisodesRow(addKind, addRow);
-    addKind.addEventListener('change', ()=> toggleEpisodesRow(addKind, addRow));
-  }
-
-  // "Editar" — cambiar visibilidad episodios al cambiar tipo
-  const editKind = document.getElementById('mediaKind');
-  const editRow  = document.getElementById('editEpisodesRow');
-  if (editKind && editRow){
-    editKind.addEventListener('change', ()=> toggleEpisodesRow(editKind, editRow));
-  }
-});
-
-
- // Navegación simple entre "Inicio" y "Películas/Series"
-  function setupSimplePages(){
-    const btns = document.querySelectorAll('.app-nav .nav-btn');
-    btns.forEach(btn=>{
-      btn.addEventListener('click', () => {
-        // estado visual de la barra
-        btns.forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-
-        const dest = btn.dataset.goto;
-
-        // Si es "media", activamos la página de películas/series.
-        // Si no, volvemos al inicio.
-        if (dest === 'media') {
-          document.body.classList.add('page-media');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        } else {
-          document.body.classList.remove('page-media');
-        }
-      });
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', function () {
-    setupSimplePages();
-  });
-
-
-  (function(){
-  // pinta estado de estrellas según value (0-5)
-  function paintStars(container, value){
-    const v = Number(value)||0;
-    container.querySelectorAll('i[data-v]').forEach(star=>{
-      const n = Number(star.dataset.v);
-      star.classList.toggle('fas', n <= v);
-      star.classList.toggle('far', n >  v);
-    });
-  }
-
-  // engancha clicks en estrellas para actualizar el hidden
-  function wireStars(container, hiddenInput){
-    container.querySelectorAll('i[data-v]').forEach(star=>{
-      star.addEventListener('click', ()=>{
-        const v = Number(star.dataset.v)||0;
-        hiddenInput.value = v;
-        paintStars(container, v);
-      });
-    });
-  }
-
-  // mapa de platform para el campo "platform" del modal
-  function platformText(key){
-    return key === 'both' ? 'Netflix + Prime'
-         : key === 'netflix' ? 'Netflix'
-         : key === 'prime' ? 'Prime'
-         : '';
-  }
-
-  // Abre el modal a partir del botón dentro de .media-card
-  window.openEditMedia = function(btn, forceWatched){
-    const card = btn.closest('.media-card');
-    if(!card) return;
-
-    const modal = document.getElementById('editMediaModal');
-    const form  = document.getElementById('editMediaForm');
-    if(!modal || !form) return;
-
-    // inputs
-    const idEl     = document.getElementById('mediaId');
-    const titleEl  = document.getElementById('mediaTitle');
-    const kindEl   = document.getElementById('mediaKind');
-    const platEl   = document.getElementById('mediaPlatform');
-    const linkEl   = document.getElementById('mediaLink');
-    const notesEl  = document.getElementById('mediaNotes');
-    const rateHid  = document.getElementById('mediaRating');
-    const rateBox  = modal.querySelector('.rating.editable');
-    const watchedT = document.getElementById('mediaWatchedToggle');
-    const epsRow   = document.getElementById('editEpisodesRow');
-
-    // dataset -> campos
-    idEl.value     = card.dataset.id || '';
-    titleEl.value  = card.dataset.title || '';
-    kindEl.value   = (card.dataset.kind || 'movie');
-    platEl.value   = platformText(card.dataset.platform || '');
-    linkEl.value   = card.dataset.link || '';
-    notesEl.value  = card.dataset.notes || '';
-
-    // rating y estado "vista"
-    const currentRating = Number(card.dataset.rating || 0);
-    rateHid.value = currentRating;
-    paintStars(rateBox, currentRating);
-    watchedT.checked = forceWatched ? true : (card.dataset.watched === '1');
-
-    // mostrar inputs de episodios si es serie
-    if (epsRow) epsRow.style.display = (kindEl.value === 'show') ? '' : 'none';
-
-    // (re)wire estrellas una sola vez
-    if (!rateBox.__wired){
-      wireStars(rateBox, rateHid);
-      rateBox.__wired = true;
-    }
-
-    // abre modal
-    modal.style.display = 'block';
-  };
-
-  // cierra modal (reutiliza tus handlers globales)
-  document.querySelectorAll('#editMediaModal .close-modal').forEach(x=>{
-    x.addEventListener('click', ()=> {
-      document.getElementById('editMediaModal').style.display = 'none';
-    });
-  });
-})();
-
-
-// Seleccionamos el footer
-const footer = document.querySelector('.site-footer');
-
-// Variables para almacenar la posición de desplazamiento anterior
-let lastScrollTop = 0;
-
-// Detectamos el evento de scroll
-window.addEventListener('scroll', () => {
-    let scrollTop = window.scrollY || document.documentElement.scrollTop;
-
-    if (scrollTop > lastScrollTop) {
-        // Si el usuario ha hecho scroll hacia abajo
-        footer.style.transform = 'translateY(0)'; // Mostrar el footer
-    } else {
-        // Si el usuario ha hecho scroll hacia arriba
-        footer.style.transform = 'translateY(100%)'; // Ocultar el footer
-    }
-
-    // Actualizamos la posición de scroll
-    lastScrollTop = scrollTop <= 0 ? 0 : scrollTop; // Para que no haya valores negativos
-});
-
-(function(){
-  const modal        = document.getElementById('editMediaModal');
-  const form         = document.getElementById('editMediaForm');
-  const idInput      = document.getElementById('mediaId');
-  const commentInput = document.getElementById('mediaComment');
-  const ratingInput  = document.getElementById('ratingInput');
-  const starsWrap    = document.getElementById('ratingStars');
-  const markWatched  = document.getElementById('markWatched');
-  const heading      = document.getElementById('editMediaHeading');
-
-  function paintStars(val){
-    ratingInput.value = String(val);
-    starsWrap.querySelectorAll('i.fa-star').forEach(i=>{
-      const v = +i.dataset.val;
-      i.classList.toggle('fas', v <= val);
-      i.classList.toggle('far',  v >  val);
-    });
-  }
-
-  starsWrap?.addEventListener('click', (e)=>{
-    const i = e.target.closest('i.fa-star');
-    if(!i) return;
-    paintStars(+i.dataset.val || 0);
-  });
-
-  // La función que faltaba:
-  window.openEditMedia = function(btn, mark) {
-    const card = btn.closest('.media-card');
-    if (!card) return;
-
-    const title   = card.querySelector('.media-title')?.textContent?.trim() || 'Título';
-    const watched = card.dataset.watched === '1';
-
-    idInput.value      = card.dataset.id || '';
-    commentInput.value = (card.dataset.notes || '').trim();
-    paintStars(parseInt(card.dataset.rating || '0', 10) || 0);
-
-    // Si está en "Por ver" y pulsas lápiz, forzamos "marcar como vista"
-    // (porque no tienes endpoint de edición de pendientes)
-    const shouldWatch = mark || !watched;
-    markWatched.checked = !!shouldWatch;
-
-    // Acción según el checkbox
-    form.action = markWatched.checked ? '/media/watch' : '/media/unwatch';
-
-    // Título del modal
-    heading.textContent = (watched || markWatched.checked)
-      ? `Valorar: ${title}`
-      : `Editar: ${title}`;
-
-    modal.style.display = 'block';
-  };
-
-  // Cambiar destino del form si alternan el checkbox
-  markWatched?.addEventListener('change', ()=>{
-    form.action = markWatched.checked ? '/media/watch' : '/media/unwatch';
-  });
-})();
-
-(function () {
-  const stars = Array.from(document.querySelectorAll('#ratingStars .fa-star'));
-  const ratingInput = document.getElementById('ratingInput');
-
-  function paint(v) {
-    stars.forEach(s => {
-      const on = Number(s.dataset.val) <= Number(v || 0);
-      s.classList.toggle('fas', on); // sólida
-      s.classList.toggle('far', !on); // borde
-    });
-  }
-
-  stars.forEach(s => {
-    s.addEventListener('click', () => {
-      const v = Number(s.dataset.val);
-      // si clicas de nuevo la misma estrella, “desmarca” (sin nota)
-      ratingInput.value = (Number(ratingInput.value) === v) ? '' : String(v);
-      paint(ratingInput.value);
-    });
-  });
-
-  // Si al abrir el modal rellenas ratingInput, pinta estrellitas:
-  paint(ratingInput.value || '');
-})();
-
-document.querySelectorAll('.brand-toggle input').forEach(inp=>{
-  const lab = inp.nextElementSibling;
-  const sync = ()=> lab.setAttribute('aria-pressed', inp.checked ? 'true' : 'false');
-  inp.addEventListener('change', sync);
-  sync();
-});
-
-
-
-
-// ===== Helpers de orden =====
-function getActiveMediaGrid(){
-  // coge el grid del tab "Por ver" o "Vistas" que esté activo
-  const active = document.querySelector('.media-content.active .media-grid');
-  return active || null;
-}
-
-function parseTs(s){
-  // convierte fecha en timestamp; si no hay, 0
-  const t = Date.parse(s || '');
-  return Number.isFinite(t) ? t : 0;
-}
-
-function platformRank(p){
-  // prioridad: both > netflix > prime > zzz
-  const v = (p || '').toLowerCase();
-  if (v === 'both')    return 0;
-  if (v === 'netflix') return 1;
-  if (v === 'prime')   return 2;
-  return 3; // zzz/otros
-}
-
-function sortCards(grid, mode){
-  if(!grid) return;
-  const cards = Array.from(grid.querySelectorAll('.media-card'));
-  const byRecent = (a,b) => parseTs(b.dataset.created) - parseTs(a.dataset.created);
-  const byRating = (a,b) => {
-    const ra = parseFloat(a.dataset.avg || '0') || 0;
-    const rb = parseFloat(b.dataset.avg || '0') || 0;
-    if (rb !== ra) return rb - ra;
-    // desempate: más reciente primero
-    return byRecent(a,b);
-  };
-  const byPlatform = (a,b) => {
-    const pa = platformRank(a.dataset.platform);
-    const pb = platformRank(b.dataset.platform);
-    if (pa !== pb) return pa - pb;
-    return byRecent(a,b);
-  };
-
-  const cmp = mode === 'rating' ? byRating : mode === 'platform' ? byPlatform : byRecent;
-
-  // Re-orden estable: crea un índice original para no romper empates iguales
-  cards.forEach((c, i) => c.__idx = i);
-  cards.sort((a,b) => {
-    const r = cmp(a,b);
-    return r !== 0 ? r : (a.__idx - b.__idx);
-  });
-
-  // Reinsertar en orden
-  const frag = document.createDocumentFragment();
-  cards.forEach(c => frag.appendChild(c));
-  grid.appendChild(frag);
-}
-
-// ===== UI del sort-toggle =====
-(function setupMediaSort(){
-  const wrap = document.getElementById('media-sort-toggle');
-  if(!wrap) return;
-
-  const slider = wrap.querySelector('.slider');
-  const btns   = Array.from(wrap.querySelectorAll('button'));
-  let mode = (btns.find(b => b.getAttribute('aria-pressed') === 'true')?.dataset.mode) || 'recent';
-
-  function moveSliderTo(btn){
-    if(!slider || !btn) return;
-    const rWrap = wrap.getBoundingClientRect();
-    const rBtn  = btn.getBoundingClientRect();
-    const w  = rBtn.width;
-    const x  = rBtn.left - rWrap.left;
-    slider.style.width = `${w}px`;
-    slider.style.transform = `translateX(${x}px)`;
-  }
-
-  function setActive(btn){
-    btns.forEach(b => {
-      const on = (b === btn);
-      b.classList.toggle('active', on);
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    });
-    moveSliderTo(btn);
-  }
-
-  function apply(){
-    const grid = getActiveMediaGrid();
-    sortCards(grid, mode);
-  }
-
-  // Clicks
-  wrap.addEventListener('click', (e)=>{
-    const b = e.target.closest('button[data-mode]');
-    if(!b) return;
-    mode = b.dataset.mode;
-    setActive(b);
-    apply();
-  });
-
-  // Al cargar / al cambiar de tab, recoloca slider + aplica sort
-  window.addEventListener('load', ()=>{
-    const current = btns.find(b => b.dataset.mode === mode) || btns[0];
-    setActive(current);
-    apply();
-  });
-  window.addEventListener('resize', ()=>{
-    const current = btns.find(b => b.classList.contains('active'));
-    if(current) moveSliderTo(current);
-  });
-
-  // Si no tienes listeners para tabs de media, añade esto:
-  document.querySelectorAll('.media-tabs .media-tab').forEach(tab=>{
-    tab.addEventListener('click', ()=>{
-      // activar pestaña
-      document.querySelectorAll('.media-tabs .media-tab').forEach(t=>t.classList.remove('active'));
-      document.querySelectorAll('.media-content').forEach(c=>c.classList.remove('active'));
-      tab.classList.add('active');
-      const id = tab.dataset.tab;
-      document.getElementById(id + '-tab')?.classList.add('active');
-
-      // volver a aplicar el orden al nuevo grid visible
-      const current = btns.find(b => b.classList.contains('active')) || btns[0];
-      moveSliderTo(current);
-      apply();
-    });
-  });
-})();
-// === Buscar SOLO por TÍTULO en Películas/Series ===
-(function mediaTitleOnlySearch(){
-  const box = document.getElementById('media-search');
-  if(!box) return;
-
-  // 1) Quita cualquier listener previo (clon) y cambia placeholder
-  const newBox = box.cloneNode(true);
-  box.replaceWith(newBox);
-  newBox.placeholder = 'Buscar por título…';
-
-  // Normaliza (quita acentos, pasa a minúsculas)
-  const norm = (s) => (s || '')
-    .toString()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim();
-
-  // Devuelve true si el título contiene TODAS las palabras buscadas
-  function matchTitle(title, q){
-    const hay = norm(title);
-    const needles = norm(q).split(/\s+/).filter(Boolean);
-    if(needles.length === 0) return true;
-    return needles.every(t => hay.includes(t));
-  }
-
-  function applyFilter(){
-    const q = newBox.value;
-    const lists = [
-      document.querySelector('#towatch-tab .media-grid'),
-      document.querySelector('#watched-tab .media-grid')
-    ];
-
-    lists.forEach((grid, idx) => {
-      if(!grid) return;
-      let visibles = 0;
-
-      grid.querySelectorAll('.media-card').forEach(card => {
-        const title = card.dataset.title || '';
-        const ok = matchTitle(title, q);
-        card.style.display = ok ? '' : 'none';
-        if(ok) visibles++;
-      });
-
-      // Si tienes paginación propia, repagina tras el filtro (opcional)
-      // Asegúrate de que tu función exista:
-      if (typeof window.rePageMedia === 'function') {
-        window.rePageMedia(idx === 0 ? 'towatch' : 'watched');
-      }
-    });
-  }
-
-  // Filtra en tiempo real
-  newBox.addEventListener('input', applyFilter);
-  // Primera pasada (por si el input viene con valor)
-  applyFilter();
-})();
-
-
-
-// === Buscador SOLO por título con 3 modos: Contiene | Empieza por | Ambos ===
-(function mediaTitleSearchWithModes(){
-  const box = document.getElementById('media-search');
-  if(!box) return;
-
-  // 1) Sustituimos el input para limpiar listeners previos y ajustamos placeholder
-  const input = box.cloneNode(true);
-  box.replaceWith(input);
-  input.placeholder = 'Buscar por título…';
-
-  // 2) Inyectamos un toggle de modo al lado del input
-  const tools = input.parentElement; // .media-tools
-  const toggle = document.createElement('div');
-  toggle.id = 'media-search-mode';
-  toggle.className = 'sort-toggle';
-  toggle.setAttribute('role','group');
-  toggle.setAttribute('aria-label','Modo de búsqueda');
-  toggle.innerHTML = `
-    <div class="slider" aria-hidden="true"></div>
-    <button type="button" data-mode="contains" aria-pressed="true"  class="active"><i class="fas fa-magnifying-glass"></i> Contiene</button>
-    <button type="button" data-mode="starts"   aria-pressed="false"><i class="fas fa-arrow-right-to-bracket"></i> Empieza</button>
-    <button type="button" data-mode="either"   aria-pressed="false"><i class="fas fa-toggle-on"></i> Ambos</button>
-  `;
-  tools.appendChild(toggle);
-
-  // === Helpers de UI (slider del toggle) ===
-  function positionSlider(group){
-    const slider = group.querySelector('.slider');
-    const active = group.querySelector('button.active');
-    if(!slider || !active) return;
-    const r = active.getBoundingClientRect();
-    const g = group.getBoundingClientRect();
-    slider.style.width = r.width + 'px';
-    slider.style.transform = `translateX(${r.left - g.left}px)`;
-  }
-  window.addEventListener('resize', () => positionSlider(toggle));
-  // end helpers
-
-  // 3) Normalizador (quita tildes, minúsculas)
-  const norm = (s) => (s||'').toString()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .toLowerCase().trim();
-
-  // 4) Estrategias de matching
-  function needlesOf(q){ return norm(q).split(/\s+/).filter(Boolean); }
-
-  function matchContains(hay, needles){
-    if(needles.length===0) return true;
-    return needles.every(n => hay.includes(n));
-  }
-
-  // "Empieza por": o bien el título empieza por toda la frase,
-  // o bien cada palabra buscada empareja el inicio de alguna palabra del título.
-  function matchStarts(hay, needles){
-    if(needles.length===0) return true;
-    const phrase = needles.join(' ');
-    if(hay.startsWith(phrase)) return true;
-    const words = hay.split(/\s+/);
-    return needles.every(n => words.some(w => w.startsWith(n)));
-  }
-
-  function matchEither(hay, needles){
-    return matchContains(hay, needles) || matchStarts(hay, needles);
-  }
-
-  let mode = 'contains'; // por defecto
-
-  // 5) Aplicar filtro a ambas listas (Por ver / Vistas)
-  function applyFilter(){
-    const q = input.value;
-    const needles = needlesOf(q);
-
-    const lists = [
-      document.querySelector('#towatch-tab .media-grid'),
-      document.querySelector('#watched-tab .media-grid')
-    ];
-
-    lists.forEach((grid, idx) => {
-      if(!grid) return;
-      grid.querySelectorAll('.media-card').forEach(card => {
-        const title = card.dataset.title || '';
-        const hay = norm(title);
-
-        let ok = true;
-        if(mode === 'contains') ok = matchContains(hay, needles);
-        else if(mode === 'starts') ok = matchStarts(hay, needles);
-        else ok = matchEither(hay, needles);
-
-        card.style.display = ok ? '' : 'none';
-      });
-
-      // Si tienes repaginador, lo llamamos (si no existe, no pasa nada)
-      if (typeof window.rePageMedia === 'function') {
-        window.rePageMedia(idx === 0 ? 'towatch' : 'watched');
-      }
-    });
-  }
-
-  // 6) Eventos
-  input.addEventListener('input', applyFilter);
-
-  toggle.addEventListener('click', (e)=>{
-    const btn = e.target.closest('button[data-mode]');
-    if(!btn) return;
-    // actualizar estado visual
-    toggle.querySelectorAll('button').forEach(b=>{
-      b.classList.toggle('active', b===btn);
-      b.setAttribute('aria-pressed', b===btn ? 'true' : 'false');
-    });
-    mode = btn.dataset.mode || 'contains';
-    positionSlider(toggle);
-    applyFilter();
-  });
-
-  // Primera pasada + posicionar slider
-  positionSlider(toggle);
-  applyFilter();
-})();
-
-// === Buscador automático SOLO por TÍTULO ===
-// 1º prueba "empieza por"; si no hay resultados, cae a "contiene".
-(function mediaTitleSearchAuto(){
-  const old = document.getElementById('media-search');
-  if(!old) return;
-
-  // Elimina el toggle si existiera (de la versión anterior)
-  document.getElementById('media-search-mode')?.remove();
-
-  // Clona el input para limpiar listeners previos
-  const input = old.cloneNode(true);
-  old.replaceWith(input);
-  input.placeholder = 'Buscar por título…';
-
-  // Normalizador: sin tildes, minúsculas
-  const norm = (s) => (s||'')
-    .toString()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .toLowerCase().trim();
-
-  const needlesOf = (q) => norm(q).split(/\s+/).filter(Boolean);
-
-  // Contiene: todas las palabras deben aparecer
-  function matchContains(hay, needles){
-    if(needles.length===0) return true;
-    return needles.every(n => hay.includes(n));
-  }
-
-  // Empieza por: el título empieza por la frase completa
-  //   o cada palabra coincide con el inicio de alguna palabra del título
-  function matchStarts(hay, needles){
-    if(needles.length===0) return true;
-    const phrase = needles.join(' ');
-    if(hay.startsWith(phrase)) return true;
-    const words = hay.split(/\s+/);
-    return needles.every(n => words.some(w => w.startsWith(n)));
-  }
-
-  // Aplica el filtro con el modo elegido y devuelve nº de visibles
-  function applyWith(mode){
-    const nls = needlesOf(input.value);
-    let total = 0;
-
-    [
-      ['#towatch-tab .media-grid','towatch'],
-      ['#watched-tab .media-grid','watched']
-    ].forEach(([sel, key])=>{
-      const grid = document.querySelector(sel);
-      if(!grid) return;
-
-      grid.querySelectorAll('.media-card').forEach(card=>{
-        const hay = norm(card.dataset.title || '');
-        const ok = nls.length===0
-          ? true
-          : (mode === 'starts' ? matchStarts(hay, nls) : matchContains(hay, nls));
-        card.style.display = ok ? '' : 'none';
-        if(ok) total++;
-      });
-
-      // Si tienes repaginador, lo llamamos (si no existe, no pasa nada)
-      if(typeof window.rePageMedia === 'function'){
-        window.rePageMedia(key);
-      }
-    });
-
-    return total;
-  }
-
-  function applyFilter(){
-    const q = input.value.trim();
-    if(!q){
-      applyWith('contains'); // vacío = mostrar todo
-      return;
-    }
-    // 1) intenta "empieza por"
-    const hits = applyWith('starts');
-    // 2) si no hay resultados, cae a "contiene"
-    if(hits === 0) applyWith('contains');
-  }
-
-  input.addEventListener('input', applyFilter);
-  // Primera pasada
-  applyFilter();
-})();
-
-
-// === Buscador automático SOLO por TÍTULO (empieza por → si 0 hits → contiene) ===
-document.addEventListener('DOMContentLoaded', function mediaTitleSearchAutoFix(){
-  const input = document.getElementById('media-search');
-  if (!input) return;
-
-  // Suaviza el placeholder si quieres
-  try { if (!/título/i.test(input.placeholder)) input.placeholder = 'Buscar por título…'; } catch(e){}
-
-  // Normaliza: sin tildes, minúsculas
-  const norm = (s) => (s || '')
-    .toString()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g,'')
-    .toLowerCase()
-    .trim();
-
-  const needlesOf = (q) => norm(q).split(/\s+/).filter(Boolean);
-
-  function getGrids(){
-    return [
-      ['towatch', document.querySelector('#towatch-tab .media-grid')],
-      ['watched', document.querySelector('#watched-tab .media-grid')]
-    ].filter(([,g]) => !!g);
-  }
-
-  // Saca el título real (dataset o <h3>)
-  function cardTitle(card){
-    const ds = card.dataset?.title || '';
-    const h3 = card.querySelector?.('.media-title')?.textContent || '';
-    return ds || h3 || '';
-  }
-
-  function matchContains(hay, needles){
-    if (needles.length === 0) return true;
-    return needles.every(n => hay.includes(n));
-  }
-
-  // Empieza por: o el título entero empieza por la frase,
-  // o cada palabra buscada casa con el inicio de alguna palabra del título
-  function matchStarts(hay, needles){
-    if (needles.length === 0) return true;
-    const phrase = needles.join(' ');
-    if (hay.startsWith(phrase)) return true;
-    const words = hay.split(/\s+/);
-    return needles.every(n => words.some(w => w.startsWith(n)));
-  }
-
-  // Cuenta coincidencias sin tocar el display (para decidir el modo)
-  function countMatches(needles, mode){
-    let total = 0;
-    getGrids().forEach(([,grid])=>{
-      grid.querySelectorAll('.media-card').forEach(card=>{
-        const hay = norm(cardTitle(card));
-        const ok = needles.length === 0 ? true :
-                   (mode === 'starts' ? matchStarts(hay, needles) : matchContains(hay, needles));
-        if (ok) total++;
-      });
-    });
-    return total;
-  }
-
-  // Aplica el display según el modo final
-  function applyDisplay(needles, mode){
-    getGrids().forEach(([key,grid])=>{
-      grid.querySelectorAll('.media-card').forEach(card=>{
-        const hay = norm(cardTitle(card));
-        const ok = needles.length === 0 ? true :
-                   (mode === 'starts' ? matchStarts(hay, needles) : matchContains(hay, needles));
-        card.style.display = ok ? '' : 'none';
-      });
-      // Si tienes repaginador, lo llamamos sin romper nada si no existe
-      if (typeof window.rePageMedia === 'function'){
-        try { window.rePageMedia(key); } catch(e){}
-      }
-    });
-  }
-
-  function applyFilter(){
-    const q = input.value || '';
-    const needles = needlesOf(q);
-
-    // Sin texto: mostrar todo
-    if (needles.length === 0){
-      applyDisplay(needles, 'contains');
-      return;
-    }
-
-    // 1) Intentar "empieza por" (sin pintar)
-    const hitsStarts = countMatches(needles, 'starts');
-
-    // 2) Si 0 resultados, caer a "contiene"; si no, mantener "empieza por"
-    const mode = (hitsStarts > 0) ? 'starts' : 'contains';
-    applyDisplay(needles, mode);
-  }
-
-  // Evita duplicar listeners si ya había uno
-  if (!input.dataset.titleSearchAutoBound){
-    input.addEventListener('input', applyFilter);
-    input.dataset.titleSearchAutoBound = '1';
-  }
-
-  // Reaplicar al cambiar de pestaña por si el DOM oculta/enseña tarjetas
-  document.addEventListener('click', (e)=>{
-    const tab = e.target.closest?.('.media-tab');
-    if (tab) setTimeout(applyFilter, 0);
-  });
-
-  // Primera pasada
-  applyFilter();
-});
-
-/* ========= Mejoras Inicio/Distancia ========= */
-
-/* 1) Chip de distancia en el banner */
-function setChipDistance(km){
-  try{
-    const el = document.getElementById('chipDistance');
-    if(el) el.innerHTML = `<i class="fa-solid fa-route"></i> ${km.toFixed(1)} km`;
-  }catch(e){}
-}
-
-/* 2) Barra de cercanía (0km => 100% | >=500km => 0%) */
-function setDistanceBar(km){
-  const fill = document.getElementById('distanceFill');
-  if(!fill) return;
-  const pct = Math.max(0, Math.min(1, 1 - (km / 500))) * 100;
-  fill.style.width = pct.toFixed(0) + '%';
-}
-
-/* 3) Extiende updateDistanceInfo() para actualizar chips y barra */
-(function(){
-  const _orig = window.updateDistanceInfo;
-  if(typeof _orig === 'function'){
-    window.updateDistanceInfo = function(){
-      const res = _orig.apply(this, arguments);
-      try{
-        const km = calculateDistance(
-          christianLocation.lat, christianLocation.lng,
-          claraLocation.lat, claraLocation.lng
-        );
-        setChipDistance(km);
-        setDistanceBar(km);
-      }catch(e){}
-      return res;
-    };
-  }else{
-    // Si aún no existe, intenta calcular una vez cuando cargue
-    document.addEventListener('DOMContentLoaded', ()=>{
-      if(typeof calculateDistance === 'function' && window.christianLocation && window.claraLocation){
-        const km = calculateDistance(
-          christianLocation.lat, christianLocation.lng,
-          claraLocation.lat, claraLocation.lng
-        );
-        if(isFinite(km)){ setChipDistance(km); setDistanceBar(km); }
-      }
-    });
-  }
-})();
-
-/* 4) Botón “pantalla completa” del mapa */
-(function(){
-  const btn = document.getElementById('toggleMapSize');
-  const wrap = document.querySelector('.distance-map-container');
-  if(!btn || !wrap) return;
-  btn.addEventListener('click', ()=>{
-    wrap.classList.toggle('full');
-    try{ setTimeout(()=> map?.invalidateSize?.(), 220); }catch(e){}
-    btn.innerHTML = wrap.classList.contains('full')
-      ? '<i class="fa-solid fa-compress"></i>'
-      : '<i class="fa-solid fa-expand"></i>';
-  });
-})();
-
-/* 5) Botón “intercambiar ubicaciones” (swap) */
-(function(){
-  const btn = document.getElementById('swapLocations');
-  if(!btn) return;
-  btn.addEventListener('click', ()=>{
-    try{
-      const tmp = {...christianLocation};
-      christianLocation = {...claraLocation};
-      claraLocation     = tmp;
-
-      christianMarker?.setLatLng([christianLocation.lat, christianLocation.lng]);
-      claraMarker?.setLatLng([claraLocation.lat, claraLocation.lng]);
-
-      window.updateDistanceLine?.();
-      window.updateDistanceInfo?.();
-    }catch(e){
-      console.warn('No se pudo hacer swap de ubicaciones', e);
-    }
-  });
-})();
-
-
-
 </script>
-
-<script>
-  /* ====== AUTO GEO (solo geolocalización, sin botones) ====== */
-  const LOGGED = {{ (username or '')|tojson }};
-  const OTHER  = {{ (other_user or '')|tojson }};
-  
-  let map, christianMarker, claraMarker, distanceLine;
-  let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" };
-  let claraLocation     = { lat: 37.8882, lng: -4.7794, name: "Córdoba" };
-  let watchId = null;
-  
-  /* Haversine en km */
-  function haversine(a, b){
-    const R=6371, toRad=d=>d*Math.PI/180;
-    const dLat=toRad(b.lat-a.lat), dLng=toRad(b.lng-a.lng);
-    const sLat1=toRad(a.lat), sLat2=toRad(b.lat);
-    const h=Math.sin(dLat/2)**2+Math.cos(sLat1)*Math.cos(sLat2)*Math.sin(dLng/2)**2;
-    return 2*R*Math.asin(Math.sqrt(h));
-  }
-  
-  /* Pinta distancia, barra y línea */
-  function renderDistance(){
-    if(!christianLocation || !claraLocation) return;
-    const km = haversine(christianLocation, claraLocation);
-    const val = document.getElementById('distanceValue');
-    const fill = document.getElementById('distanceFill');
-    const chip = document.getElementById('chipDistance');
-    const kmTxt = `${km.toFixed(1)} km`;
-    if(val)  val.textContent = kmTxt;
-    if(chip) chip.innerHTML = `<i class="fa-solid fa-route"></i> ${kmTxt}`;
-    if(fill) fill.style.width = `${Math.min(100, (km/5)*100)}%`; // 0–5 km escala bonita
-  
-    // línea entre los dos
-    if(distanceLine){ distanceLine.remove(); }
-    if(map){
-      distanceLine = L.polyline([
-        [christianLocation.lat, christianLocation.lng],
-        [claraLocation.lat,     claraLocation.lng]
-      ], {color:'#e84393', weight:4, opacity:.6}).addTo(map);
-  
-      const bounds = L.latLngBounds(
-        [christianLocation.lat, christianLocation.lng],
-        [claraLocation.lat,     claraLocation.lng]
-      );
-      map.fitBounds(bounds, { padding:[30,30] });
-    }
-  }
-  
-  /* Coloca/actualiza markers */
-  function upsertMarkers(){
-    if(!map || typeof L==='undefined') return;
-    // Cristian
-    if(!christianMarker){
-      christianMarker = L.marker([christianLocation.lat, christianLocation.lng], { title:'Christian' }).addTo(map);
-    }else{
-      christianMarker.setLatLng([christianLocation.lat, christianLocation.lng]);
-    }
-    // Clara
-    if(!claraMarker){
-      claraMarker = L.marker([claraLocation.lat, claraLocation.lng], { title:'Clara' }).addTo(map);
-    }else{
-      claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
-    }
-    renderDistance();
-  }
-  
-  /* Lógica para asignar MI posición (según usuario logueado) */
-  function setMyCoords(lat,lng,acc){
-    const who = (LOGGED||'').toLowerCase();
-    const point = {lat: Number(lat), lng: Number(lng)};
-    if(who === 'mochito' || who === 'christian'){
-      christianLocation = {...christianLocation, ...point, acc};
-      const el = document.getElementById('christianLocation');
-      if(el) el.textContent = `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
-    }else{
-      claraLocation = {...claraLocation, ...point, acc};
-      const el = document.getElementById('claraLocation');
-      if(el) el.textContent = `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
-    }
-    upsertMarkers();
-  }
-  
-  /* (Opcional) trae la última posición de la otra persona desde tu backend */
-  async function fetchOtherCoords(){
-    try{
-      const r = await fetch(`/api/other_location?user=${encodeURIComponent(OTHER||'')}`, {cache:'no-store'});
-      if(!r.ok) return;
-      const j = await r.json();
-      if(!j || !j.lat || !j.lng) return;
-      const point = {lat:Number(j.lat), lng:Number(j.lng)};
-      // Decide a quién corresponde “other”
-      const otherIsChristian = (OTHER||'').toLowerCase() === 'mochito' || (OTHER||'').toLowerCase()==='christian';
-      if(otherIsChristian){
-        christianLocation = {...christianLocation, ...point};
-      }else{
-        claraLocation = {...claraLocation, ...point};
-      }
-      upsertMarkers();
-    }catch(e){ /* silenciar */ }
-  }
-  
-  /* Arranca geolocalización continua */
-  function startAutoGeolocation(){
-    if(!('geolocation' in navigator)){
-      showToast?.('error','Tu dispositivo no soporta geolocalización');
-      return;
-    }
-    // Permisos: si ya está denegado, avisamos rápido
-    if(navigator.permissions && navigator.permissions.query){
-      navigator.permissions.query({name:'geolocation'}).then(p=>{
-        if(p.state==='denied'){
-          showToast?.('error','Activa el permiso de ubicación para ver la distancia en tiempo real');
-        }
-      }).catch(()=>{});
-    }
-  
-    // Observa mi posición y (opcional) la envía al backend
-    try{
-      watchId = navigator.geolocation.watchPosition(async pos=>{
-        const {latitude, longitude, accuracy} = pos.coords;
-        setMyCoords(latitude, longitude, accuracy);
-        // Enviar al backend (ajusta la URL si ya tienes otra ruta)
-        try{
-          await fetch('/api/location', {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ lat:latitude, lng:longitude, acc:accuracy })
-          });
-        }catch(_){ /* sin ruido */ }
-      }, err=>{
-        showToast?.('error', 'No se pudo obtener tu ubicación: '+ (err && err.message ? err.message : ''));
-      }, { enableHighAccuracy:true, maximumAge:15000, timeout:10000 });
-    }catch(e){
-      showToast?.('error','Error iniciando geolocalización');
-    }
-  
-    // Refresca cada 15 s la ubicación de la otra persona (si hay backend)
-    setInterval(fetchOtherCoords, 15000);
-  }
-  
-  /* Inicializa el mapa (sustituye tu initMap si estaba a medias) */
-  function initMap(){
-    const mapEl = document.getElementById('distanceMap');
-    if(!mapEl || typeof L==='undefined') return;
-    map = L.map('distanceMap', { zoomControl:true }).setView([39.5, -3], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
-    upsertMarkers();
-  }
-  
-  /* Arranque */
-  document.addEventListener('DOMContentLoaded', () => {
-    createHearts?.();
-    initMap();
-    startAutoGeolocation();
-    // primer pull del otro usuario (si lo tienes en backend)
-    fetchOtherCoords();
-  });
-
-
-// === Geolocalización controlada por clic ===
-async function requestGeolocationOnce() {
-  if (!('geolocation' in navigator)) {
-    showToast?.('error', 'Tu navegador no soporta geolocalización');
-    return null;
-  }
-  // HTTPS o localhost es obligatorio
-  if (!window.isSecureContext && location.hostname !== 'localhost') {
-    showToast?.('error', 'Activa HTTPS para usar geolocalización');
-    return null;
-  }
-  return new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve(pos),
-      (err) => {
-        let msg = 'No se pudo obtener tu ubicación';
-        if (err && err.code === err.PERMISSION_DENIED) msg = 'Permiso de ubicación denegado';
-        showToast?.('error', msg);
-        resolve(null);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-  });
-}
-
-// Actualiza tu marcador de "mi usuario" y el chip de distancia si procede
-function applyMyLocationToMap(lat, lng, label='Mi ubicación') {
-  try {
-    // Si usas Christian como “yo”, actualizamos ese marcador:
-    if (typeof christianMarker !== 'undefined' && christianMarker) {
-      christianMarker.setLatLng([lat, lng]).bindPopup(label);
-      // Si tienes esa variable, actualízala también:
-      if (typeof christianLocation !== 'undefined') {
-        christianLocation.lat = lat;
-        christianLocation.lng = lng;
-        christianLocation.name = label;
-      }
-      map?.panTo([lat, lng]);
-    }
-    // Recalcula línea/distancia si tu lógica lo hace en otra función:
-    if (typeof updateDistanceUI === 'function') updateDistanceUI();
-  } catch (e) {
-    // Silencioso, por si aún no existe el mapa al cargar
-  }
-}
-
-// Evento del botón
-document.addEventListener('DOMContentLoaded', () => {
-  const btn = document.getElementById('useMyLocationBtn');
-  btn?.addEventListener('click', async () => {
-    showToast?.('info', 'Solicitando tu ubicación…');
-    const pos = await requestGeolocationOnce();
-    if (!pos) return;
-    const { latitude, longitude } = pos.coords;
-    applyMyLocationToMap(latitude, longitude, 'Aquí estoy');
-
-    // (Opcional) Enviar al backend si tienes endpoint
-    // try {
-    //   await fetch('/update_my_location', {
-    //     method: 'POST',
-    //     headers: {'Content-Type':'application/json'},
-    //     body: JSON.stringify({ lat: latitude, lng: longitude })
-    //   });
-    // } catch {}
-    showToast?.('success', 'Ubicación actualizada');
-  });
-
-  // Estado del permiso (informativo)
-  if (navigator.permissions?.query) {
-    navigator.permissions.query({ name: 'geolocation' }).then((st) => {
-      if (st.state === 'denied') {
-        showToast?.('error','Tienes bloqueada la ubicación en el navegador');
-      }
-    }).catch(()=>{});
-  }
-});
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    try {
-      // Registra tu SW (ya lo tienes en /sw.js)
-      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-
-      // 1) Busca actualización siempre que abres la app/página
-      reg.update();
-
-      // 2) Y también al volver a primer plano (PWA instalada o pestaña)
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') reg.update();
-      });
-
-      // 3) Cuando el nuevo SW tome el control, recargamos para aplicar la nueva versión
-      let refreshing = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (refreshing) return;
-        refreshing = true;
-        window.location.reload();
-      });
-
-      // (Opcional) Si quieres ver que detectó una actualización:
-      reg.addEventListener('updatefound', () => {
-        const nw = reg.installing;
-        nw?.addEventListener('statechange', () => {
-          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-            // Si usas toasts:
-            window.showToast?.('info', 'Actualizando a la última versión…');
-          }
-        });
-      });
-    } catch (e) {
-      console.warn('SW register error', e);
-    }
-  });
-}
-
-  </script>
-  
-
-
 
 
 {% if username in ('mochito','mochita') %}

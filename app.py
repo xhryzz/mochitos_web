@@ -255,6 +255,98 @@ def get_db_connection():
             _ = c.fetchone()
     return wrapped
 
+
+
+# === ElevenLabs STT (Scribe v1) ===
+ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+
+_eleven_client = None
+def _eleven():
+    """Crea/reutiliza el cliente ElevenLabs."""
+    global _eleven_client
+    if _eleven_client is None:
+        try:
+            from elevenlabs.client import ElevenLabs
+            _eleven_client = ElevenLabs(api_key=ELEVENLABS_API_KEY or None)
+        except Exception as e:
+            print("[elevenlabs] init error:", e)
+            _eleven_client = None
+    return _eleven_client
+
+
+def _hhmmss_ms(seconds: float) -> str:
+    """Convierte segundos (float) a 'HH:MM:SS,mmm' para SRT."""
+    try:
+        ms = int(round((seconds - int(seconds)) * 1000))
+        s = int(seconds)
+        h, s = divmod(s, 3600)
+        m, s = divmod(s, 60)
+        return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+    except Exception:
+        return "00:00:00,000"
+
+
+def _words_to_srt(words: list[dict], max_gap: float = 0.8, max_chars: int = 84) -> str:
+    """
+    Agrupa palabras en subtítulos:
+      - Corta si hay silencio > max_gap, cambio de speaker, o demasiados caracteres.
+    Requiere items con: text, start, end, opcional 'speaker'/'speaker_id'.
+    """
+    if not words:
+        return ""
+    srt_lines = []
+    cur_idx = 1
+    cur_start = None
+    cur_end = None
+    cur_text = []
+    cur_speaker = None
+    cur_len = 0
+
+    def flush():
+        nonlocal cur_idx, cur_start, cur_end, cur_text, cur_speaker, cur_len
+        if not cur_text or cur_start is None or cur_end is None:
+            return
+        spk = (f"{cur_speaker}: " if cur_speaker else "")
+        txt = spk + " ".join(cur_text)
+        srt_lines.append(str(cur_idx))
+        srt_lines.append(f"{_hhmmss_ms(cur_start)} --> {_hhmmss_ms(cur_end)}")
+        srt_lines.append(txt.strip())
+        srt_lines.append("")  # separador
+        cur_idx += 1
+        cur_start = cur_end = None
+        cur_text = []
+        cur_speaker = None
+        cur_len = 0
+
+    def get_speaker(w):
+        return w.get("speaker") or w.get("speaker_id") or None
+
+    prev_end = None
+    for w in words:
+        t = (w.get("text") or "").strip()
+        if not t:
+            continue
+        start = float(w.get("start") or 0.0)
+        end = float(w.get("end") or start)
+        spk = get_speaker(w)
+        gap = (start - prev_end) if (prev_end is not None) else 0.0
+        change = (spk != cur_speaker) and (cur_speaker is not None)
+        too_long = (cur_len + len(t) + 1) > max_chars
+
+        if cur_text and (gap > max_gap or change or too_long):
+            flush()
+
+        if not cur_text:
+            cur_start = start
+            cur_speaker = spk
+        cur_end = end
+        cur_text.append(t)
+        cur_len += len(t) + 1
+        prev_end = end
+
+    flush()
+    return "\n".join(srt_lines)
+
 # ========= Zona horaria Europe/Madrid =========
 def _eu_last_sunday(year: int, month: int) -> date:
     if month == 12:
@@ -4669,6 +4761,95 @@ def api_other_location():
     return jsonify({'lat': lat, 'lng': lng, 'updated_at': (ts.isoformat() if ts else None)})
 
 
+
+
+@app.route("/transcribir", methods=["GET"])
+def transcribir_page():
+    # Requiere login, igual que el resto de tu app
+    if "username" not in session:
+        return redirect("/")
+    return render_template("transcribir.html")
+
+
+@app.post("/api/transcribe")
+def api_transcribe():
+    if "username" not in session:
+        return jsonify({"ok": False, "error": "unauthenticated"}), 401
+
+    cl = _eleven()
+    if not cl or not ELEVENLABS_API_KEY:
+        return jsonify({"ok": False, "error": "elevenlabs_not_configured"}), 500
+
+    try:
+        # Permite: multipart file ('audio') o JSON con 'url'
+        diarize = str(form_or_json("diarize", default="true")).lower() in ("1","true","on","yes","si","sí")
+        tag_audio_events = str(form_or_json("tag_audio_events", default="true")).lower() in ("1","true","on","yes","si","sí")
+        lang = form_or_json("language_code", default="auto").strip().lower()
+        language_code = None if lang in ("", "auto", "detect") else lang  # e.g. "eng", "spa"
+        # (opcional) granularidad futura; de momento, Scribe usa word-level por defecto.
+
+        raw = None
+        filename = None
+
+        if "audio" in request.files and request.files["audio"].filename:
+            f = request.files["audio"]
+            filename = secure_filename(f.filename or "audio")
+            raw = f.read()
+        else:
+            payload = request.get_json(silent=True) or {}
+            url = (payload.get("url") or "").strip()
+            if not url:
+                return jsonify({"ok": False, "error": "missing_audio"}), 400
+            r = requests.get(url, timeout=(5, 30))
+            r.raise_for_status()
+            raw = r.content
+            filename = url.rsplit("/", 1)[-1][:100]
+
+        # Llamada ElevenLabs STT
+        # Docs / quickstart oficial (Python SDK): speech_to_text.convert(...) con model_id="scribe_v1" :contentReference[oaicite:2]{index=2}
+        import io as _io
+        transcription = cl.speech_to_text.convert(
+            file=_io.BytesIO(raw),
+            model_id="scribe_v1",
+            tag_audio_events=bool(tag_audio_events),
+            language_code=(language_code if language_code else None),
+            diarize=bool(diarize),
+        )
+
+        # 'transcription' es un dict con 'text' y, cuando procede, 'words' (timestamps por palabra)
+        text = (transcription.get("text") or "").strip()
+        words = transcription.get("words") or []
+        srt = _words_to_srt(words) if words else ""
+
+        # Logging opcional a tu Discord
+        try:
+            send_discord("STT done", {
+                "user": session.get("username"),
+                "filename": filename,
+                "chars": len(text),
+                "words": len(words),
+                "diarize": bool(diarize)
+            })
+        except Exception:
+            pass
+
+        return jsonify({
+            "ok": True,
+            "text": text,
+            "words": words,         # conserva estructura por si quieres usarla en front
+            "srt": srt,             # listo para descargar
+            "language_code": transcription.get("language_code"),
+            "audio_events": transcription.get("audio_events"),
+            "meta": {
+                "filename": filename,
+            }
+        })
+
+    except Exception as e:
+        print("[/api/transcribe] error:", e)
+        return jsonify({"ok": False, "error": "server_error", "detail": str(e)}), 500
+
+
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1
 if os.environ.get("RUN_SCHEDULER", "1") == "1":
     threading.Thread(target=background_loop, daemon=True).start()
@@ -4678,4 +4859,3 @@ if os.environ.get("RUN_SCHEDULER", "1") == "1":
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
-

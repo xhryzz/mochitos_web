@@ -4775,17 +4775,19 @@ def api_transcribe():
     if "username" not in session:
         return jsonify({"ok": False, "error": "unauthenticated"}), 401
 
+    # --- helpers locales ---
     def _bool(v, default=False):
         s = str(v if v is not None else default).strip().lower()
         return s in ("1","true","on","yes","y","si","sí")
 
     ISO2_TO_3 = {
         "es":"spa","en":"eng","pt":"por","fr":"fra","de":"deu","it":"ita","ca":"cat","eu":"eus","gl":"glg",
-        "zh":"zho","ja":"jpn","ko":"kor","ru":"rus","ar":"ara","hi":"hin","tr":"tur","pl":"pol",
-        "nl":"nld","sv":"swe","no":"nor","da":"dan","fi":"fin","el":"ell","uk":"ukr","cs":"ces","ro":"ron",
-        "hu":"hun","he":"heb","id":"ind","ms":"msa","vi":"vie","th":"tha","fa":"fas","sr":"srp","hr":"hrv",
-        "sk":"slk","sl":"slv","bg":"bul","lt":"lit","lv":"lav","et":"est","is":"isl","ga":"gle","af":"afr"
+        "zh":"zho","ja":"jpn","ko":"kor","ru":"rus","ar":"ara","hi":"hin","tr":"tur","pl":"pol","nl":"nld",
+        "sv":"swe","no":"nor","da":"dan","fi":"fin","el":"ell","uk":"ukr","cs":"ces","ro":"ron","hu":"hun",
+        "he":"heb","id":"ind","ms":"msa","vi":"vie","th":"tha","fa":"fas","sr":"srp","hr":"hrv","sk":"slk",
+        "sl":"slv","bg":"bul","lt":"lit","lv":"lav","et":"est","is":"isl","ga":"gle","af":"afr"
     }
+    ISO3_TO_2 = {v:k for k,v in ISO2_TO_3.items()}
 
     def _norm_lang_3(l):
         if not l: return None
@@ -4795,20 +4797,42 @@ def api_transcribe():
         if len(base) == 3: return base
         return ISO2_TO_3.get(base)
 
-    diarize = _bool(form_or_json("diarize", default="true"))
-    tag_audio_events = _bool(form_or_json("tag_audio_events", default="true"))
-    lang_in = (form_or_json("language_code", default="auto") or "").strip()
-    lang3   = _norm_lang_3(lang_in)
+    def _norm_lang_2_from_3(lang3):
+        if not lang3: return None
+        return ISO3_TO_2.get(lang3.lower())
 
-    # --- audio ---
+    def _segments_to_srt(segments):
+        lines = []; idx = 1
+        for seg in segments or []:
+            txt = (seg.get("text") or "").strip()
+            if not txt: continue
+            start = float(seg.get("start") or 0.0)
+            end   = float(seg.get("end") or start)
+            lines.append(str(idx))
+            lines.append(f"{_hhmmss_ms(start)} --> {_hhmmss_ms(end)}")
+            lines.append(txt)
+            lines.append("")
+            idx += 1
+        return "\n".join(lines)
+
+    # --- params ---
+    diarize         = _bool(form_or_json("diarize", default="true"))
+    tag_audio_events= _bool(form_or_json("tag_audio_events", default="true"))
+    lang_input      = (form_or_json("language_code", default="auto") or "").strip()
+    lang3           = _norm_lang_3(lang_input)        # para ElevenLabs (spa/eng/...)
+    lang2           = _norm_lang_2_from_3(lang3)      # para Whisper/OpenAI
+
+    # --- audio (archivo o URL) ---
     try:
         raw = None; filename = None
         if "audio" in request.files and request.files["audio"].filename:
-            f = request.files["audio"]; filename = secure_filename(f.filename or "audio"); raw = f.read()
+            f = request.files["audio"]; filename = secure_filename(f.filename or "audio")
+            raw = f.read()
         else:
             payload = request.get_json(silent=True) or {}
             url = (payload.get("url") or "").strip()
-            if not url: return jsonify({"ok": False, "error": "missing_audio"}), 400
+            if not url:
+                return jsonify({"ok": False, "error": "missing_audio"}), 400
             r = requests.get(url, headers={"User-Agent":"Mozilla/5.0"}, timeout=(5,30))
             r.raise_for_status()
             raw = r.content
@@ -4816,25 +4840,28 @@ def api_transcribe():
     except Exception as e:
         return jsonify({"ok": False, "error": "fetch_audio_failed", "detail": str(e)}), 400
 
-    # --- ElevenLabs ---
+    providers_errors = []
+
+    # ================== PROVIDER 1: ElevenLabs Scribe ==================
     try:
         cl = _eleven()
         if not cl or not ELEVENLABS_API_KEY:
-            return jsonify({"ok": False, "error": "elevenlabs_not_configured"}), 500
+            raise RuntimeError("elevenlabs_not_configured")
 
         import io as _io
         kwargs = dict(
             file=_io.BytesIO(raw),
-            model_id="scribe_v1",          # <- correcto (guion_bajo)
+            model_id="scribe_v1",                 # ✅ correcto (con _)
             diarize=bool(diarize),
             tag_audio_events=bool(tag_audio_events),
         )
-        if lang3: kwargs["language_code"] = lang3  # si None => autodetect
+        if lang3: kwargs["language_code"] = lang3     # si None → autodetect
 
         tr = cl.speech_to_text.convert(**kwargs)
+
         text  = (tr.get("text") or "").strip()
         words = tr.get("words") or []
-        srt   = _words_to_srt(words) if words else ""
+        srt   = _words_to_srt(words) if words else ""  # tu helper word-level
 
         try:
             send_discord("STT done (ElevenLabs)", {
@@ -4843,7 +4870,7 @@ def api_transcribe():
                 "chars": len(text),
                 "words": len(words),
                 "diarize": bool(diarize),
-                "lang_req": lang_in,
+                "lang_req": lang_input,
                 "lang_used": tr.get("language_code") or lang3 or "auto",
             })
         except Exception:
@@ -4860,7 +4887,6 @@ def api_transcribe():
             "meta": {"filename": filename}
         })
     except Exception as e:
-        # ¿Es bloqueo por Free Tier / unusual activity?
         resp = getattr(e, "response", None)
         code = getattr(resp, "status_code", None)
         body = None
@@ -4871,19 +4897,111 @@ def api_transcribe():
         except Exception:
             body = None
         msg = (str(e) + " " + (json.dumps(body, ensure_ascii=False) if body else "")).lower()
-        if (code in (401,402,403)) or ("unusual activity" in msg) or ("free tier" in msg):
-            return jsonify({
-                "ok": False,
-                "error": "elevenlabs_blocked",
-                "detail": "ElevenLabs ha bloqueado la clave (Free Tier/actividad inusual). "
-                          "Solución: usar un plan de pago o pedir a soporte que permitan el uso desde tu servidor. "
-                          "Mientras tanto no se puede transcribir con esta clave."
-            }), 402
+        if (code in (401,402,403)) or ("unusual activity" in msg) or ("free tier" in msg) or ("detected_unusual_activity" in msg):
+            providers_errors.append({"provider":"elevenlabs","blocked":True,"status":code,"body":body})
+        else:
+            providers_errors.append({"provider":"elevenlabs","blocked":False,"status":code,"body":body})
 
-        # Otro error de ElevenLabs
-        if resp is not None:
-            return jsonify({"ok": False, "error": "elevenlabs_error", "detail": body or str(e)}), code or 502
-        return jsonify({"ok": False, "error": "elevenlabs_error", "detail": str(e)}), 502
+    # ================== PROVIDER 2: OpenAI Whisper (si hay OPENAI_API_KEY) ==================
+    OPENAI_API_KEY = (os.environ.get("OPENAI_API_KEY") or "").strip()
+    if OPENAI_API_KEY:
+        try:
+            from openai import OpenAI
+            import io as _io
+            oc = OpenAI(api_key=OPENAI_API_KEY)
+            bio = _io.BytesIO(raw); bio.name = filename or "audio.wav"
+            # Usamos whisper-1 con verbose_json para tener segmentos (timestamps)
+            o = oc.audio.transcriptions.create(
+                model="whisper-1",
+                file=bio,
+                response_format="verbose_json",
+                temperature=0,
+                language=(lang2 if lang2 else None)
+            )
+            text = (o.text or "").strip()
+            segs = []
+            for s in (o.segments or []):
+                segs.append({"text": s.get("text","").strip(),
+                             "start": float(s.get("start") or 0.0),
+                             "end": float(s.get("end") or 0.0)})
+            srt = _segments_to_srt(segs)
+
+            # opcional: derivar "words" aprox de segmentos
+            words = [{"text": x["text"], "start": x["start"], "end": x["end"]} for x in segs]
+
+            try:
+                send_discord("STT done (OpenAI whisper-1)", {
+                    "user": session.get("username"),
+                    "filename": filename,
+                    "chars": len(text),
+                    "segments": len(segs),
+                    "lang_req": lang_input
+                })
+            except Exception:
+                pass
+
+            return jsonify({
+                "ok": True,
+                "engine": "openai_whisper",
+                "text": text,
+                "words": words,
+                "srt": srt,
+                "language_code": (lang3 or None),
+                "audio_events": None,
+                "meta": {"filename": filename}
+            })
+        except Exception as e:
+            providers_errors.append({"provider":"openai_whisper","error":str(e)})
+
+    # ================== PROVIDER 3: faster-whisper local (opcional) ==================
+    try:
+        # Requiere: pip install faster-whisper && (ideal) ffmpeg en el sistema
+        from faster_whisper import WhisperModel
+        import tempfile, os as _os
+        mdl = _os.environ.get("FASTER_WHISPER_MODEL","base")
+        model = WhisperModel(mdl, device="cpu", compute_type="int8")  # ligero para Render
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+            tmp.write(raw); tmp.flush(); audio_path = tmp.name
+        try:
+            seg_iter, info = model.transcribe(audio_path, language=(lang2 or None), beam_size=1, vad_filter=True)
+            segs = []
+            all_txt = []
+            for s in seg_iter:
+                t = (s.text or "").strip()
+                if not t: continue
+                segs.append({"text": t, "start": float(s.start or 0.0), "end": float(s.end or 0.0)})
+                all_txt.append(t)
+            srt = _segments_to_srt(segs)
+            text = " ".join(all_txt).strip()
+            words = [{"text": x["text"], "start": x["start"], "end": x["end"]} for x in segs]
+            return jsonify({
+                "ok": True,
+                "engine": "faster_whisper",
+                "text": text,
+                "words": words,
+                "srt": srt,
+                "language_code": (lang3 or None),
+                "audio_events": None,
+                "meta": {"filename": filename}
+            })
+        finally:
+            try: os.remove(audio_path)
+            except Exception: pass
+    except Exception as e:
+        providers_errors.append({"provider":"faster_whisper","error":str(e)})
+
+    # ================== Ningún proveedor disponible ==================
+    # Si llegamos aquí, ElevenLabs falló/bloqueó y no hubo fallback operativo.
+    return jsonify({
+        "ok": False,
+        "error": "no_stt_provider_available",
+        "detail": (
+            "No se pudo transcribir. ElevenLabs devolvió bloqueo (Free Tier/actividad inusual) "
+            "y no hay fallback operativo. "
+            "Pon OPENAI_API_KEY para usar Whisper como plan B, o instala faster-whisper en el servidor."
+        ),
+        "providers": providers_errors
+    }), 502
 
 
 @app.get("/__debug/eleven")

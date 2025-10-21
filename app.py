@@ -1,5 +1,3 @@
-te mando mi app.py y me dices lo que hacer paso a paso : 
-
 
 # app.py — con Web Push, notificaciones (Europe/Madrid a medianoche) y seguimiento de precio
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash, Response, make_response, abort, url_for
@@ -4683,4 +4681,5 @@ if os.environ.get("RUN_SCHEDULER", "1") == "1":
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
+
 

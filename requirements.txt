@@ -7,3 +7,4 @@ cryptography
 pytz
 tzdata
 elevenlabs
+openai

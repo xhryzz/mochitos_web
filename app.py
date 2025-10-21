@@ -4816,11 +4816,11 @@ def api_transcribe():
         return "\n".join(lines)
 
     # --- params ---
-    diarize         = _bool(form_or_json("diarize", default="true"))
-    tag_audio_events= _bool(form_or_json("tag_audio_events", default="true"))
-    lang_input      = (form_or_json("language_code", default="auto") or "").strip()
-    lang3           = _norm_lang_3(lang_input)        # para ElevenLabs (spa/eng/...)
-    lang2           = _norm_lang_2_from_3(lang3)      # para Whisper/OpenAI
+    diarize          = _bool(form_or_json("diarize", default="true"))
+    tag_audio_events = _bool(form_or_json("tag_audio_events", default="true"))
+    lang_input       = (form_or_json("language_code", default="auto") or "").strip()
+    lang3            = _norm_lang_3(lang_input)        # para ElevenLabs (spa/eng/...)
+    lang2            = _norm_lang_2_from_3(lang3)      # para Whisper/OpenAI
 
     # --- audio (archivo o URL) ---
     try:
@@ -4842,7 +4842,7 @@ def api_transcribe():
 
     providers_errors = []
 
-    # ================== PROVIDER 1: ElevenLabs Scribe ==================
+    # =============== PROVIDER 1: ElevenLabs Scribe =================
     try:
         cl = _eleven()
         if not cl or not ELEVENLABS_API_KEY:
@@ -4851,17 +4851,17 @@ def api_transcribe():
         import io as _io
         kwargs = dict(
             file=_io.BytesIO(raw),
-            model_id="scribe_v1",                 # ✅ correcto (con _)
+            model_id="scribe_v1",                  # ✅ correcto (con underscore)
             diarize=bool(diarize),
             tag_audio_events=bool(tag_audio_events),
         )
-        if lang3: kwargs["language_code"] = lang3     # si None → autodetect
+        if lang3: kwargs["language_code"] = lang3     # None => autodetect
 
         tr = cl.speech_to_text.convert(**kwargs)
 
         text  = (tr.get("text") or "").strip()
         words = tr.get("words") or []
-        srt   = _words_to_srt(words) if words else ""  # tu helper word-level
+        srt   = _words_to_srt(words) if words else ""
 
         try:
             send_discord("STT done (ElevenLabs)", {
@@ -4902,7 +4902,7 @@ def api_transcribe():
         else:
             providers_errors.append({"provider":"elevenlabs","blocked":False,"status":code,"body":body})
 
-    # ================== PROVIDER 2: OpenAI Whisper (si hay OPENAI_API_KEY) ==================
+    # =============== PROVIDER 2: OpenAI Whisper (si OPENAI_API_KEY) ==========
     OPENAI_API_KEY = (os.environ.get("OPENAI_API_KEY") or "").strip()
     if OPENAI_API_KEY:
         try:
@@ -4910,7 +4910,6 @@ def api_transcribe():
             import io as _io
             oc = OpenAI(api_key=OPENAI_API_KEY)
             bio = _io.BytesIO(raw); bio.name = filename or "audio.wav"
-            # Usamos whisper-1 con verbose_json para tener segmentos (timestamps)
             o = oc.audio.transcriptions.create(
                 model="whisper-1",
                 file=bio,
@@ -4925,8 +4924,6 @@ def api_transcribe():
                              "start": float(s.get("start") or 0.0),
                              "end": float(s.get("end") or 0.0)})
             srt = _segments_to_srt(segs)
-
-            # opcional: derivar "words" aprox de segmentos
             words = [{"text": x["text"], "start": x["start"], "end": x["end"]} for x in segs]
 
             try:
@@ -4953,14 +4950,13 @@ def api_transcribe():
         except Exception as e:
             providers_errors.append({"provider":"openai_whisper","error":str(e)})
 
-    # ================== PROVIDER 3: faster-whisper local (opcional) ==================
+    # =============== PROVIDER 3: faster-whisper local (opcional) ============
     try:
-        # Requiere: pip install faster-whisper && (ideal) ffmpeg en el sistema
         from faster_whisper import WhisperModel
         import tempfile, os as _os
         mdl = _os.environ.get("FASTER_WHISPER_MODEL","base")
-        model = WhisperModel(mdl, device="cpu", compute_type="int8")  # ligero para Render
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        model = WhisperModel(mdl, device="cpu", compute_type="int8")
+        with tempfile.NamedTemporaryFile(suffix=".audio", delete=False) as tmp:
             tmp.write(raw); tmp.flush(); audio_path = tmp.name
         try:
             seg_iter, info = model.transcribe(audio_path, language=(lang2 or None), beam_size=1, vad_filter=True)
@@ -4990,8 +4986,7 @@ def api_transcribe():
     except Exception as e:
         providers_errors.append({"provider":"faster_whisper","error":str(e)})
 
-    # ================== Ningún proveedor disponible ==================
-    # Si llegamos aquí, ElevenLabs falló/bloqueó y no hubo fallback operativo.
+    # =============== Sin proveedor disponible ===============================
     return jsonify({
         "ok": False,
         "error": "no_stt_provider_available",

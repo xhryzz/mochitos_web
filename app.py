@@ -4774,10 +4774,10 @@ def transcribir_page():
 @app.post("/api/transcribe")
 def api_transcribe():
     """
-    Transcribe audio with ElevenLabs Scribe.
-    - Acepta `multipart/form-data` con campo 'audio' o JSON: {"url": "..."}.
-    - Soporta idioma automático (por defecto) o `language_code` (mapea 'es'->'spa', etc.).
-    - Devuelve texto, palabras (con timestamps) y SRT generado si hay palabras.
+    Transcribe audio con ElevenLabs Scribe.
+    - Acepta multipart ('audio') o JSON {"url": "..."}.
+    - Idioma: auto por defecto, o `language_code` (soporta 'es'→'spa', etc.).
+    - Devuelve texto, palabras (timestamps) y SRT.
     """
     if "username" not in session:
         return jsonify({"ok": False, "error": "unauthenticated"}), 401
@@ -4786,7 +4786,7 @@ def api_transcribe():
     if not cl or not ELEVENLABS_API_KEY:
         return jsonify({"ok": False, "error": "elevenlabs_not_configured"}), 500
 
-    # --- helpers internos ---
+    # --- helpers ---
     def _bool_like(val, default=False):
         s = str(val if val is not None else default).strip().lower()
         return s in ("1", "true", "on", "yes", "y", "si", "sí")
@@ -4802,14 +4802,14 @@ def api_transcribe():
         if lang in ("auto", "detect", ""):
             return None
 
-        # Quitar variantes regionales es-ES, pt-BR, zh-CN, etc.
+        # quitar variantes: es-ES, pt-BR, zh-CN...
         base = lang.split("-", 1)[0].split("_", 1)[0]
 
-        # Ya viene en 3 letras
+        # si ya son 3 letras, la pasamos tal cual
         if len(base) == 3:
             return base
 
-        # Mapa 2->3 letras (los más comunes)
+        # mapa 2→3 (comunes)
         MAP = {
             "es": "spa", "en": "eng", "pt": "por", "fr": "fra", "de": "deu", "it": "ita",
             "ca": "cat", "eu": "eus", "gl": "glg",
@@ -4822,7 +4822,7 @@ def api_transcribe():
             "bg": "bul", "lt": "lit", "lv": "lav", "et": "est", "is": "isl",
             "ga": "gle", "af": "afr"
         }
-        return MAP.get(base)  # None si no lo conocemos -> autodetección
+        return MAP.get(base)  # None si no está en el mapa → autodetección
 
     try:
         # -------- parámetros de entrada --------
@@ -4852,15 +4852,14 @@ def api_transcribe():
 
         # -------- llamada a ElevenLabs STT --------
         import io as _io
-
         kwargs = dict(
             file=_io.BytesIO(raw),
-            # En docs recientes aparece con guión:
-            model_id="scribe-v1",
+            # ← FIX: guion bajo (válido): 'scribe_v1' o 'scribe_v1_experimental'
+            model_id="scribe_v1",
             diarize=bool(diarize),
             tag_audio_events=bool(tag_audio_events),
         )
-        # Solo incluimos language_code si tenemos uno válido; si es None, autodetección.
+        # Solo incluimos language_code si NO es None (si es None, autodetecta)
         if language_code:
             kwargs["language_code"] = language_code
 

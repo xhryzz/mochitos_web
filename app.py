@@ -26,6 +26,14 @@ try:
 except Exception:
     BeautifulSoup = None
 
+
+# ElevenLabs STT
+try:
+    from elevenlabs.client import ElevenLabs
+except Exception:
+    ElevenLabs = None
+
+
 app = Flask(__name__)
 # Límite de subida (ajustable por env MAX_UPLOAD_MB). Evita BYTEA enormes que disparan RAM.
 app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_UPLOAD_MB', '2')) * 1024 * 1024
@@ -273,6 +281,69 @@ def _europe_madrid_now_fallback() -> datetime:
     end_dst_utc   = datetime(y, 10, _eu_last_sunday(y, 10).day, 1, 0, 0, tzinfo=timezone.utc)
     offset_hours = 2 if start_dst_utc <= utc_now < end_dst_utc else 1
     return (utc_now + timedelta(hours=offset_hours)).replace(tzinfo=None)
+
+# ======= STT (Speech-to-Text) ElevenLabs =======
+ELEVEN_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+
+def stt_transcribe_bytes(audio_bytes: bytes, filename: str = "audio.webm",
+                         mime: str = "audio/webm", lang_code: str | None = "es",
+                         diarize: bool = False, tag_events: bool = False) -> dict:
+    """
+    Devuelve un dict JSON de ElevenLabs con, como mínimo, 'text'.
+    Usa el SDK si está disponible; si no, hace fallback a REST.
+    """
+    if not ELEVEN_API_KEY:
+        return {"ok": False, "error": "missing_api_key"}
+
+    # 1) SDK (preferido)
+    if ElevenLabs:
+        try:
+            client = ElevenLabs(api_key=ELEVEN_API_KEY)
+            # El SDK acepta bytes también; le pasamos un tuple (filename, bytes, mime)
+            res = client.speech_to_text.convert(
+                file=(filename, audio_bytes, mime),
+                model_id="scribe_v1",
+                language_code=lang_code or None,
+                diarize=bool(diarize),
+                tag_audio_events=bool(tag_events),
+            )
+            # res ya es un dict/obj serializable con 'text', 'words', etc.
+            if isinstance(res, dict):
+                return {"ok": True, "result": res}
+            # por si es objeto pydantic-like:
+            try:
+                return {"ok": True, "result": res.model_dump()}
+            except Exception:
+                return {"ok": True, "result": res.__dict__}
+        except Exception as e:
+            # si algo falla, continuamos a fallback HTTP
+            print("[stt sdk] error:", e)
+
+    # 2) Fallback HTTP directo
+    try:
+        url = "https://api.elevenlabs.io/v1/speech-to-text/convert"
+        headers = {"xi-api-key": ELEVEN_API_KEY}
+        files = {"file": (filename, audio_bytes, mime)}
+        data = {
+            "model_id": "scribe_v1",
+            "diarize": "true" if diarize else "false",
+            "tag_audio_events": "true" if tag_events else "false",
+        }
+        if lang_code:
+            data["language_code"] = lang_code
+        r = requests.post(url, headers=headers, files=files, data=data, timeout=120)
+        try:
+            j = r.json()
+        except Exception:
+            j = {"status": r.status_code, "text": r.text[:1000]}
+        if r.ok:
+            return {"ok": True, "result": j}
+        return {"ok": False, "error": "http_error", "status": r.status_code, "response": j}
+    except Exception as e:
+        print("[stt http] error:", e)
+        return {"ok": False, "error": "exception", "details": str(e)}
+
+
 
 def europe_madrid_now() -> datetime:
     utc_now = datetime.now(timezone.utc)
@@ -4667,6 +4738,184 @@ def api_other_location():
     lng = row['longitude'] if isinstance(row, dict) else row[1]
     ts  = row['updated_at'] if isinstance(row, dict) else row[2]
     return jsonify({'lat': lat, 'lng': lng, 'updated_at': (ts.isoformat() if ts else None)})
+
+
+
+@app.post("/api/stt")
+def api_stt():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "unauthenticated"}), 401
+
+    # admite multipart (archivo) o blob base64 opcional
+    f = request.files.get("audio")
+    lang = (request.form.get("lang") or request.args.get("lang") or "es").strip()
+    diarize = str(request.form.get("diarize") or request.args.get("diarize") or "false").lower() in ("1","true","yes","si","sí")
+    tag_events = str(request.form.get("tag_events") or request.args.get("tag_events") or "false").lower() in ("1","true","yes","si","sí")
+
+    if not f or not f.filename:
+        return jsonify({"ok": False, "error": "missing_file"}), 400
+
+    filename = secure_filename(f.filename)
+    mime = f.mimetype or "application/octet-stream"
+    audio_bytes = f.read()
+
+    # opcional: límite mínimo de bytes
+    if not audio_bytes or len(audio_bytes) < 2000:
+        return jsonify({"ok": False, "error": "file_too_small"}), 400
+
+    res = stt_transcribe_bytes(audio_bytes, filename=filename, mime=mime,
+                               lang_code=lang, diarize=diarize, tag_events=tag_events)
+    try:
+        send_discord("STT convert", {
+            "user": session.get("username"),
+            "ok": bool(res.get("ok")),
+            "len": len(audio_bytes),
+            "mime": mime,
+            "lang": lang,
+            "diarize": diarize,
+            "tag": tag_events
+        })
+    except Exception:
+        pass
+
+    status = 200 if res.get("ok") else 500
+    return jsonify(res), status
+
+
+@app.get("/stt")
+def stt_page():
+    if 'username' not in session:
+        return redirect('/')
+    return """
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Transcribir audio (ElevenLabs)</title>
+<style>
+:root{--brand:#e84393;--ink:#111;--muted:#666;--bg:#fafafa;--card:#fff;--line:#e8e8e8}
+body{margin:0;background:var(--bg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink)}
+.wrap{max-width:900px;margin:24px auto;padding:0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.03);padding:16px;margin:12px 0}
+h1{font-size:1.4rem;margin:0 0 8px}
+h2{font-size:1.05rem;margin:0 0 10px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button,input,select{font:inherit}
+button{padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer}
+button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+.badge{display:inline-block;padding:4px 10px;border-radius:999px;background:#f3f4f6}
+pre{white-space:pre-wrap;background:#0f172a;color:#e2e8f0;padding:12px;border-radius:10px;min-height:100px}
+.small{color:var(--muted);font-size:.9rem}
+</style>
+<div class="wrap">
+  <h1>📝 Transcribir audio (ElevenLabs Scribe v1)</h1>
+  <div class="card">
+    <h2>Subir archivo</h2>
+    <div class="row">
+      <input id="file" type="file" accept="audio/*" />
+      <select id="lang">
+        <option value="es" selected>Español (auto/ES)</option>
+        <option value="">Auto</option>
+        <option value="en">Inglés</option>
+        <option value="fr">Francés</option>
+        <option value="de">Alemán</option>
+        <option value="it">Italiano</option>
+        <!-- añade más si quieres -->
+      </select>
+      <label><input id="diar" type="checkbox" /> Diarizar (altavoz)</label>
+      <label><input id="events" type="checkbox" /> Etiquetar risas/aplausos</label>
+      <button class="primary" id="btnUpload">Transcribir</button>
+    </div>
+    <p class="small">Formatos típicos: .webm, .wav, .mp3, .m4a, .ogg. Tamaño máx controlado por <code>MAX_UPLOAD_MB</code>.</p>
+  </div>
+
+  <div class="card">
+    <h2>Grabar desde el navegador</h2>
+    <div class="row">
+      <button id="btnRec">🎙️ Empezar a grabar</button>
+      <span id="recState" class="badge">Parado</span>
+      <audio id="player" controls style="display:none"></audio>
+      <button id="btnSend" class="primary" disabled>Enviar transcripción</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Resultado</h2>
+    <pre id="out">Sin datos…</pre>
+  </div>
+
+  <p class="small">Nota: Scribe v1 soporta 99 idiomas y puede devolver timestamps, palabras y diarización; el plan gratis requiere atribución. </p>
+</div>
+<script>
+const out = document.getElementById('out');
+function show(o){ try{ out.textContent = (typeof o==='string')? o : JSON.stringify(o,null,2); }catch(e){ out.textContent = String(o); } }
+
+async function transcribeFile(file, params={}){
+  const fd = new FormData();
+  fd.append("audio", file, file.name || "audio.webm");
+  if(params.lang) fd.append("lang", params.lang);
+  if(params.diarize) fd.append("diarize", "true");
+  if(params.events) fd.append("tag_events", "true");
+  const r = await fetch("/api/stt", { method:"POST", body: fd });
+  const j = await r.json().catch(()=>({}));
+  show(j);
+}
+
+document.getElementById('btnUpload').onclick = async ()=>{
+  const f = document.getElementById('file').files[0];
+  if(!f) return show("Selecciona un archivo.");
+  const lang = document.getElementById('lang').value;
+  const diar = document.getElementById('diar').checked;
+  const events = document.getElementById('events').checked;
+  show("Procesando…");
+  await transcribeFile(f, {lang, diarize:diar, events});
+};
+
+// Grabadora
+let mediaRecorder = null, chunks = [];
+const recBtn = document.getElementById('btnRec');
+const stateBadge = document.getElementById('recState');
+const player = document.getElementById('player');
+const btnSend = document.getElementById('btnSend');
+let lastBlob = null;
+
+recBtn.onclick = async ()=>{
+  if(!mediaRecorder){
+    const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    mediaRecorder.ondataavailable = (e)=>{ if(e.data && e.data.size>0) chunks.push(e.data); };
+    mediaRecorder.onstop = ()=>{
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      chunks = [];
+      lastBlob = blob;
+      player.src = URL.createObjectURL(blob);
+      player.style.display = 'block';
+      btnSend.disabled = false;
+      stateBadge.textContent = 'Parado';
+    };
+  }
+  if(mediaRecorder.state === 'recording'){
+    mediaRecorder.stop();
+    recBtn.textContent = '🎙️ Empezar a grabar';
+  }else{
+    lastBlob = null; btnSend.disabled = true; player.style.display = 'none'; player.src='';
+    mediaRecorder.start();
+    recBtn.textContent = '⏹️ Parar';
+    stateBadge.textContent = 'Grabando…';
+  }
+};
+
+btnSend.onclick = async ()=>{
+  if(!lastBlob) return show("Graba algo primero.");
+  const file = new File([lastBlob], "grabacion.webm", {type:"audio/webm"});
+  const lang = document.getElementById('lang').value;
+  const diar = document.getElementById('diar').checked;
+  const events = document.getElementById('events').checked;
+  show("Procesando…");
+  await transcribeFile(file, {lang, diarize:diar, events});
+};
+</script>
+"""
 
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1

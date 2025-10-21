@@ -4770,143 +4770,140 @@ def transcribir_page():
         return redirect("/")
     return render_template("transcribir.html")
 
-
 @app.post("/api/transcribe")
 def api_transcribe():
-    """
-    Transcribe audio con ElevenLabs Scribe.
-    - Acepta multipart ('audio') o JSON {"url": "..."}.
-    - Idioma: auto por defecto, o `language_code` (soporta 'es'→'spa', etc.).
-    - Devuelve texto, palabras (timestamps) y SRT.
-    """
     if "username" not in session:
         return jsonify({"ok": False, "error": "unauthenticated"}), 401
 
-    cl = _eleven()
-    if not cl or not ELEVENLABS_API_KEY:
-        return jsonify({"ok": False, "error": "elevenlabs_not_configured"}), 500
+    def _bool(v, default=False):
+        s = str(v if v is not None else default).strip().lower()
+        return s in ("1","true","on","yes","y","si","sí")
 
-    # --- helpers ---
-    def _bool_like(val, default=False):
-        s = str(val if val is not None else default).strip().lower()
-        return s in ("1", "true", "on", "yes", "y", "si", "sí")
+    ISO2_TO_3 = {
+        "es":"spa","en":"eng","pt":"por","fr":"fra","de":"deu","it":"ita","ca":"cat","eu":"eus","gl":"glg",
+        "zh":"zho","ja":"jpn","ko":"kor","ru":"rus","ar":"ara","hi":"hin","tr":"tur","pl":"pol",
+        "nl":"nld","sv":"swe","no":"nor","da":"dan","fi":"fin","el":"ell","uk":"ukr","cs":"ces","ro":"ron",
+        "hu":"hun","he":"heb","id":"ind","ms":"msa","vi":"vie","th":"tha","fa":"fas","sr":"srp","hr":"hrv",
+        "sk":"slk","sl":"slv","bg":"bul","lt":"lit","lv":"lav","et":"est","is":"isl","ga":"gle","af":"afr"
+    }
 
-    def _normalize_lang(lang_raw: str | None):
-        """
-        ElevenLabs usa ISO-639-3 (3 letras). Si llega 2 letras (es, en, pt…),
-        lo convertimos. Si es 'auto' o vacío -> None (autodetección).
-        """
-        if not lang_raw:
-            return None
-        lang = lang_raw.strip().lower()
-        if lang in ("auto", "detect", ""):
-            return None
+    def _norm_lang_3(l):
+        if not l: return None
+        s = l.strip().lower()
+        if s in ("auto","detect",""): return None
+        base = s.split("-",1)[0].split("_",1)[0]
+        if len(base) == 3: return base
+        return ISO2_TO_3.get(base)
 
-        # quitar variantes: es-ES, pt-BR, zh-CN...
-        base = lang.split("-", 1)[0].split("_", 1)[0]
+    diarize = _bool(form_or_json("diarize", default="true"))
+    tag_audio_events = _bool(form_or_json("tag_audio_events", default="true"))
+    lang_in = (form_or_json("language_code", default="auto") or "").strip()
+    lang3   = _norm_lang_3(lang_in)
 
-        # si ya son 3 letras, la pasamos tal cual
-        if len(base) == 3:
-            return base
-
-        # mapa 2→3 (comunes)
-        MAP = {
-            "es": "spa", "en": "eng", "pt": "por", "fr": "fra", "de": "deu", "it": "ita",
-            "ca": "cat", "eu": "eus", "gl": "glg",
-            "zh": "zho", "ja": "jpn", "ko": "kor", "ru": "rus", "ar": "ara",
-            "hi": "hin", "bn": "ben", "tr": "tur", "pl": "pol", "nl": "nld",
-            "sv": "swe", "no": "nor", "da": "dan", "fi": "fin", "el": "ell",
-            "uk": "ukr", "cs": "ces", "ro": "ron", "hu": "hun", "he": "heb",
-            "id": "ind", "ms": "msa", "vi": "vie", "th": "tha", "fa": "fas",
-            "ur": "urd", "sr": "srp", "hr": "hrv", "sk": "slk", "sl": "slv",
-            "bg": "bul", "lt": "lit", "lv": "lav", "et": "est", "is": "isl",
-            "ga": "gle", "af": "afr"
-        }
-        return MAP.get(base)  # None si no está en el mapa → autodetección
-
+    # --- audio ---
     try:
-        # -------- parámetros de entrada --------
-        diarize = _bool_like(form_or_json("diarize", default="true"))
-        tag_audio_events = _bool_like(form_or_json("tag_audio_events", default="true"))
-        lang_in = form_or_json("language_code", default="auto")
-        language_code = _normalize_lang(lang_in)
-
-        raw = None
-        filename = None
-
-        # a) archivo subido
+        raw = None; filename = None
         if "audio" in request.files and request.files["audio"].filename:
-            f = request.files["audio"]
-            filename = secure_filename(f.filename or "audio")
-            raw = f.read()
+            f = request.files["audio"]; filename = secure_filename(f.filename or "audio"); raw = f.read()
         else:
-            # b) JSON con URL
             payload = request.get_json(silent=True) or {}
             url = (payload.get("url") or "").strip()
-            if not url:
-                return jsonify({"ok": False, "error": "missing_audio"}), 400
-            r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=(5, 30))
+            if not url: return jsonify({"ok": False, "error": "missing_audio"}), 400
+            r = requests.get(url, headers={"User-Agent":"Mozilla/5.0"}, timeout=(5,30))
             r.raise_for_status()
             raw = r.content
-            filename = url.rsplit("/", 1)[-1][:100] or "audio"
+            filename = url.rsplit("/",1)[-1][:100] or "audio"
+    except Exception as e:
+        return jsonify({"ok": False, "error": "fetch_audio_failed", "detail": str(e)}), 400
 
-        # -------- llamada a ElevenLabs STT --------
+    # --- ElevenLabs ---
+    try:
+        cl = _eleven()
+        if not cl or not ELEVENLABS_API_KEY:
+            return jsonify({"ok": False, "error": "elevenlabs_not_configured"}), 500
+
         import io as _io
         kwargs = dict(
             file=_io.BytesIO(raw),
-            # ← FIX: guion bajo (válido): 'scribe_v1' o 'scribe_v1_experimental'
-            model_id="scribe_v1",
+            model_id="scribe_v1",          # <- correcto (guion_bajo)
             diarize=bool(diarize),
             tag_audio_events=bool(tag_audio_events),
         )
-        # Solo incluimos language_code si NO es None (si es None, autodetecta)
-        if language_code:
-            kwargs["language_code"] = language_code
+        if lang3: kwargs["language_code"] = lang3  # si None => autodetect
 
-        transcription = cl.speech_to_text.convert(**kwargs)
+        tr = cl.speech_to_text.convert(**kwargs)
+        text  = (tr.get("text") or "").strip()
+        words = tr.get("words") or []
+        srt   = _words_to_srt(words) if words else ""
 
-        # Estructura típica: {'text': '...', 'words': [...], 'language_code': 'spa', 'audio_events': [...]}
-        text = (transcription.get("text") or "").strip()
-        words = transcription.get("words") or []
-        srt = _words_to_srt(words) if words else ""
-
-        # Logging opcional
         try:
-            send_discord("STT done", {
+            send_discord("STT done (ElevenLabs)", {
                 "user": session.get("username"),
                 "filename": filename,
                 "chars": len(text),
                 "words": len(words),
                 "diarize": bool(diarize),
-                "lang_in": lang_in,
-                "lang_used": transcription.get("language_code") or language_code or "auto",
+                "lang_req": lang_in,
+                "lang_used": tr.get("language_code") or lang3 or "auto",
             })
         except Exception:
             pass
 
         return jsonify({
             "ok": True,
+            "engine": "elevenlabs",
             "text": text,
             "words": words,
             "srt": srt,
-            "language_code": transcription.get("language_code") or language_code or None,
-            "audio_events": transcription.get("audio_events"),
+            "language_code": tr.get("language_code") or lang3 or None,
+            "audio_events": tr.get("audio_events"),
             "meta": {"filename": filename}
-        }), 200
-
+        })
     except Exception as e:
-        # Si el SDK trae una respuesta HTTP con detalle, propágala
+        # ¿Es bloqueo por Free Tier / unusual activity?
         resp = getattr(e, "response", None)
+        code = getattr(resp, "status_code", None)
+        body = None
+        try:
+            if resp is not None:
+                try: body = resp.json()
+                except Exception: body = {"raw": getattr(resp, "text", "")[:1000]}
+        except Exception:
+            body = None
+        msg = (str(e) + " " + (json.dumps(body, ensure_ascii=False) if body else "")).lower()
+        if (code in (401,402,403)) or ("unusual activity" in msg) or ("free tier" in msg):
+            return jsonify({
+                "ok": False,
+                "error": "elevenlabs_blocked",
+                "detail": "ElevenLabs ha bloqueado la clave (Free Tier/actividad inusual). "
+                          "Solución: usar un plan de pago o pedir a soporte que permitan el uso desde tu servidor. "
+                          "Mientras tanto no se puede transcribir con esta clave."
+            }), 402
+
+        # Otro error de ElevenLabs
         if resp is not None:
-            try:
-                data = resp.json()
-            except Exception:
-                data = {"raw": getattr(resp, "text", str(e))}
-            return jsonify({"ok": False, "error": "elevenlabs_error", "detail": data}), getattr(resp, "status_code", 502)
+            return jsonify({"ok": False, "error": "elevenlabs_error", "detail": body or str(e)}), code or 502
+        return jsonify({"ok": False, "error": "elevenlabs_error", "detail": str(e)}), 502
 
-        print("[/api/transcribe] error:", e)
-        return jsonify({"ok": False, "error": "server_error", "detail": str(e)}), 500
 
+@app.get("/__debug/eleven")
+def debug_eleven():
+    key = (os.environ.get("ELEVENLABS_API_KEY") or "").strip()
+    if not key:
+        return jsonify(ok=False, error="ELEVENLABS_API_KEY missing"), 400
+    try:
+        r = requests.get(
+            "https://api.elevenlabs.io/v1/user",
+            headers={"xi-api-key": key, "Accept": "application/json"},
+            timeout=10,
+        )
+        try:
+            body = r.json()
+        except Exception:
+            body = {"raw": r.text[:1000]}
+        return jsonify(ok=(200 <= r.status_code < 300), status=r.status_code, body=body)
+    except Exception as e:
+        return jsonify(ok=False, error="request_failed", detail=str(e)), 500
 
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1

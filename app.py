@@ -1,3 +1,4 @@
+te mando mi app.py y me dices lo que hacer paso a paso : 
 
 
 # app.py — con Web Push, notificaciones (Europe/Madrid a medianoche) y seguimiento de precio
@@ -312,6 +313,9 @@ def is_due_or_overdue(now_madrid: datetime, hhmm: str, grace_minutes: int = 720)
 
 def now_madrid_str() -> str:
     return europe_madrid_now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+
 
 # ========= SSE =========
 _subscribers_lock = threading.Lock()
@@ -4679,6 +4683,4 @@ if os.environ.get("RUN_SCHEDULER", "1") == "1":
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
-
-
 

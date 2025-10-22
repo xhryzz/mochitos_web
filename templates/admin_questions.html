@@ -180,7 +180,7 @@ hr.sep{border:0;height:1px;background:var(--line);margin:12px 0}
                 <form method="post" action="/admin/questions/{{ r.id }}/toggle_used">
                   <button type="submit" class="ghost">{{ 'Marcar pendiente' if r.used else 'Marcar usada' }}</button>
                 </form>
-
+              
                 {% if r.active %}
                   <form method="post" action="/admin/questions/{{ r.id }}/delete" onsubmit="return confirm('¿Desactivar pregunta #{{ r.id }}?');">
                     <button type="submit" class="ghost">Desactivar</button>
@@ -189,6 +189,13 @@ hr.sep{border:0;height:1px;background:var(--line);margin:12px 0}
                   <button class="ghost" disabled title="No hay endpoint para reactivar">Activar (no disp.)</button>
                 {% endif %}
               </div>
+              <form method="post" action="/admin/questions/{{ r.id }}/assign_tomorrow">
+                <button type="submit" class="ghost"
+                        {% if (not r.active) or r.used %}disabled title="Inactiva o ya usada"{% else %}title="Asignar como pregunta de mañana"{% endif %}>
+                  📅 Poner mañana
+                </button>
+              </form>
+              
             </td>
           </tr>
         {% endfor %}

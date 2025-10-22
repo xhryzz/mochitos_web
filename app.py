@@ -4672,6 +4672,78 @@ def api_other_location():
     return jsonify({'lat': lat, 'lng': lng, 'updated_at': (ts.isoformat() if ts else None)})
 
 
+
+
+@app.post("/admin/questions/<int:qid>/assign_tomorrow")
+def admin_questions_assign_tomorrow(qid):
+    require_admin()
+    # Fecha local de Madrid "mañana"
+    tmr = today_madrid() + timedelta(days=1)
+    tmr_date = tmr.date()
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # 1) Comprobar que existe y está activa
+            c.execute("SELECT id, text, used, active FROM question_bank WHERE id=%s", (qid,))
+            qb = c.fetchone()
+            if not qb or not qb["active"]:
+                flash("Pregunta no encontrada o inactiva.", "error")
+                return redirect("/admin/questions")
+
+            # (opcional) si ya está usada, pedimos desmarcar antes para evitar líos
+            if qb["used"]:
+                flash("Esa pregunta ya figura como 'usada'. Desmárcala para asignarla a mañana.", "error")
+                return redirect("/admin/questions")
+
+            # 2) ¿Hay ya algo asignado para mañana?
+            c.execute("""
+                SELECT id, bank_id
+                FROM daily_questions
+                WHERE date=%s
+                ORDER BY id DESC
+                LIMIT 1
+            """, (tmr_date.isoformat(),))
+            row = c.fetchone()
+
+            if row:
+                dq_id = row["id"]
+                prev_bank_id = row["bank_id"]
+                # si había otra reservada, la devolvemos al bombo
+                if prev_bank_id and prev_bank_id != qid:
+                    qbank_mark_used(conn, prev_bank_id, False)
+                # Actualizamos texto y bank_id
+                c.execute("""
+                    UPDATE daily_questions
+                       SET question=%s, bank_id=%s
+                     WHERE id=%s
+                """, (qb["text"], qid, dq_id))
+            else:
+                # Creamos la fila para mañana
+                c.execute("""
+                    INSERT INTO daily_questions (question, date, bank_id)
+                    VALUES (%s,%s,%s)
+                """, (qb["text"], tmr_date.isoformat(), qid))
+
+            conn.commit()
+
+            # 3) Marcamos esta del banco como "usada" (reservada)
+            qbank_mark_used(conn, qid, True)
+
+        flash(f"Asignada para mañana la # {qid} ✅", "success")
+        try:
+            send_discord("DQ set for tomorrow", {
+                "by": session.get("username"),
+                "qid": int(qid),
+                "date": tmr_date.isoformat()
+            })
+        except Exception:
+            pass
+        return redirect("/admin/questions")
+    finally:
+        conn.close()
+
+
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1
 if os.environ.get("RUN_SCHEDULER", "1") == "1":
     threading.Thread(target=background_loop, daemon=True).start()

@@ -1702,10 +1702,207 @@ body.page-media .section:not([data-section="media"]){
 }
 
 
+/* <!-- NAVIDAD (tema) se puede borrar--> */
+
+
+
+/* ======== TEMA NAVIDAD ROJO (solo rojo) ======== */
+:root[data-theme="xmas"]{
+  --primary-color: #c9182a;      /* rojo principal */
+  --secondary-color:#a50f23;     /* rojo oscuro */
+  --accent-color: #ff6a85;       /* rojo rosado para acentos */
+  --light-pink: #fff5f7;
+  --gradient: linear-gradient(135deg, #8a0f1f 0%, #c9182a 55%, #ff6a85 100%);
+}
+body[data-theme="xmas"]{
+  background: linear-gradient(135deg, #fff7f8 0%, #ffe9ef 100%);
+}
+
+/* Botón flotante 🎄 */
+.xmas-toggle{
+  position: fixed; top: 30px; left: 150px;
+  width: 50px; height: 50px; border-radius: 50%;
+  background: #fff; color: #c9182a; font-size: 22px;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow: var(--shadow); z-index:1200; cursor:pointer; border:0;
+  transition:.25s transform,.25s box-shadow,.25s filter;
+}
+.xmas-toggle:hover{ transform: translateY(-3px); }
+.xmas-toggle[aria-pressed="true"]{
+  background: linear-gradient(135deg,#8a0f1f,#c9182a);
+  color:#fff; box-shadow: 0 12px 26px rgba(201,24,42,.35);
+}
+
+/* Responsive pos. del botón */
+@media (max-width: 991.98px){ .xmas-toggle{ left: 120px; top: 16px; } }
+
+/* Nieve (igual) */
+#xmas-snow{ position:fixed; inset:0; pointer-events:none; z-index:100; }
+#xmas-snow .snowflake{
+  position:absolute; top:-10px; color: rgba(255,255,255,.95);
+  text-shadow: 0 0 6px rgba(0,0,0,.15);
+  animation: snow linear forwards; will-change: transform;
+}
+@keyframes snow{ to{ transform: translate3d(var(--x,0px),105vh,0) rotate(360deg); opacity:.95; } }
+
+/* Guirnalda SOLO ROJA en el banner */
+.section.banner .xmas-lights{
+  position:absolute; inset:0 0 auto 0; height:72px; z-index:4; pointer-events:none;
+  background:
+    url("data:image/svg+xml,%3Csvg width='1200' height='72' viewBox='0 0 1200 72' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3CradialGradient id='gR' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.8'/%3E%3Cstop offset='100%25' stop-color='%23c9182a'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cg fill='none' stroke='%23e2e8f0' stroke-width='2'%3E%3Cpath d='M0,8 C150,60 300,8 450,60 600,8 750,60 900,8 1050,60 1200,8 1350,60'/%3E%3C/g%3E%3Cg%3E%3Ccircle cx='60' cy='36' r='10' fill='url(%23gR)'/%3E%3Ccircle cx='140' cy='36' r='10' fill='url(%23gR)'/%3E%3Ccircle cx='220' cy='36' r='10' fill='url(%23gR)'/%3E%3Ccircle cx='300' cy='36' r='10' fill='url(%23gR)'/%3E%3Ccircle cx='380' cy='36' r='10' fill='url(%23gR)'/%3E%3Ccircle cx='460' cy='36' r='10' fill='url(%23gR)'/%3E%3Ccircle cx='540' cy='36' r='10' fill='url(%23gR)'/%3E%3Ccircle cx='620' cy='36' r='10' fill='url(%23gR)'/%3E%3Ccircle cx='700' cy='36' r='10' fill='url(%23gR)'/%3E%3Ccircle cx='780' cy='36' r='10' fill='url(%23gR)'/%3E%3Ccircle cx='860' cy='36' r='10' fill='url(%23gR)'/%3E%3Ccircle cx='940' cy='36' r='10' fill='url(%23gR)'/%3E%3Ccircle cx='1020' cy='36' r='10' fill='url(%23gR)'/%3E%3Ccircle cx='1100' cy='36' r='10' fill='url(%23gR)'/%3E%3Ccircle cx='1180' cy='36' r='10' fill='url(%23gR)'/%3E%3C/g%3E%3C/svg%3E") center/1200px 72px repeat-x;
+  opacity:.95; filter: drop-shadow(0 6px 10px rgba(0,0,0,.15));
+  animation: twinkle 2.6s ease-in-out infinite alternate;
+}
+@keyframes twinkle{ from{opacity:.8} to{opacity:1} }
+
+/* Gorro Papá Noel (rojo/blanco) */
+.banner-overlay .santa-hat{
+  position:absolute; width:64px; height:64px; left: calc(50% + 140px);
+  top: calc(50% - 120px); transform: rotate(-18deg);
+  background: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 44c10-18 28-26 38-22 3 1 6 5 5 8-1 2-4 3-7 3-10 1-24 7-36 11z' fill='%23c9182a'/%3E%3Ccircle cx='51' cy='19' r='6' fill='%23ffffff'/%3E%3Cpath d='M5 46h44a4 4 0 0 1 0 8H5a4 4 0 1 1 0-8z' fill='%23ffffff'/%3E%3C/svg%3E") center/contain no-repeat;
+  z-index:5; pointer-events:none;
+}
+
+/* Un toque de brillo rojito en chips */
+[data-theme="xmas"] .chip-stat{
+  box-shadow: 0 8px 24px rgba(201,24,42,.25);
+  border-color: rgba(201,24,42,.35);
+}
+
+/* ====== FX NAVIDAD (añadir al final de tu CSS) ====== */
+
+/* (si ya lo tienes en tu CSS, puedes omitir este bloque de nieve) */
+#xmas-snow{ position:fixed; inset:0; pointer-events:none; z-index:100; }
+#xmas-snow .snowflake{
+  position:absolute; top:-10px; color: rgba(255,255,255,.95);
+  text-shadow: 0 0 6px rgba(0,0,0,.15);
+  animation: snow linear forwards; will-change: transform, opacity;
+}
+@keyframes snow{ to{ transform: translate3d(var(--x,0px),105vh,0) rotate(360deg); opacity:.95; } }
+
+/* Trineo Papá Noel (usa tu GIF como background) */
+#xmas-sleigh{
+  position: fixed;
+  left: 0; top: 10vh;
+  width: min(28vw, 260px);
+  height: min(18vw, 160px);
+  background: center / contain no-repeat;
+  pointer-events: none;
+  z-index: 1500;
+  opacity: 0;
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,.25));
+  will-change: transform, opacity;
+}
+/* de izquierda a derecha */
+@keyframes sleigh-ltr{
+  0%  { transform: translateX(-120%) scaleX(1); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100%{ transform: translateX(120%)  scaleX(1); opacity: 0; }
+}
+/* de derecha a izquierda (espejado) */
+@keyframes sleigh-rtl{
+  0%  { transform: translateX(120%)  scaleX(-1); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100%{ transform: translateX(-120%) scaleX(-1); opacity: 0; }
+}
+
+/* Lucecitas rojas en el banner (ya las definiste como .xmas-lights) */
+
+
+/* ===== FX NAVIDAD – nieve + trineo (solo rojo) ===== */
+
+/* Nieve */
+#xmas-snow{ position:fixed; inset:0; pointer-events:none; z-index:100; }
+#xmas-snow .snowflake{
+  position:absolute; top:-10px; color: rgba(255,255,255,.95);
+  text-shadow: 0 0 6px rgba(0,0,0,.15);
+  animation: snow linear forwards; will-change: transform, opacity;
+}
+@keyframes snow{
+  to{ transform: translate3d(var(--x,0px),105vh,0) rotate(360deg); opacity:.95; }
+}
+
+/* Trineo (usamos un DIV con background GIF) */
+#xmas-sleigh{
+  position: fixed;
+  left: 0; top: 10vh;
+  width: min(28vw, 260px);
+  height: min(18vw, 160px);
+  background: center / contain no-repeat;
+  pointer-events: none;
+  z-index: 1500;
+  opacity: 0;
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,.25));
+  will-change: transform, opacity;
+}
+
+/* Fallback de animación horizontal (por si no soporta Web Animations API) */
+@keyframes sleigh-ltr{
+  0%  { transform: translateX(-120%) scaleX(-1); opacity: 0; } /* flip porque el GIF es R→L */
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100%{ transform: translateX(120%)  scaleX(-1); opacity: 0; }
+}
+@keyframes sleigh-rtl{
+  0%  { transform: translateX(120%)  scaleX(1); opacity: 0; }  /* natural: R→L */
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100%{ transform: translateX(-120%) scaleX(1); opacity: 0; }
+}
+
+/* Capa global de fondo para efectos de Navidad */
+#xmas-stage{
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;           /* detrás del contenido */
+}
+
+/* La nieve y el trineo viven dentro del stage y no reciben clicks */
+#xmas-stage, #xmas-stage *{
+  pointer-events: none;
+}
+
+/* Asegura que el fondo rosita del body quede por detrás del stage */
+body::before{ z-index: -1; }
+
+/* (Opcional, solo si en tu UI algo raro se cuela por debajo)
+body > *:not(#xmas-stage){ position: relative; z-index: 1; }
+*/
+
+/* Capa global de fondo para la Navidad */
+#xmas-stage{
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;               /* detrás del contenido */
+}
+
+/* La nieve y el trineo van dentro del stage */
+#xmas-stage, #xmas-stage *{
+  pointer-events: none;
+}
+
+/* El fondo del body queda por detrás del stage (¡importante!) */
+body::before{ z-index: -1; }
+
+/* Si aún no lo ves y quieres probar, SÓLO para test:
+#xmas-stage { z-index: 1; }  body > *:not(#xmas-stage){ position: relative; z-index: 2; }
+*/
+
+
+
+
+
     </style>
 </head>
 
 <body>
+  <!-- NAVIDAD (tema) se puede borrar-->
+  <div id="xmas-stage" aria-hidden="true"></div>
+
   {% set flash_messages = get_flashed_messages(with_categories=true) %}
 
   <!-- Zona toasts -->
@@ -6303,7 +6500,263 @@ if ('serviceWorker' in navigator) {
   </script>
   
 
+<!-- NAVIDAD (tema) se puede borrar-->
 
+<script>
+(function(){
+  // --- Config / refs
+  var ROOT = document.documentElement;
+  var BODY = document.body;
+  var META = document.querySelector('meta[name="theme-color"]');
+
+  // Ajusta esta ruta a tu GIF (R→L). En Jinja:
+  var sleighGif = "{{ url_for('static', filename='icons/papa_noel.gif') }}";
+
+  // Estado interno
+  var stage = null;
+  var snowWrap = null;
+  var sleighEl = null;
+  var snowTimer = null;
+  var nextFlyTimer = null;
+
+  // --- Temporada: 1 dic – 8 ene (inclusive)
+  function inSeason(d){
+    d = d || new Date();
+    var m = d.getMonth();  // 0..11
+    var day = d.getDate();
+    return (m === 11 && day >= 1) || (m === 0 && day <= 8);
+  }
+  function msToNextCheck(){
+    var now = new Date();
+    // Siguiente 00:01 local
+    var next = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0, 1, 0, 0);
+    return next - now;
+  }
+
+  // --- Utils
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+  function rand(min,max){ return min + Math.random()*(max-min); }
+  function lerp(a,b,t){ return a + (b-a)*t; }
+
+  // --- Stage global para los efectos (nieve + trineo)
+  function ensureStage(){
+    if (!stage) {
+      stage = document.getElementById('xmas-stage');
+      if (!stage) {
+        stage = document.createElement('div');
+        stage.id = 'xmas-stage';
+        stage.setAttribute('aria-hidden', 'true');
+        stage.style.pointerEvents = 'none';
+        BODY.prepend(stage);
+      }
+    }
+    return stage;
+  }
+
+  // --- Nieve
+  function ensureSnowWrap(){
+    ensureStage();
+    if (!snowWrap) {
+      snowWrap = document.getElementById('xmas-snow');
+      if (!snowWrap) {
+        snowWrap = document.createElement('div');
+        snowWrap.id = 'xmas-snow';
+      } else {
+        snowWrap.remove(); // re-insert para limpiar
+      }
+      stage.appendChild(snowWrap);
+    }
+  }
+  function spawnFlake(){
+    if (!snowWrap) return;
+    var f = document.createElement('div');
+    f.className = 'snowflake';
+    f.textContent = '❄';
+    f.style.left = (Math.random()*100) + 'vw';
+    f.style.fontSize = (10 + Math.random()*16) + 'px';
+    f.style.animationDuration = (6 + Math.random()*8) + 's';
+    f.style.setProperty('--x', (Math.random()*80 - 40) + 'px');
+    f.addEventListener('animationend', function(){ f.remove(); });
+    snowWrap.appendChild(f);
+  }
+  function startSnow(){
+    ensureSnowWrap();
+    if (snowTimer) clearInterval(snowTimer);
+    // ráfaga inicial
+    for (var i=0;i<60;i++) spawnFlake();
+    // flujo continuo
+    snowTimer = setInterval(function(){
+      for (var j=0;j<4;j++) spawnFlake();
+    }, 500);
+  }
+  function stopSnow(){
+    if (snowTimer) clearInterval(snowTimer);
+    snowTimer = null;
+    if (snowWrap){
+      var nodes = snowWrap.querySelectorAll('.snowflake');
+      for (var i=0;i<nodes.length;i++) nodes[i].remove();
+    }
+  }
+
+  // --- Trineo
+  function ensureSleigh(){
+    ensureStage();
+    if (!sleighEl) {
+      sleighEl = document.getElementById('xmas-sleigh');
+      if (!sleighEl) {
+        sleighEl = document.createElement('div');
+        sleighEl.id = 'xmas-sleigh';
+      } else {
+        sleighEl.remove(); // re-insert para resetear animación
+      }
+      sleighEl.style.background = 'center / contain no-repeat';
+      sleighEl.style.pointerEvents = 'none';
+      sleighEl.style.opacity = '0';
+      stage.appendChild(sleighEl);
+    }
+    // Aplica/actualiza el GIF
+    if (sleighGif) sleighEl.style.backgroundImage = 'url("' + sleighGif + '")';
+  }
+
+function flyOnce(){
+  ensureSleigh();
+
+  var vw = window.innerWidth, vh = window.innerHeight;
+  var w  = sleighEl.offsetWidth  || vw*0.28;
+  var h  = sleighEl.offsetHeight || vh*0.18;
+
+  // Dirección fija: derecha → izquierda
+  var fromLeft = false;
+  var sx = 1; // tu GIF ya es R→L (si tu GIF fuera L→R, usa -1)
+
+  var yStart = rand(0.08*vh, 0.80*vh);
+  var yDrift = (Math.random() < 0.65) ? rand(-0.22*vh, 0.22*vh) : 0;
+  var yEnd   = clamp(yStart + yDrift, 0.06*vh, 0.86*vh);
+
+  var xStart = (vw + 40);
+  var xEnd   = (-w - 40);
+
+  var duration = 8000 + Math.random()*7000;  // 8–15 s
+  var pause    = 2000 + Math.random()*4000;  // 2–6 s
+
+  if (sleighEl.animate){
+    sleighEl.style.opacity = 1;
+    var frames = [
+      { transform:`translate(${xStart}px, ${yStart}px) scaleX(${sx})`, opacity:0 },
+      { transform:`translate(${lerp(xStart,xEnd,0.1)}px, ${lerp(yStart,yEnd,0.1)}px) scaleX(${sx})`, opacity:1, offset:0.1 },
+      (Math.random()<0.5) ? { transform:`translate(${lerp(xStart,xEnd,0.5)}px, ${lerp(yStart,yEnd,0.5) + rand(-0.12*vh,0.12*vh)}px) scaleX(${sx})`, opacity:1, offset:0.5 } : null,
+      { transform:`translate(${lerp(xStart,xEnd,0.9)}px, ${lerp(yStart,yEnd,0.9)}px) scaleX(${sx})`, opacity:1, offset:0.9 },
+      { transform:`translate(${xEnd}px, ${yEnd}px) scaleX(${sx})`, opacity:0 }
+    ].filter(Boolean);
+
+    var anim = sleighEl.animate(frames, { duration: duration, easing:'linear', fill:'forwards' });
+    anim.onfinish = function(){
+      sleighEl.style.opacity = 0;
+      if (nextFlyTimer) clearTimeout(nextFlyTimer);
+      nextFlyTimer = setTimeout(flyOnce, pause);
+    };
+  } else {
+    // Fallback CSS keyframes
+    sleighEl.style.top = yStart + 'px';
+    sleighEl.style.animation = 'none'; void sleighEl.offsetWidth;
+    sleighEl.style.animation = 'sleigh-rtl ' + (duration/1000) + 's linear 1';
+    sleighEl.onanimationend = function(){
+      sleighEl.style.opacity = 0;
+      if (nextFlyTimer) clearTimeout(nextFlyTimer);
+      nextFlyTimer = setTimeout(flyOnce, pause);
+    };
+  }
+}
+
+  function startSleigh(){
+    ensureSleigh();
+    if (nextFlyTimer) clearTimeout(nextFlyTimer);
+    flyOnce();
+  }
+  function stopSleigh(){
+    if (nextFlyTimer) clearTimeout(nextFlyTimer);
+    nextFlyTimer = null;
+    if (sleighEl) {
+      sleighEl.remove();
+      sleighEl = null;
+    }
+  }
+
+  // --- Lucecitas rojas en el banner (usa tu .xmas-lights del CSS)
+  function addLights(){
+    var banner = document.querySelector('.section.banner');
+    if (banner && !document.getElementById('xmasLights')){
+      var d = document.createElement('div');
+      d.id = 'xmasLights';
+      d.className = 'xmas-lights';
+      banner.appendChild(d);
+    }
+  }
+  function removeLights(){
+    var l = document.getElementById('xmasLights');
+    if (l) l.remove();
+  }
+
+  // --- On/Off tema navidad
+  function enable(gifUrl){
+    if (gifUrl) sleighGif = gifUrl;
+    ROOT.setAttribute('data-theme','xmas');
+    BODY.setAttribute('data-theme','xmas');
+    if (META) META.setAttribute('content','#c9182a'); // rojo navbar en PWA
+    // quita gorro si existiera
+    var hat = document.querySelector('.banner-overlay .santa-hat');
+    if (hat) hat.remove();
+
+    addLights();
+    startSnow();
+    startSleigh();
+  }
+  function disable(){
+    ROOT.removeAttribute('data-theme');
+    BODY.removeAttribute('data-theme');
+    if (META) META.setAttribute('content','#e84393'); // color base de tu app
+    stopSnow();
+    stopSleigh();
+    removeLights();
+  }
+  function setSleigh(url){
+    if (!url) return;
+    sleighGif = url;
+    if (sleighEl) sleighEl.style.backgroundImage = 'url("' + url + '")';
+  }
+  function updateBySchedule(){
+    if (inSeason()) enable(); else disable();
+  }
+
+  // --- API global
+  window.XMAS = {
+    enable: enable,
+    disable: disable,
+    setSleigh: setSleigh,
+    fly: flyOnce,
+    snow: { start: startSnow, stop: stopSnow }
+  };
+
+  // --- Auto por fechas + re-chequeo diario + botón opcional .xmas-toggle
+  document.addEventListener('DOMContentLoaded', function(){
+    updateBySchedule();
+    var ms = msToNextCheck();
+    setTimeout(function tick(){
+      updateBySchedule();
+      setTimeout(tick, msToNextCheck());
+    }, ms);
+
+    var toggleBtn = document.querySelector('.xmas-toggle');
+    if (toggleBtn){
+      toggleBtn.addEventListener('click', function(){
+        var on = ROOT.getAttribute('data-theme') === 'xmas' || BODY.getAttribute('data-theme') === 'xmas';
+        if (on) { disable(); this.setAttribute('aria-pressed','false'); }
+        else    { enable();  this.setAttribute('aria-pressed','true');  }
+      });
+    }
+  });
+})();
+</script>
 
 
 {% if username in ('mochito','mochita') %}

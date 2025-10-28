@@ -6,4 +6,3 @@ pywebpush
 cryptography
 pytz
 tzdata
-elevenlabs>=1.6.0

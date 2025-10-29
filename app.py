@@ -584,6 +584,33 @@ def init_db():
                     pass
             conn.commit()
 
+                # === Daily Question: reacciones y chat ===
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS dq_reactions (
+                id SERIAL PRIMARY KEY,
+                question_id INTEGER NOT NULL,
+                from_user   TEXT    NOT NULL,
+                to_user     TEXT    NOT NULL,
+                reaction    TEXT    NOT NULL CHECK (char_length(reaction) <= 16),
+                created_at  TEXT    NOT NULL,
+                updated_at  TEXT    NOT NULL,
+                UNIQUE (question_id, from_user, to_user)
+            )
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_dq_react_q ON dq_reactions (question_id)")
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS dq_chat (
+                id SERIAL PRIMARY KEY,
+                question_id INTEGER NOT NULL,
+                username   TEXT    NOT NULL,
+                msg        TEXT    NOT NULL,
+                created_at TEXT    NOT NULL
+            )
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_dq_chat_q ON dq_chat (question_id)")
+
+
         # Push subscriptions
         c.execute('''CREATE TABLE IF NOT EXISTS push_subscriptions (
             id SERIAL PRIMARY KEY,
@@ -2329,6 +2356,14 @@ def index():
             # Respuestas del día
             c.execute("SELECT username, answer, created_at, updated_at FROM answers WHERE question_id=%s", (question_id,))
             ans_rows = c.fetchall()
+            # Reacciones y chat de la Pregunta del Día actual
+            dq_reactions_map = {}
+            c.execute("SELECT to_user, from_user, reaction FROM dq_reactions WHERE question_id=%s", (question_id,))
+            for r in c.fetchall():
+                dq_reactions_map[r['to_user']] = {"from_user": r['from_user'], "reaction": r['reaction']}
+
+            c.execute("SELECT username, msg, created_at FROM dq_chat WHERE question_id=%s ORDER BY id ASC", (question_id,))
+            dq_chat_messages = [dict(row) for row in c.fetchall()]
 
             # Viajes + fotos
             c.execute("""
@@ -2569,7 +2604,10 @@ def index():
                            cycle_entries=cycle_entries,
                            cycle_pred=cycle_pred,
                            moods_for_select=moods_for_select,
-                           flows_for_select=flows_for_select
+                           flows_for_select=flows_for_select,
+                           question_id=question_id,
+                           dq_reactions=dq_reactions_map,
+                           dq_chat_messages=dq_chat_messages,
                            )
 
 # ======= Rutas REST extra (con broadcast) =======
@@ -4737,6 +4775,97 @@ def admin_questions_assign_tomorrow(qid):
         return redirect("/admin/questions")
     finally:
         conn.close()
+
+
+
+@app.post("/dq/react")
+def dq_react():
+    if 'username' not in session:
+        return redirect('/')
+    user = session['username']
+
+    qid_raw = (request.form.get('question_id') or '').strip()
+    try:
+        qid = int(qid_raw)
+    except Exception:
+        qid, _ = get_today_question()  # fallback al de hoy
+
+    target_user = (request.form.get('target_user') or '').strip()
+    reaction    = (request.form.get('reaction') or '').strip()
+
+    if not reaction:
+        flash("Falta la reacción.", "error"); return redirect('/#pregunta')
+    if target_user not in ('mochito', 'mochita') or target_user == user:
+        flash("Destino inválido.", "error"); return redirect('/#pregunta')
+
+    now_txt = now_madrid_str()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO dq_reactions (question_id, from_user, to_user, reaction, created_at, updated_at)
+                VALUES (%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (question_id, from_user, to_user)
+                DO UPDATE SET reaction=EXCLUDED.reaction, updated_at=EXCLUDED.updated_at
+            """, (qid, user, target_user, reaction[:16], now_txt, now_txt))
+            conn.commit()
+        flash("Reacción guardada ❤️", "success")
+        send_discord("DQ reaction", {"by": user, "to": target_user, "reaction": reaction})
+        try:
+            broadcast("dq_reaction", {"from": user, "to": target_user, "reaction": reaction, "q": qid})
+        except Exception:
+            pass
+    except Exception as e:
+        print("[dq_react]", e)
+        try: conn.rollback()
+        except Exception: pass
+        flash("No se pudo guardar la reacción.", "error")
+    finally:
+        conn.close()
+    return redirect('/#pregunta')
+
+
+@app.post("/dq/chat/send")
+def dq_chat_send():
+    if 'username' not in session:
+        return redirect('/')
+    user = session['username']
+
+    qid_raw = (request.form.get('question_id') or '').strip()
+    try:
+        qid = int(qid_raw)
+    except Exception:
+        qid, _ = get_today_question()  # fallback al de hoy
+
+    msg = (request.form.get('msg') or '').strip()
+    if not msg:
+        flash("Mensaje vacío.", "error"); return redirect('/#pregunta')
+    if len(msg) > 500:
+        msg = msg[:500]
+
+    now_txt = now_madrid_str()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO dq_chat (question_id, username, msg, created_at)
+                VALUES (%s,%s,%s,%s)
+            """, (qid, user, msg, now_txt))
+            conn.commit()
+        send_discord("DQ chat", {"by": user, "q": qid, "len": len(msg)})
+        try:
+            broadcast("dq_chat", {"user": user, "msg": msg, "q": qid, "ts": now_txt})
+        except Exception:
+            pass
+    except Exception as e:
+        print("[dq_chat_send]", e)
+        try: conn.rollback()
+        except Exception: pass
+        flash("No se pudo enviar el mensaje.", "error")
+    finally:
+        conn.close()
+
+    return redirect('/#pregunta')
 
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1

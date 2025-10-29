@@ -2365,6 +2365,20 @@ def index():
                 WHERE question_id=%s
             """, (question_id,))
             react_rows = c.fetchall()
+            # --- Post-procesado chat / reacciones para la plantilla ---
+            dq_chat_messages = [
+                {"username": r[0], "msg": r[1], "created_at": r[2]}
+                for r in chat_rows
+            ]
+
+            dq_reactions = {}
+            for fr, to, rx, ts in react_rows:
+                dq_reactions[to] = {
+                    "from_user": fr,
+                    "reaction": rx,
+                    "created_at": ts,
+                }
+
 
 
             # Viajes + fotos

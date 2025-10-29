@@ -312,7 +312,8 @@ def is_due_or_overdue(now_madrid: datetime, hhmm: str, grace_minutes: int = 720)
 def now_madrid_str() -> str:
     return europe_madrid_now().strftime("%Y-%m-%d %H:%M:%S")
 
-
+def now_iso():
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
 # ========= SSE =========
@@ -4831,41 +4832,175 @@ def dq_chat_send():
         return redirect('/')
     user = session['username']
 
+    # Question ID (con fallback al de hoy)
     qid_raw = (request.form.get('question_id') or '').strip()
     try:
         qid = int(qid_raw)
     except Exception:
-        qid, _ = get_today_question()  # fallback al de hoy
+        qid, _ = get_today_question()
 
+    # Mensaje
     msg = (request.form.get('msg') or '').strip()
     if not msg:
-        flash("Mensaje vacío.", "error"); return redirect('/#pregunta')
+        flash("Mensaje vacío.", "error")
+        return redirect('/#pregunta')
     if len(msg) > 500:
         msg = msg[:500]
 
+    # Reply / parent_id (opcional)
+    parent_raw = (request.form.get('parent_id') or '').strip()
+    parent_id = int(parent_raw) if parent_raw.isdigit() else None
+
     now_txt = now_madrid_str()
     conn = get_db_connection()
+    new_id = None
+
     try:
         with conn.cursor() as c:
-            c.execute("""
-                INSERT INTO dq_chat (question_id, username, msg, created_at)
-                VALUES (%s,%s,%s,%s)
-            """, (qid, user, msg, now_txt))
+            if parent_id is not None:
+                c.execute("""
+                    INSERT INTO dq_chat (question_id, username, msg, parent_id, created_at)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (qid, user, msg, parent_id, now_txt))
+            else:
+                c.execute("""
+                    INSERT INTO dq_chat (question_id, username, msg, created_at)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id
+                """, (qid, user, msg, now_txt))
+
+            new_id = c.fetchone()[0]
             conn.commit()
-        send_discord("DQ chat", {"by": user, "q": qid, "len": len(msg)})
+
+        # Notificaciones externas (no rompen si fallan)
         try:
-            broadcast("dq_chat", {"user": user, "msg": msg, "q": qid, "ts": now_txt})
+            send_discord("DQ chat", {"by": user, "q": qid, "len": len(msg), "id": new_id, "parent_id": parent_id})
         except Exception:
             pass
+
+        # SSE para tiempo real (incluye id y parent_id si aplica)
+        try:
+            payload = {"id": new_id, "user": user, "msg": msg, "q": qid, "ts": now_txt}
+            if parent_id is not None:
+                payload["parent_id"] = parent_id
+            broadcast("dq_chat", payload)
+        except Exception:
+            pass
+
     except Exception as e:
         print("[dq_chat_send]", e)
-        try: conn.rollback()
-        except Exception: pass
+        try:
+            conn.rollback()
+        except Exception:
+            pass
         flash("No se pudo enviar el mensaje.", "error")
     finally:
         conn.close()
 
     return redirect('/#pregunta')
+
+@app.get("/api/profile-pictures")
+def api_profile_pictures():
+    return jsonify(get_profile_pictures())
+
+
+@app.post("/dq/chat/react")
+def dq_chat_react():
+    if "username" not in session:
+        return jsonify({"ok": False, "error": "auth"}), 401
+
+    username = session["username"]
+    msg_id = int(request.form.get("message_id", "0"))
+    reaction = (request.form.get("reaction") or "").strip()[:8]
+    if not msg_id or not reaction:
+        return jsonify({"ok": False, "error": "bad input"}), 400
+
+    ts = now_iso()
+    with pool.getconn() as conn:
+        try:
+            with conn.cursor() as c:
+                c.execute("""
+                    INSERT INTO dq_chat_reactions (message_id, username, reaction, created_at, updated_at)
+                    VALUES (%s,%s,%s,%s,%s)
+                    ON CONFLICT (message_id, username)
+                    DO UPDATE SET reaction=EXCLUDED.reaction, updated_at=EXCLUDED.updated_at
+                """, (msg_id, username, reaction, ts, ts))
+
+                c.execute("SELECT question_id FROM dq_chat WHERE id=%s", (msg_id,))
+                row = c.fetchone()
+                if not row:
+                    conn.rollback()
+                    return jsonify({"ok": False, "error": "message not found"}), 404
+                question_id = row[0]
+
+                c.execute("""
+                    SELECT reaction, COUNT(*)::int AS n
+                    FROM dq_chat_reactions
+                    WHERE message_id=%s
+                    GROUP BY reaction
+                """, (msg_id,))
+                counts = {r: n for (r, n) in c.fetchall()}
+                conn.commit()
+        finally:
+            pool.putconn(conn)
+
+    # Notifica por SSE
+    broadcast("dq_chat_react", {
+        "message_id": msg_id,
+        "question_id": question_id,
+        "counts": counts
+    })
+    return jsonify({"ok": True, "counts": counts})
+
+
+@app.post("/dq/chat/typing")
+def dq_chat_typing():
+    if "username" not in session:
+        return "", 204
+    username = session["username"]
+    question_id = int(request.form.get("question_id", "0"))
+    state = request.form.get("state") == "1"  # True = escribiendo
+
+    broadcast("dq_chat_typing", {
+        "question_id": question_id,
+        "user": username,
+        "state": state
+    })
+    return "", 204
+
+
+@app.post("/dq/chat/edit/<int:msg_id>")
+def dq_chat_edit(msg_id):
+    if "username" not in session:
+        return jsonify({"ok": False, "error": "auth"}), 401
+
+    username = session["username"]
+    new_msg = (request.form.get("msg") or "").strip()
+    if not new_msg:
+        return jsonify({"ok": False, "error": "empty"}), 400
+
+    ts = now_iso()
+    with pool.getconn() as conn:
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as c:
+                c.execute("""
+                    UPDATE dq_chat
+                    SET msg=%s, edited_at=%s
+                    WHERE id=%s AND username=%s
+                    RETURNING id, question_id, username, msg, edited_at
+                """, (new_msg, ts, msg_id, username))
+                row = c.fetchone()
+                if not row:
+                    conn.rollback()
+                    return jsonify({"ok": False, "error": "not found / not yours"}), 404
+                conn.commit()
+        finally:
+            pool.putconn(conn)
+
+    broadcast("dq_chat_edit", dict(row))
+    return jsonify({"ok": True})
+
 
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1

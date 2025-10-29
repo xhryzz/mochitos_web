@@ -2043,6 +2043,17 @@ body::before{ z-index: -1; }
   box-shadow:0 6px 14px rgba(162,155,254,.4);
 }
 
+.dq-message { display: grid; grid-template-columns: 36px 1fr; gap: 8px; margin-bottom: 10px; }
+.dq-message.me { grid-template-columns: 1fr 36px; }
+.dq-message .avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.dq-bubble { background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 8px 10px; position: relative; }
+.dq-bubble .meta { font-size: 11px; opacity: 0.7; margin-top: 4px; }
+.dq-actions { display: flex; gap: 6px; margin-top: 4px; }
+.dq-actions button { border: 0; background: transparent; cursor: pointer; font-size: 14px; }
+.dq-reactions { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+.dq-reactions .badge { font-size: 12px; padding: 2px 6px; border-radius: 10px; border: 1px solid #eee; }
+.dq-typing { font-size: 12px; opacity: 0.8; margin: 6px 0; }
+.dq-replying { font-size: 12px; padding: 6px 8px; background: #f6f6f6; border: 1px dashed #ddd; border-radius: 8px; margin-bottom: 8px; }
 
     </style>
 </head>
@@ -2654,75 +2665,91 @@ body::before{ z-index: -1; }
       </div>
     </div>
 
+<!-- Chat (con reacción integrada), avatares, typing, responder/editar -->
+<div class="dq-chat-card">
+  <div class="dq-chat-header">
+    <i class="fas fa-comments" aria-hidden="true"></i>
+    Charla privada sobre la pregunta
+  </div>
 
-    <!-- Chat y reacciones -->
-    <div class="dq-extra">
+  <div id="dq-replying" class="dq-replying" style="display:none"></div>
+  <div id="dq-typing" class="dq-typing" style="display:none"></div>
 
-      <div class="dq-reactions-card">
-        <div class="dq-reactions-title">
-          Reacciona a la respuesta de {{ other_user }}
-        </div>
-
-        <form method="POST" action="/dq/react" class="dq-reactions-form">
-          <input type="hidden" name="question_id" value="{{ question_id }}">
-          <input type="hidden" name="target_user" value="{{ other_user }}">
-
-          <div class="dq-reactions-buttons">
-            <button type="submit" name="reaction" value="❤️" aria-label="Me encanta">❤️</button>
-            <button type="submit" name="reaction" value="😂" aria-label="Me hace gracia">😂</button>
-            <button type="submit" name="reaction" value="😡" aria-label="Me enfada">😡</button>
-            <button type="submit" name="reaction" value="👍" aria-label="Estoy de acuerdo">👍</button>
-          </div>
-
-          {% set mine = dq_reactions.get(other_user) if dq_reactions else None %}
-          {% if mine and mine.from_user == username %}
-            <div class="dq-reaction-current">
-              Tu reacción:
-              <span class="big-reaction">{{ mine.reaction }}</span>
+  <div class="dq-chat-messages" id="dq-chat-list">
+    {% if dq_chat_messages %}
+      {% set ns = namespace(react_inserted=False) %}
+      {% for m in dq_chat_messages %}
+        <div class="dq-chat-msg {% if m.username == username %}me{% else %}them{% endif %}" 
+             data-id="{{ m.id }}" data-user="{{ m.username }}">
+          <img class="dq-avatar" 
+               src="{{ m.avatar_url or url_for('static', filename='img/avatar_default.png') }}" 
+               alt="{{ m.username }}">
+          <div class="dq-chat-body">
+            <div class="dq-chat-meta">
+              <b class="dq-name">{{ m.username }}</b>
+              <span class="ts">{{ m.created_at }}</span>
             </div>
-          {% endif %}
 
-          {% set theirs = dq_reactions.get(username) if dq_reactions else None %}
-          {% if theirs and theirs.from_user == other_user %}
-            <div class="dq-reaction-partner">
-              {{ other_user }} reaccionó:
-              <span class="big-reaction">{{ theirs.reaction }}</span>
-            </div>
-          {% endif %}
-        </form>
-      </div>
-
-      <div class="dq-chat-card">
-        <div class="dq-chat-header">
-          <i class="fas fa-comments" aria-hidden="true"></i>
-          Charla privada sobre la pregunta
-        </div>
-
-        <div class="dq-chat-messages">
-          {% if dq_chat_messages %}
-            {% for m in dq_chat_messages %}
-              <div class="dq-chat-msg {% if m.username == username %}me{% else %}them{% endif %}">
-                <div class="dq-chat-meta">
-                  <b>{{ m.username }}</b>
-                  <span class="ts">{{ m.created_at }}</span>
-                </div>
-                <div class="dq-chat-bubble">{{ m.msg }}</div>
+            {% if m.parent_id %}
+              <div class="dq-reply-quote">
+                <div class="dq-reply-bar"></div>
+                <div class="dq-reply-text">{{ m.parent_text or 'Respuesta al mensaje #' ~ m.parent_id }}</div>
               </div>
-            {% endfor %}
-          {% else %}
-            <div class="dq-chat-empty">Todavía no hay mensajes. Empieza la conversación 💕</div>
-          {% endif %}
+            {% endif %}
+
+            <div class="dq-chat-bubble">
+              <span class="dq-msg-text">{{ m.msg }}</span>
+
+              <div class="dq-bubble-actions">
+                <button class="dq-action dq-reply-btn" title="Responder" type="button">↩</button>
+                {% if m.username == username %}
+                  <button class="dq-action dq-edit-btn" title="Editar" type="button">✎</button>
+                {% endif %}
+              </div>
+
+              <div class="dq-bubble-reactions" data-for="{{ m.id }}"></div>
+            </div>
+          </div>
         </div>
 
-        <form method="POST" action="/dq/chat/send" class="dq-chat-form" style="margin-top:12px;">
-          <input type="hidden" name="question_id" value="{{ question_id }}">
-          <input type="text" name="msg" required placeholder="Escribe algo bonito...">
-          <button type="submit"><i class="fas fa-paper-plane"></i></button>
-        </form>
-      </div>
+        {# Inserta la reacción global al primer mensaje de la otra persona, DENTRO del chat #}
+        {% if not ns.react_inserted and m.username == other_user %}
+          <form method="POST" action="/dq/react" class="dq-inline-reaction">
+            <input type="hidden" name="question_id" value="{{ question_id }}">
+            <input type="hidden" name="target_user" value="{{ other_user }}">
+            <div class="dq-inline-reaction-row">
+              <span class="dq-inline-reaction-label">Reacciona a la respuesta de {{ other_user }}:</span>
+              <button type="submit" name="reaction" value="❤️" aria-label="Me encanta">❤️</button>
+              <button type="submit" name="reaction" value="😂" aria-label="Me hace gracia">😂</button>
+              <button type="submit" name="reaction" value="😡" aria-label="Me enfada">😡</button>
+              <button type="submit" name="reaction" value="👍" aria-label="Estoy de acuerdo">👍</button>
 
-    </div>
+              {% set mine = dq_reactions.get(other_user) if dq_reactions else None %}
+              {% if mine and mine.from_user == username %}
+                <span class="dq-your-react">Tu reacción: <span class="big-reaction">{{ mine.reaction }}</span></span>
+              {% endif %}
 
+              {% set theirs = dq_reactions.get(username) if dq_reactions else None %}
+              {% if theirs and theirs.from_user == other_user %}
+                <span class="dq-partner-react">{{ other_user }}: <span class="big-reaction">{{ theirs.reaction }}</span></span>
+              {% endif %}
+            </div>
+          </form>
+          {% set ns.react_inserted = True %}
+        {% endif %}
+      {% endfor %}
+    {% else %}
+      <div class="dq-chat-empty">Todavía no hay mensajes. Empieza la conversación 💕</div>
+    {% endif %}
+  </div>
+
+  <form method="POST" action="/dq/chat/send" class="dq-chat-form" id="dq-chat-form" style="margin-top:12px;">
+    <input type="hidden" name="question_id" value="{{ question_id }}">
+    <input type="hidden" name="parent_id" id="dq-parent-id">
+    <input type="text" name="msg" id="dq-input" required placeholder="Escribe algo bonito...">
+    <button type="submit" id="dq-send"><i class="fas fa-paper-plane"></i></button>
+  </form>
+</div>
 
 <!-- {# === B) Tú respondiste y falta el/la otr@ (puedes editar mientras) === #} -->
   {% elif user_answer and not other_answer %}
@@ -6976,6 +7003,174 @@ function flyOnce(){
 })();
 </script>
 
+<script>
+  let PROFILE_PICTURES = {};
+  fetch('/api/profile-pictures').then(r=>r.json()).then(j => PROFILE_PICTURES = j).catch(()=>{});
+  </script>
+
+<script>
+  const dqForm = document.querySelector('#dq-chat-send form, form#dq-chat-send');
+  const dqList = document.getElementById('dq-chat-messages') || document.querySelector('.dq-chat-messages');
+  const dqTyping = document.getElementById('dq-typing');
+  const dqReplying = document.getElementById('dq-replying');
+  const CURRENT_QID = Number((dqForm?.querySelector('[name="question_id"]')||{}).value || 0);
+  let REPLY_TO = null;
+  let typingTimer = null;
+  const ME = {{ session.get('username')|tojson if session and session.get('username') else 'null' }};
+  
+  function avatarFor(user){
+    return PROFILE_PICTURES?.[user] || '/static/avatar-default.png';
+  }
+  
+  function esc(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m])); }
+  
+  function messageHtml(m){
+    const me = m.username === ME || m.user === ME;
+    const user = m.username || m.user;
+    const txt = m.msg || m.text;
+    const ts  = m.created_at || m.ts || '';
+    const edited = m.edited_at ? ' (editado)' : '';
+    const parent = m.parent_id ? `<div class="meta">↩ Respondiendo a #${m.parent_id}</div>` : '';
+    const idAttr = m.id ? `data-msg-id="${m.id}"` : '';
+    return `
+    <div class="dq-message ${me?'me':''}" ${idAttr}>
+      ${me ? '' : `<img class="avatar" src="${avatarFor(user)}" alt="${esc(user)}">`}
+      <div class="dq-bubble">
+        <div class="meta"><strong>${esc(user)}</strong> · <span>${esc(ts)}</span><span class="edited">${edited}</span></div>
+        ${parent}
+        <div class="text">${esc(txt)}</div>
+        <div class="dq-actions">
+          <button class="reply" data-id="${m.id||''}" title="Responder">↩</button>
+          ${me ? `<button class="edit" data-id="${m.id||''}" title="Editar">✎</button>`:''}
+          <button class="react" data-id="${m.id||''}" data-r="❤️">❤️</button>
+          <button class="react" data-id="${m.id||''}" data-r="😂">😂</button>
+          <button class="react" data-id="${m.id||''}" data-r="👍">👍</button>
+        </div>
+        <div class="dq-reactions" id="reactions-${m.id||''}"></div>
+      </div>
+      ${me ? `<img class="avatar" src="${avatarFor(user)}" alt="${esc(user)}">` : ''}
+    </div>`;
+  }
+  
+  function appendMessage(m, scroll=true){
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = messageHtml(m);
+    dqList.appendChild(wrapper.firstElementChild);
+    if(scroll) dqList.scrollTop = dqList.scrollHeight;
+  }
+  
+  function updateReactionsUI(messageId, counts){
+    const cont = document.getElementById(`reactions-${messageId}`);
+    if(!cont) return;
+    cont.innerHTML = '';
+    Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([emo, n])=>{
+      const span = document.createElement('span');
+      span.className = 'badge';
+      span.textContent = `${emo} ${n}`;
+      cont.appendChild(span);
+    });
+  }
+  
+  /* Enviar mensaje con parent_id si hay respuesta */
+  dqForm?.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(dqForm);
+    if(REPLY_TO) fd.set('parent_id', String(REPLY_TO));
+    const res = await fetch('/dq/chat/send', {method:'POST', body:fd});
+    if(res.ok){
+      dqForm.reset();
+      REPLY_TO = null;
+      dqReplying.style.display='none';
+    }
+  });
+  
+  /* “Escribiendo…” con debounce */
+  const input = dqForm?.querySelector('textarea, input[name="msg"], [name="message"]');
+  function typing(on){
+    const fd = new FormData();
+    fd.set('question_id', String(CURRENT_QID));
+    fd.set('state', on?'1':'0');
+    fetch('/dq/chat/typing', {method:'POST', body:fd}).catch(()=>{});
+  }
+  input?.addEventListener('input', ()=>{
+    if(typingTimer) clearTimeout(typingTimer);
+    typing(true);
+    typingTimer = setTimeout(()=>typing(false), 1500);
+  });
+  
+  /* Clicks: responder / editar / reaccionar */
+  dqList.addEventListener('click', async (e)=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    const id = btn.dataset.id;
+    if(btn.classList.contains('reply')){
+      REPLY_TO = Number(id);
+      dqReplying.textContent = `Respondiendo al mensaje #${id}. Pulsa ESC para cancelar.`;
+      dqReplying.style.display = '';
+      input?.focus();
+    } else if(btn.classList.contains('edit')){
+      const msgEl = btn.closest('.dq-message');
+      const textEl = msgEl.querySelector('.text');
+      const original = textEl.textContent;
+      const nuevo = prompt('Edita tu mensaje:', original);
+      if(nuevo!=null && nuevo.trim() && nuevo!==original){
+        const fd = new FormData();
+        fd.set('msg', nuevo.trim());
+        const r = await fetch(`/dq/chat/edit/${id}`, {method:'POST', body:fd});
+        if(!r.ok){ alert('No se pudo editar'); }
+      }
+    } else if(btn.classList.contains('react')){
+      const emo = btn.dataset.r;
+      const fd = new FormData();
+      fd.set('message_id', id);
+      fd.set('reaction', emo);
+      await fetch('/dq/chat/react', {method:'POST', body:fd});
+    }
+  });
+  window.addEventListener('keydown', (ev)=>{
+    if(ev.key==='Escape' && REPLY_TO){
+      REPLY_TO = null;
+      dqReplying.style.display='none';
+    }
+  });
+  
+  /* SSE: añade listeners específicos de chat */
+  const es = window.__ES || new EventSource('/events');
+  window.__ES = es;
+  
+  es.addEventListener('dq_chat', (ev)=>{
+    const data = JSON.parse(ev.data);
+    if(Number(data.q) !== CURRENT_QID) return;
+    appendMessage({
+      id: data.id, username: data.user, msg: data.msg,
+      parent_id: data.parent_id, created_at: data.ts
+    });
+  });
+  
+  es.addEventListener('dq_chat_edit', (ev)=>{
+    const d = JSON.parse(ev.data);
+    if(Number(d.question_id) !== CURRENT_QID) return;
+    const el = dqList.querySelector(`[data-msg-id="${d.id}"]`);
+    if(!el) return;
+    el.querySelector('.text').textContent = d.msg;
+    el.querySelector('.edited').textContent = ' (editado)';
+  });
+  
+  es.addEventListener('dq_chat_react', (ev)=>{
+    const d = JSON.parse(ev.data);
+    if(Number(d.question_id) !== CURRENT_QID) return;
+    updateReactionsUI(d.message_id, d.counts);
+  });
+  
+  es.addEventListener('dq_chat_typing', (ev)=>{
+    const d = JSON.parse(ev.data);
+    if(Number(d.question_id) !== CURRENT_QID) return;
+    if(d.user === ME) return; // no me muestro escribiendo a mí mismo
+    dqTyping.textContent = d.state ? `${d.user} está escribiendo…` : '';
+    dqTyping.style.display = d.state ? '' : 'none';
+  });
+  </script>
+  
 
 {% if username in ('mochito','mochita') %}
 <button onclick="location.href='/push/debug'" class="debug-fab" aria-label="Debug push">🔧 Notificaciones</button>

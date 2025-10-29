@@ -457,6 +457,27 @@ def init_db():
         c.execute("ALTER TABLE answers ADD COLUMN IF NOT EXISTS created_at TEXT")
         c.execute("ALTER TABLE answers ADD COLUMN IF NOT EXISTS updated_at TEXT")
         c.execute("CREATE UNIQUE INDEX IF NOT EXISTS answers_unique ON answers (question_id, username)")
+        # Chat / Reacciones de la Pregunta del día
+        c.execute('''CREATE TABLE IF NOT EXISTS dq_chat_messages (
+            id SERIAL PRIMARY KEY,
+            question_id INTEGER NOT NULL,
+            username TEXT NOT NULL,
+            msg TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )''')
+        c.execute("CREATE INDEX IF NOT EXISTS idx_dq_chat_q ON dq_chat_messages (question_id, id)")
+
+        c.execute('''CREATE TABLE IF NOT EXISTS dq_reactions (
+            id SERIAL PRIMARY KEY,
+            question_id INTEGER NOT NULL,
+            from_user TEXT NOT NULL,
+            to_user TEXT NOT NULL,
+            reaction TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE (question_id, from_user, to_user)
+        )''')
+        c.execute("CREATE INDEX IF NOT EXISTS idx_dq_react_q ON dq_reactions (question_id)")
+
         c.execute('''CREATE TABLE IF NOT EXISTS meeting (id SERIAL PRIMARY KEY, meeting_date TEXT)''')
         c.execute('''CREATE TABLE IF NOT EXISTS banner (
             id SERIAL PRIMARY KEY, image_data BYTEA, filename TEXT, mime_type TEXT, uploaded_at TEXT)''')
@@ -2329,6 +2350,22 @@ def index():
             # Respuestas del día
             c.execute("SELECT username, answer, created_at, updated_at FROM answers WHERE question_id=%s", (question_id,))
             ans_rows = c.fetchall()
+            # Chat y reacciones de la pregunta del día
+            c.execute("""
+                SELECT username, msg, created_at
+                FROM dq_chat_messages
+                WHERE question_id=%s
+                ORDER BY id ASC
+            """, (question_id,))
+            chat_rows = c.fetchall()
+
+            c.execute("""
+                SELECT from_user, to_user, reaction, created_at
+                FROM dq_reactions
+                WHERE question_id=%s
+            """, (question_id,))
+            react_rows = c.fetchall()
+
 
             # Viajes + fotos
             c.execute("""
@@ -2548,6 +2585,9 @@ def index():
                            user_answer=user_answer,
                            other_user=other_user,
                            other_answer=other_answer,
+                           dq_chat_messages=dq_chat_messages,
+                           dq_reactions=dq_reactions,
+                           question_id=question_id,
                            days_together=days_together(),
                            days_until_meeting=days_until_meeting(),
                            travels=travels,
@@ -2571,6 +2611,65 @@ def index():
                            moods_for_select=moods_for_select,
                            flows_for_select=flows_for_select
                            )
+
+# --- Chat / Reacciones Pregunta del Día ---
+@app.route('/dq/chat/send', methods=['POST'])
+def dq_chat_send():
+    if 'username' not in session:
+        return redirect('/')
+    user = session.get('username')
+    question_id = request.form.get('question_id')
+    msg = (request.form.get('msg') or '').strip()
+    if not msg:
+        flash("Mensaje vacío.", "error")
+        return redirect('/')
+    now_txt = now_madrid_str()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""INSERT INTO dq_chat_messages (question_id, username, msg, created_at)
+                         VALUES (%s,%s,%s,%s)""",
+                      (question_id, user, msg, now_txt))
+            conn.commit()
+        send_discord("DQ chat message", {"user": user, "question_id": question_id, "msg_len": len(msg)})
+        try:
+            broadcast("dq_chat", {"question_id": int(question_id) if question_id else None})
+        except Exception:
+            pass
+    finally:
+        conn.close()
+    return redirect('/')
+
+@app.route('/dq/react', methods=['POST'])
+def dq_react():
+    if 'username' not in session:
+        return redirect('/')
+    user = session.get('username')
+    question_id = request.form.get('question_id')
+    target_user = request.form.get('target_user','').strip()
+    reaction = request.form.get('reaction','').strip()
+    if not (question_id and target_user and reaction):
+        return redirect('/')
+    now_txt = now_madrid_str()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO dq_reactions (question_id, from_user, to_user, reaction, created_at)
+                VALUES (%s,%s,%s,%s,%s)
+                ON CONFLICT (question_id, from_user, to_user)
+                DO UPDATE SET reaction=EXCLUDED.reaction, created_at=EXCLUDED.created_at
+            """,
+            (question_id, user, target_user, reaction, now_txt))
+            conn.commit()
+        send_discord("DQ reaction", {"from": user, "to": target_user, "reaction": reaction, "question_id": question_id})
+        try:
+            broadcast("dq_reaction", {"question_id": int(question_id) if question_id else None})
+        except Exception:
+            pass
+    finally:
+        conn.close()
+    return redirect('/')
 
 # ======= Rutas REST extra (con broadcast) =======
 @app.route('/delete_travel', methods=['POST'])

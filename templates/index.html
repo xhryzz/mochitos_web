@@ -1896,6 +1896,154 @@ body::before{ z-index: -1; }
 
 
 
+    
+/* ===== Chat & Reacciones de Pregunta del Día ===== */
+.dq-extra {
+  margin-top:20px;
+  display:flex;
+  flex-direction:column;
+  gap:20px;
+}
+.dq-reactions-card,
+.dq-chat-card {
+  background:#fff;
+  border:1px solid rgba(0,0,0,.05);
+  border-radius:16px;
+  padding:16px;
+  box-shadow:0 6px 16px rgba(0,0,0,.06);
+}
+.dq-reactions-title {
+  font-weight:600;
+  font-size:.95rem;
+  color:#555;
+  margin-bottom:8px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+}
+.dq-reactions-buttons {
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-bottom:8px;
+}
+.dq-reactions-buttons button{
+  background:#f8f8f8;
+  border:1px solid #eee;
+  border-radius:12px;
+  padding:8px 12px;
+  font-size:1.2rem;
+  cursor:pointer;
+  line-height:1;
+}
+.dq-reaction-current,
+.dq-reaction-partner{
+  font-size:.9rem;
+  color:#666;
+}
+.dq-reaction-current .big-reaction,
+.dq-reaction-partner .big-reaction{
+  font-size:1.3rem;
+  margin-left:4px;
+}
+.dq-chat-header{
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:var(--primary-color);
+  margin-bottom:10px;
+  font-size:.95rem;
+}
+.dq-chat-messages{
+  max-height:180px;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  padding:8px 0;
+  background:#fafafa;
+  border:1px solid #eee;
+  border-radius:12px;
+  box-shadow:inset 0 1px 3px rgba(0,0,0,.05);
+  margin-bottom:12px;
+}
+.dq-chat-empty{
+  text-align:center;
+  font-size:.9rem;
+  color:#999;
+  padding:20px 10px;
+}
+.dq-chat-msg{
+  display:flex;
+  flex-direction:column;
+  max-width:80%;
+}
+.dq-chat-msg.me{
+  margin-left:auto;
+  text-align:right;
+}
+.dq-chat-msg.them{
+  margin-right:auto;
+  text-align:left;
+}
+.dq-chat-meta{
+  font-size:.7rem;
+  color:#888;
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-bottom:4px;
+}
+.dq-chat-bubble{
+  background:#fff;
+  border:1px solid #ddd;
+  border-radius:14px;
+  padding:10px 12px;
+  font-size:.9rem;
+  line-height:1.4;
+  box-shadow:0 3px 6px rgba(0,0,0,.07);
+}
+.dq-chat-msg.me .dq-chat-bubble{
+  background:var(--accent-color);
+  border-color:var(--accent-color);
+  color:#fff;
+  box-shadow:0 4px 8px rgba(162,155,254,.3);
+}
+.dq-chat-form{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.dq-chat-form input[type="text"]{
+  flex:1;
+  border:2px solid #eee;
+  border-radius:12px;
+  padding:10px 12px;
+  font-size:1rem;
+  background:#fff;
+  outline:none;
+}
+.dq-chat-form input[type="text"]:focus{
+  border-color:var(--accent-color);
+  box-shadow:0 0 0 3px rgba(162,155,254,.2);
+}
+.dq-chat-form button{
+  background:var(--accent-color);
+  color:#fff;
+  border:none;
+  border-radius:12px;
+  padding:10px 14px;
+  font-size:1rem;
+  font-weight:600;
+  cursor:pointer;
+  line-height:1;
+  box-shadow:0 6px 14px rgba(162,155,254,.4);
+}
+
+
     </style>
 </head>
 
@@ -2506,7 +2654,77 @@ body::before{ z-index: -1; }
       </div>
     </div>
 
-  <!-- {# === B) Tú respondiste y falta el/la otr@ (puedes editar mientras) === #} -->
+
+    <!-- Chat y reacciones -->
+    <div class="dq-extra">
+
+      <div class="dq-reactions-card">
+        <div class="dq-reactions-title">
+          Reacciona a la respuesta de {{ other_user }}
+        </div>
+
+        <form method="POST" action="/dq/react" class="dq-reactions-form">
+          <input type="hidden" name="question_id" value="{{ question_id }}">
+          <input type="hidden" name="target_user" value="{{ other_user }}">
+
+          <div class="dq-reactions-buttons">
+            <button type="submit" name="reaction" value="❤️" aria-label="Me encanta">❤️</button>
+            <button type="submit" name="reaction" value="😂" aria-label="Me hace gracia">😂</button>
+            <button type="submit" name="reaction" value="😡" aria-label="Me enfada">😡</button>
+            <button type="submit" name="reaction" value="👍" aria-label="Estoy de acuerdo">👍</button>
+          </div>
+
+          {% set mine = dq_reactions.get(other_user) if dq_reactions else None %}
+          {% if mine and mine.from_user == username %}
+            <div class="dq-reaction-current">
+              Tu reacción:
+              <span class="big-reaction">{{ mine.reaction }}</span>
+            </div>
+          {% endif %}
+
+          {% set theirs = dq_reactions.get(username) if dq_reactions else None %}
+          {% if theirs and theirs.from_user == other_user %}
+            <div class="dq-reaction-partner">
+              {{ other_user }} reaccionó:
+              <span class="big-reaction">{{ theirs.reaction }}</span>
+            </div>
+          {% endif %}
+        </form>
+      </div>
+
+      <div class="dq-chat-card">
+        <div class="dq-chat-header">
+          <i class="fas fa-comments" aria-hidden="true"></i>
+          Charla privada sobre la pregunta
+        </div>
+
+        <div class="dq-chat-messages">
+          {% if dq_chat_messages %}
+            {% for m in dq_chat_messages %}
+              <div class="dq-chat-msg {% if m.username == username %}me{% else %}them{% endif %}">
+                <div class="dq-chat-meta">
+                  <b>{{ m.username }}</b>
+                  <span class="ts">{{ m.created_at }}</span>
+                </div>
+                <div class="dq-chat-bubble">{{ m.msg }}</div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="dq-chat-empty">Todavía no hay mensajes. Empieza la conversación 💕</div>
+          {% endif %}
+        </div>
+
+        <form method="POST" action="/dq/chat/send" class="dq-chat-form" style="margin-top:12px;">
+          <input type="hidden" name="question_id" value="{{ question_id }}">
+          <input type="text" name="msg" required placeholder="Escribe algo bonito...">
+          <button type="submit"><i class="fas fa-paper-plane"></i></button>
+        </form>
+      </div>
+
+    </div>
+
+
+<!-- {# === B) Tú respondiste y falta el/la otr@ (puedes editar mientras) === #} -->
   {% elif user_answer and not other_answer %}
     <div class="answers" style="gap:12px;">
       <div class="answer-item" style="flex-wrap:wrap;">

@@ -580,6 +580,17 @@ def init_db():
 
 
 
+        # === Love ping: "estoy pensando en ti" ===
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS love_pings (
+                id SERIAL PRIMARY KEY,
+                from_user TEXT NOT NULL,
+                to_user   TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_love_pings_to ON love_pings(to_user)")
+
         # === Preguntas (banco editable por admin) ===
         c.execute("""
         CREATE TABLE IF NOT EXISTS question_bank (
@@ -4851,6 +4862,52 @@ def admin_questions_assign_tomorrow(qid):
     finally:
         conn.close()
 
+
+@app.route('/love/ping', methods=['POST'])
+def love_ping():
+    if 'username' not in session:
+        return redirect('/')
+
+    from_user = session.get('username')
+    to_user   = request.form.get('to_user', '').strip()
+    now_txt   = now_madrid_str()
+
+    if not to_user:
+        # no debería pasar, pero por si acaso
+        flash("No se pudo enviar ❤️", "error")
+        return redirect('/')
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO love_pings (from_user, to_user, created_at)
+                VALUES (%s,%s,%s)
+            """, (from_user, to_user, now_txt))
+            conn.commit()
+
+        # Opcional: avisa al log / discord para debug
+        send_discord("LovePing ❤️", {
+            "from": from_user,
+            "to": to_user,
+            "at": now_txt
+        })
+
+        # Opcional: broadcast en vivo al front (si ya usas EventSource/WebSocket con 'broadcast')
+        try:
+            broadcast("love_ping", {
+                "from": from_user,
+                "to": to_user,
+                "at": now_txt
+            })
+        except Exception:
+            pass
+
+    finally:
+        conn.close()
+
+    flash("Le has mandado: Estoy pensando en ti ❤️", "success")
+    return redirect('/')
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1
 if os.environ.get("RUN_SCHEDULER", "1") == "1":

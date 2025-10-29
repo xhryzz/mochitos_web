@@ -2794,6 +2794,47 @@ body::before{ z-index: -1; }
   {% endif %}
 </div>
 
+<!-- Botón LOVE PING (solo icono) -->
+<form method="POST" action="/love/ping" style="margin-top:12px;">
+  <input type="hidden" name="to_user" value="{{ other_user }}">
+
+  <button type="submit"
+          aria-label="Estoy pensando en ti"
+          title="Estoy pensando en ti 💖"
+          style="
+            border:0;
+            background:var(--accent-color);
+            color:#fff;
+            width:44px;
+            height:44px;
+            border-radius:14px;
+            font-size:1.2rem;
+            font-weight:600;
+            line-height:1;
+            box-shadow:0 6px 14px rgba(162,155,254,.4);
+            cursor:pointer;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            position:relative;
+          ">
+    <span style="font-size:1.2rem;">💖</span>
+
+    <!-- puntito animado tipo "ping" para que se vea que es un aviso -->
+    <span style="
+      position:absolute;
+      top:6px;
+      right:6px;
+      width:10px;
+      height:10px;
+      border-radius:999px;
+      background:#fff;
+      box-shadow:0 0 8px rgba(255,255,255,.9),0 0 16px rgba(255,255,255,.6);
+    "></span>
+  </button>
+</form>
+
+
 
 <!-- Lista de deseos -->
 <div class="section animate-in delay-3">

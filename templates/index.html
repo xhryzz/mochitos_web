@@ -2574,225 +2574,329 @@ body::before{ z-index: -1; }
           </button>
         </a>
       </div>
-
       <!-- Pregunta diaria -->
-<div class="section animate-in delay-2">
-  <h3>Pregunta del día</h3>
+      <div id="pregunta" class="section animate-in delay-2">
+          <h3>Pregunta del día</h3>
 
-  <div class="dq-countdown">
-    <div class="dq-countdown-card">
-      <div class="dq-countdown-title">
-        <i class="fas fa-clock" aria-hidden="true"></i>
-        Próximo cambio de pregunta
-      </div>
-      <div class="dq-countdown-time" id="dqTimer" aria-live="polite">--:--:--</div>
-    </div>
-  </div>
-
-  <p class="question"><b>{{ question }}</b></p>
-
-  <div class="streak-badges">
-    <div class="streak-badge">
-      <i class="fas fa-fire"></i>
-      Racha actual: {{ current_streak }} día{% if current_streak != 1 %}s{% endif %}
-    </div>
-    <div class="streak-badge best">
-      <i class="fas fa-trophy"></i>
-      Mejor racha: {{ best_streak }} día{% if best_streak != 1 %}s{% endif %}
-    </div>
-  </div>
-
-  <!-- {# === A) Ambos respondieron === #} -->
-  {% if show_answers %}
-    <div class="answers" style="gap:12px;">
-      {# Tu bloque (editable) #}
-      <div class="answer-item" style="flex-wrap:wrap;">
-        <div class="user-avatar">
-          {% if profile_pictures.get(username) %}
-            <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
-          {% else %} {{ username[0]|upper }} {% endif %}
-        </div>
-
-        <div class="answer-content" style="flex:1;">
-          <div class="answer-head" style="display:flex; align-items:center; gap:10px;">
-  <div style="flex:1;">
-    <b>Tú:</b>
-    <span id="ans-text-me" class="answer-text">{{ user_answer }}</span>
-    {% if answers_edited and answers_edited.get(username) %}
-      <small class="edited-pill">(editado)</small>
-    {% endif %}
-  </div>
-  <a href="#" class="edit-link" onclick="return toggleEdit('me');">Editar</a>
-</div>
-
-
-          <form method="POST" id="ans-form-me" style="display:none; margin-top:10px;">
-            <input type="text" name="answer" value="{{ user_answer }}" required>
-            <button type="submit"><i class="fas fa-save"></i> Guardar</button>
-            <button type="button" onclick="toggleEdit('me')" style="background:#fff;color:#e84393;border:1px solid #eee">
-              Cancelar
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <!-- {# Bloque de la otra persona (solo lectura) #} -->
-      <div class="answer-item">
-        <div class="user-avatar">
-          {% if profile_pictures.get(other_user) %}
-            <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
-          {% else %} {{ other_user[0]|upper }} {% endif %}
-        </div>
-        <div>
-  <b>{{ other_user }}:</b>
-  <span class="answer-text">{{ other_answer }}</span>
-  {% if answers_edited and answers_edited.get(other_user) %}
-    <small class="edited-pill">(editado)</small>
-  {% endif %}
-</div>
-
-      </div>
-    </div>
-
-
-    <!-- Chat y reacciones -->
-    <div class="dq-extra">
-
-      <div class="dq-reactions-card">
-        <div class="dq-reactions-title">
-          Reacciona a la respuesta de {{ other_user }}
-        </div>
-
-        <form method="POST" action="/dq/react" class="dq-reactions-form">
-          <input type="hidden" name="question_id" value="{{ question_id }}">
-          <input type="hidden" name="target_user" value="{{ other_user }}">
-
-          <div class="dq-reactions-buttons">
-            <button type="submit" name="reaction" value="❤️" aria-label="Me encanta">❤️</button>
-            <button type="submit" name="reaction" value="😂" aria-label="Me hace gracia">😂</button>
-            <button type="submit" name="reaction" value="😡" aria-label="Me enfada">😡</button>
-            <button type="submit" name="reaction" value="👍" aria-label="Estoy de acuerdo">👍</button>
+          <div class="dq-countdown">
+              <div class="dq-countdown-card">
+                  <div class="dq-countdown-title">
+                      <i class="fas fa-clock" aria-hidden="true"></i>
+                      Próximo cambio de pregunta
+                  </div>
+                  <div class="dq-countdown-time" id="dqTimer" aria-live="polite">--:--:--</div>
+              </div>
           </div>
 
-          {% set mine = dq_reactions.get(other_user) if dq_reactions else None %}
-          {% if mine and mine.from_user == username %}
-            <div class="dq-reaction-current">
-              Tu reacción:
-              <span class="big-reaction">{{ mine.reaction }}</span>
-            </div>
-          {% endif %}
+          <p class="question"><b>{{ question }}</b></p>
 
-          {% set theirs = dq_reactions.get(username) if dq_reactions else None %}
-          {% if theirs and theirs.from_user == other_user %}
-            <div class="dq-reaction-partner">
-              {{ other_user }} reaccionó:
-              <span class="big-reaction">{{ theirs.reaction }}</span>
-            </div>
-          {% endif %}
-        </form>
-      </div>
-
-      <div class="dq-chat-card">
-        <div class="dq-chat-header">
-          <i class="fas fa-comments" aria-hidden="true"></i>
-          Charla privada sobre la pregunta
-        </div>
-
-        <div class="dq-chat-messages">
-          {% if dq_chat_messages %}
-            {% for m in dq_chat_messages %}
-              <div class="dq-chat-msg {% if m.username == username %}me{% else %}them{% endif %}">
-                <div class="dq-chat-meta">
-                  <b>{{ m.username }}</b>
-                  <span class="ts">{{ m.created_at }}</span>
-                </div>
-                <div class="dq-chat-bubble">{{ m.msg }}</div>
+          <div class="streak-badges">
+              <div class="streak-badge">
+                  <i class="fas fa-fire"></i>
+                  Racha actual: {{ current_streak }} día{% if current_streak != 1 %}s{% endif %}
               </div>
-            {% endfor %}
-          {% else %}
-            <div class="dq-chat-empty">Todavía no hay mensajes. Empieza la conversación 💕</div>
-          {% endif %}
-        </div>
+              <div class="streak-badge best">
+                  <i class="fas fa-trophy"></i>
+                  Mejor racha: {{ best_streak }} día{% if best_streak != 1 %}s{% endif %}
+              </div>
+          </div>
 
-        <form method="POST" action="/dq/chat/send" class="dq-chat-form" style="margin-top:12px;">
-          <input type="hidden" name="question_id" value="{{ question_id }}">
-          <input type="text" name="msg" required placeholder="Escribe algo bonito...">
-          <button type="submit"><i class="fas fa-paper-plane"></i></button>
-        </form>
-      </div>
+          {# === A) Ambos respondieron === #}
+          {% if show_answers %}
+          <div class="answers" style="gap:12px;">
 
-    </div>
+              <!-- Tu bloque (editable) -->
+              <div class="answer-item" style="flex-wrap:wrap;">
+                  <div class="user-avatar">
+                      {% if profile_pictures.get(username) %}
+                      <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+                      {% else %} {{ username[0]|upper }} {% endif %}
+                  </div>
 
+                  <div class="answer-content" style="flex:1;">
+                      <div class="answer-head" style="display:flex; align-items:center; gap:10px;">
+                          <div style="flex:1;">
+                              <b>Tú:</b>
+                              <span id="ans-text-me" class="answer-text">{{ user_answer }}</span>
+                              {% if answers_edited and answers_edited.get(username) %}
+                              <small class="edited-pill">(editado)</small>
+                              {% endif %}
+                          </div>
+                          <a href="#" class="edit-link" onclick="return toggleEdit('me');">Editar</a>
+                      </div>
 
-<!-- {# === B) Tú respondiste y falta el/la otr@ (puedes editar mientras) === #} -->
-  {% elif user_answer and not other_answer %}
-    <div class="answers" style="gap:12px;">
-      <div class="answer-item" style="flex-wrap:wrap;">
-        <div class="user-avatar">
-          {% if profile_pictures.get(username) %}
-            <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
-          {% else %} {{ username[0]|upper }} {% endif %}
-        </div>
+                      <form method="POST" id="ans-form-me" style="display:none; margin-top:10px;">
+                          <input type="text" name="answer" value="{{ user_answer }}" required>
+                          <button type="submit"><i class="fas fa-save"></i> Guardar</button>
+                          <button type="button" onclick="toggleEdit('me')" style="background:#fff;color:#e84393;border:1px solid #eee">
+                              Cancelar
+                          </button>
+                      </form>
 
-        <div class="answer-content" style="flex:1;">
-         <div class="answer-head" style="display:flex; align-items:center; gap:10px;">
-  <div style="flex:1;">
-    <b>Tú:</b>
-    <span id="ans-text-me" class="answer-text">{{ user_answer }}</span>
-    {% if answers_edited and answers_edited.get(username) %}
-      <small class="edited-pill">(editado)</small>
-    {% endif %}
-  </div>
-  <a href="#" class="edit-link" onclick="return toggleEdit('me');">Editar</a>
-</div>
+                      <!-- Hilo tipo WhatsApp para TU respuesta -->
+                      <div class="dq-replies" style="margin-top:10px;">
+                          <div class="dq-chat-messages">
+                              {% for r in dq_replies_map.get(username, []) %}
+                              <div class="dq-chat-msg {% if r.username == username %}me{% else %}them{% endif %}">
+                                  <div class="dq-chat-meta">
+                                      <b>{{ r.username }}</b>
+                                      <span class="ts">{{ r.created_at }}</span>
+                                  </div>
+                                  <div class="dq-chat-bubble">{{ r.msg }}</div>
+                              </div>
+                              {% else %}
+                              <div class="dq-chat-empty">Sin respuestas todavía.</div>
+                              {% endfor %}
+                          </div>
 
+                          <a href="#" class="edit-link" onclick="return toggleReply('me');">Responder</a>
+                          <form method="POST" action="/dq/reply/send" id="reply-form-me" class="dq-chat-form" style="display:none; margin-top:8px;">
+                              <input type="hidden" name="question_id" value="{{ question_id }}">
+                              <input type="hidden" name="parent_user" value="{{ username }}">
+                              <input type="text" name="msg" required placeholder="Escribe una respuesta…">
+                              <button type="submit"><i class="fas fa-reply"></i></button>
+                          </form>
+                      </div>
+                  </div>
+              </div>
 
-          <form method="POST" id="ans-form-me" style="display:none; margin-top:10px;">
-            <input type="text" name="answer" value="{{ user_answer }}" required>
-            <button type="submit"><i class="fas fa-save"></i> Guardar</button>
-            <button type="button" onclick="toggleEdit('me')" style="background:#fff;color:#e84393;border:1px solid #eee">
-              Cancelar
-            </button>
+              <!-- Bloque de la otra persona (solo lectura) -->
+              <div class="answer-item" style="flex-wrap:wrap;">
+                  <div class="user-avatar">
+                      {% if profile_pictures.get(other_user) %}
+                      <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+                      {% else %} {{ other_user[0]|upper }} {% endif %}
+                  </div>
+
+                  <div class="answer-content" style="flex:1;">
+                      <div class="answer-head" style="display:flex; align-items:center; gap:10px;">
+                          <div style="flex:1;">
+                              <b>{{ other_user }}:</b>
+                              <span class="answer-text">{{ other_answer }}</span>
+                              {% if answers_edited and answers_edited.get(other_user) %}
+                              <small class="edited-pill">(editado)</small>
+                              {% endif %}
+                          </div>
+                      </div>
+
+                      <!-- Hilo tipo WhatsApp para SU respuesta -->
+                      <div class="dq-replies" style="margin-top:10px;">
+                          <div class="dq-chat-messages">
+                              {% for r in dq_replies_map.get(other_user, []) %}
+                              <div class="dq-chat-msg {% if r.username == username %}me{% else %}them{% endif %}">
+                                  <div class="dq-chat-meta">
+                                      <b>{{ r.username }}</b>
+                                      <span class="ts">{{ r.created_at }}</span>
+                                  </div>
+                                  <div class="dq-chat-bubble">{{ r.msg }}</div>
+                              </div>
+                              {% else %}
+                              <div class="dq-chat-empty">Aún no hay respuestas. ¡Escribe una! 💬</div>
+                              {% endfor %}
+                          </div>
+
+                          <a href="#" class="edit-link" onclick="return toggleReply('other');">Responder</a>
+                          <form method="POST" action="/dq/reply/send" id="reply-form-other" class="dq-chat-form" style="display:none; margin-top:8px;">
+                              <input type="hidden" name="question_id" value="{{ question_id }}">
+                              <input type="hidden" name="parent_user" value="{{ other_user }}">
+                              <input type="text" name="msg" required placeholder="Responde a {{ other_user }}…">
+                              <button type="submit"><i class="fas fa-reply"></i></button>
+                          </form>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <!-- Reacciones a la respuesta de la pareja -->
+          <div class="dq-reactions-card" style="margin-top:14px;">
+              <div class="dq-reactions-title">
+                  Reacciona a la respuesta de {{ other_user }}
+              </div>
+
+              <form method="POST" action="/dq/react" class="dq-reactions-form">
+                  <input type="hidden" name="question_id" value="{{ question_id }}">
+                  <input type="hidden" name="target_user" value="{{ other_user }}">
+
+                  <div class="dq-reactions-buttons">
+                      <button type="submit" name="reaction" value="❤️" aria-label="Me encanta">❤️</button>
+                      <button type="submit" name="reaction" value="😂" aria-label="Me hace gracia">😂</button>
+                      <button type="submit" name="reaction" value="😡" aria-label="Me enfada">😡</button>
+                      <button type="submit" name="reaction" value="👍" aria-label="Estoy de acuerdo">👍</button>
+                  </div>
+
+                  {% set mine = dq_reactions.get(other_user) if dq_reactions else None %}
+                  {% if mine and mine.from_user == username %}
+                  <div class="dq-reaction-current">
+                      Tu reacción:
+                      <span class="big-reaction">{{ mine.reaction }}</span>
+                  </div>
+                  {% endif %}
+
+                  {% set theirs = dq_reactions.get(username) if dq_reactions else None %}
+                  {% if theirs and theirs.from_user == other_user %}
+                  <div class="dq-reaction-partner">
+                      {{ other_user }} reaccionó:
+                      <span class="big-reaction">{{ theirs.reaction }}</span>
+                  </div>
+                  {% endif %}
+              </form>
+          </div>
+
+          {# === B) Tú respondiste y falta la otra persona === #}
+          {% elif user_answer and not other_answer %}
+          <div class="answers" style="gap:12px;">
+              <div class="answer-item" style="flex-wrap:wrap;">
+                  <div class="user-avatar">
+                      {% if profile_pictures.get(username) %}
+                      <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+                      {% else %} {{ username[0]|upper }} {% endif %}
+                  </div>
+
+                  <div class="answer-content" style="flex:1;">
+                      <div class="answer-head" style="display:flex; align-items:center; gap:10px;">
+                          <div style="flex:1;">
+                              <b>Tú:</b>
+                              <span id="ans-text-me" class="answer-text">{{ user_answer }}</span>
+                              {% if answers_edited and answers_edited.get(username) %}
+                              <small class="edited-pill">(editado)</small>
+                              {% endif %}
+                          </div>
+                          <a href="#" class="edit-link" onclick="return toggleEdit('me');">Editar</a>
+                      </div>
+
+                      <form method="POST" id="ans-form-me" style="display:none; margin-top:10px;">
+                          <input type="text" name="answer" value="{{ user_answer }}" required>
+                          <button type="submit"><i class="fas fa-save"></i> Guardar</button>
+                          <button type="button" onclick="toggleEdit('me')" style="background:#fff;color:#e84393;border:1px solid #eee">
+                              Cancelar
+                          </button>
+                      </form>
+
+                      <!-- Hilo para tu respuesta (la otra persona aún no respondió su principal) -->
+                      <div class="dq-replies" style="margin-top:10px;">
+                          <div class="dq-chat-messages">
+                              {% for r in dq_replies_map.get(username, []) %}
+                              <div class="dq-chat-msg {% if r.username == username %}me{% else %}them{% endif %}">
+                                  <div class="dq-chat-meta">
+                                      <b>{{ r.username }}</b>
+                                      <span class="ts">{{ r.created_at }}</span>
+                                  </div>
+                                  <div class="dq-chat-bubble">{{ r.msg }}</div>
+                              </div>
+                              {% else %}
+                              <div class="dq-chat-empty">Sin respuestas todavía.</div>
+                              {% endfor %}
+                          </div>
+
+                          <a href="#" class="edit-link" onclick="return toggleReply('me');">Responder</a>
+                          <form method="POST" action="/dq/reply/send" id="reply-form-me" class="dq-chat-form" style="display:none; margin-top:8px;">
+                              <input type="hidden" name="question_id" value="{{ question_id }}">
+                              <input type="hidden" name="parent_user" value="{{ username }}">
+                              <input type="text" name="msg" required placeholder="Escribe una respuesta…">
+                              <button type="submit"><i class="fas fa-reply"></i></button>
+                          </form>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <p style="margin-top:8px;opacity:.75;">Aún falta la respuesta de <b>{{ other_user }}</b> 🕒</p>
+
+          {# === C) Tu pareja respondió y tú no === #}
+          {% elif (not user_answer) and other_answer %}
+          <form method="POST" class="inline-form" style="margin-bottom:15px; display:flex; gap:8px;">
+              <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
+              <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
           </form>
-        </div>
+
+          <div class="answers">
+              <div class="answer-item" style="flex-wrap:wrap;">
+                  <div class="user-avatar">
+                      {% if profile_pictures.get(other_user) %}
+                      <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+                      {% else %} {{ other_user[0]|upper }} {% endif %}
+                  </div>
+
+                  <div class="answer-content" style="flex:1;">
+                      <div class="answer-head" style="display:flex; align-items:center; gap:10px;">
+                          <div style="flex:1;">
+                              <b>{{ other_user }}:</b>
+                              <span class="answer-text">{{ other_answer }}</span>
+                              {% if answers_edited and answers_edited.get(other_user) %}
+                              <small class="edited-pill">(editado)</small>
+                              {% endif %}
+                          </div>
+                      </div>
+
+                      <!-- Hilo para SU respuesta -->
+                      <div class="dq-replies" style="margin-top:10px;">
+                          <div class="dq-chat-messages">
+                              {% for r in dq_replies_map.get(other_user, []) %}
+                              <div class="dq-chat-msg {% if r.username == username %}me{% else %}them{% endif %}">
+                                  <div class="dq-chat-meta">
+                                      <b>{{ r.username }}</b>
+                                      <span class="ts">{{ r.created_at }}</span>
+                                  </div>
+                                  <div class="dq-chat-bubble">{{ r.msg }}</div>
+                              </div>
+                              {% else %}
+                              <div class="dq-chat-empty">Aún no hay respuestas. ¡Escribe una! 💬</div>
+                              {% endfor %}
+                          </div>
+
+                          <a href="#" class="edit-link" onclick="return toggleReply('other');">Responder</a>
+                          <form method="POST" action="/dq/reply/send" id="reply-form-other" class="dq-chat-form" style="display:none; margin-top:8px;">
+                              <input type="hidden" name="question_id" value="{{ question_id }}">
+                              <input type="hidden" name="parent_user" value="{{ other_user }}">
+                              <input type="text" name="msg" required placeholder="Responde a {{ other_user }}…">
+                              <button type="submit"><i class="fas fa-reply"></i></button>
+                          </form>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <!-- Reacciones disponibles porque ya hay respuesta de {{ other_user }} -->
+          <div class="dq-reactions-card" style="margin-top:14px;">
+              <div class="dq-reactions-title">
+                  Reacciona a la respuesta de {{ other_user }}
+              </div>
+              <form method="POST" action="/dq/react" class="dq-reactions-form">
+                  <input type="hidden" name="question_id" value="{{ question_id }}">
+                  <input type="hidden" name="target_user" value="{{ other_user }}">
+                  <div class="dq-reactions-buttons">
+                      <button type="submit" name="reaction" value="❤️" aria-label="Me encanta">❤️</button>
+                      <button type="submit" name="reaction" value="😂" aria-label="Me hace gracia">😂</button>
+                      <button type="submit" name="reaction" value="😡" aria-label="Me enfada">😡</button>
+                      <button type="submit" name="reaction" value="👍" aria-label="Estoy de acuerdo">👍</button>
+                  </div>
+              </form>
+          </div>
+
+          {# === D) Nadie ha respondido aún === #}
+          {% else %}
+          <form method="POST" class="inline-form" style="display:flex; gap:8px;">
+              <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
+              <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+          </form>
+          {% endif %}
+
+          <script>
+              // Mostrar/ocultar el form de "Responder" (hilos)
+              function toggleReply(key){
+                  const form = document.getElementById('reply-form-' + key);
+                  if(!form) return false;
+                  const visible = form.style.display && form.style.display !== 'none';
+                  form.style.display = visible ? 'none' : 'flex';
+                  if (!visible) {
+                      const input = form.querySelector('input[name="msg"]');
+                      if (input) setTimeout(()=> input.focus(), 50);
+                  }
+                  return false;
+              }
+              window.toggleReply = toggleReply;
+          </script>
       </div>
-    </div>
-
-    <p style="margin-top:8px;opacity:.75;">Aún falta la respuesta de <b>{{ other_user }}</b> 🕒</p>
-
-  <!-- {# === C) El/la otr@ ya respondió y tú no: su bloque borroso + tu caja para responder === #} -->
-  {% elif (not user_answer) and other_answer %}
-    <form method="POST" class="inline-form" style="margin-bottom:15px; display:flex; gap:8px;">
-      <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
-      <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-    </form>
-
-    <div class="answers">
-      <div class="answer-item blurred">
-        <div class="user-avatar">
-          {% if profile_pictures.get(other_user) %}
-            <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
-          {% else %} {{ other_user[0]|upper }} {% endif %}
-        </div>
-        <div>
-  <b>{{ other_user }}:</b>
-  <span class="answer-text">{{ other_answer }}</span>
-  {% if answers_edited and answers_edited.get(other_user) %}
-    <small class="edited-pill">(editado)</small>
-  {% endif %}
-</div>
-
-      </div>
-    </div>
-
-  {# === D) Nadie ha respondido aún === #}
-  {% else %}
-    <form method="POST" class="inline-form" style="display:flex; gap:8px;">
-      <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
-      <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-    </form>
-  {% endif %}
-</div>
 
 
 <!-- Lista de deseos -->

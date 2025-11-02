@@ -2633,30 +2633,13 @@ body::before{ z-index: -1; }
                           </button>
                       </form>
 
-                      <!-- Hilo tipo WhatsApp para TU respuesta -->
-                      <div class="dq-replies" style="margin-top:10px;">
-                          <div class="dq-chat-messages">
-                              {% for r in dq_replies_map.get(username, []) %}
-                              <div class="dq-chat-msg {% if r.username == username %}me{% else %}them{% endif %}">
-                                  <div class="dq-chat-meta">
-                                      <b>{{ r.username }}</b>
-                                      <span class="ts">{{ r.created_at }}</span>
-                                  </div>
-                                  <div class="dq-chat-bubble">{{ r.msg }}</div>
-                              </div>
-                              {% else %}
-                              <div class="dq-chat-empty">Sin respuestas todavía.</div>
-                              {% endfor %}
-                          </div>
-
-                          <a href="#" class="edit-link" onclick="return toggleReply('me');">Responder</a>
-                          <form method="POST" action="/dq/reply/send" id="reply-form-me" class="dq-chat-form" style="display:none; margin-top:8px;">
-                              <input type="hidden" name="question_id" value="{{ question_id }}">
-                              <input type="hidden" name="parent_user" value="{{ username }}">
-                              <input type="text" name="msg" required placeholder="Escribe una respuesta…">
-                              <button type="submit"><i class="fas fa-reply"></i></button>
-                          </form>
-                      </div>
+                      <!-- ÚNICO botón pequeño para abrir chat (sin chat inline aquí) -->
+                      <button type="button"
+                              class="btn btn-sm btn-outline-secondary"
+                              style="font-size:.8rem; padding:.2rem .45rem; line-height:1; margin-top:8px;"
+                              onclick="openReplyChat('{{ question_id }}','{{ username }}')">
+                          Responder
+                      </button>
                   </div>
               </div>
 
@@ -2679,30 +2662,13 @@ body::before{ z-index: -1; }
                           </div>
                       </div>
 
-                      <!-- Hilo tipo WhatsApp para SU respuesta -->
-                      <div class="dq-replies" style="margin-top:10px;">
-                          <div class="dq-chat-messages">
-                              {% for r in dq_replies_map.get(other_user, []) %}
-                              <div class="dq-chat-msg {% if r.username == username %}me{% else %}them{% endif %}">
-                                  <div class="dq-chat-meta">
-                                      <b>{{ r.username }}</b>
-                                      <span class="ts">{{ r.created_at }}</span>
-                                  </div>
-                                  <div class="dq-chat-bubble">{{ r.msg }}</div>
-                              </div>
-                              {% else %}
-                              <div class="dq-chat-empty">Aún no hay respuestas. ¡Escribe una! 💬</div>
-                              {% endfor %}
-                          </div>
-
-                          <a href="#" class="edit-link" onclick="return toggleReply('other');">Responder</a>
-                          <form method="POST" action="/dq/reply/send" id="reply-form-other" class="dq-chat-form" style="display:none; margin-top:8px;">
-                              <input type="hidden" name="question_id" value="{{ question_id }}">
-                              <input type="hidden" name="parent_user" value="{{ other_user }}">
-                              <input type="text" name="msg" required placeholder="Responde a {{ other_user }}…">
-                              <button type="submit"><i class="fas fa-reply"></i></button>
-                          </form>
-                      </div>
+                      <!-- ÚNICO botón pequeño para abrir chat (sin chat inline aquí) -->
+                      <button type="button"
+                              class="btn btn-sm btn-outline-secondary"
+                              style="font-size:.8rem; padding:.2rem .45rem; line-height:1; margin-top:8px;"
+                              onclick="openReplyChat('{{ question_id }}','{{ other_user }}')">
+                          Responder
+                      </button>
                   </div>
               </div>
           </div>
@@ -2772,30 +2738,13 @@ body::before{ z-index: -1; }
                           </button>
                       </form>
 
-                      <!-- Hilo para tu respuesta (la otra persona aún no respondió su principal) -->
-                      <div class="dq-replies" style="margin-top:10px;">
-                          <div class="dq-chat-messages">
-                              {% for r in dq_replies_map.get(username, []) %}
-                              <div class="dq-chat-msg {% if r.username == username %}me{% else %}them{% endif %}">
-                                  <div class="dq-chat-meta">
-                                      <b>{{ r.username }}</b>
-                                      <span class="ts">{{ r.created_at }}</span>
-                                  </div>
-                                  <div class="dq-chat-bubble">{{ r.msg }}</div>
-                              </div>
-                              {% else %}
-                              <div class="dq-chat-empty">Sin respuestas todavía.</div>
-                              {% endfor %}
-                          </div>
-
-                          <a href="#" class="edit-link" onclick="return toggleReply('me');">Responder</a>
-                          <form method="POST" action="/dq/reply/send" id="reply-form-me" class="dq-chat-form" style="display:none; margin-top:8px;">
-                              <input type="hidden" name="question_id" value="{{ question_id }}">
-                              <input type="hidden" name="parent_user" value="{{ username }}">
-                              <input type="text" name="msg" required placeholder="Escribe una respuesta…">
-                              <button type="submit"><i class="fas fa-reply"></i></button>
-                          </form>
-                      </div>
+                      <!-- Botón pequeño para abrir chat (debajo, no inline) -->
+                      <button type="button"
+                              class="btn btn-sm btn-outline-secondary"
+                              style="font-size:.8rem; padding:.2rem .45rem; line-height:1; margin-top:8px;"
+                              onclick="openReplyChat('{{ question_id }}','{{ username }}')">
+                          Responder
+                      </button>
                   </div>
               </div>
           </div>
@@ -2828,30 +2777,13 @@ body::before{ z-index: -1; }
                           </div>
                       </div>
 
-                      <!-- Hilo para SU respuesta -->
-                      <div class="dq-replies" style="margin-top:10px;">
-                          <div class="dq-chat-messages">
-                              {% for r in dq_replies_map.get(other_user, []) %}
-                              <div class="dq-chat-msg {% if r.username == username %}me{% else %}them{% endif %}">
-                                  <div class="dq-chat-meta">
-                                      <b>{{ r.username }}</b>
-                                      <span class="ts">{{ r.created_at }}</span>
-                                  </div>
-                                  <div class="dq-chat-bubble">{{ r.msg }}</div>
-                              </div>
-                              {% else %}
-                              <div class="dq-chat-empty">Aún no hay respuestas. ¡Escribe una! 💬</div>
-                              {% endfor %}
-                          </div>
-
-                          <a href="#" class="edit-link" onclick="return toggleReply('other');">Responder</a>
-                          <form method="POST" action="/dq/reply/send" id="reply-form-other" class="dq-chat-form" style="display:none; margin-top:8px;">
-                              <input type="hidden" name="question_id" value="{{ question_id }}">
-                              <input type="hidden" name="parent_user" value="{{ other_user }}">
-                              <input type="text" name="msg" required placeholder="Responde a {{ other_user }}…">
-                              <button type="submit"><i class="fas fa-reply"></i></button>
-                          </form>
-                      </div>
+                      <!-- Botón pequeño para abrir chat (debajo, no inline) -->
+                      <button type="button"
+                              class="btn btn-sm btn-outline-secondary"
+                              style="font-size:.8rem; padding:.2rem .45rem; line-height:1; margin-top:8px;"
+                              onclick="openReplyChat('{{ question_id }}','{{ other_user }}')">
+                          Responder
+                      </button>
                   </div>
               </div>
           </div>
@@ -2880,6 +2812,106 @@ body::before{ z-index: -1; }
               <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
           </form>
           {% endif %}
+
+          <!-- === Chat compartido (debajo de reacciones si existen; único por pregunta) === -->
+          <div id="dq-chat-below-{{ question_id }}" class="card border-0 mt-2" style="display:none;">
+              <div class="card-body p-2">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                      <div id="dq-chat-title-{{ question_id }}" class="small text-muted">Chat</div>
+                      <button type="button"
+                              class="btn btn-sm btn-link p-0"
+                              onclick="document.getElementById('dq-chat-below-{{ question_id }}').style.display='none'">
+                          Cerrar
+                      </button>
+                  </div>
+
+                  <!-- Mensajes hilo: TU respuesta -->
+                  <div id="dq-thread-me-{{ question_id }}" class="dq-chat-messages" style="display:none;">
+                      {% set me_list = dq_replies_map.get(username, []) if dq_replies_map else [] %}
+                      {% if me_list %}
+                      {% for r in me_list %}
+                      <div class="dq-chat-msg {% if r.username == username %}me{% else %}them{% endif %}">
+                          <div class="dq-chat-meta">
+                              <b>{{ r.username }}</b>
+                              <span class="ts">{{ r.created_at }}</span>
+                          </div>
+                          <div class="dq-chat-bubble">{{ r.msg }}</div>
+                      </div>
+                      {% endfor %}
+                      {% else %}
+                      <div class="dq-chat-empty">Sin respuestas todavía.</div>
+                      {% endif %}
+                  </div>
+
+                  <!-- Mensajes hilo: RESPUESTA DE LA PAREJA -->
+                  <div id="dq-thread-other-{{ question_id }}" class="dq-chat-messages" style="display:none;">
+                      {% set other_list = dq_replies_map.get(other_user, []) if dq_replies_map else [] %}
+                      {% if other_list %}
+                      {% for r in other_list %}
+                      <div class="dq-chat-msg {% if r.username == username %}me{% else %}them{% endif %}">
+                          <div class="dq-chat-meta">
+                              <b>{{ r.username }}</b>
+                              <span class="ts">{{ r.created_at }}</span>
+                          </div>
+                          <div class="dq-chat-bubble">{{ r.msg }}</div>
+                      </div>
+                      {% endfor %}
+                      {% else %}
+                      <div class="dq-chat-empty">Aún no hay respuestas. ¡Escribe una! 💬</div>
+                      {% endif %}
+                  </div>
+
+                  <!-- Formulario único -->
+                  <form method="POST" action="/dq/reply/send" class="dq-chat-form mt-2">
+                      <input type="hidden" name="question_id" value="{{ question_id }}">
+                      <input type="hidden" id="dq-parent-user-{{ question_id }}" name="parent_user" value="">
+                      <div class="d-flex gap-2">
+                          <input id="dq-chat-input-{{ question_id }}" type="text" name="msg" required class="form-control form-control-sm" placeholder="Escribe una respuesta…">
+                          <button class="btn btn-sm btn-primary"><i class="fas fa-reply"></i></button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+
+          <script>
+              function openReplyChat(qid, parentUser) {
+                  var wrap = document.getElementById('dq-chat-below-' + qid);
+                  var pu = document.getElementById('dq-parent-user-' + qid);
+                  var title = document.getElementById('dq-chat-title-' + qid);
+                  var input = document.getElementById('dq-chat-input-' + qid);
+                  var me = document.getElementById('dq-thread-me-' + qid);
+                  var other = document.getElementById('dq-thread-other-' + qid);
+
+                  if (pu) pu.value = parentUser || '';
+                  if (title) {
+                      if (parentUser === '{{ username }}') {
+                          title.textContent = 'Respondiendo a tu respuesta';
+                      } else if (parentUser === '{{ other_user }}') {
+                          title.textContent = 'Respondiendo a {{ other_user }}';
+                      } else {
+                          title.textContent = 'Chat';
+                      }
+                  }
+                  if (input) {
+                      if (parentUser === '{{ username }}') {
+                          input.placeholder = 'Añade una respuesta a tu propio mensaje…';
+                      } else if (parentUser === '{{ other_user }}') {
+                          input.placeholder = 'Responde a {{ other_user }}…';
+                      } else {
+                          input.placeholder = 'Escribe una respuesta…';
+                      }
+                  }
+                  if (me && other) {
+                      me.style.display = (parentUser === '{{ username }}') ? 'block' : 'none';
+                      other.style.display = (parentUser === '{{ other_user }}') ? 'block' : 'none';
+                  }
+
+                  wrap.style.display = 'block';
+                  wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+          </script>
+      </div>
+
 
           <script>
               // Mostrar/ocultar el form de "Responder" (hilos)

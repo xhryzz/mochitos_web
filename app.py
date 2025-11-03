@@ -612,19 +612,6 @@ def init_db():
         """)
         c.execute("CREATE INDEX IF NOT EXISTS idx_dq_chat_q ON dq_chat (question_id)")
 
-        # Hilos de respuestas por respuesta (estilo WhatsApp)
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS dq_replies (
-                id SERIAL PRIMARY KEY,
-                question_id INTEGER NOT NULL,
-                parent_user TEXT NOT NULL,   -- a qué respuesta (de qué usuario) se responde
-                username   TEXT NOT NULL,    -- quién responde
-                msg        TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            )
-        """)
-        c.execute("CREATE INDEX IF NOT EXISTS idx_dq_replies_q ON dq_replies (question_id)")
-        c.execute("CREATE INDEX IF NOT EXISTS idx_dq_replies_parent ON dq_replies (parent_user)")
 
         # Push subscriptions
         c.execute('''CREATE TABLE IF NOT EXISTS push_subscriptions (
@@ -2453,22 +2440,6 @@ def index():
             """)
             media_watched = c.fetchall()
 
-            # Hilos de respuestas por cada respuesta (agrupados por usuario autor de la respuesta)
-            c.execute("""
-                SELECT parent_user, username, msg, created_at
-                FROM dq_replies
-                WHERE question_id=%s
-                ORDER BY id ASC
-            """, (question_id,))
-            dq_replies_map = {}
-            for r in c.fetchall():
-                pu = r['parent_user']
-                dq_replies_map.setdefault(pu, []).append({
-                    "username": r['username'],
-                    "msg": r['msg'],
-                    "created_at": r['created_at'],
-                })
-
 
             # Helpers para leer reviews y exponer campos cómodos a la plantilla
         def _parse_reviews_value(raw):
@@ -2604,45 +2575,42 @@ def index():
     moods_for_select = list(ALLOWED_MOODS)
     flows_for_select = list(ALLOWED_FLOWS)
 
-    return render_template(
-                            'index.html',
-                            question=question_text,
-                            show_answers=show_answers,
-                            answers=answers,
-                            answers_edited=answers_edited,
-                            answers_created_at=answers_created_at,
-                            answers_updated_at=answers_updated_at,
-                            user_answer=user_answer,
-                            other_user=other_user,
-                            other_answer=other_answer,
-                            days_together=days_together(),
-                            days_until_meeting=days_until_meeting(),
-                            travels=travels,
-                            travel_photos_dict=travel_photos_dict,
-                            wishlist_items=wishlist_items,
-                            username=user,
-                            banner_file=banner_file,
-                            profile_pictures=profile_pictures,
-                            error=None,
-                            current_streak=current_streak,
-                            best_streak=best_streak,
-                            intim_unlocked=intim_unlocked,
-                            intim_stats=intim_stats,
-                            intim_events=intim_events,
-                            media_to_watch=media_to_watch,
-                            media_watched=media_watched,
-                            wishlist=wishlist_items,
-                            cycle_user=cycle_user,
-                            cycle_entries=cycle_entries,
-                            cycle_pred=cycle_pred,
-                            moods_for_select=moods_for_select,
-                            flows_for_select=flows_for_select,
-                            question_id=question_id,
-                            dq_reactions=dq_reactions_map,
-                            dq_chat_messages=dq_chat_messages,
-                            dq_replies_map=dq_replies_map,
-                        )
-
+    return render_template('index.html',
+                           question=question_text,
+                           show_answers=show_answers,
+                           answers=answers,
+                           answers_edited=answers_edited,
+                           answers_created_at=answers_created_at,
+                           answers_updated_at=answers_updated_at,
+                           user_answer=user_answer,
+                           other_user=other_user,
+                           other_answer=other_answer,
+                           days_together=days_together(),
+                           days_until_meeting=days_until_meeting(),
+                           travels=travels,
+                           travel_photos_dict=travel_photos_dict,
+                           wishlist_items=wishlist_items,
+                           username=user,
+                           banner_file=banner_file,
+                           profile_pictures=profile_pictures,
+                           error=None,
+                           current_streak=current_streak,
+                           best_streak=best_streak,
+                           intim_unlocked=intim_unlocked,
+                           intim_stats=intim_stats,
+                           intim_events=intim_events,
+                           media_to_watch=media_to_watch,
+                           media_watched=media_watched,
+                           wishlist=wishlist_items,
+                           cycle_user=cycle_user,
+                           cycle_entries=cycle_entries,
+                           cycle_pred=cycle_pred,
+                           moods_for_select=moods_for_select,
+                           flows_for_select=flows_for_select,
+                           question_id=question_id,
+                           dq_reactions=dq_reactions_map,
+                           dq_chat_messages=dq_chat_messages,
+                           )
 
 # ======= Rutas REST extra (con broadcast) =======
 @app.route('/delete_travel', methods=['POST'])
@@ -4903,48 +4871,6 @@ def dq_chat_send():
 
 
 
-@app.post('/dq/reply/send')
-def dq_reply_send():
-    if 'username' not in session:
-        return redirect('/')
-    user = session['username']
-
-    # mismo fallback que usas en el chat
-    qid_raw = (request.form.get('question_id') or '').strip()
-    try:
-        qid = int(qid_raw)
-    except Exception:
-        qid, _ = get_today_question()
-
-    parent_user = (request.form.get('parent_user') or '').strip()
-    msg = (request.form.get('msg') or '').strip()
-
-    if not parent_user or not msg:
-        flash("Respuesta vacía.", "error")
-        return redirect('/#pregunta')
-
-    if len(msg) > 500:
-        msg = msg[:500]
-
-    now_txt = now_madrid_str()
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-                INSERT INTO dq_replies (question_id, parent_user, username, msg, created_at)
-                VALUES (%s,%s,%s,%s,%s)
-            """, (qid, parent_user, user, msg, now_txt))
-            conn.commit()
-        # Si quieres: broadcast("dq_reply", {...}) igual que haces con el chat
-    except Exception as e:
-        print("[dq_reply_send]", e)
-        try: conn.rollback()
-        except Exception: pass
-        flash("No se pudo enviar la respuesta.", "error")
-    finally:
-        conn.close()
-
-    return redirect('/#pregunta')
 
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1

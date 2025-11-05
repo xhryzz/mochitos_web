@@ -7026,333 +7026,215 @@ function flyOnce(){
 })();
 </script>
 
-<!-- CHAT + REACCIONES (HTTP-only, idempotente y sin colisiones) -->
-<script defer>
+
+<!-- DQ: Chat + Historial + Reacciones (UNIFICADO) -->
+<script>
 (function(){
-  // Evita doble carga si la plantilla incluye el bloque dos veces
-  if (window.__CHAT_HTTP_FALLBACK_V1__) return;
-  window.__CHAT_HTTP_FALLBACK_V1__ = true;
+  'use strict';
+  if (window.__DQ_WIRED__) return;           // evita dobles cargas
+  window.__DQ_WIRED__ = true;
 
-  // ====== GLOBALS (compatibles con tu plantilla) ======
-  window.CURRENT_QUESTION_ID = {{ (question_id or 0) | tojson }};
-  window.CURRENT_USER_ID     = {{ (session.get('user_id') or 0) | tojson }};
-  window.CURRENT_USERNAME    = {{ (username if username is defined else session.get('username','')) | tojson }};
-  window.OTHER_USERNAME      = {{ (other_user if other_user is defined else '') | tojson }};
+  // Helpers cortos
+  const $ = (sel,root=document)=> root.querySelector(sel);
+  const $$= (sel,root=document)=> Array.from(root.querySelectorAll(sel));
+  function esc(s){return (''+s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
-  // También un “namespace” único para evitar choques con otros scripts
-  window.CHAT_GLOBALS = window.CHAT_GLOBALS || {
-    QID   : window.CURRENT_QUESTION_ID || 0,
-    UID   : window.CURRENT_USER_ID || 0,
-    UN    : window.CURRENT_USERNAME || '',
-    OTHER : window.OTHER_USERNAME || ''
-  };
+  // Globals seguros desde plantilla o fallback
+  const G = window.CHAT_GLOBALS = Object.assign({
+    QID  : Number(window.CURRENT_QUESTION_ID||0) || 0,
+    UID  : Number(window.CURRENT_USER_ID||0)     || 0,
+    UN   : window.CURRENT_USERNAME || (window.username || ''),
+    OTHER: window.OTHER_USERNAME   || ''
+  }, window.CHAT_GLOBALS||{});
 
-  // ====== Helpers ======
-  function esc(s){
-    return (''+s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  }
-  function openModal(m){ m?.classList.remove('hidden'); document.body && (document.body.style.overflow='hidden'); }
-  function closeModal(m){ m?.classList.add('hidden');   document.body && (document.body.style.overflow=''); }
-
-  // Lee CSRF si existe
-  const CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || null;
+  // CSRF opcional
+  const CSRF = $('meta[name="csrf-token"]')?.content || null;
   const baseHeaders = {'Content-Type':'application/json'};
-  if (CSRF) baseHeaders['X-CSRFToken'] = CSRF;
+  if (CSRF) baseHeaders['X-CSRFToken']=CSRF;
 
-  // Fallbacks de endpoints (prueba el primero y, si no, el segundo)
+  // Endpoints con fallback
   const endpoints = {
     chat_send : ['/api/dq/chat/send','/dq/chat/send'],
     chat_fetch: ['/api/dq/chat/fetch','/dq/chat/fetch'],
+    history   : ['/api/dq/history','/dq/history'],
     react     : ['/api/dq/reaction','/dq/reaction']
   };
 
   async function postAny(urls, payload){
     for (const u of urls){
       try{
-        const r = await fetch(u, {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: baseHeaders,
-          body: JSON.stringify(payload)
-        });
+        const r = await fetch(u, {method:'POST', credentials:'same-origin', headers:baseHeaders, body: JSON.stringify(payload)});
         if (r.ok) return await r.json();
-      }catch(_){} // intenta el siguiente
+      }catch(_){}  // intenta el siguiente
     }
-    throw new Error('No hay endpoint disponible');
+    throw new Error('sin_endpoint');
+  }
+  async function getAny(urls, query=''){
+    for (const u of urls){
+      try{
+        const r = await fetch(u + query, {credentials:'same-origin'});
+        if (r.ok) return await r.json();
+      }catch(_){}  // intenta el siguiente
+    }
+    throw new Error('sin_endpoint');
   }
 
-  // ====== REACCIONES (init seguro) ======
-  (function initBadgesAndButtons(){
-    const mine   = {{ (dq_reactions.get(other_user) if dq_reactions else None) | tojson }};
-    const theirs = {{ (dq_reactions.get(username)   if dq_reactions else None) | tojson }};
+  // Modales robustos (soporta .hidden o display:none)
+  function openModalById(id){
+    const m = document.getElementById(id);
+    if (!m) return;
+    m.classList?.remove('hidden');
+    m.style.display = 'block';
+    document.body && (document.body.style.overflow='hidden');
+  }
+  function closeModalByEl(m){
+    if (!m) return;
+    m.classList?.add('hidden');
+    m.style.display = 'none';
+    document.body && (document.body.style.overflow='');
+  }
 
-    const bMe   = document.getElementById('reaction-badge-me');
-    const bThem = document.getElementById('reaction-badge-them');
-
-    if (theirs && theirs.from_user === window.OTHER_USERNAME && bMe) {
-      bMe.textContent = theirs.reaction; bMe.classList.add('show');
-    }
-    if (mine && mine.from_user === window.CURRENT_USERNAME && bThem) {
-      bThem.textContent = mine.reaction; bThem.classList.add('show');
-    }
-
-    // Enlazar botones de reacciones (evitar doble binding)
-    document.querySelectorAll('.dq-reactions-buttons [data-emoji]').forEach(btn=>{
-      if (btn._bound) return;
-      btn.addEventListener('click', ()=> window.setQuestionReaction?.(btn.dataset.emoji));
-      btn._bound = true;
-    });
-  })();
-
-  // ====== Editar respuesta inline ======
-  window.toggleEdit = function(who){
-    const f = document.getElementById('ans-form-'+who);
-    const t = document.getElementById('ans-text-'+who);
-    if (!f || !t || !t.parentElement) return false;
-    const showForm = (f.style.display==='none' || !f.style.display);
-    f.style.display = showForm ? 'block' : 'none';
-    t.parentElement.style.display = showForm ? 'none' : 'block';
-    return false;
+  // ------- CHAT -------
+  const chatEls = {
+    list : ()=> $('#chat-list'),
+    input: ()=> $('#chat-text'),
+    send : ()=> $('#chat-send')
   };
 
-  // ====== CHAT (HTTP) ======
-  const chatBtn   = document.getElementById('btn-open-chat');
-  const chatModal = document.getElementById('chat-modal');
-  const chatClose = chatModal?.querySelector('[data-close-chat]');
-  const chatList  = document.getElementById('chat-list');
-  const chatText  = document.getElementById('chat-text');
-  const chatSend  = document.getElementById('chat-send');
-
   function renderMsg(m){
-    const G = window.CHAT_GLOBALS;
-    const who  = m.sender_name || (m.sender_id===G.UID? G.UN : G.OTHER) || 'Yo';
+    const who = m.sender_name || (m.sender_id===G.UID ? (G.UN||'Yo') : (G.OTHER||'Otro'));
     const when = m.created_at ? new Date(m.created_at).toLocaleString() : '';
     const el = document.createElement('div');
     el.className = 'chat-msg' + (m.sender_id===G.UID ? ' me' : ' them');
     el.innerHTML = `<div class="head"><b>${esc(who)}</b><span>${esc(when)}</span></div>
-                    <div class="text">${esc(m.text || '')}</div>`;
-    chatList?.appendChild(el);
-    if (chatList){
-      if (chatList.scrollTo) chatList.scrollTo({ top: chatList.scrollHeight, behavior: 'smooth' });
-      else chatList.scrollTop = chatList.scrollHeight;
-    }
+                    <div class="text">${esc(m.text||'')}</div>`;
+    chatEls.list()?.appendChild(el);
   }
 
   async function refreshChat(){
-    if (!chatList) return;
-    chatList.innerHTML = '<div class="loading">Cargando…</div>';
+    const list = chatEls.list(); if (!list) return;
+    list.innerHTML = '<div class="loading">Cargando…</div>';
     try{
-      const data = await postAny(endpoints.chat_fetch, { question_id: window.CHAT_GLOBALS.QID });
-      chatList.innerHTML = '';
-      const msgs = data?.messages || [];
-      msgs.forEach(renderMsg);
-      if (!msgs.length) chatList.innerHTML = '<p style="opacity:.7">No hay mensajes todavía.</p>';
+      const data = await postAny(endpoints.chat_fetch, {question_id: G.QID});
+      list.innerHTML = '';
+      (data?.messages||[]).forEach(renderMsg);
+      if (!(data?.messages||[]).length) list.innerHTML = '<p style="opacity:.7">No hay mensajes todavía.</p>';
+      list.scrollTo?.({top:list.scrollHeight, behavior:'instant'});
     }catch(_){
-      chatList.innerHTML = '<p style="opacity:.7">No hay mensajes todavía.</p>';
+      list.innerHTML = '<p style="opacity:.7">No hay mensajes todavía.</p>';
     }
   }
 
   async function sendChat(){
-    const G = window.CHAT_GLOBALS;
-    const txt = (chatText?.value || '').trim();
+    const txt = (chatEls.input()?.value || '').trim();
     if (!txt) return;
-    if (chatSend) chatSend.disabled = true;
+    const btn = chatEls.send();
+    btn && (btn.disabled = true);
     try{
-      const data = await postAny(endpoints.chat_send, { question_id: G.QID, text: txt });
-      if (chatText) chatText.value = '';
-      if (data?.message) renderMsg(data.message);
-      else renderMsg({ sender_id: G.UID, sender_name: G.UN, text: txt, created_at: Date.now() });
+      const data = await postAny(endpoints.chat_send, {question_id: G.QID, text: txt});
+      chatEls.input() && (chatEls.input().value = '');
+      renderMsg(data?.message || {sender_id:G.UID, sender_name:G.UN, text:txt, created_at: Date.now()});
+      const list = chatEls.list();
+      list?.scrollTo?.({top: list.scrollHeight, behavior:'smooth'});
     }catch(_){
-      (window.showToast || console.error)?.('error','No se pudo enviar el mensaje');
+      (window.showToast||console.error)?.('error','No se pudo enviar el mensaje');
     }finally{
-      if (chatSend) chatSend.disabled = false;
+      btn && (btn.disabled = false);
     }
   }
 
-  // Enlazar UI del chat de forma segura
-  chatBtn   && chatBtn.addEventListener('click', async () => { openModal(chatModal); await refreshChat(); chatText?.focus(); });
-  chatClose && chatClose.addEventListener('click', () => closeModal(chatModal));
-  chatModal && chatModal.addEventListener('click', (e)=> { if (e.target.classList?.contains('modal-backdrop')) closeModal(chatModal); });
-  chatSend  && chatSend.addEventListener('click', sendChat);
-  chatText  && chatText.addEventListener('keydown', (e)=> { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } });
-
-  // ====== REACCIONES (HTTP) ======
-  window.setQuestionReaction = async function(emoji){
-    if (!emoji) return;
+  // ------- HISTORIAL -------
+  async function loadHistory(){
+    const list = $('#history-list'); if (!list) return;
+    list.innerHTML = '<div class="loading">Cargando…</div>';
     try{
-      await postAny(endpoints.react, { question_id: window.CHAT_GLOBALS.QID, emoji });
-      const me    = document.querySelector('.dq-reaction-current .big-reaction');
-      const badge = document.getElementById('reaction-badge-them');
-      if (me)    me.textContent = emoji;
-      if (badge) { badge.textContent = emoji; badge.classList.add('show'); }
-      (window.showToast || console.log)?.('success','¡Reacción guardada!');
+      const data = await getAny(endpoints.history, '?days=60');
+      const arr = data?.questions || [];
+      list.innerHTML = arr.length ? '' : '<p style="opacity:.7">Nada aún.</p>';
+      arr.forEach(q=>{
+        const row = document.createElement('div');
+        row.className = 'hist-item';
+        row.innerHTML = `
+          <div class="day">${esc(q.day||'')}</div>
+          <div class="title">${esc(q.title||'')}</div>
+          <button class="open-chat" data-qid="${Number(q.id||0)}">Abrir chat</button>`;
+        list.appendChild(row);
+      });
     }catch(_){
-      (window.showToast || console.error)?.('error','No se pudo guardar la reacción');
+      list.innerHTML = '<p style="opacity:.7">Nada aún.</p>';
     }
-  };
+  }
+
+  // ------- REACCIONES -------
+  async function sendReaction(emoji){
+    try{
+      await postAny(endpoints.react, {question_id: G.QID, emoji});
+      const mine  = document.querySelector('.dq-reaction-current .big-reaction');
+      const badge = document.getElementById('reaction-badge-them');
+      if (mine)  mine.textContent = emoji;
+      if (badge){ badge.textContent = emoji; badge.classList.add('show'); }
+      (window.showToast||console.log)?.('success','¡Reacción guardada!');
+    }catch(_){
+      (window.showToast||console.error)?.('error','No se pudo guardar la reacción');
+    }
+  }
+
+  // ------- DELEGACIÓN DE EVENTOS (click/keydown) -------
+  document.addEventListener('click', function(e){
+    // Abrir Chat
+    if (e.target.closest('#btn-open-chat')){
+      e.preventDefault();
+      openModalById('chat-modal');
+      refreshChat();
+      setTimeout(()=> chatEls.input()?.focus(), 50);
+      return;
+    }
+    // Abrir Historial
+    if (e.target.closest('#btn-open-history')){
+      e.preventDefault();
+      openModalById('history-modal');
+      loadHistory();
+      return;
+    }
+    // Cerrar modales (botón)
+    if (e.target.closest('[data-close-chat]'))   { closeModalByEl($('#chat-modal')); return; }
+    if (e.target.closest('[data-close-history]')){ closeModalByEl($('#history-modal')); return; }
+
+    // Cerrar por “backdrop”
+    const modal = e.target.closest('.modal');
+    if (modal && e.target === modal){ closeModalByEl(modal); return; }
+
+    // Historial → Abrir chat de un día concreto
+    const openFromHist = e.target.closest('.open-chat[data-qid]');
+    if (openFromHist){
+      const qid = Number(openFromHist.getAttribute('data-qid')||0);
+      if (qid) G.QID = qid;
+      closeModalByEl($('#history-modal'));
+      openModalById('chat-modal');
+      refreshChat();
+      return;
+    }
+
+    // Enviar chat (botón)
+    if (e.target.closest('#chat-send')){ sendChat(); return; }
+
+    // Reacciones (cualquier botón con data-emoji dentro del bloque)
+    const reactBtn = e.target.closest('.dq-reactions-buttons [data-emoji]');
+    if (reactBtn){ sendReaction(reactBtn.getAttribute('data-emoji')); return; }
+  });
+
+  // Enviar con Enter (sin Shift)
+  document.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter' && !e.shiftKey && document.activeElement === chatEls.input()){
+      e.preventDefault();
+      sendChat();
+    }
+  });
 
 })();
 </script>
 
-{% if username in ('mochito','mochita') %}
-<button onclick="location.href='/push/debug'" class="debug-fab" aria-label="Debug push">🔧 Notificaciones</button>
-<style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:rgba(232,67,147,.4);color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>
-{% endif %}
 
-
-<!-- MQ unified wiring -->
-<script>
-(function(){'use strict';
-  const $ = (q, r=document)=>r.querySelector(q);
-  const $$ = (q, r=document)=>Array.from(r.querySelectorAll(q));
-  const body = document.body;
-
-  function getMe(){
-    const el = document.getElementById('nav-username');
-    if (el && el.textContent) return el.textContent.trim();
-    const meta = document.querySelector('meta[name="mochitos-user"]');
-    if (meta) return meta.getAttribute('content')||'';
-    return window.USERNAME || '';
-  }
-  function getOther(){
-    const el = document.querySelector('.presence-name');
-    if (el && el.textContent) return el.textContent.replace(':','').trim();
-    return window.OTHER_USER || '';
-  }
-
-  function openModal(m){ if(!m) return; m.classList.remove('hidden'); if(body) body.style.overflow='hidden'; }
-  function closeModal(m){ if(!m) return; m.classList.add('hidden'); if(body) body.style.overflow=''; }
-
-  const chatBtn   = $('#btn-open-chat');
-  const chatModal = $('#chat-modal');
-  const chatClose = chatModal ? (chatModal.querySelector('[data-close-chat]') || chatModal.querySelector('.close')) : null;
-  const chatList  = $('#chat-list');
-  const chatText  = $('#chat-text');
-  const chatSend  = $('#chat-send');
-
-  async function fetchJSON(url, opts){
-    const r = await fetch(url, Object.assign({headers:{'Content-Type':'application/json'}}, opts||{}));
-    let j=null; try{ j = await r.json(); }catch(e){ j={ok:false}; }
-    return j;
-  }
-  function qid(){ return (window.CHAT_GLOBALS && window.CHAT_GLOBALS.QID) || window.CURRENT_QUESTION_ID || 0; }
-  function esc(s){ return (''+s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-  function ts(x){ try{ return new Date(x).toLocaleString(); }catch(_){ return x||''; } }
-
-  function renderMsg(m){
-    const row = document.createElement('div');
-    row.className='msg';
-    row.innerHTML = '<div class="bubble"><b>'+esc(m.sender_name||'')+'</b><br>'+esc(m.text||'')+'</div><div class="time">'+ts(m.created_at)+'</div>';
-    return row;
-  }
-  async function loadChat(){
-    if(!chatList) return;
-    chatList.innerHTML = '<div class="loading">Cargando…</div>';
-    const j = await fetchJSON('/api/dq/chat/fetch', {method:'POST', body: JSON.stringify({question_id: qid()})});
-    const arr = (j && j.messages) || [];
-    chatList.innerHTML='';
-    arr.forEach(m => chatList.appendChild(renderMsg(m)));
-    chatList.scrollTop = chatList.scrollHeight;
-  }
-  async function sendMsg(){
-    const txt = (chatText && chatText.value || '').trim(); if(!txt) return;
-    if (chatSend) chatSend.disabled = true;
-    const j = await fetchJSON('/api/dq/chat/send', {method:'POST', body: JSON.stringify({question_id: qid(), text: txt})});
-    if (chatSend) chatSend.disabled = false;
-    if (j && j.ok && j.message){ chatText.value=''; chatList && chatList.appendChild(renderMsg(j.message)); chatList && (chatList.scrollTop = chatList.scrollHeight); }
-  }
-  window.__openChat = function(){ openModal(chatModal); loadChat(); };
-  if (chatBtn) chatBtn.addEventListener('click', function(){ window.__openChat(); });
-  if (chatClose) chatClose.addEventListener('click', function(){ closeModal(chatModal); });
-  if (chatModal) chatModal.addEventListener('click', function(e){ if(e.target===chatModal) closeModal(chatModal); });
-  if (chatSend) chatSend.addEventListener('click', sendMsg);
-  if (chatText) chatText.addEventListener('keydown', function(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMsg(); } });
-
-  // Historial
-  const histBtn = $('#btn-open-history');
-  const histModal = $('#history-modal');
-  const histClose = histModal ? (histModal.querySelector('[data-close-history]') || histModal.querySelector('.close')) : null;
-  const histList  = $('#history-list');
-  async function loadHistory(){
-    if(!histList) return;
-    histList.innerHTML = '<div class="loading">Cargando…</div>';
-    const r = await fetch('/api/dq/history?days=60', {cache:'no-store'});
-    const j = await r.json().catch(_=>({}));
-    const arr = (j && j.questions) || [];
-    histList.innerHTML = arr.length ? '' : '<p style="opacity:.7">Nada aún.</p>';
-    arr.forEach(function(it){
-      const row = document.createElement('div');
-      row.className = 'hist-item';
-      row.innerHTML = '<div class="day">'+esc(it.day||'')+'</div><div class="title">'+esc(it.title||'')+'</div><button class="open-chat" data-qid="'+it.id+'">Abrir chat</button>';
-      histList.appendChild(row);
-    });
-    histList.querySelectorAll('.open-chat').forEach(function(b){
-      b.addEventListener('click', function(){
-        window.CHAT_GLOBALS = window.CHAT_GLOBALS || {};
-        window.CHAT_GLOBALS.QID = Number(b.getAttribute('data-qid')||0);
-        if (histModal) histModal.classList.add('hidden');
-        window.__openChat();
-      });
-    });
-  }
-  window.__openHistory = function(){ openModal(histModal); loadHistory(); };
-  if (histBtn) histBtn.addEventListener('click', function(){ window.__openHistory(); });
-  if (histClose) histClose.addEventListener('click', function(){ closeModal(histModal); });
-  if (histModal) histModal.addEventListener('click', function(e){ if(e.target===histModal) closeModal(histModal); });
-
-  // Reacciones con destino correcto y badge sobre la foto de la pareja
-  function ensureAvatarBadge(img, id){
-    if(!img) return null;
-    var wrap = img.closest('.avatar-wrap');
-    if(!wrap){
-      wrap = document.createElement('div');
-      wrap.className = 'avatar-wrap';
-      img.parentNode.insertBefore(wrap, img);
-      wrap.appendChild(img);
-      wrap.style.position='relative';
-      wrap.style.display='inline-block';
-    }
-    var badge = document.getElementById(id);
-    if(!badge){
-      badge = document.createElement('div');
-      badge.id = id;
-      badge.className='reaction-badge';
-      badge.style.left='50%';
-      badge.style.top='0%';
-      badge.style.transform='translate(-50%, -30%)';
-      badge.style.fontSize='28px';
-      badge.style.textShadow='0 2px 6px rgba(0,0,0,.35)';
-      badge.style.pointerEvents='none';
-      badge.style.zIndex='2000';
-      wrap.appendChild(badge);
-    }
-    return badge;
-  }
-  function findImgByAlt(name){
-    name = (name||'').toLowerCase();
-    var imgs = Array.from(document.querySelectorAll('img.avatar, img.profile-picture, img[alt]'));
-    return imgs.find(function(i){ return (i.getAttribute('alt')||'').trim().toLowerCase()===name; });
-  }
-  function guessMeImg(){ return findImgByAlt(getMe()); }
-  function guessThemImg(){ return findImgByAlt(getOther()); }
-
-  async function sendReaction(emoji){
-    var to_user = getOther();
-    var payload = {question_id: qid(), emoji: emoji, to_user: to_user};
-    var r = await fetch('/api/dq/reaction', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-    var j = await r.json().catch(_=>({}));
-    if (j && j.ok){
-      var img = guessThemImg();
-      var badge = ensureAvatarBadge(img, 'reaction-badge-them');
-      if (badge) badge.textContent = emoji;
-      var mine = document.querySelector('.dq-reaction-current .big-reaction');
-      if (mine) mine.textContent = emoji;
-    }
-  }
-  $$('.dq-reactions-buttons button[data-emoji]').forEach(function(b){
-    b.addEventListener('click', function(){ sendReaction(b.getAttribute('data-emoji')); });
-  });
-})();</script>
 </body>
 </html>
 

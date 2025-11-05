@@ -2043,6 +2043,44 @@ body::before{ z-index: -1; }
   box-shadow:0 6px 14px rgba(162,155,254,.4);
 }
 
+/* Modales base */
+.modal.hidden { display:none; }
+.modal { position:fixed; inset:0; z-index:1000; }
+.modal-backdrop { position:absolute; inset:0; background:rgba(0,0,0,.5); backdrop-filter: blur(2px); }
+.modal-card { position:relative; margin:5vh auto; width:min(800px, 95vw); background:#111; color:#fff; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.4); }
+.modal-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #222; }
+.modal-header .close { background:transparent; border:0; color:#bbb; font-size:22px; cursor:pointer; }
+
+.chat-list { max-height:50vh; overflow:auto; padding:12px; display:flex; flex-direction:column; gap:10px; }
+.msg { display:flex; }
+.msg .msg-bubble { max-width:80%; padding:10px 12px; border-radius:12px; position:relative; }
+.msg.mine { justify-content:flex-end; }
+.msg.mine .msg-bubble { background:#2b8a3e; color:#fff; border-bottom-right-radius:4px; }
+.msg.other .msg-bubble { background:#222; color:#eee; border-bottom-left-radius:4px; }
+.msg .msg-meta { display:flex; align-items:center; gap:8px; margin-top:6px; font-size:12px; opacity:.8; }
+.msg .msg-actions button { background:transparent; border:0; color:#ddd; cursor:pointer; font-size:12px; }
+.msg.deleted .msg-bubble { opacity:.7; filter:grayscale(0.3); }
+
+.chat-input { display:flex; gap:8px; padding:12px; border-top:1px solid #222; }
+#chat-text { flex:1; border-radius:10px; border:1px solid #333; background:#181818; color:#eee; padding:8px 10px; min-height:40px; resize:vertical; }
+#chat-send { border:0; background:#e84393; color:#fff; padding:8px 14px; border-radius:10px; cursor:pointer; }
+.chat-legend { padding:0 12px 12px; font-size:12px; color:#aaa; }
+
+.history-list { padding:12px; max-height:60vh; overflow:auto; }
+.hist-item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border:1px solid #222; border-radius:10px; margin-bottom:8px; }
+.hist-item .day { font-weight:600; opacity:.9; }
+.hist-item .title { flex:1; opacity:.9; }
+.hist-item .open-chat { border:0; background:#444; color:#fff; padding:6px 10px; border-radius:8px; cursor:pointer; }
+
+.avatar-wrap { position:relative; display:inline-block; }
+.avatar { display:block; border-radius:50%; width:42px; height:42px; object-fit:cover; }
+.reaction-badge { position:absolute; right:-6px; bottom:-6px; background:#222; border:2px solid #111; border-radius:14px; min-width:26px; min-height:26px; padding:0 2px; display:flex; align-items:center; justify-content:center; opacity:0; transform:translateY(6px); transition:.2s; font-size:16px; line-height:1; }
+.reaction-badge.show { opacity:1; transform:none; }
+
+.dq-reactions-buttons { display:flex; gap:6px; }
+.dq-reactions-buttons button { border:0; background:#1e1e1e; color:#fff; padding:6px 10px; border-radius:10px; cursor:pointer; }
+.big-reaction { font-size:18px; }
+.answer-time { color:#9aa; font-size:12px; }
 
     </style>
 </head>
@@ -2575,7 +2613,7 @@ body::before{ z-index: -1; }
         </a>
       </div>
 
-      <!-- Pregunta diaria -->
+ <!-- Pregunta diaria -->
 <div class="section animate-in delay-2">
   <h3>Pregunta del día</h3>
 
@@ -2591,6 +2629,12 @@ body::before{ z-index: -1; }
 
   <p class="question"><b>{{ question }}</b></p>
 
+  <!-- Botones Chat / Historial -->
+  <div class="dq-actions" style="display:flex; gap:10px; margin:10px 0 14px;">
+    <button id="btn-open-chat" class="btn btn-primary">💬 Chat</button>
+    <button id="btn-open-history" class="btn btn-outline">🕘 Historial</button>
+  </div>
+
   <div class="streak-badges">
     <div class="streak-badge">
       <i class="fas fa-fire"></i>
@@ -2602,29 +2646,34 @@ body::before{ z-index: -1; }
     </div>
   </div>
 
-  <!-- {# === A) Ambos respondieron === #} -->
+  <!-- === A) Ambos respondieron === -->
   {% if show_answers %}
     <div class="answers" style="gap:12px;">
-      {# Tu bloque (editable) #}
+
+      <!-- Tú -->
       <div class="answer-item" style="flex-wrap:wrap;">
-        <div class="user-avatar">
+        <div class="user-avatar avatar-wrap">
           {% if profile_pictures.get(username) %}
-            <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+            <img class="avatar" src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
           {% else %} {{ username[0]|upper }} {% endif %}
+          <div class="reaction-badge" id="reaction-badge-me" aria-label="Reacción hacia mí" title="Reacción recibida"></div>
         </div>
 
-        <div class="answer-content" style="flex:1;">
+        <div class="answer-content" style="flex:1; min-width:220px;">
           <div class="answer-head" style="display:flex; align-items:center; gap:10px;">
-  <div style="flex:1;">
-    <b>Tú:</b>
-    <span id="ans-text-me" class="answer-text">{{ user_answer }}</span>
-    {% if answers_edited and answers_edited.get(username) %}
-      <small class="edited-pill">(editado)</small>
-    {% endif %}
-  </div>
-  <a href="#" class="edit-link" onclick="return toggleEdit('me');">Editar</a>
-</div>
-
+            <div style="flex:1;">
+              <b>Tú:</b>
+              <span id="ans-text-me" class="answer-text">{{ user_answer }}</span>
+              {% if answers_edited and answers_edited.get(username) %}
+                <small class="edited-pill">(editado)</small>
+              {% endif %}
+              {% set me_time = answered_times.get(username) if answered_times else None %}
+              {% if me_time %}
+                <small class="answer-time"> · Respondido a las {{ me_time.strftime('%H:%M') }}</small>
+              {% endif %}
+            </div>
+            <a href="#" class="edit-link" onclick="return toggleEdit('me');">Editar</a>
+          </div>
 
           <form method="POST" id="ans-form-me" style="display:none; margin-top:10px;">
             <input type="text" name="answer" value="{{ user_answer }}" required>
@@ -2636,116 +2685,81 @@ body::before{ z-index: -1; }
         </div>
       </div>
 
-      <!-- {# Bloque de la otra persona (solo lectura) #} -->
+      <!-- Pareja -->
       <div class="answer-item">
-        <div class="user-avatar">
+        <div class="user-avatar avatar-wrap">
           {% if profile_pictures.get(other_user) %}
-            <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+            <img class="avatar" src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
           {% else %} {{ other_user[0]|upper }} {% endif %}
+          <div class="reaction-badge" id="reaction-badge-them" aria-label="Tu reacción a su respuesta" title="Tu reacción"></div>
         </div>
         <div>
-  <b>{{ other_user }}:</b>
-  <span class="answer-text">{{ other_answer }}</span>
-  {% if answers_edited and answers_edited.get(other_user) %}
-    <small class="edited-pill">(editado)</small>
-  {% endif %}
-</div>
-
+          <b>{{ other_user }}:</b>
+          <span class="answer-text">{{ other_answer }}</span>
+          {% if answers_edited and answers_edited.get(other_user) %}
+            <small class="edited-pill">(editado)</small>
+          {% endif %}
+          {% set them_time = answered_times.get(other_user) if answered_times else None %}
+          {% if them_time %}
+            <small class="answer-time"> · Respondido a las {{ them_time.strftime('%H:%M') }}</small>
+          {% endif %}
+        </div>
       </div>
     </div>
 
-
-    <!-- Chat y reacciones -->
-    <div class="dq-extra">
-
-      <div class="dq-reactions-card">
-        <div class="dq-reactions-title">
-          Reacciona a la respuesta de {{ other_user }}
-        </div>
-
-        <form method="POST" action="/dq/react" class="dq-reactions-form">
-          <input type="hidden" name="question_id" value="{{ question_id }}">
-          <input type="hidden" name="target_user" value="{{ other_user }}">
-
-          <div class="dq-reactions-buttons">
-            <button type="submit" name="reaction" value="❤️" aria-label="Me encanta">❤️</button>
-            <button type="submit" name="reaction" value="😂" aria-label="Me hace gracia">😂</button>
-            <button type="submit" name="reaction" value="😡" aria-label="Me enfada">😡</button>
-            <button type="submit" name="reaction" value="👍" aria-label="Estoy de acuerdo">👍</button>
-          </div>
-
-          {% set mine = dq_reactions.get(other_user) if dq_reactions else None %}
-          {% if mine and mine.from_user == username %}
-            <div class="dq-reaction-current">
-              Tu reacción:
-              <span class="big-reaction">{{ mine.reaction }}</span>
-            </div>
-          {% endif %}
-
-          {% set theirs = dq_reactions.get(username) if dq_reactions else None %}
-          {% if theirs and theirs.from_user == other_user %}
-            <div class="dq-reaction-partner">
-              {{ other_user }} reaccionó:
-              <span class="big-reaction">{{ theirs.reaction }}</span>
-            </div>
-          {% endif %}
-        </form>
+    <!-- Reacciones (rápidas) -->
+    <div class="reactions" style="margin-top:10px;">
+      <div style="font-weight:600; margin-bottom:6px;">Reacciona a la respuesta de {{ other_user }}:</div>
+      <div class="dq-reactions-buttons">
+        <button type="button" data-emoji="❤️">❤️</button>
+        <button type="button" data-emoji="😂">😂</button>
+        <button type="button" data-emoji="😡">😡</button>
+        <button type="button" data-emoji="👍">👍</button>
       </div>
-
-      <div class="dq-chat-card">
-        <div class="dq-chat-header">
-          <i class="fas fa-comments" aria-hidden="true"></i>
-          Charla privada sobre la pregunta
-        </div>
-
-        <div class="dq-chat-messages">
-          {% if dq_chat_messages %}
-            {% for m in dq_chat_messages %}
-              <div class="dq-chat-msg {% if m.username == username %}me{% else %}them{% endif %}">
-                <div class="dq-chat-meta">
-                  <b>{{ m.username }}</b>
-                  <span class="ts">{{ m.created_at }}</span>
-                </div>
-                <div class="dq-chat-bubble">{{ m.msg }}</div>
-              </div>
-            {% endfor %}
-          {% else %}
-            <div class="dq-chat-empty">Todavía no hay mensajes. Empieza la conversación 💕</div>
-          {% endif %}
-        </div>
-
-        <form method="POST" action="/dq/chat/send" class="dq-chat-form" style="margin-top:12px;">
-          <input type="hidden" name="question_id" value="{{ question_id }}">
-          <input type="text" name="msg" required placeholder="Escribe algo bonito...">
-          <button type="submit"><i class="fas fa-paper-plane"></i></button>
-        </form>
+      <div class="dq-reaction-current" style="margin-top:6px;">
+        {% set mine = dq_reactions.get(other_user) if dq_reactions else None %}
+        {% if mine and mine.from_user == username %}
+          Tu reacción: <span class="big-reaction">{{ mine.reaction }}</span>
+        {% else %}
+          Tu reacción: <span class="big-reaction">—</span>
+        {% endif %}
       </div>
-
+      <div class="dq-reaction-partner" style="margin-top:4px; opacity:.85;">
+        {% set theirs = dq_reactions.get(username) if dq_reactions else None %}
+        {% if theirs and theirs.from_user == other_user %}
+          {{ other_user }} reaccionó: <span class="big-reaction">{{ theirs.reaction }}</span>
+        {% else %}
+          {{ other_user }} reaccionó: <span class="big-reaction">—</span>
+        {% endif %}
+      </div>
     </div>
 
-
-<!-- {# === B) Tú respondiste y falta el/la otr@ (puedes editar mientras) === #} -->
+  <!-- === B) Tú respondiste y falta la otra persona === -->
   {% elif user_answer and not other_answer %}
     <div class="answers" style="gap:12px;">
       <div class="answer-item" style="flex-wrap:wrap;">
-        <div class="user-avatar">
+        <div class="user-avatar avatar-wrap">
           {% if profile_pictures.get(username) %}
-            <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+            <img class="avatar" src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
           {% else %} {{ username[0]|upper }} {% endif %}
+          <div class="reaction-badge" id="reaction-badge-me"></div>
         </div>
 
         <div class="answer-content" style="flex:1;">
-         <div class="answer-head" style="display:flex; align-items:center; gap:10px;">
-  <div style="flex:1;">
-    <b>Tú:</b>
-    <span id="ans-text-me" class="answer-text">{{ user_answer }}</span>
-    {% if answers_edited and answers_edited.get(username) %}
-      <small class="edited-pill">(editado)</small>
-    {% endif %}
-  </div>
-  <a href="#" class="edit-link" onclick="return toggleEdit('me');">Editar</a>
-</div>
-
+          <div class="answer-head" style="display:flex; align-items:center; gap:10px;">
+            <div style="flex:1;">
+              <b>Tú:</b>
+              <span id="ans-text-me" class="answer-text">{{ user_answer }}</span>
+              {% if answers_edited and answers_edited.get(username) %}
+                <small class="edited-pill">(editado)</small>
+              {% endif %}
+              {% set me_time = answered_times.get(username) if answered_times else None %}
+              {% if me_time %}
+                <small class="answer-time"> · Respondido a las {{ me_time.strftime('%H:%M') }}</small>
+              {% endif %}
+            </div>
+            <a href="#" class="edit-link" onclick="return toggleEdit('me');">Editar</a>
+          </div>
 
           <form method="POST" id="ans-form-me" style="display:none; margin-top:10px;">
             <input type="text" name="answer" value="{{ user_answer }}" required>
@@ -2760,7 +2774,7 @@ body::before{ z-index: -1; }
 
     <p style="margin-top:8px;opacity:.75;">Aún falta la respuesta de <b>{{ other_user }}</b> 🕒</p>
 
-  <!-- {# === C) El/la otr@ ya respondió y tú no: su bloque borroso + tu caja para responder === #} -->
+  <!-- === C) Falta tu respuesta, la de la otra persona ya está (borroso) === -->
   {% elif (not user_answer) and other_answer %}
     <form method="POST" class="inline-form" style="margin-bottom:15px; display:flex; gap:8px;">
       <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
@@ -2769,23 +2783,27 @@ body::before{ z-index: -1; }
 
     <div class="answers">
       <div class="answer-item blurred">
-        <div class="user-avatar">
+        <div class="user-avatar avatar-wrap">
           {% if profile_pictures.get(other_user) %}
-            <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+            <img class="avatar" src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
           {% else %} {{ other_user[0]|upper }} {% endif %}
+          <div class="reaction-badge" id="reaction-badge-them"></div>
         </div>
         <div>
-  <b>{{ other_user }}:</b>
-  <span class="answer-text">{{ other_answer }}</span>
-  {% if answers_edited and answers_edited.get(other_user) %}
-    <small class="edited-pill">(editado)</small>
-  {% endif %}
-</div>
-
+          <b>{{ other_user }}:</b>
+          <span class="answer-text">{{ other_answer }}</span>
+          {% if answers_edited and answers_edited.get(other_user) %}
+            <small class="edited-pill">(editado)</small>
+          {% endif %}
+          {% set them_time = answered_times.get(other_user) if answered_times else None %}
+          {% if them_time %}
+            <small class="answer-time"> · Respondido a las {{ them_time.strftime('%H:%M') }}</small>
+          {% endif %}
+        </div>
       </div>
     </div>
 
-  {# === D) Nadie ha respondido aún === #}
+  <!-- === D) Nadie ha respondido aún === -->
   {% else %}
     <form method="POST" class="inline-form" style="display:flex; gap:8px;">
       <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
@@ -2793,6 +2811,71 @@ body::before{ z-index: -1; }
     </form>
   {% endif %}
 </div>
+
+<!-- === Modal: Chat === -->
+<div id="chat-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="chatModalTitle">
+  <div class="modal-backdrop"></div>
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="chatModalTitle">Chat de la pregunta</h3>
+      <button class="close" data-close-chat aria-label="Cerrar">×</button>
+    </div>
+    <div id="chat-list" class="chat-list" aria-live="polite"></div>
+
+    <div class="chat-input">
+      <textarea id="chat-text" placeholder="Escribe un mensaje…"></textarea>
+      <button id="chat-send" aria-label="Enviar">Enviar</button>
+    </div>
+    <div class="chat-legend">
+      <span>✓ enviado</span> <span>✓✓ visto</span>
+    </div>
+  </div>
+</div>
+
+<!-- === Modal: Historial === -->
+<div id="history-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="histModalTitle">
+  <div class="modal-backdrop"></div>
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="histModalTitle">Historial de preguntas</h3>
+      <button class="close" data-close-history aria-label="Cerrar">×</button>
+    </div>
+    <div id="history-list" class="history-list"></div>
+  </div>
+</div>
+
+<!-- Variables y scripts -->
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  window.CURRENT_QUESTION_ID = {{ question_id }};
+  window.CURRENT_USER_ID = {{ current_user.id }};
+  window.CURRENT_USERNAME = {{ username|tojson }};
+  window.OTHER_USERNAME = {{ other_user|tojson }};
+  // Inicializar badges de reacción desde servidor (si existen)
+  (function(){
+    const mine = {{ (dq_reactions.get(other_user) if dq_reactions else None)|tojson }};
+    const theirs = {{ (dq_reactions.get(username) if dq_reactions else None)|tojson }};
+    const bMe = document.getElementById('reaction-badge-me');
+    const bThem = document.getElementById('reaction-badge-them');
+    if (theirs && theirs.from_user === OTHER_USERNAME && bMe) { bMe.textContent = theirs.reaction; bMe.classList.add('show'); }
+    if (mine && mine.from_user === CURRENT_USERNAME && bThem) { bThem.textContent = mine.reaction; bThem.classList.add('show'); }
+    // Picker de reacciones (botones)
+    document.querySelectorAll('.dq-reactions-buttons [data-emoji]')?.forEach(btn=>{
+      btn.addEventListener('click', ()=> window.setQuestionReaction(btn.dataset.emoji));
+    });
+  })();
+
+  // Soporte editar respuesta inline (ya lo tenías)
+  function toggleEdit(who){
+    const f = document.getElementById('ans-form-'+who);
+    const t = document.getElementById('ans-text-'+who);
+    if (!f || !t) return false;
+    if (f.style.display==='none' || !f.style.display) { f.style.display='block'; t.parentElement.style.display='none'; }
+    else { f.style.display='none'; t.parentElement.style.display='block'; }
+    return false;
+  }
+</script>
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
 
 
 <!-- Lista de deseos -->

@@ -6,3 +6,11 @@ pywebpush
 cryptography
 pytz
 tzdata
+
+# Realtime (Socket.IO)
+flask-socketio==5.3.7
+python-socketio==5.11.3
+python-engineio==4.10.1
+
+# Opcional (mejor WebSockets reales en Render; si te da problema con Py 3.13, quítalo)
+eventlet==0.36.1

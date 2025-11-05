@@ -12,6 +12,8 @@ from base64 import b64encode
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 import re  # <-- Seguimiento de precio
+# app.py (arriba)
+from realtime import init_realtime, socketio
 
 # Web Push
 from pywebpush import webpush, WebPushException
@@ -239,6 +241,14 @@ class PooledConn:
             self._pool.putconn(self._conn)
         except Exception:
             pass
+
+
+def _current_user_id():
+    return session.get("user_id")
+
+def _current_username():
+    return session.get("username")  # ajusta al nombre real en tu sesión
+
 
 def get_db_connection():
     """Saca una conexión del pool y hace ping."""
@@ -4870,6 +4880,140 @@ def dq_chat_send():
     return redirect('/#pregunta')
 
 
+@app.get("/api/chat/<int:question_id>")
+def api_chat(question_id):
+    uid = _current_user_id()
+    with POOL.getconn() as conn:
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT id, sender_id, text, created_at, edited_at, is_deleted
+                      FROM chat_messages
+                     WHERE question_id=%s
+                     ORDER BY created_at ASC
+                """, (question_id,))
+                msgs = cur.fetchall()
+                # últimas lecturas del usuario actual para saber qué está visto
+                cur.execute("""
+                    SELECT MAX(message_id) AS last_seen
+                      FROM chat_reads
+                     WHERE user_id=%s AND message_id IN (
+                         SELECT id FROM chat_messages WHERE question_id=%s
+                     )
+                """, (uid, question_id))
+                seen_row = cur.fetchone()
+        finally:
+            POOL.putconn(conn)
+    return jsonify({"messages": msgs, "last_seen": (seen_row["last_seen"] or 0)})
+
+@app.get("/api/history")
+def api_history():
+    days = int(request.args.get("days", 30))
+    with POOL.getconn() as conn:
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                # Intento 1: tabla questions (si existe)
+                try:
+                    cur.execute("""
+                        SELECT id, title, body, date::date AS day
+                          FROM questions
+                         WHERE date >= CURRENT_DATE - %s::interval
+                         ORDER BY date DESC
+                    """, (f"{days} days",))
+                    rows = cur.fetchall()
+                    return jsonify({"questions": rows})
+                except Exception:
+                    pass
+
+                # Intento 2: derivar del histórico de answers (si tiene question_id + algún texto/fecha)
+                tried_answers = False
+                try:
+                    cur.execute("""
+                        SELECT question_id AS id,
+                               MAX(answer_text) AS body,
+                               MAX(answered_at)::date AS day
+                          FROM answers
+                         WHERE answered_at >= CURRENT_DATE - %s::interval
+                      GROUP BY question_id
+                      ORDER BY day DESC NULLS LAST
+                    """, (f"{days} days",))
+                    rows = cur.fetchall()
+                    tried_answers = True
+                    return jsonify({"questions": rows})
+                except Exception:
+                    pass
+
+                # Intento 3: derivar de chat (últimos question_id chateados)
+                cur.execute("""
+                    SELECT question_id AS id,
+                           MAX(created_at)::date AS day
+                      FROM chat_messages
+                  GROUP BY question_id
+                  ORDER BY day DESC
+                  LIMIT 30
+                """)
+                rows = cur.fetchall()
+                return jsonify({"questions": rows})
+        finally:
+            POOL.putconn(conn)
+
+@app.post("/api/reaction/<int:question_id>")
+def api_react(question_id):
+    uid = _current_user_id() or None
+    uname = _current_username()
+    data = request.get_json(silent=True) or {}
+    emoji = (data.get("emoji") or "").strip()
+    if not (uname and emoji):
+        return jsonify({"ok": False}), 400
+    with POOL.getconn() as conn:
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute("DELETE FROM question_reactions WHERE question_id=%s AND username=%s",
+                            (question_id, uname))
+                cur.execute("""
+                    INSERT INTO question_reactions (question_id, user_id, username, emoji)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id, created_at
+                """, (question_id, uid, uname, emoji))
+                row = cur.fetchone(); conn.commit()
+        finally:
+            POOL.putconn(conn)
+    socketio.emit("reaction:update", {
+        "question_id": question_id, "user_id": (uid or 0), "emoji": emoji
+    }, namespace="/chat", to=f"q:{question_id}")
+    return jsonify({"ok": True, "id": row["id"]})
+
+
+@app.post("/api/answer_time/<int:question_id>")
+def api_answer_time(question_id):
+    uid = _current_user_id()
+    uname = _current_username()
+    with POOL.getconn() as conn:
+        try:
+            with conn.cursor() as cur:
+                rowcnt = 0
+                # 1) intenta por user_id si existe esa columna
+                try:
+                    cur.execute("""
+                        UPDATE answers SET answered_at=NOW()
+                         WHERE question_id=%s AND user_id=%s
+                    """, (question_id, uid))
+                    rowcnt = cur.rowcount
+                except Exception:
+                    rowcnt = 0
+                # 2) si no, intenta por username
+                if rowcnt == 0 and uname:
+                    try:
+                        cur.execute("""
+                            UPDATE answers SET answered_at=NOW()
+                             WHERE question_id=%s AND username=%s
+                        """, (question_id, uname))
+                    except Exception:
+                        pass
+                conn.commit()
+        finally:
+            POOL.putconn(conn)
+    return jsonify({"ok": True})
 
 
 

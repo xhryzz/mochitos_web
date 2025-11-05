@@ -4873,32 +4873,6 @@ def dq_chat_send():
 
 
 
-
-
-# === DQ Chat: typing indicator (SSE only, sin DB) ===
-_typing_throttle = {}
-@app.post("/dq/chat/typing")
-def dq_chat_typing():
-    if 'username' not in session:
-        return ('', 204)
-    user = session['username']
-    qid_raw = (request.form.get('question_id') or '').strip()
-    try:
-        qid = int(qid_raw)
-    except Exception:
-        qid, _ = get_today_question()
-    # throttle ~1.2s por user/q
-    key = f"{user}:{qid}"
-    now = time.time()
-    last = _typing_throttle.get(key, 0)
-    if now - last > 1.2:
-        _typing_throttle[key] = now
-        try:
-            broadcast("dq_typing", {"user": user, "q": qid, "ts": now_madrid_str()})
-        except Exception:
-            pass
-    return ('', 204)
-
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1
 if os.environ.get("RUN_SCHEDULER", "1") == "1":
     threading.Thread(target=background_loop, daemon=True).start()

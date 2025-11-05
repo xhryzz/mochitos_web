@@ -2044,28 +2044,7 @@ body::before{ z-index: -1; }
 }
 
 
-    
-/* === Chat + Reacciones (mejorado) === */
-.dq-chat-card{ position: relative; }
-.dq-chat-form{ position: relative; }
-.dq-chat-messages{ max-height: 220px; overflow:auto; scroll-behavior:smooth; padding-right:4px; }
-.dq-chat-msg{ display:flex; gap:8px; margin:8px 0; align-items:flex-end; }
-.dq-chat-msg .dq-chat-bubble{ transition: transform .08s ease, box-shadow .2s ease; }
-.dq-chat-msg.me{ justify-content:flex-end; }
-.dq-chat-msg.me .dq-chat-bubble{ transform-origin: bottom right; }
-.dq-chat-msg.them .dq-chat-bubble{ transform-origin: bottom left; }
-.dq-chat-msg.appear .dq-chat-bubble{ transform: scale(1.03); }
-.dq-typing .dots{ letter-spacing:2px; display:inline-block; animation: blink 1.3s infinite; }
-@keyframes blink{ 0%{opacity:.3} 50%{opacity:1} 100%{opacity:.3} }
-.reaction-bar button{ transition: transform .05s ease; }
-.reaction-bar button:active{ transform: scale(.92); }
-.confetti{ position: absolute; width:6px; height:6px; border-radius:50%; pointer-events:none; animation: confetti-fall .9s ease-out forwards; }
-@keyframes confetti-fall{
-  0%{ transform: translate(0,-8px); opacity:1; }
-  100%{ transform: translate(var(--dx, 0px), 35px) rotate(45deg); opacity:0; }
-}
-
-</style>
+    </style>
 </head>
 
 <body>
@@ -2734,13 +2713,11 @@ body::before{ z-index: -1; }
             <div class="dq-chat-empty">Todavía no hay mensajes. Empieza la conversación 💕</div>
           {% endif %}
         </div>
-        <div id="dq-typing" class="dq-typing" style="display:none;margin-top:6px;font-size:.85rem;opacity:.7;"><span class="dots">•••</span> <span class="who"></span> está escribiendo…</div>
 
-        <form method="POST" action="/dq/chat/send" class="dq-chat-form" style="margin-top:12px;" id="dq-chat-form">
+        <form method="POST" action="/dq/chat/send" class="dq-chat-form" style="margin-top:12px;">
           <input type="hidden" name="question_id" value="{{ question_id }}">
           <input type="text" name="msg" required placeholder="Escribe algo bonito...">
           <button type="submit"><i class="fas fa-paper-plane"></i></button>
-<div id="dq-emoji-panel" style="display:none;position:absolute;transform:translateY(-110%);background:#fff;border:1px solid #eee;border-radius:12px;padding:8px;box-shadow:0 10px 30px rgba(0,0,0,.12);white-space:nowrap;">😀 😍 😂 🥰 😘 🤗 🤩 😎 😜 🤭 😴 😇 😅 🙈 💖 💕 💓 💗 💙 💚 💛 💜 💞 💘 💌 👍 👎 🙌 👏 🤝 ✌️ 🤟 💪 🔥 🌟 🎉 🎁 🍫 🍕 ☕ 🥐 🌈 🐶 🐱 🐻</div>
         </form>
       </div>
 
@@ -7004,176 +6981,6 @@ function flyOnce(){
 <button onclick="location.href='/push/debug'" class="debug-fab" aria-label="Debug push">🔧 Notificaciones</button>
 <style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:rgba(232,67,147,.4);color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>
 {% endif %}
-
-
-<script>
-(function (){ if (!document.querySelector('.dq-chat-card')) return;
-  const QID = {{ question_id|default('0') }};
-  const USERNAME = {{ (username|tojson)|default('""') }};
-  const OTHER_USER = {{ (other_user|tojson)|default('""') }};
-
-  // Helpers
-  function qs(sel, root=document){ return root.querySelector(sel); }
-  function ce(tag, props={}){ const el=document.createElement(tag); Object.assign(el, props); return el; }
-  function autoScrollBottom(){
-    const box = qs('#dq-chat-messages');
-    if (!box) return;
-    // If user is near bottom, keep scrolled
-    const nearBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 40;
-    if (nearBottom) box.scrollTop = box.scrollHeight;
-  }
-  function appendMessage(data, isMe){
-    const box = qs('#dq-chat-messages'); if (!box) return;
-    const wrap = ce('div', { className: 'dq-chat-msg ' + (isMe ? 'me' : 'them') });
-    const meta = ce('div', { className: 'dq-chat-meta' });
-    const b = ce('b'); b.textContent = data.user || data.username || '?';
-    const ts = ce('span'); ts.className = 'ts'; ts.textContent = data.ts || '';
-    meta.append(b, ts);
-    const bubble = ce('div', { className: 'dq-chat-bubble' });
-    bubble.textContent = data.msg || '';
-    wrap.append(meta, bubble);
-    wrap.classList.add('appear');
-    box.appendChild(wrap);
-    autoScrollBottom();
-    setTimeout(()=> wrap.classList.remove('appear'), 120);
-  }
-
-  // Typing indicator UI
-  const typingEl = qs('#dq-typing');
-  let typingTimer = null;
-  function showTyping(user){
-    if (!typingEl || !user || user===USERNAME) return;
-    qs('.who', typingEl).textContent = user;
-    typingEl.style.display = 'block';
-    clearTimeout(typingTimer);
-    typingTimer = setTimeout(()=> typingEl.style.display='none', 2000);
-  }
-
-  // Emoji picker
-  const picker = qs('#dq-emoji-panel');
-  const btnEmoji = qs('#dq-emoji-btn');
-  const form = qs('#dq-chat-form');
-  const input = form ? form.querySelector('input[name="msg"]') : null;
-
-  function insertAtCursor(field, text){
-    if (!field) return;
-    const s = field.selectionStart || field.value.length;
-    const e = field.selectionEnd || field.value.length;
-    field.value = field.value.slice(0,s) + text + field.value.slice(e);
-    field.focus();
-    const pos = s + text.length;
-    field.setSelectionRange(pos, pos);
-  }
-
-  if (btnEmoji && picker){
-    btnEmoji.addEventListener('click', function(e){
-      e.preventDefault();
-      picker.style.display = picker.style.display==='none' ? 'block' : 'none';
-      const close = (ev)=>{
-        if (!picker.contains(ev.target) && ev.target!==btnEmoji){
-          picker.style.display='none'; document.removeEventListener('click', close, true);
-        }
-      };
-      setTimeout(()=> document.addEventListener('click', close, true), 0);
-    });
-    picker.addEventListener('click', function(e){
-      if (e.target && e.target.nodeType===Node.TEXT_NODE) return;
-      if (e.target && e.target.textContent.trim()){
-        insertAtCursor(input, e.target.textContent.trim() + ' ');
-      }
-    });
-  }
-
-  // Submit via fetch (optimistic)
-  if (form && input){
-    form.addEventListener('submit', async function(ev){
-      ev.preventDefault();
-      const msg = input.value.trim();
-      if (!msg) return;
-      // optimistic
-      appendMessage({ user: USERNAME, msg: msg, ts: new Date().toLocaleTimeString() }, true);
-      input.value = '';
-
-      try {
-        const fd = new FormData(form);
-        await fetch('/dq/chat/send', { method: 'POST', body: fd, credentials: 'same-origin' });
-      } catch (e){ console.warn('send failed', e); }
-    });
-
-    // typing ping (throttle)
-    let lastTyping = 0;
-    input.addEventListener('input', function(){
-      const now = Date.now(); if (now - lastTyping < 900) return; lastTyping = now;
-      const fd = new URLSearchParams(); fd.set('question_id', QID);
-      fetch('/dq/chat/typing', { method:'POST', body: fd, credentials:'same-origin' });
-    });
-  }
-
-  // Reaction AJAX to avoid reload + confetti
-  const reactForm = document.querySelector('form[action="/dq/react"]');
-  if (reactForm){
-    reactForm.addEventListener('click', function(ev){
-      const btn = ev.target.closest('button[name="reaction"]');
-      if (!btn) return;
-      ev.preventDefault();
-      const fd = new FormData(reactForm);
-      fd.set('reaction', btn.value);
-      fetch('/dq/react', { method:'POST', body: fd, credentials:'same-origin' });
-      // small confetti burst
-      confettiBurst(btn);
-    });
-  }
-
-  function confettiBurst(anchor){
-    try{
-      const host = anchor.closest('.dq-reactions-card') || document.body;
-      for (let i=0;i<16;i++){
-        const dot = document.createElement('i');
-        dot.className='confetti';
-        dot.style.left = (anchor.offsetLeft + anchor.offsetWidth/2) + 'px';
-        dot.style.top = (anchor.offsetTop) + 'px';
-        dot.style.background = (i%3==0)?'#e84393':(i%3==1)?'#a29bfe':'#fd79a8';
-        dot.style.setProperty('--dx', ((Math.random()-0.5)*80).toFixed(0)+'px');
-        host.appendChild(dot);
-        setTimeout(()=> dot.remove(), 900);
-      }
-    }catch(_){}
-  }
-
-  // SSE live listeners
-  if ('EventSource' in window){
-    const sse = new EventSource('/events');
-    sse.addEventListener('dq_chat', function(e){
-      try{
-        const data = JSON.parse(e.data||'{}');
-        if (String(data.q) !== String(QID)) return;
-        appendMessage(data, data.user === USERNAME);
-      }catch(_){}
-    });
-    sse.addEventListener('dq_reaction', function(e){
-      try{
-        const data = JSON.parse(e.data||'{}');
-        if (String(data.q) !== String(QID)) return;
-        // Update "Tu reacción" or "X reaccionó" text if present
-        const mine = document.querySelector('.dq-reaction-current .big-reaction');
-        const theirs = document.querySelector('.dq-reaction-partner .big-reaction');
-        if (data.from === USERNAME && mine) { mine.textContent = data.reaction; }
-        if (data.to === USERNAME && theirs) { theirs.textContent = data.reaction; }
-      }catch(_){}
-    });
-    sse.addEventListener('dq_typing', function(e){
-      try{
-        const data = JSON.parse(e.data||'{}');
-        if (String(data.q) !== String(QID)) return;
-        if (data.user !== USERNAME) showTyping(data.user);
-      }catch(_){}
-    });
-  }
-
-  // Auto scroll to bottom on load
-  window.addEventListener('load', autoScrollBottom);
-})();
-</script>
 
 </body>
 </html>

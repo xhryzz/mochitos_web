@@ -720,25 +720,37 @@ def init_db():
 
         conn.commit()
 
-# Lazy DB init to reduce boot memory/time
+# Lazy DB init to reduce boot memory/time (compatible Flask 3)
+import threading
+
 _INIT_DONE = False
+_INIT_LOCK = threading.Lock()
 
 def _maybe_init_db():
     global _INIT_DONE
     if _INIT_DONE:
         return
     try:
+        # Si tu init_db no necesita app_context, puedes quitar las 2 líneas de comentario:
+        # from flask import current_app
+        # with current_app.app_context():
         init_db()
-        _INIT_DONE = True
     except Exception as e:
-        print('[init_db lazy] error:', e)
+        print('[init_db lazy] error:', e, flush=True)
+    else:
+        _INIT_DONE = True
 
-@app.before_first_request
+@app.before_request
 def _first_req_init():
-    _maybe_init_db()
+    """Flask 3 no tiene before_first_request; hacemos bootstrap una sola vez con lock."""
+    global _INIT_DONE
+    if not _INIT_DONE:
+        with _INIT_LOCK:
+            if not _INIT_DONE:
+                _maybe_init_db()
 
-# Opt-in init on boot via env
-if os.environ.get('INIT_DB_ON_BOOT','0') == '1':
+# Opt-in init on boot via env (si quieres forzarlo al arrancar)
+if os.environ.get('INIT_DB_ON_BOOT', '0') == '1':
     _maybe_init_db()
 
 # ========= Helpers =========

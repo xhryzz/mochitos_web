@@ -7199,6 +7199,59 @@ function flyOnce(){
 <style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:rgba(232,67,147,.4);color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>
 {% endif %}
 
+
+<!-- Simple History wiring -->
+<script defer>
+(function(){
+  const btn  = document.getElementById('btn-open-history');
+  const modal = document.getElementById('history-modal');
+  const list  = document.getElementById('history-list');
+  const closeBtn = modal?.querySelector('[data-close-history]');
+
+  function open(){ modal?.classList.remove('hidden'); document.body && (document.body.style.overflow='hidden'); }
+  function close(){ modal?.classList.add('hidden'); document.body && (document.body.style.overflow=''); }
+
+  async function loadHistory(){
+    if (!list) return;
+    list.innerHTML = '<div class="loading">Cargando…</div>';
+    try{
+      const r = await fetch('/api/dq/history?days=60',{cache:'no-store'});
+      const j = await r.json();
+      const arr = j?.questions || [];
+      if (!arr.length){ list.innerHTML = '<p style="opacity:.7">Nada aún.</p>'; return; }
+      list.innerHTML = '';
+      arr.forEach(it=>{
+        const row = document.createElement('div');
+        row.className = 'hist-item';
+        const esc = s => (''+s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        row.innerHTML = `<div class="day">${esc(it.day || '')}</div>
+                         <div class="title">${esc(it.title || '')}</div>
+                         <button class="open-chat" data-qid="${it.id}">Abrir chat</button>`;
+        list.appendChild(row);
+      });
+      list.querySelectorAll('.open-chat').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const qid = Number(btn.getAttribute('data-qid')||0);
+          if (qid){
+            window.CHAT_GLOBALS = window.CHAT_GLOBALS || {};
+            window.CHAT_GLOBALS.QID = qid;
+            try{ (window.refreshChat||(()=>{}))(); }catch(_){}
+            // open chat modal too if exists
+            const cm = document.getElementById('chat-modal');
+            cm && cm.classList.remove('hidden');
+          }
+        });
+      });
+    }catch(_){
+      list.innerHTML = '<p style="opacity:.7">No se pudo cargar el historial.</p>';
+    }
+  }
+
+  btn && btn.addEventListener('click', ()=>{ open(); loadHistory(); });
+  closeBtn && closeBtn.addEventListener('click', close);
+  modal && modal.addEventListener('click', (e)=>{ if (e.target === modal) close(); });
+})();
+</script>
 </body>
 </html>
 

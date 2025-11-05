@@ -5022,3 +5022,189 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
 
 
+# === Added lightweight JSON API for DQ chat/reactions/history (compat with index.html) ===
+try:
+    from psycopg2.extras import RealDictCursor
+except Exception:
+    RealDictCursor = None
+
+def _user_ids_by_name(conn, names):
+    # Return dict username->id for given names.
+    out = {}
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT id, username FROM users WHERE username = ANY(%s)", (list(names),))
+            for _id, _u in c.fetchall():
+                out[_u] = _id
+    except Exception:
+        pass
+    return out
+
+@app.post("/api/dq/chat/send")
+def api_dq_chat_send():
+    # Accepts JSON: {question_id:int, text:str}
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "auth"}), 401
+    data = request.get_json(silent=True) or {}
+    text_in = (data.get("text") or "").strip()
+    try:
+        qid = int(data.get("question_id") or 0)
+    except Exception:
+        qid = 0
+    if qid <= 0:
+        try:
+            qid, _ = get_today_question()
+        except Exception:
+            qid = 0
+    if not text_in:
+        return jsonify({"ok": False, "error": "empty"}), 400
+
+    now_txt = now_madrid_str()
+    uid = session.get("user_id") or 0
+    uname = session.get("username") or ""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO dq_chat (question_id, username, msg, created_at)
+                VALUES (%s,%s,%s,%s)
+                RETURNING id
+            """, (qid, uname, text_in[:500], now_txt))
+            row = c.fetchone()
+            mid = row[0] if row else None
+            conn.commit()
+        try:
+            broadcast("dq_chat", {"user": uname, "msg": text_in, "q": qid, "ts": now_txt})
+        except Exception:
+            pass
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return jsonify({"ok": False, "error": "db"}), 500
+    finally:
+        conn.close()
+
+    return jsonify({
+        "ok": True,
+        "message": {
+            "id": mid, "sender_id": uid or 0, "sender_name": uname,
+            "text": text_in, "created_at": now_txt
+        }
+    })
+
+@app.post("/api/dq/chat/fetch")
+def api_dq_chat_fetch():
+    # Accepts JSON: {question_id:int} and returns {messages:[...]}
+    data = request.get_json(silent=True) or {}
+    try:
+        qid = int(data.get("question_id") or 0)
+    except Exception:
+        qid = 0
+    if qid <= 0:
+        try:
+            qid, _ = get_today_question()
+        except Exception:
+            qid = 0
+
+    conn = get_db_connection()
+    try:
+        # fetch messages + map usernames to user_ids if we can
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT username, msg, created_at
+                  FROM dq_chat
+                 WHERE question_id=%s
+                 ORDER BY created_at ASC
+            """, (qid,))
+            rows = c.fetchall()
+        names = {r[0] for r in rows}
+        name_to_id = _user_ids_by_name(conn, names) if names else {}
+    finally:
+        conn.close()
+
+    messages = []
+    for u, msg, ts in rows:
+        messages.append({
+            "sender_id": name_to_id.get(u, 0),
+            "sender_name": u,
+            "text": msg,
+            "created_at": ts,
+        })
+    return jsonify({"ok": True, "messages": messages})
+
+@app.post("/api/dq/reaction")
+def api_dq_reaction():
+    # Accepts JSON: {question_id:int, emoji:str}
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "auth"}), 401
+    data = request.get_json(silent=True) or {}
+    try:
+        qid = int(data.get("question_id") or 0)
+    except Exception:
+        qid = 0
+    emoji = (data.get("emoji") or "").strip()
+    if not emoji:
+        return jsonify({"ok": False, "error": "empty"}), 400
+    if qid <= 0:
+        try:
+            qid, _ = get_today_question()
+        except Exception:
+            qid = 0
+
+    from_user = session.get("username") or ""
+    # infer target ("other") based on your two-user scheme
+    to_user = "mochita" if from_user.lower() in ("mochito","christian") else "mochito"
+
+    now_txt = now_madrid_str()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO dq_reactions (question_id, from_user, to_user, reaction, created_at, updated_at)
+                VALUES (%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (question_id, from_user, to_user)
+                DO UPDATE SET reaction=EXCLUDED.reaction, updated_at=EXCLUDED.updated_at
+            """, (qid, from_user, to_user, emoji[:16], now_txt, now_txt))
+            conn.commit()
+        try:
+            broadcast("dq_reaction", {"from": from_user, "to": to_user, "reaction": emoji, "q": qid})
+        except Exception:
+            pass
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return jsonify({"ok": False, "error": "db"}), 500
+    finally:
+        conn.close()
+    return jsonify({"ok": True})
+
+@app.get("/api/dq/history")
+def api_dq_history():
+    # Returns the last N (default 30) daily_questions with answered counts
+    days = int(request.args.get("days", 30))
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute(f"""
+                SELECT dq.id,
+                       dq.question AS title,
+                       dq.date::date AS day,
+                       COALESCE(SUM(CASE WHEN a.username='mochito' THEN 1 ELSE 0 END),0) AS mochito_ans,
+                       COALESCE(SUM(CASE WHEN a.username='mochita' THEN 1 ELSE 0 END),0) AS mochita_ans
+                  FROM daily_questions dq
+             LEFT JOIN answers a ON a.question_id = dq.id
+                 WHERE dq.date::date >= CURRENT_DATE - %s::interval
+              GROUP BY dq.id, dq.question, dq.date
+              ORDER BY dq.date DESC
+              LIMIT 100
+            """, (f"{days} days",))
+            rows = c.fetchall()
+    finally:
+        conn.close()
+    out = [{"id": r[0], "title": r[1], "day": str(r[2]) if r[2] is not None else None,
+            "mochito": r[3], "mochita": r[4]} for r in rows]
+    return jsonify({"ok": True, "questions": out})

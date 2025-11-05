@@ -5022,14 +5022,8 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
 
 
-# === Added lightweight JSON API for DQ chat/reactions/history (compat with index.html) ===
-try:
-    from psycopg2.extras import RealDictCursor
-except Exception:
-    RealDictCursor = None
-
+# === API: DQ chat/reactions/history (idempotent append) ===
 def _user_ids_by_name(conn, names):
-    # Return dict username->id for given names.
     out = {}
     try:
         with conn.cursor() as c:
@@ -5042,7 +5036,6 @@ def _user_ids_by_name(conn, names):
 
 @app.post("/api/dq/chat/send")
 def api_dq_chat_send():
-    # Accepts JSON: {question_id:int, text:str}
     if 'username' not in session:
         return jsonify({"ok": False, "error": "auth"}), 401
     data = request.get_json(silent=True) or {}
@@ -5096,7 +5089,6 @@ def api_dq_chat_send():
 
 @app.post("/api/dq/chat/fetch")
 def api_dq_chat_fetch():
-    # Accepts JSON: {question_id:int} and returns {messages:[...]}
     data = request.get_json(silent=True) or {}
     try:
         qid = int(data.get("question_id") or 0)
@@ -5110,7 +5102,6 @@ def api_dq_chat_fetch():
 
     conn = get_db_connection()
     try:
-        # fetch messages + map usernames to user_ids if we can
         with conn.cursor() as c:
             c.execute("""
                 SELECT username, msg, created_at
@@ -5136,7 +5127,6 @@ def api_dq_chat_fetch():
 
 @app.post("/api/dq/reaction")
 def api_dq_reaction():
-    # Accepts JSON: {question_id:int, emoji:str}
     if 'username' not in session:
         return jsonify({"ok": False, "error": "auth"}), 401
     data = request.get_json(silent=True) or {}
@@ -5145,6 +5135,7 @@ def api_dq_reaction():
     except Exception:
         qid = 0
     emoji = (data.get("emoji") or "").strip()
+    to_user = (data.get("to_user") or "").strip()  # <— AHORA aceptamos explícitamente el destino
     if not emoji:
         return jsonify({"ok": False, "error": "empty"}), 400
     if qid <= 0:
@@ -5154,8 +5145,9 @@ def api_dq_reaction():
             qid = 0
 
     from_user = session.get("username") or ""
-    # infer target ("other") based on your two-user scheme
-    to_user = "mochita" if from_user.lower() in ("mochito","christian") else "mochito"
+    if not to_user:
+        # fallback antiguo (por si el front no manda to_user)
+        to_user = "mochita" if from_user.lower() in ("mochito","christian") else "mochito"
 
     now_txt = now_madrid_str()
     conn = get_db_connection()
@@ -5184,12 +5176,11 @@ def api_dq_reaction():
 
 @app.get("/api/dq/history")
 def api_dq_history():
-    # Returns the last N (default 30) daily_questions with answered counts
     days = int(request.args.get("days", 30))
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            c.execute(f"""
+            c.execute("""
                 SELECT dq.id,
                        dq.question AS title,
                        dq.date::date AS day,
@@ -5205,6 +5196,11 @@ def api_dq_history():
             rows = c.fetchall()
     finally:
         conn.close()
-    out = [{"id": r[0], "title": r[1], "day": str(r[2]) if r[2] is not None else None,
-            "mochito": r[3], "mochita": r[4]} for r in rows]
+    out = [{
+        "id": r[0],
+        "title": r[1],
+        "day": str(r[2]) if r[2] is not None else None,
+        "mochito": r[3],
+        "mochita": r[4]
+    } for r in rows]
     return jsonify({"ok": True, "questions": out})

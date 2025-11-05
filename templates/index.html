@@ -2631,8 +2631,8 @@ body::before{ z-index: -1; }
 
   <!-- Botones Chat / Historial -->
   <div class="dq-actions" style="display:flex; gap:10px; margin:10px 0 14px;">
-    <button id="btn-open-chat" class="btn btn-primary">💬 Chat</button>
-    <button id="btn-open-history" class="btn btn-outline">🕘 Historial</button>
+    <button id="btn-open-chat" class="btn btn-primary" onclick="window.__openChat && window.__openChat()">💬 Chat</button>
+    <button id="btn-open-history" class="btn btn-outline" onclick="window.__openHistory && window.__openHistory()">🕘 Historial</button>
   </div>
 
   <div class="streak-badges">
@@ -7200,145 +7200,159 @@ function flyOnce(){
 {% endif %}
 
 
-<!-- Simple History wiring -->
-<script defer>
-(function(){
-  const btn  = document.getElementById('btn-open-history');
-  const modal = document.getElementById('history-modal');
-  const list  = document.getElementById('history-list');
-  const closeBtn = modal?.querySelector('[data-close-history]');
-
-  function open(){ modal?.classList.remove('hidden'); document.body && (document.body.style.overflow='hidden'); }
-  function close(){ modal?.classList.add('hidden'); document.body && (document.body.style.overflow=''); }
-
-  async function loadHistory(){
-    if (!list) return;
-    list.innerHTML = '<div class="loading">Cargando…</div>';
-    try{
-      const r = await fetch('/api/dq/history?days=60',{cache:'no-store'});
-      const j = await r.json();
-      const arr = j?.questions || [];
-      if (!arr.length){ list.innerHTML = '<p style="opacity:.7">Nada aún.</p>'; return; }
-      list.innerHTML = '';
-      arr.forEach(it=>{
-        const row = document.createElement('div');
-        row.className = 'hist-item';
-        const esc = s => (''+s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-        row.innerHTML = `<div class="day">${esc(it.day || '')}</div>
-                         <div class="title">${esc(it.title || '')}</div>
-                         <button class="open-chat" data-qid="${it.id}">Abrir chat</button>`;
-        list.appendChild(row);
-      });
-      list.querySelectorAll('.open-chat').forEach(btn=>{
-        btn.addEventListener('click',()=>{
-          const qid = Number(btn.getAttribute('data-qid')||0);
-          if (qid){
-            window.CHAT_GLOBALS = window.CHAT_GLOBALS || {};
-            window.CHAT_GLOBALS.QID = qid;
-            try{ (window.refreshChat||(()=>{}))(); }catch(_){}
-            // open chat modal too if exists
-            const cm = document.getElementById('chat-modal');
-            cm && cm.classList.remove('hidden');
-          }
-        });
-      });
-    }catch(_){
-      list.innerHTML = '<p style="opacity:.7">No se pudo cargar el historial.</p>';
-    }
-  }
-
-  btn && btn.addEventListener('click', ()=>{ open(); loadHistory(); });
-  closeBtn && closeBtn.addEventListener('click', close);
-  modal && modal.addEventListener('click', (e)=>{ if (e.target === modal) close(); });
-})();
-</script>
-
-<!-- DQ Modal/Chat wiring -->
-<script defer>
-(function(){
-  // Helpers
-  const qs = (sel, root=document) => root.querySelector(sel);
-  const qsa = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+<!-- MQ unified wiring -->
+<script>
+(function(){'use strict';
+  const $ = (q, r=document)=>r.querySelector(q);
+  const $$ = (q, r=document)=>Array.from(r.querySelectorAll(q));
   const body = document.body;
 
-  // Elements
-  const chatBtn   = qs('#btn-open-chat') || qs('.btn-open-chat') || qs('#openChat');
-  const chatModal = qs('#chat-modal') || qs('#modal-chat') || qs('.modal-chat');
-  const chatClose = chatModal ? (chatModal.querySelector('[data-close-chat]') || chatModal.querySelector('.close')) : null;
-  const chatList  = qs('#chat-list');
-  const chatText  = qs('#chat-text');
-  const chatSend  = qs('#chat-send');
+  function getMe(){
+    const el = document.getElementById('nav-username');
+    if (el && el.textContent) return el.textContent.trim();
+    const meta = document.querySelector('meta[name="mochitos-user"]');
+    if (meta) return meta.getAttribute('content')||'';
+    return window.USERNAME || '';
+  }
+  function getOther(){
+    const el = document.querySelector('.presence-name');
+    if (el && el.textContent) return el.textContent.replace(':','').trim();
+    return window.OTHER_USER || '';
+  }
 
   function openModal(m){ if(!m) return; m.classList.remove('hidden'); if(body) body.style.overflow='hidden'; }
   function closeModal(m){ if(!m) return; m.classList.add('hidden'); if(body) body.style.overflow=''; }
 
+  const chatBtn   = $('#btn-open-chat');
+  const chatModal = $('#chat-modal');
+  const chatClose = chatModal ? (chatModal.querySelector('[data-close-chat]') || chatModal.querySelector('.close')) : null;
+  const chatList  = $('#chat-list');
+  const chatText  = $('#chat-text');
+  const chatSend  = $('#chat-send');
+
   async function fetchJSON(url, opts){
     const r = await fetch(url, Object.assign({headers:{'Content-Type':'application/json'}}, opts||{}));
-    const j = await r.json().catch(_=>({ok:false}));
+    let j=null; try{ j = await r.json(); }catch(e){ j={ok:false}; }
     return j;
   }
-
-  function currentQID(){
-    if (window.CHAT_GLOBALS && window.CHAT_GLOBALS.QID) return window.CHAT_GLOBALS.QID;
-    if (window.CURRENT_QUESTION_ID) return window.CURRENT_QUESTION_ID;
-    const el = document.querySelector('[data-qid]');
-    return el ? Number(el.getAttribute('data-qid'))||0 : 0;
-  }
-
-  function escapeHtml(s){
-    return (''+s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  }
-
-  function formatTs(ts){
-    try{ return new Date(ts).toLocaleString(); }catch(_){
-      return ts || '';
-    }
-  }
+  function qid(){ return (window.CHAT_GLOBALS && window.CHAT_GLOBALS.QID) || window.CURRENT_QUESTION_ID || 0; }
+  function esc(s){ return (''+s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function ts(x){ try{ return new Date(x).toLocaleString(); }catch(_){ return x||''; } }
 
   function renderMsg(m){
-    const who = (m.sender_name || '').toLowerCase();
-    const mine = (who === (window.USERNAME||'').toLowerCase());
     const row = document.createElement('div');
-    row.className = 'msg ' + (mine ? 'mine' : 'other');
-    row.innerHTML = '<div class="bubble"><b>' + (m.sender_name||'') + '</b><br>' + escapeHtml(m.text||'') + '</div>' +
-                    '<div class="time">' + formatTs(m.created_at) + '</div>';
+    row.className='msg';
+    row.innerHTML = '<div class="bubble"><b>'+esc(m.sender_name||'')+'</b><br>'+esc(m.text||'')+'</div><div class="time">'+ts(m.created_at)+'</div>';
     return row;
   }
-
   async function loadChat(){
     if(!chatList) return;
     chatList.innerHTML = '<div class="loading">Cargando…</div>';
-    const qid = currentQID();
-    const j = await fetchJSON('/api/dq/chat/fetch', {method:'POST', body: JSON.stringify({question_id: qid})});
+    const j = await fetchJSON('/api/dq/chat/fetch', {method:'POST', body: JSON.stringify({question_id: qid()})});
     const arr = (j && j.messages) || [];
     chatList.innerHTML='';
     arr.forEach(m => chatList.appendChild(renderMsg(m)));
     chatList.scrollTop = chatList.scrollHeight;
   }
-  window.refreshChat = loadChat; // exposición global por si otras partes la llaman
+  async function sendMsg(){
+    const txt = (chatText && chatText.value || '').trim(); if(!txt) return;
+    if (chatSend) chatSend.disabled = true;
+    const j = await fetchJSON('/api/dq/chat/send', {method:'POST', body: JSON.stringify({question_id: qid(), text: txt})});
+    if (chatSend) chatSend.disabled = false;
+    if (j && j.ok && j.message){ chatText.value=''; chatList && chatList.appendChild(renderMsg(j.message)); chatList && (chatList.scrollTop = chatList.scrollHeight); }
+  }
+  window.__openChat = function(){ openModal(chatModal); loadChat(); };
+  if (chatBtn) chatBtn.addEventListener('click', function(){ window.__openChat(); });
+  if (chatClose) chatClose.addEventListener('click', function(){ closeModal(chatModal); });
+  if (chatModal) chatModal.addEventListener('click', function(e){ if(e.target===chatModal) closeModal(chatModal); });
+  if (chatSend) chatSend.addEventListener('click', sendMsg);
+  if (chatText) chatText.addEventListener('keydown', function(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMsg(); } });
 
-  async function sendMessage(){
-    if(!chatText) return;
-    const text = (chatText.value||'').trim();
-    if(!text) return;
-    if(chatSend) chatSend.disabled = true;
-    const qid = currentQID();
-    const j = await fetchJSON('/api/dq/chat/send', {method:'POST', body: JSON.stringify({question_id: qid, text})});
-    if(chatSend) chatSend.disabled = false;
-    if(j && j.ok && j.message){
-      chatText.value = '';
-      if(chatList){ chatList.appendChild(renderMsg(j.message)); chatList.scrollTop = chatList.scrollHeight; }
+  // Historial
+  const histBtn = $('#btn-open-history');
+  const histModal = $('#history-modal');
+  const histClose = histModal ? (histModal.querySelector('[data-close-history]') || histModal.querySelector('.close')) : null;
+  const histList  = $('#history-list');
+  async function loadHistory(){
+    if(!histList) return;
+    histList.innerHTML = '<div class="loading">Cargando…</div>';
+    const r = await fetch('/api/dq/history?days=60', {cache:'no-store'});
+    const j = await r.json().catch(_=>({}));
+    const arr = (j && j.questions) || [];
+    histList.innerHTML = arr.length ? '' : '<p style="opacity:.7">Nada aún.</p>';
+    arr.forEach(function(it){
+      const row = document.createElement('div');
+      row.className = 'hist-item';
+      row.innerHTML = '<div class="day">'+esc(it.day||'')+'</div><div class="title">'+esc(it.title||'')+'</div><button class="open-chat" data-qid="'+it.id+'">Abrir chat</button>';
+      histList.appendChild(row);
+    });
+    histList.querySelectorAll('.open-chat').forEach(function(b){
+      b.addEventListener('click', function(){
+        window.CHAT_GLOBALS = window.CHAT_GLOBALS || {};
+        window.CHAT_GLOBALS.QID = Number(b.getAttribute('data-qid')||0);
+        if (histModal) histModal.classList.add('hidden');
+        window.__openChat();
+      });
+    });
+  }
+  window.__openHistory = function(){ openModal(histModal); loadHistory(); };
+  if (histBtn) histBtn.addEventListener('click', function(){ window.__openHistory(); });
+  if (histClose) histClose.addEventListener('click', function(){ closeModal(histModal); });
+  if (histModal) histModal.addEventListener('click', function(e){ if(e.target===histModal) closeModal(histModal); });
+
+  // Reacciones con destino correcto y badge sobre la foto de la pareja
+  function ensureAvatarBadge(img, id){
+    if(!img) return null;
+    var wrap = img.closest('.avatar-wrap');
+    if(!wrap){
+      wrap = document.createElement('div');
+      wrap.className = 'avatar-wrap';
+      img.parentNode.insertBefore(wrap, img);
+      wrap.appendChild(img);
+      wrap.style.position='relative';
+      wrap.style.display='inline-block';
+    }
+    var badge = document.getElementById(id);
+    if(!badge){
+      badge = document.createElement('div');
+      badge.id = id;
+      badge.className='reaction-badge';
+      badge.style.left='50%';
+      badge.style.top='0%';
+      badge.style.transform='translate(-50%, -30%)';
+      badge.style.fontSize='28px';
+      badge.style.textShadow='0 2px 6px rgba(0,0,0,.35)';
+      badge.style.pointerEvents='none';
+      badge.style.zIndex='2000';
+      wrap.appendChild(badge);
+    }
+    return badge;
+  }
+  function findImgByAlt(name){
+    name = (name||'').toLowerCase();
+    var imgs = Array.from(document.querySelectorAll('img.avatar, img.profile-picture, img[alt]'));
+    return imgs.find(function(i){ return (i.getAttribute('alt')||'').trim().toLowerCase()===name; });
+  }
+  function guessMeImg(){ return findImgByAlt(getMe()); }
+  function guessThemImg(){ return findImgByAlt(getOther()); }
+
+  async function sendReaction(emoji){
+    var to_user = getOther();
+    var payload = {question_id: qid(), emoji: emoji, to_user: to_user};
+    var r = await fetch('/api/dq/reaction', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    var j = await r.json().catch(_=>({}));
+    if (j && j.ok){
+      var img = guessThemImg();
+      var badge = ensureAvatarBadge(img, 'reaction-badge-them');
+      if (badge) badge.textContent = emoji;
+      var mine = document.querySelector('.dq-reaction-current .big-reaction');
+      if (mine) mine.textContent = emoji;
     }
   }
-
-  // Wire up
-  if (chatBtn) chatBtn.addEventListener('click', () => { openModal(chatModal); loadChat(); });
-  if (chatClose) chatClose.addEventListener('click', () => closeModal(chatModal));
-  if (chatModal) chatModal.addEventListener('click', (e) => { if(e.target===chatModal) closeModal(chatModal); });
-  if (chatSend) chatSend.addEventListener('click', sendMessage);
-  if (chatText) chatText.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); } });
-})();
-</script>
+  $$('.dq-reactions-buttons button[data-emoji]').forEach(function(b){
+    b.addEventListener('click', function(){ sendReaction(b.getAttribute('data-emoji')); });
+  });
+})();</script>
 </body>
 </html>
 

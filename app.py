@@ -609,6 +609,17 @@ def init_db():
                 msg        TEXT    NOT NULL,
                 created_at TEXT    NOT NULL
             )
+
+        c.execute('''CREATE TABLE IF NOT EXISTS dq_seen (
+            id SERIAL PRIMARY KEY,
+            question_id INTEGER NOT NULL,
+            username TEXT NOT NULL,
+            seen_at TEXT NOT NULL,
+            UNIQUE (question_id, username)
+        )''')
+        c.execute("CREATE INDEX IF NOT EXISTS idx_dq_seen_q ON dq_seen (question_id)")
+
+        
         """)
         c.execute("CREATE INDEX IF NOT EXISTS idx_dq_chat_q ON dq_chat (question_id)")
 
@@ -4782,100 +4793,175 @@ def admin_questions_assign_tomorrow(qid):
 
 @app.post("/dq/react")
 def dq_react():
-    if 'username' not in session:
-        return redirect('/')
-    user = session['username']
+    
+if 'username' not in session:
+    return (jsonify({'ok': False, 'error': 'auth'}), 401) if request.accept_mimetypes.accept_json else redirect('/')
+user = session['username']
 
-    qid_raw = (request.form.get('question_id') or '').strip()
+qid_raw = (request.form.get('question_id') or (request.json.get('question_id') if request.is_json else '') or '').strip()
+try:
+    qid = int(qid_raw)
+except Exception:
+    qid, _ = get_today_question()
+
+target_user = (request.form.get('target_user') or (request.json.get('target_user') if request.is_json else '') or '').strip()
+reaction = (request.form.get('reaction') or (request.json.get('reaction') if request.is_json else '') or '').strip()[:16]
+
+if not target_user or not reaction:
+    if request.accept_mimetypes.accept_json:
+        return jsonify({'ok': False, 'error': 'bad_params'}), 400
+    flash("Datos incompletos.", "error"); return redirect('/#pregunta')
+
+now_txt = now_madrid_str()
+conn = get_db_connection()
+mine = None
+theirs = None
+try:
+    with conn.cursor() as c:
+        # UPSERT (unique by qid, from_user, to_user)
+        c.execute("""                INSERT INTO dq_reactions (question_id, from_user, to_user, reaction, created_at, updated_at)
+            VALUES (%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (question_id, from_user, to_user)
+            DO UPDATE SET reaction=EXCLUDED.reaction, updated_at=EXCLUDED.updated_at
+        """, (qid, user, target_user, reaction, now_txt, now_txt))
+
+        # Query mine & theirs
+        c.execute("SELECT from_user, to_user, reaction FROM dq_reactions WHERE question_id=%s AND from_user=%s AND to_user=%s",
+                  (qid, user, target_user))
+        mine = c.fetchone()
+        c.execute("SELECT from_user, to_user, reaction FROM dq_reactions WHERE question_id=%s AND from_user=%s AND to_user=%s",
+                  (qid, target_user, user))
+        theirs = c.fetchone()
+        conn.commit()
+
     try:
-        qid = int(qid_raw)
+        broadcast("dq_reaction", {"from": user, "to": target_user, "reaction": reaction, "q": qid})
     except Exception:
-        qid, _ = get_today_question()  # fallback al de hoy
-
-    target_user = (request.form.get('target_user') or '').strip()
-    reaction    = (request.form.get('reaction') or '').strip()
-
-    if not reaction:
-        flash("Falta la reacción.", "error"); return redirect('/#pregunta')
-    if target_user not in ('mochito', 'mochita') or target_user == user:
-        flash("Destino inválido.", "error"); return redirect('/#pregunta')
-
-    now_txt = now_madrid_str()
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-                INSERT INTO dq_reactions (question_id, from_user, to_user, reaction, created_at, updated_at)
-                VALUES (%s,%s,%s,%s,%s,%s)
-                ON CONFLICT (question_id, from_user, to_user)
-                DO UPDATE SET reaction=EXCLUDED.reaction, updated_at=EXCLUDED.updated_at
-            """, (qid, user, target_user, reaction[:16], now_txt, now_txt))
-            conn.commit()
-        flash("Reacción guardada ❤️", "success")
-        send_discord("DQ reaction", {"by": user, "to": target_user, "reaction": reaction})
-        try:
-            broadcast("dq_reaction", {"from": user, "to": target_user, "reaction": reaction, "q": qid})
-        except Exception:
-            pass
-    except Exception as e:
-        print("[dq_react]", e)
-        try: conn.rollback()
-        except Exception: pass
-        flash("No se pudo guardar la reacción.", "error")
-    finally:
-        conn.close()
+        pass
+except Exception as e:
+    try: conn.rollback()
+    except Exception: pass
+    if request.accept_mimetypes.accept_json:
+        return jsonify({'ok': False, 'error': 'db'}), 500
+    flash("No se pudo guardar la reacción.", "error")
     return redirect('/#pregunta')
+finally:
+    conn.close()
 
+if request.accept_mimetypes.accept_json:
+    return jsonify({
+        'ok': True,
+        'mine': (mine['reaction'] if mine else None),
+        'theirs': (theirs['reaction'] if theirs else None),
+        'q': qid
+    })
+return redirect('/#pregunta')
 
 @app.post("/dq/chat/send")
 def dq_chat_send():
-    if 'username' not in session:
-        return redirect('/')
-    user = session['username']
+    
+if 'username' not in session:
+    return (jsonify({'ok': False, 'error': 'auth'}), 401) if request.accept_mimetypes.accept_json else redirect('/')
+user = session['username']
 
-    qid_raw = (request.form.get('question_id') or '').strip()
+# question id
+qid_raw = (request.form.get('question_id') or (request.json.get('question_id') if request.is_json else '') or '').strip()
+try:
+    qid = int(qid_raw)
+except Exception:
+    qid, _ = get_today_question()  # fallback al de hoy
+
+# message
+msg = (request.form.get('msg') or (request.json.get('msg') if request.is_json else '') or '').strip()
+if not msg:
+    if request.accept_mimetypes.accept_json:
+        return jsonify({'ok': False, 'error': 'empty'}), 400
+    flash("Mensaje vacío.", "error"); return redirect('/#pregunta')
+if len(msg) > 1000:
+    msg = msg[:1000]
+
+# sanitize (very basic)
+msg = msg.replace('\r',' ').replace('\n',' ').strip()
+
+now_txt = now_madrid_str()
+conn = get_db_connection()
+inserted = None
+try:
+    with conn.cursor() as c:
+        c.execute("""                INSERT INTO dq_chat (question_id, username, msg, created_at)
+            VALUES (%s,%s,%s,%s) RETURNING id
+        """, (qid, user, msg, now_txt))
+        inserted = c.fetchone()
+        conn.commit()
+    send_discord("DQ chat", {"by": user, "q": qid, "len": len(msg)})
+    try:
+        broadcast("dq_chat", {"user": user, "msg": msg, "q": qid, "ts": now_txt})
+    except Exception:
+        pass
+except Exception as e:
+    try: conn.rollback()
+    except Exception: pass
+    if request.accept_mimetypes.accept_json:
+        return jsonify({'ok': False, 'error': 'db'}), 500
+    flash("No se pudo enviar el mensaje.", "error")
+    return redirect('/#pregunta')
+finally:
+    conn.close()
+
+if request.accept_mimetypes.accept_json:
+    mid = (inserted[0] if inserted else None)
+    return jsonify({'ok': True, 'message': {'id': mid, 'user': user, 'msg': msg, 'q': qid, 'ts': now_txt}})
+return redirect('/#pregunta')
+
+
+
+@app.post("/dq/chat/typing")
+def dq_chat_typing():
+    if 'username' not in session:
+        return jsonify({'ok': False, 'error': 'auth'}), 401
+    user = session['username']
+    qid_raw = (request.form.get('question_id') or (request.json.get('question_id') if request.is_json else '') or '').strip()
     try:
         qid = int(qid_raw)
     except Exception:
-        qid, _ = get_today_question()  # fallback al de hoy
+        qid, _ = get_today_question()
+    try:
+        broadcast("dq_typing", {"from": user, "q": qid, "ts": now_madrid_str()})
+    except Exception:
+        pass
+    return jsonify({'ok': True})
 
-    msg = (request.form.get('msg') or '').strip()
-    if not msg:
-        flash("Mensaje vacío.", "error"); return redirect('/#pregunta')
-    if len(msg) > 500:
-        msg = msg[:500]
-
+@app.post("/dq/chat/seen")
+def dq_chat_seen():
+    if 'username' not in session:
+        return jsonify({'ok': False, 'error': 'auth'}), 401
+    user = session['username']
+    qid_raw = (request.form.get('question_id') or (request.json.get('question_id') if request.is_json else '') or '').strip()
+    try:
+        qid = int(qid_raw)
+    except Exception:
+        qid, _ = get_today_question()
     now_txt = now_madrid_str()
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            c.execute("""
-                INSERT INTO dq_chat (question_id, username, msg, created_at)
-                VALUES (%s,%s,%s,%s)
-            """, (qid, user, msg, now_txt))
+            c.execute(
+                "INSERT INTO dq_seen (question_id, username, seen_at) VALUES (%s,%s,%s) "
+                "ON CONFLICT (question_id, username) DO UPDATE SET seen_at=EXCLUDED.seen_at",
+                (qid, user, now_txt)
+            )
             conn.commit()
-        send_discord("DQ chat", {"by": user, "q": qid, "len": len(msg)})
         try:
-            broadcast("dq_chat", {"user": user, "msg": msg, "q": qid, "ts": now_txt})
+            broadcast("dq_seen", {"user": user, "q": qid, "ts": now_txt})
         except Exception:
             pass
-    except Exception as e:
-        print("[dq_chat_send]", e)
+    except Exception:
         try: conn.rollback()
         except Exception: pass
-        flash("No se pudo enviar el mensaje.", "error")
+        return jsonify({'ok': False, 'error': 'db'}), 500
     finally:
         conn.close()
-
-    return redirect('/#pregunta')
-
-
-
-
-
-# Arrancar el scheduler sólo si RUN_SCHEDULER=1
-if os.environ.get("RUN_SCHEDULER", "1") == "1":
-    threading.Thread(target=background_loop, daemon=True).start()
+    return jsonify({'ok': True, 'ts': now_txt})
 
 
 # ======= WSGI / Run =======

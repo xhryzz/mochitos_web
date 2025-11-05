@@ -1,149 +1,169 @@
-(function(){
-  const qid = window.CURRENT_QUESTION_ID;
-  const uid = window.CURRENT_USER_ID;
-  const uname = (window.CURRENT_USERNAME || '').toString();
+(function () {
+  // ====== Config / refs ======
+  const QID   = Number(window.CURRENT_QUESTION_ID || 0);
+  const UID   = Number(window.CURRENT_USER_ID || 0);
+  const UNAME = (window.CURRENT_USERNAME || '').toString();
 
-  const chatBtn = document.getElementById('btn-open-chat');
-  const historyBtn = document.getElementById('btn-open-history');
-  const chatModal = document.getElementById('chat-modal');
-  const historyModal = document.getElementById('history-modal');
-  const closeChat = chatModal?.querySelector('[data-close-chat]');
-  const closeHistory = historyModal?.querySelector('[data-close-history]');
-  const chatList = document.getElementById('chat-list');
-  const chatText = document.getElementById('chat-text');
-  const chatSend = document.getElementById('chat-send');
-  const badgeMe = document.getElementById('reaction-badge-me');
-  const badgeThem = document.getElementById('reaction-badge-them');
+  const chatBtn     = document.getElementById('btn-open-chat');
+  const historyBtn  = document.getElementById('btn-open-history');
+  const chatModal   = document.getElementById('chat-modal');
+  const historyModal= document.getElementById('history-modal');
+  const closeChat   = chatModal?.querySelector('[data-close-chat]');
+  const closeHist   = historyModal?.querySelector('[data-close-history]');
+  const chatList    = document.getElementById('chat-list');
+  const chatText    = document.getElementById('chat-text');
+  const chatSend    = document.getElementById('chat-send');
+  const badgeMe     = document.getElementById('reaction-badge-me');
+  const badgeThem   = document.getElementById('reaction-badge-them');
 
-  // Helpers UI
-  const open = el => el?.classList.remove('hidden');
-  const close = el => el?.classList.add('hidden');
+  if (!chatList) return; // nada que hacer
 
-  // Socket
-  const socket = io('/chat', { transports: ['polling'] });
+  // ====== Socket (WS -> fallback polling) ======
+  const socket = io('/chat', {
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 5000,
+  });
 
-
-  // Último ID que YO he visto (sirve para notificar al servidor; los ✓✓ los marca cuando el OTRO manda seen:update)
+  let currentQid   = QID;
   let myLastSeenId = 0;
-  let currentQid = qid;
+  let seenTimer    = null;
+  const seenIds    = new Set(); // evita dibujar dos veces mismo id
 
-  function fetchInitial() {
-    fetch(`/api/chat/${currentQid}`)
-      .then(r=>r.json())
-      .then(data=>{
-        chatList.innerHTML = '';
-        (data.messages || []).forEach(m=>renderMessage(m));
-        // Lo que yo he visto hasta ahora no lo necesitamos para los ticks (los ✓✓ son del OTRO),
-        // pero lo guardamos para enviar al servidor el "mark_seen".
-        myLastSeenId = Math.max(0, ...((data.messages || []).map(m=>m.id)));
-        markSeen();
-        scrollBottom();
-      });
+  // ====== Helpers ======
+  const open  = el => el && el.classList.remove('hidden');
+  const close = el => el && el.classList.add('hidden');
+
+  function escapeHtml(s){
+    const d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
   }
 
+  function atBottom(node, tolerance=60){
+    return (node.scrollTop + node.clientHeight) >= (node.scrollHeight - tolerance);
+  }
+  function scrollBottom(force=false){
+    if (!chatList) return;
+    if (force || atBottom(chatList)) {
+      chatList.scrollTop = chatList.scrollHeight;
+    }
+  }
+
+  function scheduleSeen(){
+    if (seenTimer) clearTimeout(seenTimer);
+    if (myLastSeenId <= 0) return;
+    // Debounce corto para agrupar avisos
+    seenTimer = setTimeout(() => {
+      socket.emit('mark_seen', {
+        question_id: currentQid,
+        user_id: UID,
+        username: UNAME,
+        last_message_id: myLastSeenId
+      });
+    }, 220);
+  }
+
+  // ====== Render ======
   function renderMessage(m){
-    const mine = m.sender_id === uid;
-    const li = document.createElement('div');
-    li.className = `msg ${mine? 'mine':'other'} ${m.is_deleted? 'deleted':''}`;
-    li.dataset.id = m.id;
+    if (!m || seenIds.has(m.id)) return; // evita duplicados
+    seenIds.add(m.id);
+
+    const mine = Number(m.sender_id) === UID;
+    const wrap = document.createElement('div');
+    wrap.className = `msg ${mine? 'mine':'other'} ${m.is_deleted? 'deleted':''}`;
+    wrap.dataset.id = String(m.id);
 
     const textHtml = m.is_deleted ? '<i>Mensaje eliminado</i>' : escapeHtml(m.text || '');
-    const edited = m.edited_at ? ' <span class="edited">(editado)</span>' : '';
-    const time = new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const edited   = m.edited_at ? ' <span class="edited" aria-label="editado">(editado)</span>' : '';
+    const whenMs   = (typeof m.created_at === 'number')
+      ? m.created_at
+      : Date.parse(m.created_at || '') || Date.now();
+    const time = new Date(whenMs).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
 
-    li.innerHTML = `
-      <div class="msg-bubble">
+    wrap.innerHTML = `
+      <div class="msg-bubble" role="group" aria-label="${mine?'Mensaje enviado':'Mensaje recibido'}">
         <div class="msg-text">${textHtml}${edited}</div>
         <div class="msg-meta">
           <span class="time">${time}</span>
-          <span class="ticks" data-ticks></span>
+          <span class="ticks" data-ticks aria-label="${mine?'Estado de entrega':''}"></span>
           ${mine && !m.is_deleted ? `
             <div class="msg-actions">
               <button class="edit" aria-label="Editar">Editar</button>
-              <button class="del" aria-label="Borrar">Borrar</button>
+              <button class="del"  aria-label="Borrar">Borrar</button>
             </div>` : ``}
         </div>
       </div>
     `;
 
-    // Ticks:
-    // - Al render inicial: si es mío, muestro ✓ (enviado). El ✓✓ lo pondremos cuando llegue seen:update del OTRO.
-    // - Si no es mío, no muestro ticks.
-    const ticks = li.querySelector('[data-ticks]');
-    if (mine) {
-      ticks.textContent = '✓';
-    } else {
-      ticks.textContent = '';
-    }
+    // Ticks iniciales: ✓ si es mío (✓✓ llegará por seen:update del OTRO)
+    const ticks = wrap.querySelector('[data-ticks]');
+    if (mine) ticks.textContent = '✓';
 
-    // Acciones
+    // Acciones (solo míos no borrados)
     if (mine && !m.is_deleted) {
-      li.querySelector('.edit')?.addEventListener('click', ()=>{
+      wrap.querySelector('.edit')?.addEventListener('click', ()=>{
         const oldText = m.text || '';
         const newText = prompt('Editar mensaje:', oldText);
-        if (!newText || newText.trim()===oldText) return;
+        if (!newText || newText.trim() === oldText) return;
         socket.emit('edit_message', {
-          message_id: m.id,
-          user_id: uid,
-          username: uname,
-          text: newText.trim()
+          message_id: m.id, user_id: UID, username: UNAME, text: newText.trim()
         });
       });
-      li.querySelector('.del')?.addEventListener('click', ()=>{
-        if (confirm('¿Eliminar este mensaje?')) {
-          socket.emit('delete_message', {
-            message_id: m.id,
-            user_id: uid,
-            username: uname
-          });
-        }
+      wrap.querySelector('.del')?.addEventListener('click', ()=>{
+        if (!confirm('¿Eliminar este mensaje?')) return;
+        socket.emit('delete_message', {
+          message_id: m.id, user_id: UID, username: UNAME
+        });
       });
     }
 
-    chatList.appendChild(li);
+    const shouldStick = atBottom(chatList); // respeta lectura actual
+    chatList.appendChild(wrap);
+    if (shouldStick) scrollBottom(true);
   }
 
-  function escapeHtml(s){
-    const d = document.createElement('div');
-    d.innerText = s; return d.innerHTML;
-  }
-
-  function scrollBottom(){
-    chatList.scrollTop = chatList.scrollHeight;
-  }
-
-  function markSeen(){
-    if (myLastSeenId > 0) {
-      socket.emit('mark_seen', {
-        question_id: currentQid,
-        user_id: uid,
-        username: uname,
-        last_message_id: myLastSeenId
-      });
+  async function fetchInitial(){
+    try {
+      const r = await fetch(`/api/chat/${currentQid}`, { headers:{'Accept':'application/json'} });
+      const data = await r.json().catch(()=>({messages:[]}));
+      chatList.innerHTML = '';
+      seenIds.clear();
+      (data.messages || []).forEach(renderMessage);
+      myLastSeenId = Math.max(0, ...((data.messages || []).map(m=>m.id)));
+      scheduleSeen();
+      scrollBottom(true);
+    } catch (e) {
+      chatList.innerHTML = '<p style="opacity:.7">No se pudo cargar el chat.</p>';
     }
   }
 
-  // Eventos socket
+  // ====== Socket events ======
   socket.on('connect', ()=>{
-    socket.emit('join', { question_id: currentQid, user_id: uid, username: uname });
+    socket.emit('join', { question_id: currentQid, user_id: UID, username: UNAME });
   });
+  socket.on('reconnect', ()=>{
+    socket.emit('join', { question_id: currentQid, user_id: UID, username: UNAME });
+    scheduleSeen();
+  });
+  socket.on('connect_error', ()=>{ /* opcional: showToast?.('error','Chat sin conexión'); */ });
 
   socket.on('message:new', (m)=>{
     if (m.question_id !== currentQid) return;
     renderMessage(m);
-    // Yo acabo de ver el nuevo mensaje -> actualizo mi lastSeen local y notifico seen
-    myLastSeenId = Math.max(myLastSeenId, m.id);
-    scrollBottom();
-    markSeen();
+    myLastSeenId = Math.max(myLastSeenId, m.id || 0);
+    scheduleSeen();
   });
 
   socket.on('message:edited', ({id, text, edited_at})=>{
-    const wrap = chatList.querySelector(`.msg[data-id="${id}"]`);
-    if (!wrap) return;
-    const txt = wrap.querySelector('.msg-text');
+    const el = chatList.querySelector(`.msg[data-id="${id}"]`);
+    if (!el) return;
+    const txt = el.querySelector('.msg-text');
     if (txt) {
-      txt.innerText = text;
-      const edited = wrap.querySelector('.edited');
+      txt.textContent = text || '';
+      const edited = el.querySelector('.edited');
       if (edited) edited.textContent = '(editado)';
       else txt.insertAdjacentHTML('beforeend',' <span class="edited">(editado)</span>');
     }
@@ -151,17 +171,15 @@
 
   socket.on('message:deleted', ({id})=>{
     const el = chatList.querySelector(`.msg[data-id="${id}"]`);
-    if (el) {
-      el.classList.add('deleted');
-      el.querySelector('.msg-text').innerHTML = '<i>Mensaje eliminado</i>';
-      const acts = el.querySelector('.msg-actions'); if (acts) acts.remove();
-    }
+    if (!el) return;
+    el.classList.add('deleted');
+    const t = el.querySelector('.msg-text');
+    if (t) t.innerHTML = '<i>Mensaje eliminado</i>';
+    el.querySelector('.msg-actions')?.remove();
   });
 
   socket.on('seen:update', ({user_id, last_message_id})=>{
-    // Solo me interesa si QUIEN ha visto NO soy yo (o sea, lo ha visto la otra persona)
-    if (user_id === uid) return;
-    // Marca ✓✓ en MIS mensajes con id <= last_message_id
+    if (Number(user_id) === UID) return; // solo me interesa lo visto por la otra persona
     chatList.querySelectorAll('.msg.mine').forEach(el=>{
       const mid = Number(el.dataset.id || 0);
       if (mid && mid <= (last_message_id || 0)) {
@@ -173,30 +191,34 @@
 
   socket.on('reaction:update', ({question_id, user_id, emoji})=>{
     if (question_id !== currentQid) return;
-    // Si la reacción viene de mí => se pinta en el avatar de la otra persona
-    // Si viene de la otra persona => se pinta en mi avatar
-    if (user_id === uid) {
+    if (Number(user_id) === UID) {
       if (badgeThem) { badgeThem.textContent = emoji; badgeThem.classList.add('show'); }
-      const cur = document.querySelector('.dq-reaction-current .big-reaction'); if (cur) cur.textContent = emoji;
+      document.querySelector('.dq-reaction-current .big-reaction')?.textContent = emoji;
     } else {
       if (badgeMe) { badgeMe.textContent = emoji; badgeMe.classList.add('show'); }
-      const part = document.querySelector('.dq-reaction-partner .big-reaction'); if (part) part.textContent = emoji;
+      document.querySelector('.dq-reaction-partner .big-reaction')?.textContent = emoji;
     }
   });
 
-  // UI handlers
-  chatBtn?.addEventListener('click', ()=>{
-    open(chatModal);
-    // Rejoin por si el historial cambió currentQid
-    socket.emit('join', { question_id: currentQid, user_id: uid, username: uname });
-    fetchInitial();
-    setTimeout(scrollBottom, 50);
+  // ====== UI ======
+  function openModal(m){
+    open(m);
+    // rejoin por si cambió el QID en historia
+    socket.emit('join', { question_id: currentQid, user_id: UID, username: UNAME });
+    fetchInitial().then(()=> chatText?.focus());
+  }
+  function closeModal(m){ close(m); }
+
+  chatBtn?.addEventListener('click', ()=> openModal(chatModal));
+  closeChat?.addEventListener('click', ()=> closeModal(chatModal));
+  chatModal?.addEventListener('click', (e)=>{
+    if (e.target.classList.contains('modal-backdrop')) closeModal(chatModal);
   });
-  closeChat?.addEventListener('click', ()=>close(chatModal));
 
   historyBtn?.addEventListener('click', ()=>{
     open(historyModal);
     const hx = document.getElementById('history-list');
+    if (!hx) return;
     hx.innerHTML = '<div class="loading">Cargando…</div>';
     fetch(`/api/history?days=30`).then(r=>r.json()).then(data=>{
       hx.innerHTML = (data.questions || []).map(q=>`
@@ -210,42 +232,41 @@
         b.addEventListener('click', ()=>{
           currentQid = Number(b.dataset.qid);
           close(historyModal);
-          open(chatModal);
-          socket.emit('join', { question_id: currentQid, user_id: uid, username: uname });
-          fetch(`/api/chat/${currentQid}`).then(r=>r.json()).then(d=>{
-            chatList.innerHTML = '';
-            (d.messages||[]).forEach(m=>renderMessage(m));
-            myLastSeenId = Math.max(0, ...((d.messages||[]).map(m=>m.id)));
-            setTimeout(()=>{ scrollBottom(); markSeen(); }, 50);
-          });
+          openModal(chatModal);
         });
       });
-    });
+    }).catch(()=>{ hx.innerHTML = '<p style="opacity:.7">No se pudo cargar el historial.</p>'; });
   });
-  closeHistory?.addEventListener('click', ()=>close(historyModal));
+  closeHist?.addEventListener('click', ()=> close(historyModal));
 
   // Enviar mensaje
   function sendNow(){
     const t = (chatText.value || '').trim();
     if (!t) return;
+    chatSend.disabled = true;
     socket.emit('send_message', {
       question_id: currentQid,
-      user_id: uid,
-      username: uname,
+      user_id: UID,
+      username: UNAME,
       text: t
     });
     chatText.value = '';
+    chatSend.disabled = false;
   }
   chatSend?.addEventListener('click', sendNow);
   chatText?.addEventListener('keydown', (e)=>{
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendNow(); }
   });
 
-  // Reacción (expuesto globalmente)
+  // Exponer reacción para los botones que ya tienes en el HTML
   window.setQuestionReaction = function(emoji){
     fetch(`/api/reaction/${currentQid}`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
       body: JSON.stringify({emoji})
-    });
+    }).catch(()=>{ /* sin ruido */ });
   };
+
+  // Carga inicial si ya está visible
+  if (!chatModal?.classList.contains('hidden')) fetchInitial();
 })();

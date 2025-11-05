@@ -4911,12 +4911,6 @@ def _minify_html(html: bytes) -> bytes:
     except Exception:
         return html
 
-from time import monotonic as _mono
-
-_MICROCACHE_STORE = {}
-_MICROCACHE_TTL = 5.0  # seconds
-_MICROCACHE_MAX = 256
-
 class _OptimizingMiddleware:
     def __init__(self, app, *, gzip_min_len=600, gzip_level=6, max_transform_len=1_500_000):
         self.app = app
@@ -4926,35 +4920,6 @@ class _OptimizingMiddleware:
         self._root = os.path.dirname(__file__) or "."
 
     def __call__(self, environ, start_response):
-        # === Microcache (per-session, GET HTML only) ===
-        try:
-            if environ.get("REQUEST_METHOD","GET") == "GET":
-                path = environ.get("PATH_INFO") or "/"
-                if path.startswith("/static/") is False:
-                    # session key from cookie (Flask default cookie name 'session')
-                    cookie = environ.get("HTTP_COOKIE","")
-                    sess = ""
-                    if "session=" in cookie:
-                        try:
-                            sess = cookie.split("session=",1)[1].split(";",1)[0]
-                        except Exception:
-                            sess = ""
-                    key = (path, environ.get("QUERY_STRING",""), sess)
-                    now = _mono()
-                    # purge old
-                    if len(_MICROCACHE_STORE) > _MICROCACHE_MAX:
-                        for k,(t,_,_,_) in list(_MICROCACHE_STORE.items())[:50]:
-                            if now - t > _MICROCACHE_TTL:
-                                _MICROCACHE_STORE.pop(k, None)
-                    item = _MICROCACHE_STORE.get(key)
-                    if item:
-                        t, status, headers, body = item
-                        if now - t <= _MICROCACHE_TTL:
-                            start_response(status, list(headers), None)
-                            return [body]
-        except Exception:
-            pass
-
         method = environ.get("REQUEST_METHOD", "GET").upper()
         path = environ.get("PATH_INFO") or "/"
         accept_enc = environ.get("HTTP_ACCEPT_ENCODING", "")
@@ -5069,21 +5034,6 @@ class _OptimizingMiddleware:
         set_header("X-Frame-Options", "DENY")
         set_header("Referrer-Policy", "strict-origin-when-cross-origin")
         set_header("Permissions-Policy", "geolocation=(self), microphone=(), camera=()")
-
-        # Guardar en microcache (solo 200 text/html)
-        try:
-            if status.startswith("200") and _is_text_type(headers_dict.get("content-type","")) and _HTML_RE.match(body[:120] or b""):
-                cookie = environ.get("HTTP_COOKIE","")
-                sess = ""
-                if "session=" in cookie:
-                    try:
-                        sess = cookie.split("session=",1)[1].split(";",1)[0]
-                    except Exception:
-                        sess = ""
-                key = (environ.get("PATH_INFO") or "/", environ.get("QUERY_STRING",""), sess)
-                _MICROCACHE_STORE[key] = (_mono(), status, tuple(headers), bytes(body))
-        except Exception:
-            pass
 
         start_response(status, headers, headers_holder.get('exc_info'))
         return [body]

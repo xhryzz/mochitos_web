@@ -1,9 +1,0 @@
-{
-  "uri": "postgresql://mochitosdb_2cdf_user:YnB10DwjBPMKcduhESFN8Zkcnc2NkLeG@dpg-d3sc4s0dl3ps73d9no80-a.oregon-postgres.render.com/mochitosdb_2cdf?sslmode=require",
-  "pg_dump_path": "C:\\Program Files\\PostgreSQL\\18\\bin\\pg_dump.exe",
-  "out_dir": "C:/Users/Christian/Desktop",
-  "file_prefix": "mochitos_backup",
-  "fmt": "sql",
-  "gzip_plain": false,
-  "compress_level": 6
-}

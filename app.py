@@ -27,8 +27,7 @@ try:
 except Exception:
     BeautifulSoup = None
 
-# ⚡ Inicializa rendimiento (compresión Brotli/Gzip, WhiteNoise, Jinja cache)
-setup_performance(app)
+app = Flask(__name__)
 # Límite de subida (ajustable por env MAX_UPLOAD_MB). Evita BYTEA enormes que disparan RAM.
 app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_UPLOAD_MB', '2')) * 1024 * 1024
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
@@ -146,7 +145,6 @@ def _normalize_database_url(url: str) -> str:
 DATABASE_URL = _normalize_database_url(DATABASE_URL)
 
 from psycopg2 import OperationalError, InterfaceError, DatabaseError
-from middleware_perf import setup_performance  # rendimiento (compresión, estáticos, orjson)
 
 PG_POOL = None
 
@@ -4884,3 +4882,5 @@ if os.environ.get("RUN_SCHEDULER", "1") == "1":
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
+
+

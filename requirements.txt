@@ -7,8 +7,3 @@ cryptography
 pytz
 tzdata
 
-# --- performance deps ---
-flask-compress==1.15
-whitenoise==6.7.0
-brotli==1.1.0
-orjson==3.10.7

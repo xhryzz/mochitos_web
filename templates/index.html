@@ -7252,6 +7252,93 @@ function flyOnce(){
   modal && modal.addEventListener('click', (e)=>{ if (e.target === modal) close(); });
 })();
 </script>
+
+<!-- DQ Modal/Chat wiring -->
+<script defer>
+(function(){
+  // Helpers
+  const qs = (sel, root=document) => root.querySelector(sel);
+  const qsa = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  const body = document.body;
+
+  // Elements
+  const chatBtn   = qs('#btn-open-chat') || qs('.btn-open-chat') || qs('#openChat');
+  const chatModal = qs('#chat-modal') || qs('#modal-chat') || qs('.modal-chat');
+  const chatClose = chatModal ? (chatModal.querySelector('[data-close-chat]') || chatModal.querySelector('.close')) : null;
+  const chatList  = qs('#chat-list');
+  const chatText  = qs('#chat-text');
+  const chatSend  = qs('#chat-send');
+
+  function openModal(m){ if(!m) return; m.classList.remove('hidden'); if(body) body.style.overflow='hidden'; }
+  function closeModal(m){ if(!m) return; m.classList.add('hidden'); if(body) body.style.overflow=''; }
+
+  async function fetchJSON(url, opts){
+    const r = await fetch(url, Object.assign({headers:{'Content-Type':'application/json'}}, opts||{}));
+    const j = await r.json().catch(_=>({ok:false}));
+    return j;
+  }
+
+  function currentQID(){
+    if (window.CHAT_GLOBALS && window.CHAT_GLOBALS.QID) return window.CHAT_GLOBALS.QID;
+    if (window.CURRENT_QUESTION_ID) return window.CURRENT_QUESTION_ID;
+    const el = document.querySelector('[data-qid]');
+    return el ? Number(el.getAttribute('data-qid'))||0 : 0;
+  }
+
+  function escapeHtml(s){
+    return (''+s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function formatTs(ts){
+    try{ return new Date(ts).toLocaleString(); }catch(_){
+      return ts || '';
+    }
+  }
+
+  function renderMsg(m){
+    const who = (m.sender_name || '').toLowerCase();
+    const mine = (who === (window.USERNAME||'').toLowerCase());
+    const row = document.createElement('div');
+    row.className = 'msg ' + (mine ? 'mine' : 'other');
+    row.innerHTML = '<div class="bubble"><b>' + (m.sender_name||'') + '</b><br>' + escapeHtml(m.text||'') + '</div>' +
+                    '<div class="time">' + formatTs(m.created_at) + '</div>';
+    return row;
+  }
+
+  async function loadChat(){
+    if(!chatList) return;
+    chatList.innerHTML = '<div class="loading">Cargando…</div>';
+    const qid = currentQID();
+    const j = await fetchJSON('/api/dq/chat/fetch', {method:'POST', body: JSON.stringify({question_id: qid})});
+    const arr = (j && j.messages) || [];
+    chatList.innerHTML='';
+    arr.forEach(m => chatList.appendChild(renderMsg(m)));
+    chatList.scrollTop = chatList.scrollHeight;
+  }
+  window.refreshChat = loadChat; // exposición global por si otras partes la llaman
+
+  async function sendMessage(){
+    if(!chatText) return;
+    const text = (chatText.value||'').trim();
+    if(!text) return;
+    if(chatSend) chatSend.disabled = true;
+    const qid = currentQID();
+    const j = await fetchJSON('/api/dq/chat/send', {method:'POST', body: JSON.stringify({question_id: qid, text})});
+    if(chatSend) chatSend.disabled = false;
+    if(j && j.ok && j.message){
+      chatText.value = '';
+      if(chatList){ chatList.appendChild(renderMsg(j.message)); chatList.scrollTop = chatList.scrollHeight; }
+    }
+  }
+
+  // Wire up
+  if (chatBtn) chatBtn.addEventListener('click', () => { openModal(chatModal); loadChat(); });
+  if (chatClose) chatClose.addEventListener('click', () => closeModal(chatModal));
+  if (chatModal) chatModal.addEventListener('click', (e) => { if(e.target===chatModal) closeModal(chatModal); });
+  if (chatSend) chatSend.addEventListener('click', sendMessage);
+  if (chatText) chatText.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); } });
+})();
+</script>
 </body>
 </html>
 

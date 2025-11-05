@@ -20,7 +20,8 @@
   const close = el => el?.classList.add('hidden');
 
   // Socket
-  const socket = io('/chat', { transports: ['websocket', 'polling'] });
+  const socket = io('/chat', { transports: ['polling'] });
+
 
   // Último ID que YO he visto (sirve para notificar al servidor; los ✓✓ los marca cuando el OTRO manda seen:update)
   let myLastSeenId = 0;

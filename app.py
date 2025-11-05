@@ -14,7 +14,15 @@ import requests
 import re  # <-- Seguimiento de precio
 
 # Web Push
-from pywebpush import webpush, WebPushException
+try:
+    from pywebpush import WebPushException as _WebPushException
+except Exception:
+    class _WebPushException(Exception):
+        pass
+
+def _send_webpush(**kwargs):
+    from pywebpush import webpush
+    return webpush(**kwargs)
 
 try:
     import pytz  # opcional (fallback)
@@ -28,6 +36,7 @@ except Exception:
     BeautifulSoup = None
 
 app = Flask(__name__)
+app.config['TEMPLATES_AUTO_RELOAD'] = False
 
 # === Performance: WhiteNoise static + Gzip ===
 try:
@@ -202,7 +211,8 @@ def _init_pool():
         raise RuntimeError('Falta DATABASE_URL para PostgreSQL')
 
     # Máximo 3 conexiones por defecto (suficiente en 512 MB). Sube con DB_MAX_CONN si lo necesitas.
-    maxconn = max(3, int(os.environ.get('DB_MAX_CONN', '3')))
+    maxconn = int(os.environ.get('DB_MAX_CONN', '2'))
+    maxconn = max(1, min(maxconn, 2))
     PG_POOL = SimpleConnectionPool(
         1, maxconn,
         dsn=DATABASE_URL,
@@ -710,7 +720,26 @@ def init_db():
 
         conn.commit()
 
-init_db()
+# Lazy DB init to reduce boot memory/time
+_INIT_DONE = False
+
+def _maybe_init_db():
+    global _INIT_DONE
+    if _INIT_DONE:
+        return
+    try:
+        init_db()
+        _INIT_DONE = True
+    except Exception as e:
+        print('[init_db lazy] error:', e)
+
+@app.before_first_request
+def _first_req_init():
+    _maybe_init_db()
+
+# Opt-in init on boot via env
+if os.environ.get('INIT_DB_ON_BOOT','0') == '1':
+    _maybe_init_db()
 
 # ========= Helpers =========
 # ========= Helpers =========
@@ -1392,7 +1421,7 @@ def send_push_raw(sub: dict, payload: dict):
     if not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY_HEX:
         return False
     try:
-        webpush(
+        _send_webpush(
             subscription_info={
                 "endpoint": sub["endpoint"],
                 "keys": {
@@ -1406,7 +1435,7 @@ def send_push_raw(sub: dict, payload: dict):
             timeout=5
         )
         return True
-    except WebPushException as e:
+    except _WebPushException as e:
         status = getattr(e.response, "status_code", None)
         if status in (404, 410):
             try:

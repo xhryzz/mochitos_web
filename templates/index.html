@@ -2044,6 +2044,25 @@ body::before{ z-index: -1; }
 }
 
 
+    
+/* === DQ Enhanced UI tweaks === */
+.dq-reactions-buttons button{
+  background:#f7f7fb;
+  border:1px solid #ece8ef;
+  border-radius:999px;
+  padding:10px 14px;
+  font-size:1.2rem;
+  transition:transform .06s ease, box-shadow .2s ease, background .2s ease;
+}
+.dq-reactions-buttons button:hover{ transform:translateY(-1px); box-shadow:0 6px 12px rgba(0,0,0,.08); }
+.dq-reactions-buttons button.selected{ background:#ffe6f2; border-color:#ffb8d5; box-shadow:0 6px 14px rgba(232,67,147,.28); }
+.dq-reaction-current, .dq-reaction-partner{ display:flex; align-items:center; gap:6px; margin-top:10px; }
+.dq-chat-bubble{ position:relative; }
+.dq-chat-msg.me .dq-chat-bubble{ background:#e9f5ff; }
+.dq-chat-msg.them .dq-chat-bubble{ background:#f5f0ff; }
+.dq-typing{ font-size:.8rem; color:#9aa; margin-top:6px; display:none; }
+
+
     </style>
 </head>
 
@@ -2663,7 +2682,7 @@ body::before{ z-index: -1; }
           Reacciona a la respuesta de {{ other_user }}
         </div>
 
-        <form method="POST" action="/dq/react" class="dq-reactions-form">
+        <form method="POST" action="/dq/react" class="dq-reactions-form" id="dqReactionsForm">
           <input type="hidden" name="question_id" value="{{ question_id }}">
           <input type="hidden" name="target_user" value="{{ other_user }}">
 
@@ -2698,7 +2717,7 @@ body::before{ z-index: -1; }
           Charla privada sobre la pregunta
         </div>
 
-        <div class="dq-chat-messages">
+        <div class="dq-chat-messages" id="dqChatMessages">
           {% if dq_chat_messages %}
             {% for m in dq_chat_messages %}
               <div class="dq-chat-msg {% if m.username == username %}me{% else %}them{% endif %}">
@@ -2714,7 +2733,7 @@ body::before{ z-index: -1; }
           {% endif %}
         </div>
 
-        <form method="POST" action="/dq/chat/send" class="dq-chat-form" style="margin-top:12px;">
+        <form method="POST" action="/dq/chat/send" class="dq-chat-form" style="margin-top:12px;" id="dqChatForm">
           <input type="hidden" name="question_id" value="{{ question_id }}">
           <input type="text" name="msg" required placeholder="Escribe algo bonito...">
           <button type="submit"><i class="fas fa-paper-plane"></i></button>
@@ -6981,6 +7000,114 @@ function flyOnce(){
 <button onclick="location.href='/push/debug'" class="debug-fab" aria-label="Debug push">🔧 Notificaciones</button>
 <style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:rgba(232,67,147,.4);color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>
 {% endif %}
+
+
+<script>
+(function(){
+  const formReacts = document.getElementById('dqReactionsForm');
+  const chatForm   = document.getElementById('dqChatForm');
+  const chatBox    = document.getElementById('dqChatMessages');
+  const qidInput   = document.querySelector('input[name="question_id"]');
+  const ME   = {{ (username or session.username or '') | tojson }};
+  const OTHER = {{ (other_user if other_user is defined else '') | tojson }} || (ME==='mochito' ? 'mochita' : 'mochito');
+  const QID = qidInput ? parseInt(qidInput.value||'0',10) : 0;
+
+  // Highlight selected reaction (from current DOM)
+  function highlightSelected(val){
+    if (!formReacts) return;
+    const buttons = formReacts.querySelectorAll('button[name="reaction"]');
+    buttons.forEach(b => b.classList.toggle('selected', b.value===val));
+    // Also update the "Tu reacción" label if exists:
+    const mineEl = document.querySelector('.dq-reaction-current .big-reaction');
+    if (mineEl) mineEl.textContent = val;
+  }
+
+  if (formReacts){
+    formReacts.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[name="reaction"]');
+      if (!btn) return;
+      e.preventDefault();
+      try{
+        const fd = new FormData(formReacts);
+        fd.set('reaction', btn.value);
+        const r = await fetch(formReacts.action || '/dq/react', { method: 'POST', body: fd, headers:{'X-Requested-With':'fetch'} });
+        if (!r.ok) throw new Error('HTTP '+r.status);
+        highlightSelected(btn.value);
+      }catch(err){
+        console.warn('Fallo al enviar reacción vía fetch, hago submit normal', err);
+        formReacts.submit();
+      }
+    });
+  }
+
+  if (chatForm){
+    const input = chatForm.querySelector('input[name="msg"]');
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!input || !input.value.trim()) return;
+      try{
+        const fd = new FormData(chatForm);
+        const r = await fetch(chatForm.action || '/dq/chat/send', { method: 'POST', body: fd, headers:{'X-Requested-With':'fetch'} });
+        if (!r.ok) throw new Error('HTTP '+r.status);
+        // Optimista: añade mi burbuja con timestamp local
+        appendMessage({ username: ME, msg: input.value.trim(), created_at: new Date().toISOString().replace('T',' ').slice(0,19) }, true);
+        input.value = '';
+      }catch(err){
+        console.warn('Fallo al enviar mensaje vía fetch, reintento submit normal', err);
+        chatForm.submit();
+      }
+    });
+  }
+
+  function appendMessage(m, optimistic){
+    if (!chatBox || !m) return;
+    // Si hay placeholder de vacío, quítalo
+    const empty = chatBox.querySelector('.dq-chat-empty');
+    if (empty) empty.remove();
+
+    const wrap = document.createElement('div');
+    wrap.className = 'dq-chat-msg ' + (m.username === ME ? 'me' : 'them');
+    const meta = document.createElement('div'); meta.className = 'dq-chat-meta';
+    const b = document.createElement('b'); b.textContent = m.username;
+    const ts = document.createElement('span'); ts.className = 'ts'; ts.textContent = m.created_at || '';
+    meta.append(b, ts);
+    const bubble = document.createElement('div'); bubble.className = 'dq-chat-bubble'; bubble.textContent = m.msg;
+    wrap.append(meta, bubble);
+    chatBox.appendChild(wrap);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  // Live updates via SSE (without page reload)
+  if ('EventSource' in window){
+    try{
+      const es = new EventSource('/events');
+      es.addEventListener('dq_chat', function(ev){
+        try{
+          const data = JSON.parse(ev.data||'{}');
+          if (!data || (data.q && Number(data.q)!==QID)) return; // otra pregunta
+          // { user, msg, q, ts }
+          appendMessage({ username: data.user, msg: data.msg, created_at: data.ts }, false);
+        }catch(_){}
+      });
+      es.addEventListener('dq_reaction', function(ev){
+        try{
+          const data = JSON.parse(ev.data||'{}');
+          if (!data || (data.q && Number(data.q)!==QID)) return;
+          // Si soy el target, actualiza "partner reaccionó"
+          if (data.to === ME){
+            const el = document.querySelector('.dq-reaction-partner .big-reaction');
+            if (el) el.textContent = data.reaction;
+          }
+          // Si yo reaccioné, resalta
+          if (data.from === ME){
+            highlightSelected(data.reaction);
+          }
+        }catch(_){}
+      });
+    }catch(err){ console.warn('SSE dq_* no disponible', err); }
+  }
+})();
+</script>
 
 </body>
 </html>

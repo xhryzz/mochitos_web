@@ -16,6 +16,8 @@ import re  # <-- Seguimiento de precio
 # Web Push
 from pywebpush import webpush, WebPushException
 
+from app import send_discord
+
 try:
     import pytz  # opcional (fallback)
 except Exception:
@@ -43,6 +45,17 @@ app.config['TEMPLATES_AUTO_RELOAD'] = False
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
+# === Modo rápido (reduce trabajo en /) y límites de filas ===
+FAST_HOME = os.environ.get("FAST_HOME", "1") == "1"   # por defecto ON en Render
+DISABLE_PRICE = os.environ.get("DISABLE_PRICE", "0") == "1"  # desactiva seguimiento de precios
+LIMITS = {
+    "TRAVELS": int(os.environ.get("MAX_TRAVELS", "120")),
+    "TRAVEL_PHOTOS": int(os.environ.get("MAX_TRAVEL_PHOTOS", "200")),
+    "WISHLIST": int(os.environ.get("MAX_WISHLIST", "250")),
+    "MEDIA_TO_WATCH": int(os.environ.get("MAX_MEDIA_TO_WATCH", "180")),
+    "MEDIA_WATCHED": int(os.environ.get("MAX_MEDIA_WATCHED", "220")),
+    "DQ_CHAT": int(os.environ.get("MAX_DQ_CHAT", "400")),
+}
 
 
 # ======= Compresión (si está) =======
@@ -73,61 +86,7 @@ try:
 except Exception as e:
     app.logger.warning("Jinja bytecode cache desactivado: %s", e)
 
-# ========= Discord logs (asíncrono) =========
-DISCORD_WEBHOOK = os.environ.get('DISCORD_WEBHOOK', '')
 
-def client_ip():
-    return (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
-
-def _is_hashed(v: str) -> bool:
-    return isinstance(v, str) and (v.startswith('pbkdf2:') or v.startswith('scrypt:'))
-
-_DISCORD_Q = queue.Queue(maxsize=500)
-
-def _discord_worker():
-    while True:
-        url, payload = _DISCORD_Q.get()
-        try:
-            requests.post(url, json=payload, timeout=2)
-        except Exception as e:
-            print(f"[discord] error: {e}")
-        finally:
-            _DISCORD_Q.task_done()
-
-if DISCORD_WEBHOOK:
-    t = threading.Thread(target=_discord_worker, daemon=True)
-    t.start()
-
-def send_discord(event: str, payload: dict | None = None):
-    if not DISCORD_WEBHOOK:
-        return
-    try:
-        display_user = None
-        if 'username' in session and session['username'] in ('mochito', 'mochita'):
-            display_user = session['username']
-        embed = {
-            "title": event,
-            "color": 0xE84393,
-            "timestamp": datetime.utcnow().isoformat() + "Z",
-            "fields": []
-        }
-        if display_user:
-            embed["fields"].append({"name": "Usuario", "value": display_user, "inline": True})
-        try:
-            ruta = f"{request.method} {request.path}"
-        except Exception:
-            ruta = "(sin request)"
-        embed["fields"] += [
-            {"name": "Ruta", "value": ruta, "inline": True},
-            {"name": "IP", "value": client_ip() or "?", "inline": True}
-        ]
-        if payload:
-            raw = json.dumps(payload, ensure_ascii=False)
-            for i, ch in enumerate([raw[i:i+1000] for i in range(0, len(raw), 1000)][:3]):
-                embed["fields"].append({"name": "Datos" + (f" ({i+1})" if i else ""), "value": f"```json\n{ch}\n```", "inline": False})
-        _DISCORD_Q.put_nowait((DISCORD_WEBHOOK, {"username": "Mochitos Logs", "embeds": [embed]}))
-    except Exception as e:
-        print(f"[discord] prep error: {e}")
 
 # ========= Config Postgres + POOL =========
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
@@ -653,7 +612,34 @@ def init_db():
 
         conn.commit()
 
-init_db()
+# init_db()
+
+
+# ⬇️ Pega aquí el LAZY BOOT
+# --- Lazy boot: inicializa DB sólo cuando hace falta ---
+_INIT_DONE = False
+def _maybe_init_db():
+    global _INIT_DONE
+    if _INIT_DONE:
+        return
+    try:
+        init_db()
+        _INIT_DONE = True
+    except Exception as e:
+        app.logger.warning("[init_db] diferido falló: %s", e)
+
+@app.before_first_request
+def _boot():
+    _maybe_init_db()
+
+# Si quieres forzar init en despliegue, exporta INIT_DB_ON_IMPORT=1
+if os.environ.get("INIT_DB_ON_IMPORT", "0") == "1":
+    _maybe_init_db()
+
+# ⬇️ A partir de aquí tus rutas/blueprints
+@app.route("/")
+def index():
+    return "OK"
 
 # ========= Helpers =========
 # ========= Helpers =========
@@ -1244,13 +1230,14 @@ def get_profile_pictures():
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            c.execute("SELECT username, image_data, mime_type FROM profile_pictures")
+            c.execute("SELECT username, image_data, mime_type FROM profile_pictures WHERE username IN ('mochito','mochita')")
             pics = {}
             for u, img, mt in c.fetchall():
                 pics[u] = f"data:{mt};base64,{b64encode(img).decode('utf-8')}"
             return pics
     finally:
         conn.close()
+
 
 @ttl_cache(seconds=8)
 def compute_streaks():
@@ -2364,81 +2351,106 @@ def index():
             for r in c.fetchall():
                 dq_reactions_map[r['to_user']] = {"from_user": r['from_user'], "reaction": r['reaction']}
 
-            c.execute("SELECT username, msg, created_at FROM dq_chat WHERE question_id=%s ORDER BY id ASC", (question_id,))
+            c.execute("""
+                    SELECT username, msg, created_at
+                    FROM dq_chat
+                    WHERE question_id=%s
+                    ORDER BY id ASC
+                    LIMIT %s
+                """, (question_id, LIMITS["DQ_CHAT"]))
             dq_chat_messages = [dict(row) for row in c.fetchall()]
 
-            # Viajes + fotos
-            c.execute("""
-                SELECT id, destination, description, travel_date, is_visited, created_by
-                FROM travels
-                ORDER BY is_visited, travel_date DESC
-            """)
-            travels = c.fetchall()
 
-            c.execute("SELECT travel_id, id, image_url, uploaded_by FROM travel_photos ORDER BY id DESC")
-            all_ph = c.fetchall()
+            # Viajes + fotos
+            if FAST_HOME:
+                travels = []
+                all_ph = []
+            else:
+                c.execute("""
+                    SELECT id, destination, description, travel_date, is_visited, created_by
+                    FROM travels
+                    ORDER BY is_visited, travel_date DESC
+                    LIMIT %s
+                """, (LIMITS["TRAVELS"],))
+                travels = c.fetchall()
+
+                c.execute("""
+                    SELECT travel_id, id, image_url, uploaded_by
+                    FROM travel_photos
+                    ORDER BY id DESC
+                    LIMIT %s
+                """, (LIMITS["TRAVEL_PHOTOS"],))
+                all_ph = c.fetchall()
 
             # Wishlist (blindaje regalos)
             c.execute("""
-                SELECT
-                    id,
-                    product_name,
-                    product_link,
-                    notes,
-                    created_by,
-                    created_at,
-                    is_purchased,
-                    COALESCE(priority,'media') AS priority,
-                    COALESCE(is_gift,false)   AS is_gift,
-                    size,
-                    COALESCE(track_price,false) AS track_price,
-                    last_price_cents,
-                    currency,
-                    last_checked,
-                    alert_drop_percent,
-                    alert_below_cents
-                FROM wishlist
-                ORDER BY
-                    is_purchased ASC,
-                    CASE COALESCE(priority,'media')
-                        WHEN 'alta' THEN 0
-                        WHEN 'media' THEN 1
-                        ELSE 2
-                    END,
-                    created_at DESC
-            """)
-            wl_rows = c.fetchall()  # <-- IMPORTANTE: justo después del SELECT de wishlist
+                        SELECT
+                            id,
+                            product_name,
+                            product_link,
+                            notes,
+                            created_by,
+                            created_at,
+                            is_purchased,
+                            COALESCE(priority,'media') AS priority,
+                            COALESCE(is_gift,false)   AS is_gift,
+                            size,
+                            COALESCE(track_price,false) AS track_price,
+                            last_price_cents,
+                            currency,
+                            last_checked,
+                            alert_drop_percent,
+                            alert_below_cents
+                        FROM wishlist
+                        ORDER BY
+                            is_purchased ASC,
+                            CASE COALESCE(priority,'media')
+                                WHEN 'alta' THEN 0
+                                WHEN 'media' THEN 1
+                                ELSE 2
+                            END,
+                            created_at DESC
+                        LIMIT %s
+                    """, (LIMITS["WISHLIST"],))
+            wl_rows = c.fetchall()
+  # <-- IMPORTANTE: justo después del SELECT de wishlist
 
           # --- Media: POR VER ---
-            c.execute("""
-                SELECT
-                id, title, cover_url, link_url, on_netflix, on_prime,
-                comment, priority,
-                created_by, created_at,
-                reviews,            -- NUEVO (JSONB)
-                avg_rating          -- NUEVO (media)
-                FROM media_items
-                WHERE is_watched = FALSE
-                ORDER BY
-                CASE priority WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,
-                COALESCE(created_at, '1970-01-01') DESC,
-                id DESC
-            """)
-            media_to_watch = c.fetchall()
+            if FAST_HOME:
+                media_to_watch = []
+                media_watched = []
+            else:
+                c.execute("""
+                    SELECT
+                        id, title, cover_url, link_url, on_netflix, on_prime,
+                        comment, priority,
+                        created_by, created_at,
+                        reviews,
+                        avg_rating
+                    FROM media_items
+                    WHERE is_watched = FALSE
+                    ORDER BY
+                        CASE priority WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,
+                        COALESCE(created_at, '1970-01-01') DESC,
+                        id DESC
+                    LIMIT %s
+                """, (LIMITS["MEDIA_TO_WATCH"],))
+                media_to_watch = c.fetchall()
 
-            # --- Media: VISTAS ---
-            c.execute("""
-                SELECT
-                id, title, cover_url, link_url,
-                reviews,            -- NUEVO (JSONB)
-                avg_rating,         -- NUEVO (media)
-                watched_at,
-                created_by
-                FROM media_items
-                WHERE is_watched = TRUE
-                ORDER BY COALESCE(watched_at, '1970-01-01') DESC, id DESC
-            """)
-            media_watched = c.fetchall()
+                c.execute("""
+                    SELECT
+                        id, title, cover_url, link_url,
+                        reviews,
+                        avg_rating,
+                        watched_at,
+                        created_by
+                    FROM media_items
+                    WHERE is_watched = TRUE
+                    ORDER BY COALESCE(watched_at, '1970-01-01') DESC, id DESC
+                    LIMIT %s
+                """, (LIMITS["MEDIA_WATCHED"],))
+                media_watched = c.fetchall()
+
 
 
             # Helpers para leer reviews y exponer campos cómodos a la plantilla
@@ -2556,21 +2568,22 @@ def index():
 
 
      # --- Ciclo para interfaz ---
-    cycle_user = 'mochita'  # por defecto lo guardamos para ella; cambia si quieres
-    today = today_madrid()
-    month_start = today.replace(day=1)
-    # mostramos 3 meses: actual y los 2 siguientes para planificar
-    from datetime import timedelta as _td
-    # último día del tercer mes
-    def _last_day_of_month(y, m):
-        import calendar
-        return date(y, m, calendar.monthrange(y, m)[1])
-    m3_y = month_start.year + (month_start.month + 2 - 1)//12
-    m3_m = (month_start.month + 2 - 1) % 12 + 1
-    month_end = _last_day_of_month(m3_y, m3_m)
-
-    cycle_entries = get_cycle_entries(cycle_user, month_start, month_end)
-    cycle_pred = predict_cycle(cycle_user)
+    if FAST_HOME:
+        cycle_user = 'mochita'
+        cycle_entries = []
+        cycle_pred = {}
+    else:
+        cycle_user = 'mochita'
+        today = today_madrid()
+        month_start = today.replace(day=1)
+        def _last_day_of_month(y, m):
+            import calendar
+            return date(y, m, calendar.monthrange(y, m)[1])
+        m3_y = month_start.year + (month_start.month + 2 - 1)//12
+        m3_m = (month_start.month + 2 - 1) % 12 + 1
+        month_end = _last_day_of_month(m3_y, m3_m)
+        cycle_entries = get_cycle_entries(cycle_user, month_start, month_end)
+        cycle_pred = predict_cycle(cycle_user)
 
     moods_for_select = list(ALLOWED_MOODS)
     flows_for_select = list(ALLOWED_FLOWS)

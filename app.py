@@ -636,10 +636,7 @@ def _boot():
 if os.environ.get("INIT_DB_ON_IMPORT", "0") == "1":
     _maybe_init_db()
 
-# ⬇️ A partir de aquí tus rutas/blueprints
-@app.route("/")
-def index():
-    return "OK"
+
 
 # ========= Helpers =========
 # ========= Helpers =========

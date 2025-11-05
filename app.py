@@ -14,15 +14,7 @@ import requests
 import re  # <-- Seguimiento de precio
 
 # Web Push
-try:
-    from pywebpush import WebPushException as _WebPushException
-except Exception:
-    class _WebPushException(Exception):
-        pass
-
-def _send_webpush(**kwargs):
-    from pywebpush import webpush
-    return webpush(**kwargs)
+from pywebpush import webpush, WebPushException
 
 try:
     import pytz  # opcional (fallback)
@@ -36,27 +28,6 @@ except Exception:
     BeautifulSoup = None
 
 app = Flask(__name__)
-app.config['TEMPLATES_AUTO_RELOAD'] = False
-
-# === Performance: WhiteNoise static + Gzip ===
-try:
-    from whitenoise import WhiteNoise
-    app.wsgi_app = WhiteNoise(app.wsgi_app, root=app.static_folder, index_file=True, autorefresh=False, max_age=31536000)
-    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 86400  # 1 day for dynamic send_file fallbacks
-except Exception as _e:
-    print("[perf] WhiteNoise not active:", _e)
-
-try:
-    from flask_compress import Compress
-    app.config.update(
-        COMPRESS_ALGORITHM='gzip',
-        COMPRESS_LEVEL=6,
-        COMPRESS_MIN_SIZE=1024,
-        COMPRESS_MIMETYPES=['text/html','text/css','application/javascript','application/json','image/svg+xml']
-    )
-    Compress(app)
-except Exception as _e:
-    print("[perf] Flask-Compress not active:", _e)
 # Límite de subida (ajustable por env MAX_UPLOAD_MB). Evita BYTEA enormes que disparan RAM.
 app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_UPLOAD_MB', '2')) * 1024 * 1024
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
@@ -211,8 +182,7 @@ def _init_pool():
         raise RuntimeError('Falta DATABASE_URL para PostgreSQL')
 
     # Máximo 3 conexiones por defecto (suficiente en 512 MB). Sube con DB_MAX_CONN si lo necesitas.
-    maxconn = int(os.environ.get('DB_MAX_CONN', '2'))
-    maxconn = max(1, min(maxconn, 2))
+    maxconn = max(3, int(os.environ.get('DB_MAX_CONN', '3')))
     PG_POOL = SimpleConnectionPool(
         1, maxconn,
         dsn=DATABASE_URL,
@@ -248,14 +218,14 @@ class PooledConn:
                 with self._conn.cursor() as c:
                     c.execute("SET application_name = 'mochitos';")
                     c.execute("SET idle_in_transaction_session_timeout = '5s';")
-                    c.execute("SET statement_timeout = '3s';")
+                    c.execute("SET statement_timeout = '5s';")
                 self._inited = True
             except (OperationalError, InterfaceError):
                 self._reconnect()
                 with self._conn.cursor() as c:
                     c.execute("SET application_name = 'mochitos';")
                     c.execute("SET idle_in_transaction_session_timeout = '5s';")
-                    c.execute("SET statement_timeout = '3s';")
+                    c.execute("SET statement_timeout = '5s';")
                 self._inited = True
 
         try:
@@ -457,99 +427,72 @@ _cache_store = {}
 def _cache_key(fn_name): return f"_cache::{fn_name}"
 def ttl_cache(seconds=10):
     def deco(fn):
+        key = _cache_key(fn.__name__)
         def wrapped(*a, **k):
             now = _time.time()
-            try:
-                key = ("_cache", fn.__name__, a, tuple(sorted(k.items())))
-            except Exception:
-                key = ("_cache", fn.__name__)
-            hit = _cache_store.get(key)
-            if hit and (now - hit[0]) < seconds:
-                return hit[1]
+            item = _cache_store.get(key)
+            if item and (now - item[0] < seconds):
+                return item[1]
             val = fn(*a, **k)
             _cache_store[key] = (now, val)
             return val
         wrapped.__wrapped__ = fn
+        wrapped._cache_key = key
         return wrapped
     return deco
 def cache_invalidate(*fn_names):
-    if not fn_names:
-        _cache_store.clear()
-        return
-    names = set(fn_names)
-    for key in list(_cache_store.keys()):
-        try:
-            if isinstance(key, tuple) and len(key) >= 2 and key[1] in names:
-                _cache_store.pop(key, None)
-        except Exception:
-            pass
+    for name in fn_names:
+        _cache_store.pop(_cache_key(name), None)
 
-
-
-# ========= DB init (añadimos app_state y push_subscriptions si no existen) =========
 # ========= DB init (añadimos app_state y push_subscriptions si no existen) =========
 def init_db():
     with closing(get_db_connection()) as conn, conn.cursor() as c:
         c.execute('''CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY, username TEXT UNIQUE, password TEXT)''')
-
         c.execute('''CREATE TABLE IF NOT EXISTS schedule_times (
             id SERIAL PRIMARY KEY, username TEXT NOT NULL, time TEXT NOT NULL,
             UNIQUE (username, time))''')
-
         c.execute('''CREATE TABLE IF NOT EXISTS daily_questions (
             id SERIAL PRIMARY KEY, question TEXT, date TEXT)''')
-
         c.execute('''CREATE TABLE IF NOT EXISTS answers (
             id SERIAL PRIMARY KEY, question_id INTEGER, username TEXT, answer TEXT)''')
         c.execute("ALTER TABLE answers ADD COLUMN IF NOT EXISTS created_at TEXT")
         c.execute("ALTER TABLE answers ADD COLUMN IF NOT EXISTS updated_at TEXT")
         c.execute("CREATE UNIQUE INDEX IF NOT EXISTS answers_unique ON answers (question_id, username)")
-
         c.execute('''CREATE TABLE IF NOT EXISTS meeting (id SERIAL PRIMARY KEY, meeting_date TEXT)''')
-
         c.execute('''CREATE TABLE IF NOT EXISTS banner (
             id SERIAL PRIMARY KEY, image_data BYTEA, filename TEXT, mime_type TEXT, uploaded_at TEXT)''')
-
         c.execute('''CREATE TABLE IF NOT EXISTS travels (
             id SERIAL PRIMARY KEY, destination TEXT NOT NULL, description TEXT, travel_date TEXT,
             is_visited BOOLEAN DEFAULT FALSE, created_by TEXT, created_at TEXT)''')
-
         c.execute('''CREATE TABLE IF NOT EXISTS travel_photos (
             id SERIAL PRIMARY KEY, travel_id INTEGER, image_url TEXT NOT NULL,
             uploaded_by TEXT, uploaded_at TEXT, FOREIGN KEY(travel_id) REFERENCES travels(id))''')
-
         c.execute('''CREATE TABLE IF NOT EXISTS wishlist (
             id SERIAL PRIMARY KEY, product_name TEXT NOT NULL, product_link TEXT, notes TEXT,
             created_by TEXT, created_at TEXT, is_purchased BOOLEAN DEFAULT FALSE)''')
-        c.execute("""
-            ALTER TABLE wishlist
-            ADD COLUMN IF NOT EXISTS priority TEXT
-            CHECK (priority IN ('alta','media','baja')) DEFAULT 'media'
-        """)
+        c.execute("""ALTER TABLE wishlist
+                     ADD COLUMN IF NOT EXISTS priority TEXT
+                     CHECK (priority IN ('alta','media','baja')) DEFAULT 'media'""")
         c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS is_gift BOOLEAN DEFAULT FALSE""")
         c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS size TEXT""")
-
         c.execute('''CREATE TABLE IF NOT EXISTS schedules (
             id SERIAL PRIMARY KEY, username TEXT NOT NULL, day TEXT NOT NULL,
             time TEXT NOT NULL, activity TEXT, color TEXT, UNIQUE(username, day, time))''')
-
         c.execute('''CREATE TABLE IF NOT EXISTS locations (
             id SERIAL PRIMARY KEY, username TEXT UNIQUE, location_name TEXT,
             latitude REAL, longitude REAL, updated_at TEXT)''')
-
         c.execute('''CREATE TABLE IF NOT EXISTS profile_pictures (
             id SERIAL PRIMARY KEY, username TEXT UNIQUE, image_data BYTEA,
             filename TEXT, mime_type TEXT, uploaded_at TEXT)''')
-
         c.execute('''CREATE TABLE IF NOT EXISTS intimacy_events (
             id SERIAL PRIMARY KEY, username TEXT NOT NULL, ts TEXT NOT NULL, place TEXT, notes TEXT)''')
-
         # App state
         c.execute('''CREATE TABLE IF NOT EXISTS app_state (
             key TEXT PRIMARY KEY, value TEXT)''')
 
-        # === ADMIN: notificaciones programadas ===
+
+                # === ADMIN: notificaciones programadas ===
         c.execute("""
         CREATE TABLE IF NOT EXISTS scheduled_notifications (
             id SERIAL PRIMARY KEY,
@@ -569,7 +512,7 @@ def init_db():
         """)
         c.execute("CREATE INDEX IF NOT EXISTS idx_sched_status_when ON scheduled_notifications (status, when_at)")
 
-        # --- Películas / Series ---
+            # --- Películas / Series ---
         c.execute("""
             CREATE TABLE IF NOT EXISTS media_items (
                 id SERIAL PRIMARY KEY,
@@ -579,26 +522,29 @@ def init_db():
                 on_netflix      BOOLEAN     DEFAULT FALSE,
                 on_prime        BOOLEAN     DEFAULT FALSE,
                 priority        TEXT        CHECK (priority IN ('alta','media','baja')) DEFAULT 'media',
-                comment         TEXT,
+                comment         TEXT,                -- comentario en "Por ver"
                 created_by      TEXT,
                 created_at      TEXT,
                 is_watched      BOOLEAN     DEFAULT FALSE,
                 watched_at      TEXT,
                 rating          INTEGER     CHECK (rating BETWEEN 1 AND 5),
-                watched_comment TEXT
-            )
+                watched_comment TEXT                 -- comentario en "Vistas"
+            );
         """)
-        c.execute("CREATE INDEX IF NOT EXISTS idx_media_watched_prio ON media_items (is_watched, priority, created_at DESC)")
-        c.execute("CREATE INDEX IF NOT EXISTS idx_media_watched_at   ON media_items (is_watched, watched_at DESC)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_media_watched_prio ON media_items (is_watched, priority, created_at DESC);")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_media_watched_at   ON media_items (is_watched, watched_at DESC);")
+        # Guardar reviews por usuario y media calcular medias
         c.execute("""ALTER TABLE media_items ADD COLUMN IF NOT EXISTS reviews JSONB DEFAULT '{}'::jsonb""")
         c.execute("""ALTER TABLE media_items ADD COLUMN IF NOT EXISTS avg_rating REAL""")
 
-        # === Ciclo (menstrual / estado de ánimo) ===
+
+
+                # === Ciclo (menstrual / estado de ánimo) ===
         c.execute("""
         CREATE TABLE IF NOT EXISTS cycle_entries (
             id          SERIAL PRIMARY KEY,
-            username    TEXT        NOT NULL,
-            day         TEXT        NOT NULL,
+            username    TEXT        NOT NULL,                -- propietaria de los datos (normalmente 'mochita')
+            day         TEXT        NOT NULL,                -- 'YYYY-MM-DD' (fecha local Madrid)
             mood        TEXT        CHECK (mood IN (
                            'feliz','normal','triste','estresada','sensible','cansada','irritable','con_energia'
                          )),
@@ -613,15 +559,17 @@ def init_db():
         c.execute("CREATE INDEX IF NOT EXISTS idx_cycle_user_day ON cycle_entries (username, day DESC)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_cycle_flow ON cycle_entries (flow)")
 
+
+
         # === Preguntas (banco editable por admin) ===
         c.execute("""
         CREATE TABLE IF NOT EXISTS question_bank (
-            id SERIAL PRIMARY KEY,
-            text TEXT UNIQUE NOT NULL,
-            used BOOLEAN NOT NULL DEFAULT FALSE,
-            used_at TEXT,
-            active BOOLEAN NOT NULL DEFAULT TRUE,
-            created_at TEXT NOT NULL
+        id SERIAL PRIMARY KEY,
+        text TEXT UNIQUE NOT NULL,
+        used BOOLEAN NOT NULL DEFAULT FALSE,
+        used_at TEXT,
+        active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TEXT NOT NULL
         )
         """)
         c.execute("CREATE INDEX IF NOT EXISTS idx_qbank_used_active ON question_bank (used, active)")
@@ -638,7 +586,7 @@ def init_db():
                     pass
             conn.commit()
 
-        # === Daily Question: reacciones y chat ===
+                # === Daily Question: reacciones y chat ===
         c.execute("""
             CREATE TABLE IF NOT EXISTS dq_reactions (
                 id SERIAL PRIMARY KEY,
@@ -653,7 +601,6 @@ def init_db():
         """)
         c.execute("CREATE INDEX IF NOT EXISTS idx_dq_react_q ON dq_reactions (question_id)")
 
-        # --- Chat de la pregunta (tabla propia) ---
         c.execute("""
             CREATE TABLE IF NOT EXISTS dq_chat (
                 id SERIAL PRIMARY KEY,
@@ -665,17 +612,6 @@ def init_db():
         """)
         c.execute("CREATE INDEX IF NOT EXISTS idx_dq_chat_q ON dq_chat (question_id)")
 
-        # --- Vistos del chat (tabla separada; ¡ojo: fuera del string de dq_chat!) ---
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS dq_seen (
-                id SERIAL PRIMARY KEY,
-                question_id INTEGER NOT NULL,
-                username TEXT NOT NULL,
-                seen_at TEXT NOT NULL,
-                UNIQUE (question_id, username)
-            )
-        """)
-        c.execute("CREATE INDEX IF NOT EXISTS idx_dq_seen_q ON dq_seen (question_id)")
 
         # Push subscriptions
         c.execute('''CREATE TABLE IF NOT EXISTS push_subscriptions (
@@ -685,7 +621,6 @@ def init_db():
             p256dh TEXT NOT NULL,
             auth TEXT NOT NULL,
             created_at TEXT)''')
-
         # Seed básico
         try:
             c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochito','1234'))
@@ -699,10 +634,8 @@ def init_db():
                       ('mochita','Córdoba', 37.8882, -4.7794, now))
             conn.commit()
         except Exception as e:
-            print("Seed error:", e)
-            conn.rollback()
-
-        # Índices varios
+            print("Seed error:", e); conn.rollback()
+        # Índices
         c.execute("CREATE INDEX IF NOT EXISTS idx_answers_q_user ON answers (question_id, username)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_travels_vdate ON travels (is_visited, travel_date DESC)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_wishlist_state_prio ON wishlist (is_purchased, priority, created_at DESC)")
@@ -720,38 +653,7 @@ def init_db():
 
         conn.commit()
 
-# Lazy DB init to reduce boot memory/time (compatible Flask 3)
-import threading
-
-_INIT_DONE = False
-_INIT_LOCK = threading.Lock()
-
-def _maybe_init_db():
-    global _INIT_DONE
-    if _INIT_DONE:
-        return
-    try:
-        # Si tu init_db no necesita app_context, puedes quitar las 2 líneas de comentario:
-        # from flask import current_app
-        # with current_app.app_context():
-        init_db()
-    except Exception as e:
-        print('[init_db lazy] error:', e, flush=True)
-    else:
-        _INIT_DONE = True
-
-@app.before_request
-def _first_req_init():
-    """Flask 3 no tiene before_first_request; hacemos bootstrap una sola vez con lock."""
-    global _INIT_DONE
-    if not _INIT_DONE:
-        with _INIT_LOCK:
-            if not _INIT_DONE:
-                _maybe_init_db()
-
-# Opt-in init on boot via env (si quieres forzarlo al arrancar)
-if os.environ.get('INIT_DB_ON_BOOT', '0') == '1':
-    _maybe_init_db()
+init_db()
 
 # ========= Helpers =========
 # ========= Helpers =========
@@ -1212,7 +1114,6 @@ def parse_datetime_local_to_madrid(dt_local: str) -> str | None:
         return None
 
 
-@ttl_cache(seconds=20)
 def get_today_question(today: date | None = None):
     if today is None:
         today = today_madrid()
@@ -1433,7 +1334,7 @@ def send_push_raw(sub: dict, payload: dict):
     if not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY_HEX:
         return False
     try:
-        _send_webpush(
+        webpush(
             subscription_info={
                 "endpoint": sub["endpoint"],
                 "keys": {
@@ -1447,7 +1348,7 @@ def send_push_raw(sub: dict, payload: dict):
             timeout=5
         )
         return True
-    except _WebPushException as e:
+    except WebPushException as e:
         status = getattr(e.response, "status_code", None)
         if status in (404, 410):
             try:
@@ -2207,10 +2108,6 @@ def index():
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            try:
-                c.execute("SET LOCAL statement_timeout = '2000ms';")
-            except Exception:
-                pass
             # ------------ POST acciones ------------
             # 1) Foto perfil
             if request.method == 'POST' and 'update_profile' in request.form and 'profile_picture' in request.files:
@@ -4882,31 +4779,29 @@ def admin_questions_assign_tomorrow(qid):
         conn.close()
 
 
+
 @app.post("/dq/react")
 def dq_react():
     if 'username' not in session:
-        return (jsonify({'ok': False, 'error': 'auth'}), 401) if request.accept_mimetypes.accept_json else redirect('/')
+        return redirect('/')
     user = session['username']
 
-    qid_raw = (request.form.get('question_id') or (request.json.get('question_id') if request.is_json else '') or '').strip()
+    qid_raw = (request.form.get('question_id') or '').strip()
     try:
         qid = int(qid_raw)
     except Exception:
-        qid, _ = get_today_question()
+        qid, _ = get_today_question()  # fallback al de hoy
 
-    target_user = (request.form.get('target_user') or (request.json.get('target_user') if request.is_json else '') or '').strip()
-    reaction = (request.form.get('reaction') or (request.json.get('reaction') if request.is_json else '') or '').strip()[:16]
+    target_user = (request.form.get('target_user') or '').strip()
+    reaction    = (request.form.get('reaction') or '').strip()
 
-    if not target_user or not reaction:
-        if request.accept_mimetypes.accept_json:
-            return jsonify({'ok': False, 'error': 'bad_params'}), 400
-        flash("Datos incompletos.", "error")
-        return redirect('/#pregunta')
+    if not reaction:
+        flash("Falta la reacción.", "error"); return redirect('/#pregunta')
+    if target_user not in ('mochito', 'mochita') or target_user == user:
+        flash("Destino inválido.", "error"); return redirect('/#pregunta')
 
     now_txt = now_madrid_str()
     conn = get_db_connection()
-    mine = None
-    theirs = None
     try:
         with conn.cursor() as c:
             c.execute("""
@@ -4914,142 +4809,73 @@ def dq_react():
                 VALUES (%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (question_id, from_user, to_user)
                 DO UPDATE SET reaction=EXCLUDED.reaction, updated_at=EXCLUDED.updated_at
-            """, (qid, user, target_user, reaction, now_txt, now_txt))
-
-            c.execute("SELECT from_user, to_user, reaction FROM dq_reactions WHERE question_id=%s AND from_user=%s AND to_user=%s",
-                      (qid, user, target_user))
-            mine = c.fetchone()
-            c.execute("SELECT from_user, to_user, reaction FROM dq_reactions WHERE question_id=%s AND from_user=%s AND to_user=%s",
-                      (qid, target_user, user))
-            theirs = c.fetchone()
+            """, (qid, user, target_user, reaction[:16], now_txt, now_txt))
             conn.commit()
-
+        flash("Reacción guardada ❤️", "success")
+        send_discord("DQ reaction", {"by": user, "to": target_user, "reaction": reaction})
         try:
             broadcast("dq_reaction", {"from": user, "to": target_user, "reaction": reaction, "q": qid})
         except Exception:
             pass
-    except Exception:
+    except Exception as e:
+        print("[dq_react]", e)
         try: conn.rollback()
         except Exception: pass
-        if request.accept_mimetypes.accept_json:
-            return jsonify({'ok': False, 'error': 'db'}), 500
         flash("No se pudo guardar la reacción.", "error")
-        return redirect('/#pregunta')
     finally:
         conn.close()
-
-    if request.accept_mimetypes.accept_json:
-        return jsonify({
-            'ok': True,
-            'mine': (mine['reaction'] if mine else None),
-            'theirs': (theirs['reaction'] if theirs else None),
-            'q': qid
-        })
     return redirect('/#pregunta')
 
 
 @app.post("/dq/chat/send")
 def dq_chat_send():
     if 'username' not in session:
-        return (jsonify({'ok': False, 'error': 'auth'}), 401) if request.accept_mimetypes.accept_json else redirect('/')
+        return redirect('/')
     user = session['username']
 
-    qid_raw = (request.form.get('question_id') or (request.json.get('question_id') if request.is_json else '') or '').strip()
+    qid_raw = (request.form.get('question_id') or '').strip()
     try:
         qid = int(qid_raw)
     except Exception:
         qid, _ = get_today_question()  # fallback al de hoy
 
-    msg = (request.form.get('msg') or (request.json.get('msg') if request.is_json else '') or '').strip()
+    msg = (request.form.get('msg') or '').strip()
     if not msg:
-        if request.accept_mimetypes.accept_json:
-            return jsonify({'ok': False, 'error': 'empty'}), 400
-        flash("Mensaje vacío.", "error")
-        return redirect('/#pregunta')
-    if len(msg) > 1000:
-        msg = msg[:1000]
-
-    msg = msg.replace('\r', ' ').replace('\n', ' ').strip()
+        flash("Mensaje vacío.", "error"); return redirect('/#pregunta')
+    if len(msg) > 500:
+        msg = msg[:500]
 
     now_txt = now_madrid_str()
     conn = get_db_connection()
-    inserted = None
     try:
         with conn.cursor() as c:
             c.execute("""
                 INSERT INTO dq_chat (question_id, username, msg, created_at)
-                VALUES (%s,%s,%s,%s) RETURNING id
+                VALUES (%s,%s,%s,%s)
             """, (qid, user, msg, now_txt))
-            inserted = c.fetchone()
             conn.commit()
         send_discord("DQ chat", {"by": user, "q": qid, "len": len(msg)})
         try:
             broadcast("dq_chat", {"user": user, "msg": msg, "q": qid, "ts": now_txt})
         except Exception:
             pass
-    except Exception:
+    except Exception as e:
+        print("[dq_chat_send]", e)
         try: conn.rollback()
         except Exception: pass
-        if request.accept_mimetypes.accept_json:
-            return jsonify({'ok': False, 'error': 'db'}), 500
         flash("No se pudo enviar el mensaje.", "error")
-        return redirect('/#pregunta')
     finally:
         conn.close()
 
-    if request.accept_mimetypes.accept_json:
-        mid = (inserted[0] if inserted else None)
-        return jsonify({'ok': True, 'message': {'id': mid, 'user': user, 'msg': msg, 'q': qid, 'ts': now_txt}})
     return redirect('/#pregunta')
 
 
-@app.post("/dq/chat/typing")
-def dq_chat_typing():
-    if 'username' not in session:
-        return jsonify({'ok': False, 'error': 'auth'}), 401
-    user = session['username']
-    qid_raw = (request.form.get('question_id') or (request.json.get('question_id') if request.is_json else '') or '').strip()
-    try:
-        qid = int(qid_raw)
-    except Exception:
-        qid, _ = get_today_question()
-    try:
-        broadcast("dq_typing", {"from": user, "q": qid, "ts": now_madrid_str()})
-    except Exception:
-        pass
-    return jsonify({'ok': True})
 
-@app.post("/dq/chat/seen")
-def dq_chat_seen():
-    if 'username' not in session:
-        return jsonify({'ok': False, 'error': 'auth'}), 401
-    user = session['username']
-    qid_raw = (request.form.get('question_id') or (request.json.get('question_id') if request.is_json else '') or '').strip()
-    try:
-        qid = int(qid_raw)
-    except Exception:
-        qid, _ = get_today_question()
-    now_txt = now_madrid_str()
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute(
-                "INSERT INTO dq_seen (question_id, username, seen_at) VALUES (%s,%s,%s) "
-                "ON CONFLICT (question_id, username) DO UPDATE SET seen_at=EXCLUDED.seen_at",
-                (qid, user, now_txt)
-            )
-            conn.commit()
-        try:
-            broadcast("dq_seen", {"user": user, "q": qid, "ts": now_txt})
-        except Exception:
-            pass
-    except Exception:
-        try: conn.rollback()
-        except Exception: pass
-        return jsonify({'ok': False, 'error': 'db'}), 500
-    finally:
-        conn.close()
-    return jsonify({'ok': True, 'ts': now_txt})
+
+
+# Arrancar el scheduler sólo si RUN_SCHEDULER=1
+if os.environ.get("RUN_SCHEDULER", "1") == "1":
+    threading.Thread(target=background_loop, daemon=True).start()
 
 
 # ======= WSGI / Run =======

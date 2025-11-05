@@ -6,5 +6,3 @@ pywebpush
 cryptography
 pytz
 tzdata
-whitenoise
-Flask-Compress

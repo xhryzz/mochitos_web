@@ -28,6 +28,26 @@ except Exception:
     BeautifulSoup = None
 
 app = Flask(__name__)
+
+# === Performance: WhiteNoise static + Gzip ===
+try:
+    from whitenoise import WhiteNoise
+    app.wsgi_app = WhiteNoise(app.wsgi_app, root=app.static_folder, index_file=True, autorefresh=False, max_age=31536000)
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 86400  # 1 day for dynamic send_file fallbacks
+except Exception as _e:
+    print("[perf] WhiteNoise not active:", _e)
+
+try:
+    from flask_compress import Compress
+    app.config.update(
+        COMPRESS_ALGORITHM='gzip',
+        COMPRESS_LEVEL=6,
+        COMPRESS_MIN_SIZE=1024,
+        COMPRESS_MIMETYPES=['text/html','text/css','application/javascript','application/json','image/svg+xml']
+    )
+    Compress(app)
+except Exception as _e:
+    print("[perf] Flask-Compress not active:", _e)
 # Límite de subida (ajustable por env MAX_UPLOAD_MB). Evita BYTEA enormes que disparan RAM.
 app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_UPLOAD_MB', '2')) * 1024 * 1024
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
@@ -218,14 +238,14 @@ class PooledConn:
                 with self._conn.cursor() as c:
                     c.execute("SET application_name = 'mochitos';")
                     c.execute("SET idle_in_transaction_session_timeout = '5s';")
-                    c.execute("SET statement_timeout = '5s';")
+                    c.execute("SET statement_timeout = '3s';")
                 self._inited = True
             except (OperationalError, InterfaceError):
                 self._reconnect()
                 with self._conn.cursor() as c:
                     c.execute("SET application_name = 'mochitos';")
                     c.execute("SET idle_in_transaction_session_timeout = '5s';")
-                    c.execute("SET statement_timeout = '5s';")
+                    c.execute("SET statement_timeout = '3s';")
                 self._inited = True
 
         try:
@@ -427,22 +447,34 @@ _cache_store = {}
 def _cache_key(fn_name): return f"_cache::{fn_name}"
 def ttl_cache(seconds=10):
     def deco(fn):
-        key = _cache_key(fn.__name__)
         def wrapped(*a, **k):
             now = _time.time()
-            item = _cache_store.get(key)
-            if item and (now - item[0] < seconds):
-                return item[1]
+            try:
+                key = ("_cache", fn.__name__, a, tuple(sorted(k.items())))
+            except Exception:
+                key = ("_cache", fn.__name__)
+            hit = _cache_store.get(key)
+            if hit and (now - hit[0]) < seconds:
+                return hit[1]
             val = fn(*a, **k)
             _cache_store[key] = (now, val)
             return val
         wrapped.__wrapped__ = fn
-        wrapped._cache_key = key
         return wrapped
     return deco
 def cache_invalidate(*fn_names):
-    for name in fn_names:
-        _cache_store.pop(_cache_key(name), None)
+    if not fn_names:
+        _cache_store.clear()
+        return
+    names = set(fn_names)
+    for key in list(_cache_store.keys()):
+        try:
+            if isinstance(key, tuple) and len(key) >= 2 and key[1] in names:
+                _cache_store.pop(key, None)
+        except Exception:
+            pass
+
+
 
 # ========= DB init (añadimos app_state y push_subscriptions si no existen) =========
 # ========= DB init (añadimos app_state y push_subscriptions si no existen) =========
@@ -1139,6 +1171,7 @@ def parse_datetime_local_to_madrid(dt_local: str) -> str | None:
         return None
 
 
+@ttl_cache(seconds=20)
 def get_today_question(today: date | None = None):
     if today is None:
         today = today_madrid()
@@ -2133,6 +2166,10 @@ def index():
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
+            try:
+                c.execute("SET LOCAL statement_timeout = '2000ms';")
+            except Exception:
+                pass
             # ------------ POST acciones ------------
             # 1) Foto perfil
             if request.method == 'POST' and 'update_profile' in request.form and 'profile_picture' in request.files:

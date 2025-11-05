@@ -12,8 +12,7 @@ from base64 import b64encode
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 import re  # <-- Seguimiento de precio
-# app.py (arriba)
-from realtime import init_realtime, socketio
+
 
 # Web Push
 from pywebpush import webpush, WebPushException
@@ -4427,52 +4426,31 @@ def cycle_save():
     flash("Día guardado ✅", "success")
     return redirect('/#ciclo')
 
-
 @app.post('/cycle/delete')
 def cycle_delete():
     if 'username' not in session:
         return redirect('/')
 
-    created_by = session['username']
-
-    # 🔒 Solo mochita puede borrar
-    if created_by != 'mochita':
-        try:
-            send_discord("Cycle delete FORBIDDEN", {"by": created_by})
-        except Exception:
-            pass
-        if request.is_json or request.headers.get('Accept','').startswith('application/json'):
-            return jsonify({"ok": False, "error": "forbidden"}), 403
-        flash("Solo mochita puede editar el ciclo.", "error")
+    # Admite id estilo "YYYY-MM-DD_YYYY-MM-DD" o un id numérico
+    pid = (request.form.get('id') or request.form.get('pid') or '').strip()
+    if not pid:
+        flash('Falta ID.', 'error')
         return redirect('/#ciclo')
 
-    # Siempre operamos sobre mochita
-    for_user = 'mochita'
-    day = (request.form.get('day') or request.values.get('day') or '').strip()
-
-    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', day or ''):
-        if request.is_json or request.headers.get('Accept','').startswith('application/json'):
-            return jsonify({"ok": False, "error": "bad_day"}), 400
-        flash("Fecha inválida.", "error")
-        return redirect('/#ciclo')
-
-    conn = get_db_connection()
     try:
-        with conn.cursor() as c:
-            c.execute("DELETE FROM cycle_entries WHERE username=%s AND day=%s", (for_user, day))
-            conn.commit()
+        delete_period_by_id(pid, user='mochita')  # usa el helper que ya tienes
+        flash('Periodo eliminado 🗑️', 'info')
         try:
-            send_discord("Cycle delete", {"by": created_by, "for": for_user, "day": day})
-            broadcast("cycle_update", {"user": for_user, "day": day, "deleted": True})
+            send_discord('Cycle delete', {'by': session.get('username', '?'), 'pid': pid})
+            broadcast('cycle_update', {'user': 'mochita'})
         except Exception:
             pass
-    finally:
-        conn.close()
+    except Exception as e:
+        print('[cycle_delete] ', e)
+        flash('No se pudo eliminar.', 'error')
 
-    if request.is_json or request.headers.get('Accept','').startswith('application/json'):
-        return jsonify({"ok": True})
-    flash("Día eliminado 🗑️", "info")
     return redirect('/#ciclo')
+
 
 
 # ======= Página /regla =======

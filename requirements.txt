@@ -3,9 +3,4 @@ psycopg2-binary
 gunicorn
 requests
 pywebpush
-cryptography
-pytz
-tzdata
 flask-socketio==5.3.7
-python-socketio==5.11.3
-python-engineio==4.10.1

@@ -16,7 +16,7 @@ import re  # <-- Seguimiento de precio
 # Web Push
 from pywebpush import webpush, WebPushException
 
-from app import send_discord
+
 
 try:
     import pytz  # opcional (fallback)
@@ -132,6 +132,33 @@ def touch_presence(user: str, device: str = 'page-view'):
         conn.close()
 
 
+# --- Helper Discord (evita import circular) ---
+def send_discord(event: str, payload: dict | None = None) -> bool:
+    """
+    Envía un mensaje al webhook de Discord si DISCORD_WEBHOOK_URL está definido.
+    No rompe aunque falle: devuelve False y sigue.
+    """
+    try:
+        webhook = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
+        if not webhook:
+            return False
+        # Mensaje simple + payload (si hay) como bloque de código
+        content = f"**{event}**"
+        data = {"content": content}
+        if payload:
+            try:
+                body = json.dumps(payload, ensure_ascii=False, indent=2)
+                data["embeds"] = [{"description": f"```json\n{body[:3900]}\n```"}]
+            except Exception:
+                # por si payload no es serializable
+                data["embeds"] = [{"description": f"```txt\n{str(payload)[:3900]}\n```"}]
+
+        # timeout corto para no bloquear worker
+        requests.post(webhook, json=data, timeout=4)
+        return True
+    except Exception as e:
+        print("[send_discord] error:", e)
+        return False
 
 def _init_pool():
     global PG_POOL

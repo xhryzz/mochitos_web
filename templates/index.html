@@ -2844,39 +2844,6 @@ body::before{ z-index: -1; }
   </div>
 </div>
 
-<!-- Variables y scripts -->
-<script src="/socket.io/socket.io.js"></script>
-<script>
-  window.CURRENT_QUESTION_ID = {{ question_id }};
-  window.CURRENT_USER_ID = {{ current_user.id }};
-  window.CURRENT_USERNAME = {{ username|tojson }};
-  window.OTHER_USERNAME = {{ other_user|tojson }};
-  // Inicializar badges de reacción desde servidor (si existen)
-  (function(){
-    const mine = {{ (dq_reactions.get(other_user) if dq_reactions else None)|tojson }};
-    const theirs = {{ (dq_reactions.get(username) if dq_reactions else None)|tojson }};
-    const bMe = document.getElementById('reaction-badge-me');
-    const bThem = document.getElementById('reaction-badge-them');
-    if (theirs && theirs.from_user === OTHER_USERNAME && bMe) { bMe.textContent = theirs.reaction; bMe.classList.add('show'); }
-    if (mine && mine.from_user === CURRENT_USERNAME && bThem) { bThem.textContent = mine.reaction; bThem.classList.add('show'); }
-    // Picker de reacciones (botones)
-    document.querySelectorAll('.dq-reactions-buttons [data-emoji]')?.forEach(btn=>{
-      btn.addEventListener('click', ()=> window.setQuestionReaction(btn.dataset.emoji));
-    });
-  })();
-
-  // Soporte editar respuesta inline (ya lo tenías)
-  function toggleEdit(who){
-    const f = document.getElementById('ans-form-'+who);
-    const t = document.getElementById('ans-text-'+who);
-    if (!f || !t) return false;
-    if (f.style.display==='none' || !f.style.display) { f.style.display='block'; t.parentElement.style.display='none'; }
-    else { f.style.display='none'; t.parentElement.style.display='block'; }
-    return false;
-  }
-</script>
-<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
-
 
 <!-- Lista de deseos -->
 <div class="section animate-in delay-3">
@@ -7059,7 +7026,40 @@ function flyOnce(){
 })();
 </script>
 
+<!-- Variables y scripts -->
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  window.CURRENT_QUESTION_ID = {{ (question_id or 0) | tojson }};
+  window.CURRENT_USER_ID     = {{ (session.get('user_id') or 0) | tojson }};
+  window.CURRENT_USERNAME    = {{ (username if username is defined else session.get('username','')) | tojson }};
+  window.OTHER_USERNAME      = {{ (other_user if other_user is defined else '') | tojson }};
 
+  // Inicializar badges de reacción desde servidor (si existen)
+  (function(){
+    const mine   = {{ (dq_reactions.get(other_user) if dq_reactions else None) | tojson }};
+    const theirs = {{ (dq_reactions.get(username)   if dq_reactions else None) | tojson }};
+    const bMe   = document.getElementById('reaction-badge-me');
+    const bThem = document.getElementById('reaction-badge-them');
+    if (theirs && theirs.from_user === OTHER_USERNAME && bMe) { bMe.textContent = theirs.reaction; bMe.classList.add('show'); }
+    if (mine   && mine.from_user   === CURRENT_USERNAME && bThem) { bThem.textContent = mine.reaction; bThem.classList.add('show'); }
+
+    // Picker de reacciones (botones)
+    document.querySelectorAll('.dq-reactions-buttons [data-emoji]')?.forEach(btn=>{
+      btn.addEventListener('click', ()=> window.setQuestionReaction(btn.dataset.emoji));
+    });
+  })();
+
+  // Editar respuesta inline (lo que ya tenías)
+  function toggleEdit(who){
+    const f = document.getElementById('ans-form-'+who);
+    const t = document.getElementById('ans-text-'+who);
+    if (!f || !t) return false;
+    if (f.style.display==='none' || !f.style.display) { f.style.display='block'; t.parentElement.style.display='none'; }
+    else { f.style.display='none'; t.parentElement.style.display='block'; }
+    return false;
+  }
+</script>
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
 {% if username in ('mochito','mochita') %}
 <button onclick="location.href='/push/debug'" class="debug-fab" aria-label="Debug push">🔧 Notificaciones</button>
 <style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:rgba(232,67,147,.4);color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>

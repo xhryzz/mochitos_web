@@ -2586,41 +2586,57 @@ def index():
     flows_for_select = list(ALLOWED_FLOWS)
 
     return render_template('index.html',
-                           question=question_text,
-                           show_answers=show_answers,
-                           answers=answers,
-                           answers_edited=answers_edited,
-                           answers_created_at=answers_created_at,
-                           answers_updated_at=answers_updated_at,
-                           user_answer=user_answer,
-                           other_user=other_user,
-                           other_answer=other_answer,
-                           days_together=days_together(),
-                           days_until_meeting=days_until_meeting(),
-                           travels=travels,
-                           travel_photos_dict=travel_photos_dict,
-                           wishlist_items=wishlist_items,
-                           username=user,
-                           banner_file=banner_file,
-                           profile_pictures=profile_pictures,
-                           error=None,
-                           current_streak=current_streak,
-                           best_streak=best_streak,
-                           intim_unlocked=intim_unlocked,
-                           intim_stats=intim_stats,
-                           intim_events=intim_events,
-                           media_to_watch=media_to_watch,
-                           media_watched=media_watched,
-                           wishlist=wishlist_items,
-                           cycle_user=cycle_user,
-                           cycle_entries=cycle_entries,
-                           cycle_pred=cycle_pred,
-                           moods_for_select=moods_for_select,
-                           flows_for_select=flows_for_select,
-                           question_id=question_id,
-                           dq_reactions=dq_reactions_map,
-                           dq_chat_messages=dq_chat_messages,
-                           )
+                            username=user,
+                            error=None,
+
+                            # Pregunta del día
+                            question=question_text,
+                            question_id=question_id,
+                            show_answers=show_answers,
+                            answers=answers,
+                            answers_edited=answers_edited,
+                            answers_created_at=answers_created_at,
+                            answers_updated_at=answers_updated_at,
+                            user_answer=user_answer,
+                            other_user=other_user,
+                            other_answer=other_answer,
+                            dq_reactions=dq_reactions_map,
+                            dq_chat_messages=dq_chat_messages,
+
+                            # Contadores / estados
+                            days_together=days_together(),
+                            days_until_meeting=days_until_meeting(),
+                            current_streak=current_streak,
+                            best_streak=best_streak,
+
+                            # Viajes
+                            travels=travels,
+                            travel_photos_dict=travel_photos_dict,
+
+                            # Wishlist (⚠️ unifica en 'wishlist')
+                            wishlist=wishlist_items,
+
+                            # Media (pelis/series)
+                            media_to_watch=media_to_watch,
+                            media_watched=media_watched,
+
+                            # Perfil / banner
+                            banner_file=banner_file,
+                            profile_pictures=profile_pictures,
+
+                            # Intimidad
+                            intim_unlocked=intim_unlocked,
+                            intim_stats=intim_stats,
+                            intim_events=intim_events,
+
+                            # Ciclo
+                            cycle_user=cycle_user,
+                            cycle_entries=cycle_entries,
+                            cycle_pred=cycle_pred,
+                            moods_for_select=moods_for_select,
+                            flows_for_select=flows_for_select,
+                        )
+
 
 # ======= Rutas REST extra (con broadcast) =======
 @app.route('/delete_travel', methods=['POST'])

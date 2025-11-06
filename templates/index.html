@@ -169,6 +169,45 @@
         .modal-body { padding: 25px; overflow-y: auto; }
 
         /* Pregunta del día */
+
+/* === WhatsApp-like reaction chips on answers === */
+.answers .answer-item{ position:relative; }
+.answers .answer-item .dq-reaction-chip{
+  position:absolute;
+  left:48px; top:-6px;
+  background:#fff;
+  border:1px solid #eee;
+  border-radius:14px;
+  padding:2px 8px;
+  font-size:0.95rem;
+  line-height:1.1;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+}
+/* small hover effect like WhatsApp */
+.answers .answer-item .dq-reaction-chip:hover{ transform:translateY(-1px); }
+
+/* Toggle + picker */
+.answers .answer-item .dq-react-toggle{
+  position:absolute; right:8px; bottom:8px;
+  width:28px; height:28px;
+  border:0; background:transparent; cursor:pointer;
+}
+.answers .answer-item .dq-react-toggle::after{ content:'🙂'; font-size:18px; opacity:.55; }
+.answers .answer-item .dq-react-picker{
+  position:absolute; right:6px; bottom:40px;
+  display:none; gap:6px;
+  background:#fff; border:1px solid #eee; border-radius:16px;
+  padding:6px; box-shadow:0 10px 24px rgba(0,0,0,.15); z-index:4;
+}
+.answers .answer-item .dq-react-picker.open{ display:flex; }
+.answers .answer-item .dq-react-picker button{
+  background:#fff; border:0; padding:6px; border-radius:10px; font-size:22px; cursor:pointer;
+}
+.answers .answer-item .dq-react-picker button:hover{ transform:scale(1.08); }
+
+/* hide legacy reactions card */
+.dq-reactions-card{ display:none !important; }
+
         .question { font-size: 1.4rem; margin-bottom: 20px; color: var(--dark-text); font-weight: 600; line-height: 1.5; padding: 20px; background: rgba(162,155,254,.1); border-radius: 15px; border-left: 5px solid var(--accent-color); }
         .answers { margin-top: 25px; display: flex; flex-direction: column; gap: 15px; }
         .answer-item { background: #f8f8f8; padding: 15px 20px; border-radius: 12px; border-left: 5px solid var(--accent-color); display: flex; align-items: center; gap: 15px; }
@@ -2605,13 +2644,15 @@ body::before{ z-index: -1; }
   <!-- {# === A) Ambos respondieron === #} -->
   {% if show_answers %}
     <div class="answers" style="gap:12px;">
-      {# Tu bloque (editable) #}
-      <div class="answer-item" style="flex-wrap:wrap;">
-        <div class="user-avatar">
-          {% if profile_pictures.get(username) %}
-            <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
-          {% else %} {{ username[0]|upper }} {% endif %}
-        </div>
+      \1
+
+{% set _partner = dq_reactions.get(username) if dq_reactions else None %}
+{% if _partner and _partner.from_user == other_user %}
+  <div class="dq-reaction-chip" aria-label="{{ other_user }} reaccionó" title="{{ other_user }} reaccionó">
+    {{ _partner.reaction }}
+  </div>
+{% endif %}
+
 
         <div class="answer-content" style="flex:1;">
           <div class="answer-head" style="display:flex; align-items:center; gap:10px;">
@@ -2636,13 +2677,28 @@ body::before{ z-index: -1; }
         </div>
       </div>
 
-      <!-- {# Bloque de la otra persona (solo lectura) #} -->
-      <div class="answer-item">
-        <div class="user-avatar">
-          {% if profile_pictures.get(other_user) %}
-            <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
-          {% else %} {{ other_user[0]|upper }} {% endif %}
-        </div>
+      \1
+
+{% set _mine = dq_reactions.get(other_user) if dq_reactions else None %}
+{% if _mine and _mine.from_user == username %}
+  <div class="dq-reaction-chip" aria-label="Tu reacción a {{ other_user }}" title="Tu reacción a {{ other_user }}">
+    {{ _mine.reaction }}
+  </div>
+{% endif %}
+{% if show_answers and (not _mine or _mine.from_user != username) %}
+  <button type="button" class="dq-react-toggle" data-react-toggle title="Reaccionar"></button>
+  <form method="POST" action="/dq/react" class="dq-react-picker">
+    <input type="hidden" name="question_id" value="{{ question_id }}">
+    <input type="hidden" name="target_user" value="{{ other_user }}">
+    <button type="submit" name="reaction" value="👍">👍</button>
+    <button type="submit" name="reaction" value="❤️">❤️</button>
+    <button type="submit" name="reaction" value="😂">😂</button>
+    <button type="submit" name="reaction" value="😮">😮</button>
+    <button type="submit" name="reaction" value="😢">😢</button>
+    <button type="submit" name="reaction" value="🙏">🙏</button>
+  </form>
+{% endif %}
+
         <div>
   <b>{{ other_user }}:</b>
   <span class="answer-text">{{ other_answer }}</span>
@@ -2653,6 +2709,77 @@ body::before{ z-index: -1; }
 
       </div>
     </div>
+
+
+    <!-- Chat y reacciones -->
+    <div class="dq-extra">
+
+      <div class="dq-reactions-card">
+        <div class="dq-reactions-title">
+          Reacciona a la respuesta de {{ other_user }}
+        </div>
+
+        <form method="POST" action="/dq/react" class="dq-reactions-form">
+          <input type="hidden" name="question_id" value="{{ question_id }}">
+          <input type="hidden" name="target_user" value="{{ other_user }}">
+
+          <div class="dq-reactions-buttons">
+            <button type="submit" name="reaction" value="❤️" aria-label="Me encanta">❤️</button>
+            <button type="submit" name="reaction" value="😂" aria-label="Me hace gracia">😂</button>
+            <button type="submit" name="reaction" value="😡" aria-label="Me enfada">😡</button>
+            <button type="submit" name="reaction" value="👍" aria-label="Estoy de acuerdo">👍</button>
+          </div>
+
+          {% set mine = dq_reactions.get(other_user) if dq_reactions else None %}
+          {% if mine and mine.from_user == username %}
+            <div class="dq-reaction-current">
+              Tu reacción:
+              <span class="big-reaction">{{ mine.reaction }}</span>
+            </div>
+          {% endif %}
+
+          {% set theirs = dq_reactions.get(username) if dq_reactions else None %}
+          {% if theirs and theirs.from_user == other_user %}
+            <div class="dq-reaction-partner">
+              {{ other_user }} reaccionó:
+              <span class="big-reaction">{{ theirs.reaction }}</span>
+            </div>
+          {% endif %}
+        </form>
+      </div>
+
+      <div class="dq-chat-card">
+        <div class="dq-chat-header">
+          <i class="fas fa-comments" aria-hidden="true"></i>
+          Charla privada sobre la pregunta
+        </div>
+
+        <div class="dq-chat-messages">
+          {% if dq_chat_messages %}
+            {% for m in dq_chat_messages %}
+              <div class="dq-chat-msg {% if m.username == username %}me{% else %}them{% endif %}">
+                <div class="dq-chat-meta">
+                  <b>{{ m.username }}</b>
+                  <span class="ts">{{ m.created_at }}</span>
+                </div>
+                <div class="dq-chat-bubble">{{ m.msg }}</div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="dq-chat-empty">Todavía no hay mensajes. Empieza la conversación 💕</div>
+          {% endif %}
+        </div>
+
+        <form method="POST" action="/dq/chat/send" class="dq-chat-form" style="margin-top:12px;">
+          <input type="hidden" name="question_id" value="{{ question_id }}">
+          <input type="text" name="msg" required placeholder="Escribe algo bonito...">
+          <button type="submit"><i class="fas fa-paper-plane"></i></button>
+        </form>
+      </div>
+
+    </div>
+
+
 <!-- {# === B) Tú respondiste y falta el/la otr@ (puedes editar mientras) === #} -->
   {% elif user_answer and not other_answer %}
     <div class="answers" style="gap:12px;">
@@ -6910,6 +7037,37 @@ function flyOnce(){
 <button onclick="location.href='/push/debug'" class="debug-fab" aria-label="Debug push">🔧 Notificaciones</button>
 <style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:rgba(232,67,147,.4);color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>
 {% endif %}
+
+
+<script>
+// WhatsApp-like reactions: open picker on tap/long-press of the other answer
+(function(){
+  function closeAll(){ document.querySelectorAll('.dq-react-picker.open').forEach(p=>p.classList.remove('open')); }
+  document.addEventListener('click', (ev)=>{
+    const t = ev.target.closest('[data-react-toggle]');
+    if (t){
+      ev.stopPropagation();
+      closeAll();
+      const picker = t.parentElement.querySelector('.dq-react-picker');
+      if (picker){ picker.classList.add('open'); }
+    } else if (!ev.target.closest('.dq-react-picker')){
+      closeAll();
+    }
+  });
+
+  // long-press on other user's answer text
+  var pressTimer=null;
+  document.querySelectorAll('.answers .answer-item[data-owner="other"] .answer-text').forEach(el=>{
+    el.addEventListener('touchstart', (e)=>{
+      pressTimer = setTimeout(()=>{
+        const picker = el.closest('.answer-item')?.querySelector('.dq-react-picker');
+        if (picker){ picker.classList.add('open'); }
+      }, 450);
+    });
+    ['touchend','touchcancel','touchmove'].forEach(evt=> el.addEventListener(evt, ()=>{ clearTimeout(pressTimer); }));
+  });
+})();
+</script>
 
 </body>
 </html>

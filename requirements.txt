@@ -6,4 +6,3 @@ pywebpush
 cryptography
 pytz
 tzdata
-

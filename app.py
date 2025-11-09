@@ -655,20 +655,19 @@ def init_db():
 
 init_db()
 
-
-
-# --- Gamificación: bootstrap (seguro/idempotente) ---
+# --- Gamificación: bootstrap (seguro/idempotente, Flask 3.x) ---
+# ⬇️ Coloca este bloque DESPUÉS de definir _ensure_gamification_schema y _seed_gamification
 try:
     _ensure_gamification_schema()
 except Exception as e:
     app.logger.warning("gamification bootstrap: %s", e)
 
-@app.before_first_request
+@app.before_request
 def _gami_bfr():
     try:
         _ensure_gamification_schema()
     except Exception as e:
-        app.logger.warning("gamification before_first_request: %s", e)
+        app.logger.warning("gamification before_request: %s", e)
 
 
 # ========= Helpers =========

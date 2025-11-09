@@ -2448,55 +2448,61 @@ def index():
                 send_discord("Change password OK", {"user": user}); return redirect('/')
 
             # 3) Responder pregunta
-            # 3) Responder pregunta
-                if request.method == 'POST' and 'answer' in request.form:
-                    answer = request.form['answer'].strip()
-                    if question_id is not None and answer:
-                        now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"  # UTC
-                        c.execute("SELECT id, answer, created_at, updated_at FROM answers WHERE question_id=%s AND username=%s",
-                                (question_id, user))
-                        prev = c.fetchone()
-                        just_published = False  # ← clave para puntos
+            if request.method == 'POST' and 'answer' in request.form:
+                answer = (request.form.get('answer') or '').strip()
+                if question_id is not None and answer:
+                    now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"  # UTC
 
-                        if not prev:
-                            # Primera vez que este usuario guarda respuesta para la pregunta de hoy
-                            c.execute("""INSERT INTO answers (question_id, username, answer, created_at, updated_at)
-                                        VALUES (%s,%s,%s,%s,%s)
-                                        ON CONFLICT (question_id, username) DO NOTHING""",
-                                    (question_id, user, answer, now_txt, now_txt))
+                    c.execute("""
+                        SELECT id, answer, created_at, updated_at
+                        FROM answers
+                        WHERE question_id=%s AND username=%s
+                    """, (question_id, user))
+                    prev = c.fetchone()
+                    just_published = False
+
+                    if not prev:
+                        c.execute("""
+                            INSERT INTO answers (question_id, username, answer, created_at, updated_at)
+                            VALUES (%s,%s,%s,%s,%s)
+                            ON CONFLICT (question_id, username) DO NOTHING
+                        """, (question_id, user, answer, now_txt, now_txt))
+                        conn.commit()
+                        send_discord("Answer submitted", {"user": user, "question_id": question_id})
+                        just_published = True
+                    else:
+                        prev_id, prev_text, prev_created, prev_updated = prev
+                        if answer != (prev_text or ""):
+                            if prev_created is None:
+                                c.execute("""
+                                    UPDATE answers
+                                    SET answer=%s, updated_at=%s, created_at=%s
+                                    WHERE id=%s
+                                """, (answer, now_txt, prev_updated or now_txt, prev_id))
+                            else:
+                                c.execute("""
+                                    UPDATE answers
+                                    SET answer=%s, updated_at=%s
+                                    WHERE id=%s
+                                """, (answer, now_txt, prev_id))
                             conn.commit()
-                            send_discord("Answer submitted", {"user": user, "question_id": question_id})
-                            just_published = True
-                        else:
-                            prev_id, prev_text, prev_created, prev_updated = prev
-                            if answer != (prev_text or ""):
-                                if prev_created is None:
-                                    # Normaliza created_at si faltaba
-                                    c.execute("""UPDATE answers SET answer=%s, updated_at=%s, created_at=%s WHERE id=%s""",
-                                            (answer, now_txt, prev_updated or now_txt, prev_id))
-                                else:
-                                    c.execute("""UPDATE answers SET answer=%s, updated_at=%s WHERE id=%s""",
-                                            (answer, now_txt, prev_id))
-                                conn.commit()
-                                send_discord("Answer edited", {"user": user, "question_id": question_id})
-                                # Cuenta como primera publicación si antes no había texto
-                                if not (prev_text or "").strip():
-                                    just_published = True
+                            send_discord("Answer edited", {"user": user, "question_id": question_id})
+                            if not (prev_text or "").strip():
+                                just_published = True
 
-                        # 🔑 Puntos + medallas (solo si hoy ha "publicado" por primera vez)
-                        if just_published:
-                            try:
-                                award_points_for_answer(question_id, user, first_publication=True)
-                            except Exception as _e:
-                                app.logger.warning("award_points_for_answer failed: %s", _e)
-
-                        cache_invalidate('compute_streaks')
-                        broadcast("dq_answer", {"user": user})
+                    if just_published:
                         try:
-                            push_answer_notice(user)
-                        except Exception as e:
-                            print("[push answer] ", e)
-                    return redirect('/')
+                            award_points_for_answer(question_id, user, first_publication=True)
+                        except Exception as _e:
+                            app.logger.warning("award_points_for_answer failed: %s", _e)
+
+                    cache_invalidate('compute_streaks')
+                    broadcast("dq_answer", {"user": user})
+                    try:
+                        push_answer_notice(user)
+                    except Exception as e:
+                        print("[push answer] ", e)
+                return redirect('/')
 
 
             # 3-bis) Cambiar la pregunta de HOY (no borra fila => preserva racha)

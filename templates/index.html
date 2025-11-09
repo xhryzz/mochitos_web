@@ -6911,6 +6911,33 @@ function flyOnce(){
 <style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:rgba(232,67,147,.4);color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>
 {% endif %}
 
+
+    <!-- === Medallas / Puntos (home) === -->
+    <section id="medallas-home" style="max-width:1100px;margin:30px auto;padding:0 16px;">
+      <div style="background:white;border-radius:18px;box-shadow:0 12px 28px rgba(0,0,0,.08);padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:center;">
+        <div>
+          <div style="font-size:14px;color:#888">Tus puntos</div>
+          <div id="home-pts" style="font-size:32px;font-weight:800">—</div>
+        </div>
+        <div>
+          <div style="font-size:14px;color:#888">Racha</div>
+          <div id="home-streak" style="font-size:32px;font-weight:800">—</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <a href="/medallas" style="text-decoration:none;display:inline-block;padding:10px 14px;border-radius:12px;background:#e84393;color:white;">Ver medallas</a>
+          <a href="/tienda" style="text-decoration:none;display:inline-block;padding:10px 14px;border-radius:12px;background:#6c5ce7;color:white;">Ir a la tienda</a>
+        </div>
+      </div>
+    </section>
+    <script>
+      (function(){
+        fetch('/api/medallas/summary').then(r=>r.json()).then(d=>{
+          document.getElementById('home-pts').textContent = d.points;
+          document.getElementById('home-streak').textContent = d.streak;
+        }).catch(()=>{});
+      })();
+    </script>
+    
 </body>
 </html>
 

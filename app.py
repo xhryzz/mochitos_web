@@ -4884,3 +4884,274 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
 
 
+
+
+# ========= Gamificación: puntos, medallas y tienda =========
+
+def _ensure_gamification_schema():
+    with closing(get_db_connection()) as conn, conn.cursor() as c:
+        c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0")
+        c.execute('''CREATE TABLE IF NOT EXISTS achievements (
+            id SERIAL PRIMARY KEY,
+            code TEXT UNIQUE NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            icon TEXT,
+            goal INTEGER DEFAULT 0
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS user_achievements (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            achievement_id INTEGER NOT NULL,
+            earned_at TEXT,
+            UNIQUE (user_id, achievement_id)
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS shop_items (
+            id SERIAL PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL,
+            cost INTEGER NOT NULL,
+            description TEXT,
+            icon TEXT
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS purchases (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            item_id INTEGER NOT NULL,
+            quantity INTEGER DEFAULT 1,
+            note TEXT,
+            purchased_at TEXT
+        )''')
+        conn.commit()
+    _seed_gamification()
+
+def _seed_gamification():
+    with closing(get_db_connection()) as conn, conn.cursor() as c:
+        achievements = [
+            ("first_answer_1", "¡Primera del día!", "Responder la primera a una pregunta del día", "⚡", 1),
+            ("first_answer_10", "Velocista x10", "Ser la primera en 10 preguntas del día", "⚡", 10),
+            ("streak_7", "Racha 7", "Responder 7 días seguidos", "🔥", 7),
+            ("streak_30", "Racha 30", "Responder 30 días seguidos", "🔥", 30),
+            ("streak_50", "Racha 50", "Responder 50 días seguidos", "🔥", 50),
+            ("answers_30", "Constante 30", "Acumular 30 respuestas", "🧩", 30),
+            ("answers_100", "Constante 100", "Acumular 100 respuestas", "🧩", 100),
+            ("days_100", "💯 100 días", "Haber publicado 100 preguntas en total", "💯", 100)
+        ]
+        for code, title, desc, icon, goal in achievements:
+            c.execute(
+                "INSERT INTO achievements (code, title, description, icon, goal) VALUES (%s,%s,%s,%s,%s) "
+                "ON CONFLICT (code) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, icon=EXCLUDED.icon, goal=EXCLUDED.goal",
+                (code, title, desc, icon, goal)
+            )
+        items = [
+            ("Cena gratis", 120, "Vale por una cena pagada por tu mochito/mochita", "🍝"),
+            ("Cine juntos", 90, "Entradas para una película (+ palomitas)", "🎬"),
+            ("Desayuno a la cama", 60, "Croissants + café servido con amor", "☕"),
+            ("Masaje 30'", 50, "30 minutos de masaje relajante", "💆‍♀️"),
+            ("Día sin fregar", 40, "Hoy te libras de fregar platos", "🧽")
+        ]
+        for name, cost, desc, icon in items:
+            c.execute(
+                "INSERT INTO shop_items (name, cost, description, icon) VALUES (%s,%s,%s,%s) "
+                "ON CONFLICT (name) DO UPDATE SET cost=EXCLUDED.cost, description=EXCLUDED.description, icon=EXCLUDED.icon",
+                (name, cost, desc, icon)
+            )
+        conn.commit()
+
+def _get_user_id(conn, username):
+    with conn.cursor() as c:
+        c.execute("SELECT id FROM users WHERE username=%s", (username,))
+        row = c.fetchone()
+        return row[0] if row else None
+
+def _calc_streak(conn, username):
+    with conn.cursor() as c:
+        c.execute("""
+            SELECT dq.date
+            FROM daily_questions dq
+            JOIN answers a ON a.question_id = dq.id
+            WHERE a.username=%s
+            ORDER BY dq.date DESC
+        """, (username,))
+        rows = [r[0] for r in c.fetchall()]
+    if not rows:
+        return 0
+    unique_days = []
+    seen = set()
+    for d in rows:
+        if d not in seen:
+            unique_days.append(d)
+            seen.add(d)
+    try:
+        today = date.today().isoformat()
+    except Exception:
+        return 0
+    cur = date.fromisoformat(today)
+    streak = 0
+    for d in unique_days:
+        try:
+            dd = date.fromisoformat(d)
+        except Exception:
+            continue
+        if dd == cur:
+            streak += 1
+            cur = cur - timedelta(days=1)
+        else:
+            break
+    return streak
+
+def _award_points(conn, username, delta, reason):
+    with conn.cursor() as c:
+        c.execute("UPDATE users SET points = COALESCE(points,0)+%s WHERE username=%s", (delta, username))
+    conn.commit()
+
+def _maybe_award_achievements(conn, username):
+    user_id = _get_user_id(conn, username)
+    if not user_id:
+        return
+    with conn.cursor() as c:
+        c.execute("SELECT COUNT(*) FROM answers WHERE username=%s", (username,))
+        answers_total = c.fetchone()[0] or 0
+        c.execute("""
+            WITH firsts AS (
+                SELECT a.question_id, MIN(a.created_at) AS first_time
+                FROM answers a
+                GROUP BY a.question_id
+            )
+            SELECT COUNT(*) FROM answers a
+            JOIN firsts f ON f.question_id=a.question_id AND a.created_at=f.first_time
+            WHERE a.username=%s
+        """, (username,))
+        first_count = c.fetchone()[0] or 0
+        streak = _calc_streak(conn, username)
+        checks = [
+            ("answers_30", answers_total >= 30),
+            ("answers_100", answers_total >= 100),
+            ("first_answer_1", first_count >= 1),
+            ("first_answer_10", first_count >= 10),
+            ("streak_7", streak >= 7),
+            ("streak_30", streak >= 30),
+            ("streak_50", streak >= 50)
+        ]
+        for code, ok in checks:
+            if not ok:
+                continue
+            c.execute("SELECT id FROM achievements WHERE code=%s", (code,))
+            ach = c.fetchone()
+            if not ach:
+                continue
+            ach_id = ach[0]
+            c.execute(
+                "INSERT INTO user_achievements (user_id, achievement_id, earned_at) VALUES (%s,%s,%s) "
+                "ON CONFLICT (user_id, achievement_id) DO NOTHING",
+                (user_id, ach_id, now_madrid_str())
+            )
+    conn.commit()
+
+def award_points_for_answer(question_id, username, is_new_insert):
+    if not is_new_insert:
+        return
+    with closing(get_db_connection()) as conn, conn.cursor() as c:
+        base = 5
+        c.execute("SELECT COUNT(*) FROM answers WHERE question_id=%s", (question_id,))
+        count_after = c.fetchone()[0] or 0
+        bonus = 10 if count_after == 1 else 0
+        _award_points(conn, username, base + bonus, "answer")
+        _maybe_award_achievements(conn, username)
+
+@app.route("/api/medallas/summary")
+def api_medallas_summary():
+    user = session.get("username")
+    with closing(get_db_connection()) as conn, conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+        points = 0
+        if user:
+            c.execute("SELECT COALESCE(points,0) FROM users WHERE username=%s", (user,))
+            row = c.fetchone()
+            points = row[0] if row else 0
+        c.execute("SELECT COUNT(*) FROM daily_questions")
+        total_days = c.fetchone()[0] or 0
+        streak = _calc_streak(conn, user) if user else 0
+        first_count = 0
+        if user:
+            c.execute("""
+                WITH firsts AS (
+                    SELECT a.question_id, MIN(a.created_at) AS first_time
+                    FROM answers a
+                    GROUP BY a.question_id
+                )
+                SELECT COUNT(*) FROM answers a
+                JOIN firsts f ON f.question_id=a.question_id AND a.created_at=f.first_time
+                WHERE a.username=%s
+            """, (user,))
+            first_count = c.fetchone()[0] or 0
+        c.execute("""
+            SELECT a.code, a.title, a.description, a.icon,
+                   CASE WHEN ua.id IS NULL THEN false ELSE true END AS earned,
+                   a.goal
+            FROM achievements a
+            LEFT JOIN user_achievements ua 
+              ON ua.achievement_id=a.id
+             AND ua.user_id = (SELECT id FROM users WHERE username=%s LIMIT 1)
+            ORDER BY a.id
+        """, (user or '',))
+        achs = [dict(r) for r in c.fetchall()]
+        c.execute("""
+            SELECT username, COALESCE(points,0) AS points
+            FROM users
+            ORDER BY points DESC, username ASC
+            LIMIT 10
+        """)
+        ranking = [dict(r) for r in c.fetchall()]
+        c.execute("SELECT id, name, cost, description, icon FROM shop_items ORDER BY cost ASC")
+        shop = [dict(r) for r in c.fetchall()]
+    return jsonify({
+        "user": user,
+        "points": points,
+        "total_days": total_days,
+        "streak": streak,
+        "first_count": first_count,
+        "achievements": achs,
+        "ranking": ranking,
+        "shop": shop
+    })
+
+@app.route("/tienda", methods=["GET", "POST"])
+def tienda():
+    user = session.get("username")
+    if not user:
+        return redirect(url_for("index"))
+    with closing(get_db_connection()) as conn, conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+        if request.method == "POST":
+            item_id = request.form.get("item_id")
+            if item_id:
+                c.execute("SELECT id, name, cost FROM shop_items WHERE id=%s", (item_id,))
+                item = c.fetchone()
+                if item:
+                    c.execute("SELECT COALESCE(points,0) FROM users WHERE username=%s", (user,))
+                    pts = (c.fetchone() or [0])[0]
+                    if pts >= item["cost"]:
+                        c.execute("UPDATE users SET points = COALESCE(points,0)-%s WHERE username=%s", (item["cost"], user))
+                        c.execute(
+                            "INSERT INTO purchases (user_id, item_id, quantity, purchased_at) "
+                            "VALUES ((SELECT id FROM users WHERE username=%s), %s, 1, %s)",
+                            (user, item["id"], now_madrid_str())
+                        )
+                        conn.commit()
+                        flash(f"Has canjeado: {item['name']} 🎉", "success")
+                    else:
+                        flash("No tienes puntos suficientes :(", "warning")
+                return redirect(url_for("tienda"))
+        c.execute("SELECT id, name, cost, description, icon FROM shop_items ORDER BY cost ASC")
+        items = c.fetchall()
+        c.execute("SELECT COALESCE(points,0) FROM users WHERE username=%s", (user,))
+        pts = (c.fetchone() or [0])[0]
+    return render_template("tienda.html", items=items, points=pts, user=user)
+
+@app.route("/medallas")
+def medallas():
+    user = session.get("username")
+    return render_template("medallas.html", user=user)
+
+_old_init_db = init_db
+def init_db():
+    _old_init_db()
+    _ensure_gamification_schema()

@@ -654,7 +654,7 @@ def init_db():
         conn.commit()
 
 init_db()
-_ensure_gamification_schema()  # <-- importante
+  # <-- importante
 
 # ========= Helpers =========
 # ========= Helpers =========
@@ -5547,6 +5547,9 @@ def award_points_for_answer(question_id, username, is_new_insert):
         bonus = 10 if count_after == 1 else 0
         _award_points(conn, username, base + bonus, "answer")
         _maybe_award_achievements(conn, username)
+
+
+_ensure_gamification_schema()
 
 @app.route("/api/medallas/summary")
 def api_medallas_summary():

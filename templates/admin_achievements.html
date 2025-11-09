@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>🏆 Premios / Medallas</h1>
+
+<form action="/admin/achievements/add" method="post" class="card" style="padding:12px;margin:12px 0;">
+  <h3>Nuevo premio</h3>
+  <div><label>Código (opcional): <input name="code" /></label></div>
+  <div><label>Título: <input name="title" required /></label></div>
+  <div><label>Descripción: <input name="description" /></label></div>
+  <div><label>Icono (emoji): <input name="icon" value="🏆" /></label></div>
+  <div>
+    <label>Tipo disparador:
+      <select name="trigger_kind">
+        <option value="rel_days">Hito días juntos</option>
+        <option value="manual">Manual</option>
+        <option value="none">Sin disparador</option>
+      </select>
+    </label>
+    <label>Valor (p.ej. días): <input name="trigger_value" type="number" min="1" /></label>
+  </div>
+  <div>
+    <label>Puntos al otorgar: <input name="points_on_award" type="number" min="0" value="0" /></label>
+    <label><input type="checkbox" name="grant_both" checked /> Conceder a ambos</label>
+    <label><input type="checkbox" name="active" checked /> Activo</label>
+  </div>
+  <button type="submit">Crear</button>
+  <button type="submit" formaction="/admin/achievements/check_now">Evaluar hitos ahora</button>
+</form>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>ID</th><th>Icon</th><th>Título</th><th>Trigger</th><th>Valor</th><th>Pts</th><th>Ambos</th><th>Activo</th><th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td>{{r.id}}</td>
+      <td>{{r.icon or '🏅'}}</td>
+      <td>{{r.title}}</td>
+      <td>{{r.trigger_kind}}</td>
+      <td>{{r.trigger_value or ''}}</td>
+      <td>{{r.points_on_award or 0}}</td>
+      <td>{{'✔' if r.grant_both else '—'}}</td>
+      <td>{{'✔' if r.active else '—'}}</td>
+      <td>
+        <form action="/admin/achievements/{{r.id}}/edit" method="post" style="display:inline-grid;grid-template-columns:repeat(7,auto);gap:6px;align-items:center;">
+          <input name="title" value="{{r.title}}" placeholder="Título" />
+          <input name="description" value="{{r.description or ''}}" placeholder="Desc" />
+          <input name="icon" value="{{r.icon or ''}}" placeholder="Icono" style="width:70px" />
+          <select name="trigger_kind">
+            <option value="rel_days" {{'selected' if r.trigger_kind=='rel_days' else ''}}>rel_days</option>
+            <option value="manual" {{'selected' if r.trigger_kind=='manual' else ''}}>manual</option>
+            <option value="none" {{'selected' if r.trigger_kind=='none' else ''}}>none</option>
+          </select>
+          <input name="trigger_value" type="number" min="1" value="{{r.trigger_value or ''}}" style="width:90px" />
+          <input name="points_on_award" type="number" min="0" value="{{r.points_on_award or 0}}" style="width:80px" />
+          <label><input type="checkbox" name="grant_both" {{'checked' if r.grant_both else ''}}/> ambos</label>
+          <label><input type="checkbox" name="active" {{'checked' if r.active else ''}}/> activo</label>
+          <button type="submit">Guardar</button>
+        </form>
+        <form action="/admin/achievements/{{r.id}}/grant_now" method="post" style="display:inline;">
+          <button type="submit">Conceder ahora a ambos</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

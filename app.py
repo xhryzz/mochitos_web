@@ -655,8 +655,297 @@ def init_db():
 
 init_db()
 
+
+
+# --- Gamificación: bootstrap (seguro/idempotente) ---
+try:
+    _ensure_gamification_schema()
+except Exception as e:
+    app.logger.warning("gamification bootstrap: %s", e)
+
+@app.before_first_request
+def _gami_bfr():
+    try:
+        _ensure_gamification_schema()
+    except Exception as e:
+        app.logger.warning("gamification before_first_request: %s", e)
+
+
 # ========= Helpers =========
 # ========= Helpers =========
+
+# ========= Gamificación: esquema, puntos y medallas =========
+_gami_ready = False
+_gami_lock = threading.Lock()
+
+def _ensure_gamification_schema():
+    """Crea columnas/tablas si faltan (seguro de repetir)."""
+    global _gami_ready
+    if _gami_ready:
+        return
+    with _gami_lock:
+        if _gami_ready:
+            return
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                # Columna de puntos en users
+                c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0")
+
+                # Catálogo de medallas
+                c.execute("""
+                CREATE TABLE IF NOT EXISTS achievements (
+                    id SERIAL PRIMARY KEY,
+                    code TEXT UNIQUE NOT NULL,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    icon TEXT,
+                    goal INTEGER DEFAULT 0
+                )
+                """)
+
+                # Medallas obtenidas por usuario
+                c.execute("""
+                CREATE TABLE IF NOT EXISTS user_achievements (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    achievement_id INTEGER NOT NULL,
+                    earned_at TEXT,
+                    UNIQUE (user_id, achievement_id)
+                )
+                """)
+
+                # Tienda y compras
+                c.execute("""
+                CREATE TABLE IF NOT EXISTS shop_items (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT UNIQUE NOT NULL,
+                    cost INTEGER NOT NULL,
+                    description TEXT,
+                    icon TEXT
+                )
+                """)
+                c.execute("""
+                CREATE TABLE IF NOT EXISTS purchases (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    item_id INTEGER NOT NULL,
+                    quantity INTEGER DEFAULT 1,
+                    note TEXT,
+                    purchased_at TEXT
+                )
+                """)
+            conn.commit()
+        finally:
+            conn.close()
+        _seed_gamification()
+        _gami_ready = True
+
+def _seed_gamification():
+    """Semillas idempotentes de medallas y tienda."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            achs = [
+                ("answers_30",   "Constante 30",  "Has respondido 30 preguntas",                      "🧩", 30),
+                ("answers_100",  "Constante 100", "Has respondido 100 preguntas",                     "🧩", 100),
+                ("first_answer_1","¡Primera del día!", "Has sido la primera en contestar",            "⚡", 1),
+                ("first_answer_10","Velocista ×10",    "Primera en 10 ocasiones",                    "⚡", 10),
+                ("streak_7",     "Racha 7",       "7 días seguidos",                                  "🔥", 7),
+                ("streak_30",    "Racha 30",      "30 días seguidos",                                 "🔥", 30),
+                ("streak_50",    "Racha 50",      "50 días seguidos",                                 "🔥", 50),
+                ("days_100",     "100 días",      "El juego ya tiene 100 preguntas publicadas",       "💯", 100),
+            ]
+            for code, title, desc, icon, goal in achs:
+                c.execute("""
+                    INSERT INTO achievements (code,title,description,icon,goal)
+                    VALUES (%s,%s,%s,%s,%s)
+                    ON CONFLICT (code) DO UPDATE
+                    SET title=EXCLUDED.title, description=EXCLUDED.description,
+                        icon=EXCLUDED.icon, goal=EXCLUDED.goal
+                """, (code,title,desc,icon,goal))
+
+            items = [
+                ("Cena gratis",       120, "Vale por una cena pagada por tu pareja", "🍝"),
+                ("Cine juntos",        90, "Entradas para el cine (+ palomitas)",    "🎬"),
+                ("Desayuno a la cama", 60, "Cafecito + croissants servido con amor", "☕"),
+                ("Masaje 30’",         50, "30 minutos de masaje relajante",         "💆‍♀️"),
+                ("Día sin fregar",     40, "Te libras hoy de fregar platos",         "🧽"),
+            ]
+            for name, cost, desc, icon in items:
+                c.execute("""
+                    INSERT INTO shop_items (name,cost,description,icon)
+                    VALUES (%s,%s,%s,%s)
+                    ON CONFLICT (name) DO UPDATE
+                    SET cost=EXCLUDED.cost, description=EXCLUDED.description, icon=EXCLUDED.icon
+                """, (name,cost,desc,icon))
+        conn.commit()
+    finally:
+        conn.close()
+
+def _user_current_streak(u: str) -> int:
+    """Racha actual (días seguidos hasta el último día respondido ≤ hoy)."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT dq.date
+                FROM daily_questions dq
+                JOIN answers a ON a.question_id = dq.id AND a.username = %s
+                WHERE TRIM(COALESCE(a.answer,'')) <> ''
+                ORDER BY dq.date ASC
+            """, (u,))
+            rows = c.fetchall()
+    finally:
+        conn.close()
+    if not rows:
+        return 0
+    # convierte 'YYYY-MM-DD' -> date
+    days = []
+    for r in rows:
+        dtxt = r[0] if isinstance(r, dict) else r[0]
+        try:
+            d = datetime.strptime(dtxt.strip(), "%Y-%m-%d").date()
+            days.append(d)
+        except Exception:
+            pass
+    if not days:
+        return 0
+    sset = set(days)
+    # último día respondido que no sea futuro
+    today = today_madrid()
+    last = max([d for d in sset if d <= today], default=None)
+    if not last:
+        return 0
+    streak = 1
+    cur = last - timedelta(days=1)
+    while cur in sset:
+        streak += 1
+        cur -= timedelta(days=1)
+    return streak
+
+def _first_answer_count(u: str) -> int:
+    """Cuántas veces fuiste la primera respuesta del día (histórico)."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT COUNT(*) FROM answers a
+                WHERE a.username=%s
+                  AND TRIM(COALESCE(a.answer,'')) <> ''
+                  AND a.id = (
+                      SELECT a2.id
+                      FROM answers a2
+                      WHERE a2.question_id = a.question_id
+                        AND TRIM(COALESCE(a2.answer,'')) <> ''
+                      ORDER BY COALESCE(a2.created_at,'9999-12-31T00:00:00Z'), a2.id
+                      LIMIT 1
+                  )
+            """, (u,))
+            return int((c.fetchone() or [0])[0] or 0)
+    finally:
+        conn.close()
+
+def _maybe_award_achievements(u: str):
+    """Revisa condiciones y concede medallas pendientes."""
+    try:
+        # conteos
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute("""
+                    SELECT COUNT(*)
+                    FROM answers a
+                    JOIN daily_questions dq ON dq.id=a.question_id
+                    WHERE a.username=%s AND TRIM(COALESCE(a.answer,'')) <> ''
+                """, (u,))
+                answers_total = int((c.fetchone() or [0])[0] or 0)
+        finally:
+            conn.close()
+
+        firsts = _first_answer_count(u)
+        streak  = _user_current_streak(u)
+
+        # total de días publicados
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute("SELECT COUNT(*) FROM daily_questions")
+                total_days = int((c.fetchone() or [0])[0] or 0)
+        finally:
+            conn.close()
+
+        checks = [
+            ("answers_30",   answers_total >= 30),
+            ("answers_100",  answers_total >= 100),
+            ("first_answer_1", firsts >= 1),
+            ("first_answer_10", firsts >= 10),
+            ("streak_7",    streak >= 7),
+            ("streak_30",   streak >= 30),
+            ("streak_50",   streak >= 50),
+        ]
+        if total_days >= 100:
+            checks.append(("days_100", True))
+
+        # Inserta las medallas que falten para el usuario
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute("SELECT id FROM users WHERE username=%s", (u,))
+                user_id = (c.fetchone() or [None])[0]
+                if not user_id:
+                    return
+                for code, ok in checks:
+                    if not ok:
+                        continue
+                    c.execute("SELECT id FROM achievements WHERE code=%s", (code,))
+                    row = c.fetchone()
+                    if not row:
+                        continue
+                    ach_id = row[0]
+                    c.execute("""
+                        INSERT INTO user_achievements (user_id, achievement_id, earned_at)
+                        VALUES (%s,%s,%s)
+                        ON CONFLICT (user_id,achievement_id) DO NOTHING
+                    """, (user_id, ach_id, now_madrid_str()))
+                conn.commit()
+        finally:
+            conn.close()
+    except Exception as e:
+        app.logger.warning("maybe_award_achievements: %s", e)
+
+def award_points_for_answer(question_id: int, user: str, first_publication: bool):
+    """
+    Suma puntos cuando un usuario publica su respuesta del día por primera vez:
+      +5 pts por responder
+      +10 pts extra si es la PRIMERA respuesta del día (global)
+    Luego revisa medallas.
+    """
+    if not first_publication:
+        return
+    _ensure_gamification_schema()
+    base = 5
+    bonus = 0
+    # ¿fue la primera del día? (contamos tras el INSERT)
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT COUNT(*) FROM answers
+                WHERE question_id=%s AND TRIM(COALESCE(answer,'')) <> ''
+            """, (question_id,))
+            total_ans = int((c.fetchone() or [0])[0] or 0)
+            if total_ans == 1:
+                bonus = 10
+            delta = base + bonus
+            c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE username=%s", (delta, user))
+            conn.commit()
+    finally:
+        conn.close()
+    # Revisa medallas
+    _maybe_award_achievements(user)
+
+
 def _parse_dt(txt: str):
     if not txt:
         return None
@@ -2160,35 +2449,56 @@ def index():
                 send_discord("Change password OK", {"user": user}); return redirect('/')
 
             # 3) Responder pregunta
-            if request.method == 'POST' and 'answer' in request.form:
-                answer = request.form['answer'].strip()
-                if question_id is not None and answer:
-                    now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"  # UTC
-                    c.execute("SELECT id, answer, created_at, updated_at FROM answers WHERE question_id=%s AND username=%s",
-                              (question_id, user))
-                    prev = c.fetchone()
-                    if not prev:
-                        c.execute("""INSERT INTO answers (question_id, username, answer, created_at, updated_at)
-                                     VALUES (%s,%s,%s,%s,%s) ON CONFLICT (question_id, username) DO NOTHING""",
-                                  (question_id, user, answer, now_txt, now_txt))
-                        conn.commit(); send_discord("Answer submitted", {"user": user, "question_id": question_id})
-                    else:
-                        prev_id, prev_text, prev_created, prev_updated = prev
-                        if answer != (prev_text or ""):
-                            if prev_created is None:
-                                c.execute("""UPDATE answers SET answer=%s, updated_at=%s, created_at=%s WHERE id=%s""",
-                                          (answer, now_txt, prev_updated or now_txt, prev_id))
-                            else:
-                                c.execute("""UPDATE answers SET answer=%s, updated_at=%s WHERE id=%s""",
-                                          (answer, now_txt, prev_id))
-                            conn.commit(); send_discord("Answer edited", {"user": user, "question_id": question_id})
-                    cache_invalidate('compute_streaks')
-                    broadcast("dq_answer", {"user": user})
-                    try:
-                        push_answer_notice(user)
-                    except Exception as e:
-                        print("[push answer] ", e)
-                return redirect('/')
+            # 3) Responder pregunta
+                if request.method == 'POST' and 'answer' in request.form:
+                    answer = request.form['answer'].strip()
+                    if question_id is not None and answer:
+                        now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"  # UTC
+                        c.execute("SELECT id, answer, created_at, updated_at FROM answers WHERE question_id=%s AND username=%s",
+                                (question_id, user))
+                        prev = c.fetchone()
+                        just_published = False  # ← clave para puntos
+
+                        if not prev:
+                            # Primera vez que este usuario guarda respuesta para la pregunta de hoy
+                            c.execute("""INSERT INTO answers (question_id, username, answer, created_at, updated_at)
+                                        VALUES (%s,%s,%s,%s,%s)
+                                        ON CONFLICT (question_id, username) DO NOTHING""",
+                                    (question_id, user, answer, now_txt, now_txt))
+                            conn.commit()
+                            send_discord("Answer submitted", {"user": user, "question_id": question_id})
+                            just_published = True
+                        else:
+                            prev_id, prev_text, prev_created, prev_updated = prev
+                            if answer != (prev_text or ""):
+                                if prev_created is None:
+                                    # Normaliza created_at si faltaba
+                                    c.execute("""UPDATE answers SET answer=%s, updated_at=%s, created_at=%s WHERE id=%s""",
+                                            (answer, now_txt, prev_updated or now_txt, prev_id))
+                                else:
+                                    c.execute("""UPDATE answers SET answer=%s, updated_at=%s WHERE id=%s""",
+                                            (answer, now_txt, prev_id))
+                                conn.commit()
+                                send_discord("Answer edited", {"user": user, "question_id": question_id})
+                                # Cuenta como primera publicación si antes no había texto
+                                if not (prev_text or "").strip():
+                                    just_published = True
+
+                        # 🔑 Puntos + medallas (solo si hoy ha "publicado" por primera vez)
+                        if just_published:
+                            try:
+                                award_points_for_answer(question_id, user, first_publication=True)
+                            except Exception as _e:
+                                app.logger.warning("award_points_for_answer failed: %s", _e)
+
+                        cache_invalidate('compute_streaks')
+                        broadcast("dq_answer", {"user": user})
+                        try:
+                            push_answer_notice(user)
+                        except Exception as e:
+                            print("[push answer] ", e)
+                    return redirect('/')
+
 
             # 3-bis) Cambiar la pregunta de HOY (no borra fila => preserva racha)
             if request.method == 'POST' and 'dq_reroll' in request.form:

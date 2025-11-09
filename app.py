@@ -768,6 +768,67 @@ def _seed_gamification():
     finally:
         conn.close()
 
+def _grant_achievement_to(user: str, achievement_id: int, points_on_award: int = 0):
+    """Concede (si falta) la medalla a 'user' y suma puntos."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT id FROM users WHERE username=%s", (user,))
+            uid = (c.fetchone() or [None])[0]
+            if not uid:
+                return
+
+            c.execute("""
+              SELECT 1 FROM user_achievements
+              WHERE user_id=%s AND achievement_id=%s
+            """, (uid, achievement_id))
+            if c.fetchone():
+                return  # ya concedida
+
+            if points_on_award and int(points_on_award) != 0:
+                c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE id=%s",
+                          (int(points_on_award), uid))
+
+            c.execute("""
+              INSERT INTO user_achievements (user_id, achievement_id, earned_at)
+              VALUES (%s,%s,%s)
+              ON CONFLICT (user_id, achievement_id) DO NOTHING
+            """, (uid, achievement_id, now_madrid_str()))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def check_relationship_milestones():
+    """Concede automáticamente achievements con trigger_kind='rel_days' el día exacto."""
+    dcount = days_together()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+              SELECT id, points_on_award, grant_both
+              FROM achievements
+              WHERE active = TRUE
+                AND trigger_kind = 'rel_days'
+                AND trigger_value = %s
+            """, (int(dcount),))
+            rows = c.fetchall()
+
+        for r in rows:
+            aid = int(r['id'])
+            pts = int(r['points_on_award'] or 0)
+            users = ('mochito','mochita') if bool(r['grant_both']) else ('mochito',)  # por defecto al admin
+            for u in users:
+                _grant_achievement_to(u, aid, pts)
+
+            try:
+                send_discord("Achievement auto-granted", {"aid": aid, "points": pts, "days": dcount, "both": bool(r['grant_both'])})
+            except Exception:
+                pass
+    finally:
+        conn.close()
+
+
 def _user_current_streak(u: str) -> int:
     """Racha actual (días seguidos hasta el último día respondido ≤ hoy)."""
     conn = get_db_connection()
@@ -5235,6 +5296,23 @@ def _ensure_gamification_schema():
             note TEXT,
             purchased_at TEXT
         )''')
+        # Extiende achievements para triggers y puntos (idempotente)
+        c.execute("""ALTER TABLE achievements
+        ADD COLUMN IF NOT EXISTS trigger_kind TEXT
+            CHECK (trigger_kind IN ('rel_days','manual','none')) DEFAULT 'none'""")
+
+        c.execute("""ALTER TABLE achievements
+        ADD COLUMN IF NOT EXISTS trigger_value INTEGER""")
+
+        c.execute("""ALTER TABLE achievements
+        ADD COLUMN IF NOT EXISTS points_on_award INTEGER DEFAULT 0""")
+
+        c.execute("""ALTER TABLE achievements
+        ADD COLUMN IF NOT EXISTS grant_both BOOLEAN DEFAULT TRUE""")
+
+        c.execute("""ALTER TABLE achievements
+        ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE""")
+
         conn.commit()
     _seed_gamification()
 
@@ -5558,8 +5636,6 @@ def medallas():
     return render_template("medallas.html", user=user)
 
 
-
-
 @app.get("/admin/achievements")
 def admin_achievements_list():
     require_admin()
@@ -5579,6 +5655,7 @@ def admin_achievements_list():
                            username=session['username'],
                            rows=rows)
 
+
 @app.post("/admin/achievements/add")
 def admin_achievements_add():
     require_admin()
@@ -5593,7 +5670,7 @@ def admin_achievements_add():
     grant_both = bool(f.get("grant_both"))
     active = bool(f.get("active"))
 
-    tval = int(trigger_value) if (trigger_value and trigger_value.isdigit()) else None
+    tval = int(trigger_value) if (trigger_value and str(trigger_value).isdigit()) else None
     if not title:
         flash("Falta título.", "error"); return redirect("/admin/achievements")
     if trigger_kind not in ("rel_days","manual","none"):
@@ -5604,15 +5681,19 @@ def admin_achievements_add():
         with conn.cursor() as c:
             c.execute("""
               INSERT INTO achievements (code, title, description, icon,
-                                        trigger_kind, trigger_value, points_on_award, grant_both, active)
-              VALUES (COALESCE(%s, md5(%s||now()::text)), %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (code, code or title, title, description, icon,
+                                        trigger_kind, trigger_value,
+                                        points_on_award, grant_both, active)
+              VALUES (COALESCE(%s, md5(%s||now()::text)),
+                      %s,%s,%s,%s,%s,%s,%s,%s)
+            """, (code, code or title,
+                  title, description, icon,
                   trigger_kind, tval, points, grant_both, active))
             conn.commit()
         flash("Premio creado ✅", "success")
     finally:
         conn.close()
     return redirect("/admin/achievements")
+
 
 @app.post("/admin/achievements/<int:aid>/edit")
 def admin_achievements_edit(aid):
@@ -5627,7 +5708,7 @@ def admin_achievements_edit(aid):
     grant_both = bool(f.get("grant_both"))
     active = bool(f.get("active"))
 
-    tval = int(trigger_value) if (trigger_value and trigger_value.isdigit()) else None
+    tval = int(trigger_value) if (trigger_value and str(trigger_value).isdigit()) else None
     if trigger_kind not in ("rel_days","manual","none"):
         trigger_kind = "none"
 
@@ -5640,33 +5721,34 @@ def admin_achievements_edit(aid):
                   trigger_kind=%s, trigger_value=%s,
                   points_on_award=%s, grant_both=%s, active=%s
               WHERE id=%s
-            """, (title, description, icon, trigger_kind, tval,
-                  points, grant_both, active, aid))
+            """, (title, description, icon,
+                  trigger_kind, tval, points, grant_both, active, aid))
             conn.commit()
         flash("Premio actualizado ✏️", "success")
     finally:
         conn.close()
     return redirect("/admin/achievements")
 
+
 @app.post("/admin/achievements/<int:aid>/grant_now")
 def admin_achievements_grant_now(aid):
-    """Botón admin para conceder manualmente a ambos (o probar)."""
+    """Botón admin para conceder manualmente (a ambos por comodidad)."""
     require_admin()
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            c.execute("SELECT id, points_on_award, grant_both FROM achievements WHERE id=%s", (aid,))
+            c.execute("SELECT id, points_on_award FROM achievements WHERE id=%s", (aid,))
             row = c.fetchone()
         if not row:
             flash("Premio no encontrado.", "error"); return redirect("/admin/achievements")
         pts = int(row['points_on_award'] or 0)
-        # En este botón, concedemos a ambos siempre
         for u in ('mochito','mochita'):
             _grant_achievement_to(u, aid, pts)
         flash("Premio concedido a ambos ✅", "success")
     finally:
         conn.close()
     return redirect("/admin/achievements")
+
 
 @app.post("/admin/achievements/check_now")
 def admin_achievements_check_now():
@@ -5679,6 +5761,7 @@ def admin_achievements_check_now():
         print("[admin check milestones]", e)
         flash("Error al evaluar.", "error")
     return redirect("/admin/achievements")
+
 
 
 _old_init_db = init_db

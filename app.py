@@ -655,20 +655,6 @@ def init_db():
 
 init_db()
 
-# --- Gamificación: bootstrap (seguro/idempotente, Flask 3.x) ---
-# ⬇️ Coloca este bloque DESPUÉS de definir _ensure_gamification_schema y _seed_gamification
-try:
-    _ensure_gamification_schema()
-except Exception as e:
-    app.logger.warning("gamification bootstrap: %s", e)
-
-@app.before_request
-def _gami_bfr():
-    try:
-        _ensure_gamification_schema()
-    except Exception as e:
-        app.logger.warning("gamification before_request: %s", e)
-
 
 # ========= Helpers =========
 # ========= Helpers =========
@@ -2682,6 +2668,11 @@ def index():
             c.execute("SELECT username, msg, created_at FROM dq_chat WHERE question_id=%s ORDER BY id ASC", (question_id,))
             dq_chat_messages = [dict(row) for row in c.fetchall()]
 
+                        # PUNTOS DEL USUARIO (añade esto)
+            c.execute("SELECT COALESCE(points, 0) FROM users WHERE username=%s", (user,))
+            user_points = int((c.fetchone() or [0])[0] or 0)
+
+
             # Viajes + fotos
             c.execute("""
                 SELECT id, destination, description, travel_date, is_visited, created_by
@@ -2925,6 +2916,7 @@ def index():
                            question_id=question_id,
                            dq_reactions=dq_reactions_map,
                            dq_chat_messages=dq_chat_messages,
+                           user_points=user_points,   # ⬅️ añade esto
                            )
 
 # ======= Rutas REST extra (con broadcast) =======
@@ -5271,6 +5263,19 @@ def _seed_gamification():
                 (name, cost, desc, icon)
             )
         conn.commit()
+
+# --- Gamificación: bootstrap (seguro/idempotente, Flask 3.x) ---
+try:
+    _ensure_gamification_schema()
+except Exception as e:
+    app.logger.warning("gamification bootstrap: %s", e)
+
+@app.before_request
+def _gami_bfr():
+    try:
+        _ensure_gamification_schema()
+    except Exception as e:
+        app.logger.warning("gamification before_request: %s", e)
 
 def _get_user_id(conn, username):
     with conn.cursor() as c:

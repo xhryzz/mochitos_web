@@ -654,7 +654,7 @@ def init_db():
         conn.commit()
 
 init_db()
-
+_ensure_gamification_schema()  # <-- importante
 
 # ========= Helpers =========
 # ========= Helpers =========
@@ -5312,6 +5312,12 @@ def _ensure_gamification_schema():
 
         c.execute("""ALTER TABLE achievements
         ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE""")
+
+        c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS trigger_kind TEXT DEFAULT 'none'")
+        c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS trigger_value INTEGER")
+        c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS points_on_award INTEGER DEFAULT 0")
+        c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS grant_both BOOLEAN DEFAULT TRUE")
+        c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE")
 
         conn.commit()
     _seed_gamification()

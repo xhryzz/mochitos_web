@@ -5613,62 +5613,161 @@ def api_medallas_summary():
         "shop": shop
     })
 
-@app.route("/tienda", methods=["GET", "POST"])
-def tienda():
-    user = session.get("username")
-    if not user:
-        return redirect(url_for("index"))
-    with closing(get_db_connection()) as conn, conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
-        if request.method == "POST":
-            item_id = request.form.get("item_id")
-            if item_id:
-                c.execute("SELECT id, name, cost FROM shop_items WHERE id=%s", (item_id,))
-                item = c.fetchone()
-                if item:
-                    c.execute("SELECT COALESCE(points,0) FROM users WHERE username=%s", (user,))
-                    pts = (c.fetchone() or [0])[0]
-                    if pts >= item["cost"]:
-                        c.execute("UPDATE users SET points = COALESCE(points,0)-%s WHERE username=%s", (item["cost"], user))
-                        c.execute(
-                            "INSERT INTO purchases (user_id, item_id, quantity, purchased_at) "
-                            "VALUES ((SELECT id FROM users WHERE username=%s), %s, 1, %s)",
-                            (user, item["id"], now_madrid_str())
-                        )
-                        conn.commit()
-                        flash(f"Has canjeado: {item['name']} 🎉", "success")
-                    else:
-                        flash("No tienes puntos suficientes :(", "warning")
-                return redirect(url_for("tienda"))
-        c.execute("SELECT id, name, cost, description, icon FROM shop_items ORDER BY cost ASC")
-        items = c.fetchall()
-        c.execute("SELECT COALESCE(points,0) FROM users WHERE username=%s", (user,))
-        pts = (c.fetchone() or [0])[0]
-    return render_template("tienda.html", items=items, points=pts, user=user)
+@app.route('/tienda', methods=['GET', 'POST'])
+def shop():
+    if 'username' not in session:
+        return redirect('/')
+
+    user = session['username']
+    is_admin = (user == 'mochito')
+
+    # Asegura tablas de gamificación
+    try:
+        _ensure_gamification_schema()
+    except Exception as e:
+        app.logger.warning("gamification schema ensure failed: %s", e)
+
+    if request.method == 'POST':
+        action = request.form.get('action', '').strip()
+        conn = get_db_connection()
+        try:
+            if action == 'redeem':
+                # Canjear un premio
+                item_id = request.form.get('item_id')
+                if not item_id:
+                    flash("Falta item.", "error")
+                    return redirect('/tienda')
+
+                with conn.cursor() as c:
+                    c.execute("SELECT id, name, cost FROM shop_items WHERE id=%s", (item_id,))
+                    row = c.fetchone()
+                    if not row:
+                        flash("Premio no encontrado.", "error")
+                        return redirect('/tienda')
+
+                    it_id, it_name, it_cost = row['id'], row['name'], int(row['cost'])
+
+                    # Bloqueo y comprobación de puntos
+                    c.execute("SELECT id, COALESCE(points,0) FROM users WHERE username=%s FOR UPDATE", (user,))
+                    urow = c.fetchone()
+                    if not urow:
+                        flash("Usuario no encontrado.", "error")
+                        return redirect('/tienda')
+
+                    uid, points = int(urow['id']), int(urow['coalesce'])
+                    if points < it_cost:
+                        flash("No tienes puntos suficientes 😅", "error")
+                        return redirect('/tienda')
+
+                    # Descuenta e inserta compra
+                    c.execute("UPDATE users SET points = points - %s WHERE id=%s", (it_cost, uid))
+                    c.execute("""
+                        INSERT INTO purchases (user_id, item_id, quantity, note, purchased_at)
+                        VALUES (%s,%s,1,%s,%s)
+                    """, (uid, it_id, f"Canje de {it_name}", now_madrid_str()))
+                    conn.commit()
+
+                flash(f"¡Canjeado! 🎉 Disfruta tu premio: {it_name}", "success")
+                try: send_discord("Shop redeem", {"by": user, "item_id": int(item_id)})
+                except Exception: pass
+                return redirect('/tienda')
+
+            # Solo admin: crear/editar/borrar items
+            if not is_admin:
+                flash("Solo el admin puede modificar la tienda.", "error")
+                return redirect('/tienda')
+
+            if action == 'create_item':
+                name = (request.form.get('name') or '').strip()
+                cost = (request.form.get('cost') or '').strip()
+                desc = (request.form.get('description') or '').strip()
+                icon = (request.form.get('icon') or '').strip() or '🎁'
+
+                try:
+                    icost = int(cost)
+                    if icost < 1: raise ValueError()
+                except Exception:
+                    flash("Coste inválido.", "error")
+                    return redirect('/tienda')
+
+                with conn.cursor() as c:
+                    c.execute("""
+                        INSERT INTO shop_items (name, cost, description, icon)
+                        VALUES (%s,%s,%s,%s)
+                    """, (name, icost, desc, icon))
+                    conn.commit()
+                flash("Premio añadido ✅", "success")
+                try: send_discord("Shop item created", {"by": user, "name": name, "cost": icost})
+                except Exception: pass
+                return redirect('/tienda')
+
+            if action == 'update_item':
+                item_id = request.form.get('item_id')
+                name = (request.form.get('name') or '').strip()
+                cost = (request.form.get('cost') or '').strip()
+                desc = (request.form.get('description') or '').strip()
+                icon = (request.form.get('icon') or '').strip() or '🎁'
+
+                try:
+                    icost = int(cost)
+                    if icost < 1: raise ValueError()
+                except Exception:
+                    flash("Coste inválido.", "error")
+                    return redirect('/tienda')
+
+                with conn.cursor() as c:
+                    c.execute("""
+                        UPDATE shop_items
+                           SET name=%s, cost=%s, description=%s, icon=%s
+                         WHERE id=%s
+                    """, (name, icost, desc, icon, item_id))
+                    conn.commit()
+                flash("Premio actualizado ✏️", "success")
+                try: send_discord("Shop item updated", {"by": user, "id": int(item_id)})
+                except Exception: pass
+                return redirect('/tienda')
+
+            if action == 'delete_item':
+                item_id = request.form.get('item_id')
+                with conn.cursor() as c:
+                    c.execute("DELETE FROM shop_items WHERE id=%s", (item_id,))
+                    conn.commit()
+                flash("Premio borrado 🗑️", "info")
+                try: send_discord("Shop item deleted", {"by": user, "id": int(item_id)})
+                except Exception: pass
+                return redirect('/tienda')
+
+            flash("Acción desconocida.", "error")
+            return redirect('/tienda')
+
+        except Exception as e:
+            try: conn.rollback()
+            except Exception: pass
+            app.logger.exception("[/tienda] error")
+            flash("Error en la tienda.", "error")
+            return redirect('/tienda')
+        finally:
+            conn.close()
+
+    # GET: listar items y puntos
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT COALESCE(points,0) FROM users WHERE username=%s", (user,))
+            points = int((c.fetchone() or [0])[0] or 0)
+            c.execute("SELECT id, name, cost, description, icon FROM shop_items ORDER BY cost ASC, name ASC")
+            items = c.fetchall()
+    finally:
+        conn.close()
+
+    return render_template('admin_achievements.html', points=points, items=items, is_admin=is_admin)
+
 
 @app.route("/medallas")
 def medallas():
     user = session.get("username")
     return render_template("medallas.html", user=user)
 
-
-@app.get("/admin/achievements")
-def admin_achievements_list():
-    require_admin()
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-              SELECT id, code, title, description, icon,
-                     trigger_kind, trigger_value, points_on_award, grant_both, active
-              FROM achievements
-              ORDER BY active DESC, trigger_kind, trigger_value NULLS LAST, id DESC
-            """)
-            rows = c.fetchall()
-    finally:
-        conn.close()
-    return render_template("admin_achievements.html",
-                           username=session['username'],
-                           rows=rows)
 
 
 @app.post("/admin/achievements/add")

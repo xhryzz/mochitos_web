@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Premios / Medallas — Mochitos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --brand:#e84393; --bg:#faf7fb; --card:#ffffff; --ink:#1f2937; --muted:#6b7280; --ok:#10b981; --warn:#f59e0b; --err:#ef4444; --line:#efefef;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:Montserrat,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.container{max-width:980px;margin:26px auto;padding:0 14px}
+h1{font-size:1.6rem;margin:0 0 10px}
+.subtitle{color:var(--muted);margin:0 0 18px}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 16px}
+a.btn,button.btn{display:inline-block;text-decoration:none;border:1px solid var(--line);background:#fff;color:var(--ink);padding:10px 14px;border-radius:10px;cursor:pointer}
+.btn.brand{background:var(--brand);color:#fff;border-color:var(--brand)}
+.btn.ghost{background:#fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 6px 14px rgba(0,0,0,.04)}
+.card h2{margin:0 0 10px;font-size:1.2rem}
+.row{display:grid;gap:10px}
+label{font-weight:600;font-size:.92rem}
+input[type=text], input[type=number], select{
+  width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;font:inherit
+}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.small{color:var(--muted);font-size:.9rem}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px;border-bottom:1px solid #eee;text-align:left;font-size:.95rem;vertical-align:top}
+th{color:#555}
+.badge{display:inline-block;padding:4px 10px;border-radius:999px;background:#f3f4f6;color:#111;font-size:.78rem;margin-right:8px}
+.badge.ok{background:#ecfdf5;color:#065f46}
+.badge.warn{background:#fffbeb;color:#92400e}
+.badge.err{background:#fef2f2;color:#991b1b}
+.inline-form{display:inline-grid;grid-template-columns:repeat(9,auto);gap:6px;align-items:center}
+.inline-form input[type=text]{width:160px}
+.inline-form input[type=number]{width:90px}
+.inline-form input[name=icon]{width:70px;text-align:center}
+.inline-form select{width:140px}
+hr.sep{border:0;height:1px;background:#eee;margin:14px 0}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🏆 Premios / Medallas</h1>
+  <p class="subtitle">Hola <b>{{ username }}</b>. <a class="btn" href="/admin">← Volver al panel</a>
+</p>
+  <div class="grid" style="margin-top:10px">
+    <!-- Ajustar puntos -->
+    <div class="card">
+      <h2>⚖️ Ajustar puntos</h2>
+      <form action="/admin/points/adjust" method="post" class="inline-form">
+        <label>Usuario</label>
+        <select name="username" required>
+          {% for u, pts in users %}
+            <option value="{{ u }}">{{ u }} ({{ pts }} pts)</option>
+          {% endfor %}
+        </select>
+        <label>Δ puntos</label>
+        <input type="number" name="delta" step="1" placeholder="+10 o -5" required>
+        <label>Motivo</label>
+        <input type="text" name="reason" placeholder="p.ej. premio manual">
+        <button class="btn brand" type="submit">Aplicar</button>
+      </form>
+    </div>
+
+    <!-- Gestionar premios de tienda -->
+    <div class="card">
+      <h2>🛍️ Premios de tienda</h2>
+      <form action="/admin/shop/add" method="post" class="inline-form">
+        <label>Nombre</label>
+        <input type="text" name="name" placeholder="p.ej. Desayuno sorpresa" required>
+        <label>Coste</label>
+        <input type="number" name="cost" min="1" step="1" placeholder="50" required>
+        <label>Icono</label>
+        <input type="text" name="icon" placeholder="🎁">
+        <label>Descripción</label>
+        <input type="text" name="description" placeholder="Opcional">
+        <button class="btn brand" type="submit">Añadir</button>
+      </form>
+      <hr class="sep">
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Icono</th><th>Nombre</th><th>Coste</th><th>Descripción</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for it in shop_items %}
+          <tr>
+            <td>#{{ it[0] }}</td>
+            <td style="font-size:20px">{{ it[4] or '🎁' }}</td>
+            <td>{{ it[1] }}</td>
+            <td>{{ it[2] }}</td>
+            <td>{{ it[3] }}</td>
+            <td>
+              <form action="/admin/shop/{{ it[0] }}/delete" method="post" style="display:inline">
+                <button class="btn danger" onclick="return confirm('¿Eliminar {{ it[1] }}?')" type="submit">Eliminar</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+
+  <div class="nav">
+    <a href="/admin/questions" class="btn">📝 Gestionar preguntas</a>
+    <form action="/admin/achievements/check_now" method="post" style="display:inline">
+      <button class="btn brand" type="submit">⚡ Evaluar hitos ahora</button>
+    </form>
+  </div>
+
+  <!-- Crear nuevo premio -->
+  <div class="card">
+    <h2>Nuevo premio</h2>
+    <form action="/admin/achievements/add" method="post" class="row" autocomplete="off">
+      <div class="row" style="grid-template-columns:1fr 1fr;">
+        <div>
+          <label for="code">Código (opcional)</label>
+          <input id="code" name="code" type="text" placeholder="p.ej. rel_100_dias">
+          <p class="small">Si lo dejas vacío, se genera uno automáticamente.</p>
+        </div>
+        <div>
+          <label for="title">Título</label>
+          <input id="title" name="title" type="text" required placeholder="Ej: 100 días juntos">
+        </div>
+      </div>
+
+      <div class="row" style="grid-template-columns:1fr 120px;">
+        <div>
+          <label for="description">Descripción</label>
+          <input id="description" name="description" type="text" placeholder="Texto corto opcional">
+        </div>
+        <div>
+          <label for="icon">Icono</label>
+          <input id="icon" name="icon" type="text" value="🏆">
+        </div>
+      </div>
+
+      <div class="row" style="grid-template-columns:1fr 1fr 1fr 1fr;">
+        <div>
+          <label for="trigger_kind">Tipo disparador</label>
+          <select id="trigger_kind" name="trigger_kind">
+            <option value="rel_days">Hito (días juntos)</option>
+            <option value="manual">Manual</option>
+            <option value="none">Sin disparador</option>
+          </select>
+        </div>
+        <div>
+          <label for="trigger_value">Valor</label>
+          <input id="trigger_value" name="trigger_value" type="number" min="1" placeholder="p.ej. 100">
+        </div>
+        <div>
+          <label for="points_on_award">Puntos al otorgar</label>
+          <input id="points_on_award" name="points_on_award" type="number" min="0" value="0">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <div class="actions" style="margin:0">
+            <label><input type="checkbox" name="grant_both" checked> Conceder a ambos</label>
+            <label><input type="checkbox" name="active" checked> Activo</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn brand" type="submit">Crear premio</button>
+      </div>
+      <p class="small">Los de tipo <b>rel_days</b> se conceden automáticamente cuando se alcanza el día.</p>
+    </form>
+  </div>
+
+  <!-- Listado -->
+  <div class="card">
+    <h2>Listado</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Icono</th>
+          <th>Título</th>
+          <th>Trigger</th>
+          <th>Valor</th>
+          <th>Puntos</th>
+          <th>Ambos</th>
+          <th>Activo</th>
+          <th>Editar / Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td>#{{ r.id }}</td>
+          <td style="font-size:1.2rem">{{ r.icon or '🏅' }}</td>
+          <td>
+            <div><b>{{ r.title }}</b></div>
+            <div class="small" style="max-width:360px">{{ r.description or '' }}</div>
+            <div class="small" style="color:#888">code: {{ r.code }}</div>
+          </td>
+          <td>{{ r.trigger_kind }}</td>
+          <td>{{ r.trigger_value or '' }}</td>
+          <td>{{ r.points_on_award or 0 }}</td>
+          <td>{{ '✔' if r.grant_both else '—' }}</td>
+          <td>{{ '✔' if r.active else '—' }}</td>
+          <td>
+            <form class="inline-form" action="/admin/achievements/{{ r.id }}/edit" method="post" autocomplete="off">
+              <input name="title"           type="text"   value="{{ r.title }}" placeholder="Título">
+              <input name="description"     type="text"   value="{{ r.description or '' }}" placeholder="Descripción">
+              <input name="icon"            type="text"   value="{{ r.icon or '' }}" placeholder="Icono">
+              <select name="trigger_kind">
+                <option value="rel_days" {{ 'selected' if r.trigger_kind=='rel_days' else '' }}>rel_days</option>
+                <option value="manual"   {{ 'selected' if r.trigger_kind=='manual'   else '' }}>manual</option>
+                <option value="none"     {{ 'selected' if r.trigger_kind=='none'     else '' }}>none</option>
+              </select>
+              <input name="trigger_value"   type="number" min="1" value="{{ r.trigger_value or '' }}" placeholder="valor">
+              <input name="points_on_award" type="number" min="0" value="{{ r.points_on_award or 0 }}" placeholder="pts">
+              <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" name="grant_both" {{ 'checked' if r.grant_both else '' }}> ambos</label>
+              <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" name="active" {{ 'checked' if r.active else '' }}> activo</label>
+              <button class="btn" type="submit">Guardar</button>
+            </form>
+            <form action="/admin/achievements/{{ r.id }}/grant_now" method="post" style="display:inline-block;margin-top:6px">
+              <button class="btn" type="submit">Conceder ahora a ambos</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>

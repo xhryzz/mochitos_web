@@ -1,0 +1,9 @@
+Flask
+psycopg2-binary
+gunicorn
+requests
+pywebpush
+cryptography
+pytz
+tzdata
+

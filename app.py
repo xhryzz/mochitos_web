@@ -767,6 +767,7 @@ def _seed_gamification():
         conn.commit()
     finally:
         conn.close()
+_ensure_gamification_schema()
 
 def _grant_achievement_to(user: str, achievement_id: int, points_on_award: int = 0):
     """Concede (si falta) la medalla a 'user' y suma puntos."""
@@ -1449,13 +1450,21 @@ def parse_datetime_local_to_madrid(dt_local: str) -> str | None:
         return None
 
 
-def get_today_question(today: date | None = None):
+# Sustituye la función entera por esta
+from datetime import date as _Date, datetime as _DateTime
+
+def get_today_question(today: _Date | _DateTime | None = None):
+    # Normaliza a date (YYYY-MM-DD)
     if today is None:
-        today = today_madrid()
+        today = europe_madrid_now().date()
+    elif isinstance(today, _DateTime):
+        today = today.date()
+    # hoy como 'YYYY-MM-DD'
     today_str = today.isoformat()
+
     conn = get_db_connection()
     try:
-        # ¿Hay ya pregunta para hoy?
+        # ¿Ya existe para hoy?
         with conn.cursor() as c:
             c.execute("""
                 SELECT id, question, bank_id
@@ -1468,10 +1477,9 @@ def get_today_question(today: date | None = None):
             if row:
                 return row['id'], row['question']
 
-        # No existe aún -> elige del banco (SIN usar)
+        # No existe → saca una del banco
         picked = qbank_pick_random(conn)
         if not picked:
-            # 🚫 Ya no reciclamos. Si no quedan, avisamos.
             return (None, "Ya no quedan preguntas sin usar. Añade más en Admin → Preguntas.")
 
         with conn.cursor() as c:
@@ -1483,9 +1491,7 @@ def get_today_question(today: date | None = None):
             qid = c.fetchone()[0]
             conn.commit()
 
-        # Marca esa del banco como usada (desde el momento en que está activa para HOY)
         qbank_mark_used(conn, picked['id'], True)
-
         return qid, picked['text']
     finally:
         conn.close()

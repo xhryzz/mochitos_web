@@ -46,66 +46,7 @@ hr.sep{border:0;height:1px;background:#eee;margin:14px 0}
 <body>
 <div class="container">
   <h1>🏆 Premios / Medallas</h1>
-  <p class="subtitle">Hola <b>{{ username }}</b>. <a class="btn" href="/admin">← Volver al panel</a>
-</p>
-  <div class="grid" style="margin-top:10px">
-    <!-- Ajustar puntos -->
-    <div class="card">
-      <h2>⚖️ Ajustar puntos</h2>
-      <form action="/admin/points/adjust" method="post" class="inline-form">
-        <label>Usuario</label>
-        <select name="username" required>
-          {% for u, pts in users %}
-            <option value="{{ u }}">{{ u }} ({{ pts }} pts)</option>
-          {% endfor %}
-        </select>
-        <label>Δ puntos</label>
-        <input type="number" name="delta" step="1" placeholder="+10 o -5" required>
-        <label>Motivo</label>
-        <input type="text" name="reason" placeholder="p.ej. premio manual">
-        <button class="btn brand" type="submit">Aplicar</button>
-      </form>
-    </div>
-
-    <!-- Gestionar premios de tienda -->
-    <div class="card">
-      <h2>🛍️ Premios de tienda</h2>
-      <form action="/admin/shop/add" method="post" class="inline-form">
-        <label>Nombre</label>
-        <input type="text" name="name" placeholder="p.ej. Desayuno sorpresa" required>
-        <label>Coste</label>
-        <input type="number" name="cost" min="1" step="1" placeholder="50" required>
-        <label>Icono</label>
-        <input type="text" name="icon" placeholder="🎁">
-        <label>Descripción</label>
-        <input type="text" name="description" placeholder="Opcional">
-        <button class="btn brand" type="submit">Añadir</button>
-      </form>
-      <hr class="sep">
-      <table>
-        <thead>
-          <tr><th>ID</th><th>Icono</th><th>Nombre</th><th>Coste</th><th>Descripción</th><th></th></tr>
-        </thead>
-        <tbody>
-          {% for it in shop_items %}
-          <tr>
-            <td>#{{ it[0] }}</td>
-            <td style="font-size:20px">{{ it[4] or '🎁' }}</td>
-            <td>{{ it[1] }}</td>
-            <td>{{ it[2] }}</td>
-            <td>{{ it[3] }}</td>
-            <td>
-              <form action="/admin/shop/{{ it[0] }}/delete" method="post" style="display:inline">
-                <button class="btn danger" onclick="return confirm('¿Eliminar {{ it[1] }}?')" type="submit">Eliminar</button>
-              </form>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
+  <p class="subtitle">Hola <b>{{ username }}</b>. <a class="btn" href="/admin">← Volver al panel</a></p>
 
   <div class="nav">
     <a href="/admin/questions" class="btn">📝 Gestionar preguntas</a>

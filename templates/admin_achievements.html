@@ -32,7 +32,18 @@
         <a href="/" class="btn ghost">← Inicio</a>
         <h1 style="margin:0;font-weight:800">🛍️ Tienda</h1>
       </div>
-      <div style="font-weight:700">Tus puntos: {{ points }}</div>
+      <div class="row">
+        {% if is_admin %}
+        <form method="post">
+          <input type="hidden" name="action" value="toggle_admin">
+          <button class="btn gray" type="submit"
+                  title="Alternar entre vista normal y vista admin">
+            {{ 'Vista admin: ON' if show_admin else 'Vista admin: OFF' }}
+          </button>
+        </form>
+        {% endif %}
+        <div style="font-weight:700">Tus puntos: {{ points }}</div>
+      </div>
     </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -45,7 +56,7 @@
       {% endif %}
     {% endwith %}
 
-    {% if is_admin %}
+    {% if show_admin %}
     <!-- ADMIN: crear nuevo premio -->
     <div class="card">
       <h2 style="margin:0 0 8px;font-weight:800">⚙️ Admin · Nuevo premio</h2>
@@ -95,10 +106,11 @@
           <button class="btn" type="submit">Canjear</button>
         </form>
 
-        {% if is_admin %}
-        <!-- Admin: editar/borrar -->
+        {% if show_admin %}
+        <!-- Admin: editar/borrar (sin formularios anidados) -->
         <details>
           <summary style="margin-top:10px">Editar / borrar</summary>
+
           <form method="post" style="margin-top:10px">
             <input type="hidden" name="action" value="update_item">
             <input type="hidden" name="item_id" value="{{ it.id }}">
@@ -120,14 +132,15 @@
               <label>Descripción</label>
               <textarea name="description" rows="2">{{ it.description or '' }}</textarea>
             </div>
-            <div class="row" style="margin-top:10px;justify-content:space-between">
+            <div class="row" style="margin-top:10px;justify-content:flex-start">
               <button class="btn gray" type="submit">Guardar cambios</button>
-              <form method="post" onsubmit="return confirm('¿Borrar este premio?');">
-                <input type="hidden" name="action" value="delete_item">
-                <input type="hidden" name="item_id" value="{{ it.id }}">
-                <button class="btn warn" type="submit">Borrar</button>
-              </form>
             </div>
+          </form>
+
+          <form method="post" onsubmit="return confirm('¿Borrar este premio?');" style="margin-top:8px">
+            <input type="hidden" name="action" value="delete_item">
+            <input type="hidden" name="item_id" value="{{ it.id }}">
+            <button class="btn warn" type="submit">Borrar</button>
           </form>
         </details>
         {% endif %}

@@ -5638,34 +5638,76 @@ def shop():
             current = bool(session.get('shop_admin_view', True))  # por defecto ON para mochito
             session['shop_admin_view'] = not current
             flash(("Vista admin activada ✅" if not current else "Vista admin desactivada 👀"), "success")
-            try: send_discord("Shop admin view toggled", {"by": user, "enabled": not current})
-            except Exception: pass
+            try:
+                send_discord("Shop admin view toggled", {"by": user, "enabled": not current})
+            except Exception:
+                pass
             return redirect('/tienda')
 
-        # === Resto de acciones ===
+        # === ADMIN: sumar puntos a un usuario ===
+        if action == 'grant_points':
+            if not is_admin:
+                flash("Solo el admin puede modificar puntos.", "error")
+                return redirect('/tienda')
+
+            to_user = (request.form.get('to_user') or '').strip()
+            delta   = (request.form.get('points') or '').strip()
+            note    = (request.form.get('note') or '').strip()
+
+            if to_user not in ('mochito', 'mochita'):
+                flash("Usuario destino inválido.", "error")
+                return redirect('/tienda')
+
+            try:
+                d = int(delta)
+                if d <= 0:
+                    raise ValueError()
+            except Exception:
+                flash("Cantidad inválida. Usa un entero positivo.", "error")
+                return redirect('/tienda')
+
+            conn = get_db_connection()
+            try:
+                with conn.cursor() as c:
+                    c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE username=%s", (d, to_user))
+                    conn.commit()
+                flash(f"Se añadieron +{d} pts a {to_user} ✅", "success")
+                try:
+                    send_discord("Points granted", {"by": user, "to": to_user, "points": d, "note": note})
+                except Exception:
+                    pass
+            finally:
+                conn.close()
+            return redirect('/tienda')
+
+        # === Resto de acciones (redeem / CRUD items) ===
         conn = get_db_connection()
         try:
             if action == 'redeem':
                 item_id = request.form.get('item_id')
                 if not item_id:
-                    flash("Falta item.", "error"); return redirect('/tienda')
+                    flash("Falta item.", "error")
+                    return redirect('/tienda')
 
                 with conn.cursor() as c:
                     c.execute("SELECT id, name, cost FROM shop_items WHERE id=%s", (item_id,))
                     row = c.fetchone()
                     if not row:
-                        flash("Premio no encontrado.", "error"); return redirect('/tienda')
+                        flash("Premio no encontrado.", "error")
+                        return redirect('/tienda')
 
                     it_id, it_name, it_cost = row['id'], row['name'], int(row['cost'])
 
                     c.execute("SELECT id, COALESCE(points,0) AS pts FROM users WHERE username=%s FOR UPDATE", (user,))
                     urow = c.fetchone()
                     if not urow:
-                        flash("Usuario no encontrado.", "error"); return redirect('/tienda')
+                        flash("Usuario no encontrado.", "error")
+                        return redirect('/tienda')
 
                     uid, points = int(urow['id']), int(urow['pts'])
                     if points < it_cost:
-                        flash("No tienes puntos suficientes 😅", "error"); return redirect('/tienda')
+                        flash("No tienes puntos suficientes 😅", "error")
+                        return redirect('/tienda')
 
                     c.execute("UPDATE users SET points = points - %s WHERE id=%s", (it_cost, uid))
                     c.execute("""
@@ -5675,8 +5717,10 @@ def shop():
                     conn.commit()
 
                 flash(f"¡Canjeado! 🎉 Disfruta tu premio: {it_name}", "success")
-                try: send_discord("Shop redeem", {"by": user, "item_id": int(item_id)})
-                except Exception: pass
+                try:
+                    send_discord("Shop redeem", {"by": user, "item_id": int(item_id)})
+                except Exception:
+                    pass
                 return redirect('/tienda')
 
             # Solo admin: crear/editar/borrar
@@ -5691,16 +5735,20 @@ def shop():
                 icon = (request.form.get('icon') or '').strip() or '🎁'
                 try:
                     icost = int(cost)
-                    if icost < 1: raise ValueError()
+                    if icost < 1:
+                        raise ValueError()
                 except Exception:
-                    flash("Coste inválido.", "error"); return redirect('/tienda')
+                    flash("Coste inválido.", "error")
+                    return redirect('/tienda')
                 with conn.cursor() as c:
                     c.execute("""INSERT INTO shop_items (name, cost, description, icon)
                                  VALUES (%s,%s,%s,%s)""", (name, icost, desc, icon))
                     conn.commit()
                 flash("Premio añadido ✅", "success")
-                try: send_discord("Shop item created", {"by": user, "name": name, "cost": icost})
-                except Exception: pass
+                try:
+                    send_discord("Shop item created", {"by": user, "name": name, "cost": icost})
+                except Exception:
+                    pass
                 return redirect('/tienda')
 
             if action == 'update_item':
@@ -5711,17 +5759,21 @@ def shop():
                 icon = (request.form.get('icon') or '').strip() or '🎁'
                 try:
                     icost = int(cost)
-                    if icost < 1: raise ValueError()
+                    if icost < 1:
+                        raise ValueError()
                 except Exception:
-                    flash("Coste inválido.", "error"); return redirect('/tienda')
+                    flash("Coste inválido.", "error")
+                    return redirect('/tienda')
                 with conn.cursor() as c:
                     c.execute("""UPDATE shop_items
-                                    SET name=%s, cost=%s, description=%s, icon=%s
-                                  WHERE id=%s""", (name, icost, desc, icon, item_id))
+                                   SET name=%s, cost=%s, description=%s, icon=%s
+                                 WHERE id=%s""", (name, icost, desc, icon, item_id))
                     conn.commit()
                 flash("Premio actualizado ✏️", "success")
-                try: send_discord("Shop item updated", {"by": user, "id": int(item_id)})
-                except Exception: pass
+                try:
+                    send_discord("Shop item updated", {"by": user, "id": int(item_id)})
+                except Exception:
+                    pass
                 return redirect('/tienda')
 
             if action == 'delete_item':
@@ -5730,21 +5782,52 @@ def shop():
                     c.execute("DELETE FROM shop_items WHERE id=%s", (item_id,))
                     conn.commit()
                 flash("Premio borrado 🗑️", "info")
-                try: send_discord("Shop item deleted", {"by": user, "id": int(item_id)})
-                except Exception: pass
+                try:
+                    send_discord("Shop item deleted", {"by": user, "id": int(item_id)})
+                except Exception:
+                    pass
                 return redirect('/tienda')
 
             flash("Acción desconocida.", "error")
             return redirect('/tienda')
 
         except Exception:
-            try: conn.rollback()
-            except Exception: pass
+            try:
+                conn.rollback()
+            except Exception:
+                pass
             app.logger.exception("[/tienda] error")
             flash("Error en la tienda.", "error")
             return redirect('/tienda')
         finally:
             conn.close()
+
+    # === GET: cargar datos para pintar la tienda ===
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # Puntos del usuario actual
+            c.execute("SELECT COALESCE(points,0) FROM users WHERE username=%s", (user,))
+            points = int((c.fetchone() or [0])[0] or 0)
+
+            # Items de tienda
+            c.execute("SELECT id, name, cost, description, icon FROM shop_items ORDER BY cost ASC, name ASC")
+            items = c.fetchall()
+
+            # Puntos de ambos (para panel admin)
+            c.execute("SELECT username, COALESCE(points,0) AS p FROM users WHERE username IN ('mochito','mochita')")
+            rows = c.fetchall()
+            points_map = {r['username']: int(r['p']) for r in rows}
+    finally:
+        conn.close()
+
+    show_admin = is_admin and bool(session.get('shop_admin_view', True))
+    return render_template('shop.html',
+                           points=points,
+                           items=items,
+                           is_admin=is_admin,
+                           show_admin=show_admin,
+                           points_map=points_map)
 
     # GET: listar items y puntos
     conn = get_db_connection()

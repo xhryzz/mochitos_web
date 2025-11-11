@@ -5899,53 +5899,53 @@ def shop():
         conn = get_db_connection()
         try:
             # También en la función de canje en la tienda, añadir notificación
-        if op == 'redeem':
-            item_id = request.form.get('item_id')
-            if not item_id:
-                flash("Falta item.", "error")
-                return redirect('/tienda')
-
-            with conn.cursor() as c:
-                c.execute("SELECT id, name, cost FROM shop_items WHERE id=%s", (item_id,))
-                row = c.fetchone()
-                if not row:
-                    flash("Premio no encontrado.", "error")
+            if op == 'redeem':
+                item_id = request.form.get('item_id')
+                if not item_id:
+                    flash("Falta item.", "error")
                     return redirect('/tienda')
 
-                it_id, it_name, it_cost = row['id'], row['name'], int(row['cost'])
+                with conn.cursor() as c:
+                    c.execute("SELECT id, name, cost FROM shop_items WHERE id=%s", (item_id,))
+                    row = c.fetchone()
+                    if not row:
+                        flash("Premio no encontrado.", "error")
+                        return redirect('/tienda')
 
-                c.execute("SELECT id, COALESCE(points,0) AS pts FROM users WHERE username=%s FOR UPDATE", (user,))
-                urow = c.fetchone()
-                if not urow:
-                    flash("Usuario no encontrado.", "error")
-                    return redirect('/tienda')
+                    it_id, it_name, it_cost = row['id'], row['name'], int(row['cost'])
 
-                uid, points = int(urow['id']), int(urow['pts'])
-                if points < it_cost:
-                    flash("No tienes puntos suficientes 😅", "error")
-                    return redirect('/tienda')
+                    c.execute("SELECT id, COALESCE(points,0) AS pts FROM users WHERE username=%s FOR UPDATE", (user,))
+                    urow = c.fetchone()
+                    if not urow:
+                        flash("Usuario no encontrado.", "error")
+                        return redirect('/tienda')
 
-                c.execute("UPDATE users SET points = points - %s WHERE id=%s", (it_cost, uid))
-                c.execute("""
-                    INSERT INTO purchases (user_id, item_id, quantity, note, purchased_at)
-                    VALUES (%s,%s,1,%s,%s)
-                """, (uid, it_id, f"Canje de {it_name}", now_madrid_str()))
-                conn.commit()
+                    uid, points = int(urow['id']), int(urow['pts'])
+                    if points < it_cost:
+                        flash("No tienes puntos suficientes 😅", "error")
+                        return redirect('/tienda')
 
-                # 🔔 NOTIFICACIÓN PUSH POR CANJE
+                    c.execute("UPDATE users SET points = points - %s WHERE id=%s", (it_cost, uid))
+                    c.execute("""
+                        INSERT INTO purchases (user_id, item_id, quantity, note, purchased_at)
+                        VALUES (%s,%s,1,%s,%s)
+                    """, (uid, it_id, f"Canje de {it_name}", now_madrid_str()))
+                    conn.commit()
+
+                    # 🔔 NOTIFICACIÓN PUSH POR CANJE
+                    try:
+                        send_push_to(user,
+                                    title="🎁 ¡Premio canjeado!",
+                                    body=f"Has canjeado '{it_name}' por {it_cost} puntos")
+                    except Exception as e:
+                        print("[push redeem] ", e)
+
+                flash(f"¡Canjeado! 🎉 Disfruta tu premio: {it_name}", "success")
                 try:
-                    send_push_to(user,
-                                title="🎁 ¡Premio canjeado!",
-                                body=f"Has canjeado '{it_name}' por {it_cost} puntos")
-                except Exception as e:
-                    print("[push redeem] ", e)
-
-            flash(f"¡Canjeado! 🎉 Disfruta tu premio: {it_name}", "success")
-            try:
-                send_discord("Shop redeem", {"by": user, "item_id": int(item_id)})
-            except Exception:
-                pass
-            return redirect('/tienda')
+                    send_discord("Shop redeem", {"by": user, "item_id": int(item_id)})
+                except Exception:
+                    pass
+                return redirect('/tienda')
 
             # Solo admin: crear/editar/borrar
             if not is_admin:

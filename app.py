@@ -5944,7 +5944,7 @@ def shop():
             try:
                 send_discord("Shop redeem", {"by": user, "item_id": int(item_id)})
             except Exception:
-            pass
+                pass
             return redirect('/tienda')
 
             # Solo admin: crear/editar/borrar

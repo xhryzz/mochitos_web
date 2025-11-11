@@ -2122,11 +2122,111 @@ body::before{ z-index: -1; }
   .quick-menu a{ padding: 10px 12px; font-size: 14px; }
 }
 
+
+/* Loader Styles Corregidos */
+#loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, #ffe8f3 0%, #dfe6e9 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    transition: opacity 0.8s ease, visibility 0.8s ease;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.loader-content {
+    text-align: center;
+    color: #e84393;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transform: translateY(-10%); /* Ajuste fino para centrado visual */
+}
+
+.loader-heart {
+    font-size: 4rem;
+    margin-bottom: 1.5rem;
+    animation: heartbeat 1.5s ease-in-out infinite;
+}
+
+.loader-text {
+    font-family: 'Dancing Script', cursive;
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: #e84393;
+}
+
+.loader-subtext {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    color: #2d3436;
+    opacity: 0.8;
+    margin-bottom: 1.5rem;
+}
+
+.loader-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(232, 67, 147, 0.2);
+    border-top: 5px solid #e84393;
+    border-radius: 50%;
+    animation: spin 1.5s linear infinite;
+}
+
+@keyframes heartbeat {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+body.loading {
+    overflow: hidden; /* Evita el scroll durante la carga */
+}
+
+body.loading #main-content {
+    opacity: 0;
+    visibility: hidden;
+}
+
+body.loaded #loader {
+    opacity: 0;
+    visibility: hidden;
+}
+
+body.loaded #main-content {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.8s ease;
+}
+
     </style>
 </head>
 
-<body>
-  <!-- NAVIDAD (tema) se puede borrar-->
+<body class="loading">
+  <div id="loader">
+    <div class="loader-content">
+        <div class="loader-heart">❤️</div>
+        <div class="loader-text">Christian & Clara</div>
+        <div class="loader-subtext">Cargando...</div>
+        <div class="loader-spinner"></div>
+    </div>
+</div>
+<div id="main-content">
+
+    <!-- NAVIDAD (tema) se puede borrar-->
   <div id="xmas-stage" aria-hidden="true"></div>
 
   {% set flash_messages = get_flashed_messages(with_categories=true) %}
@@ -3858,6 +3958,8 @@ window.openBasicEditMedia = function(btn){
 
       {% endif %}
   </div>
+    <!-- TODO tu contenido actual aquí -->
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
 
@@ -7101,7 +7203,15 @@ function flyOnce(){
 })();
 </script>
 
+<script>
+  window.addEventListener('load', function() {
+  setTimeout(function() {
+      document.body.classList.remove('loading');
+      document.body.classList.add('loaded');
+  }, 800);
+});
 
+</script>
 {% if username in ('mochito','mochita') %}
 <button onclick="location.href='/push/debug'" class="debug-fab" aria-label="Debug push">🔧 Notificaciones</button>
 <style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:rgba(232,67,147,.4);color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>

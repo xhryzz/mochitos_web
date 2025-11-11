@@ -2043,6 +2043,62 @@ body::before{ z-index: -1; }
   box-shadow:0 6px 14px rgba(162,155,254,.4);
 }
 
+/* contenedor del icono + chip */
+.points-wrapper{
+  position: fixed;
+  z-index: 1200;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* reutilizamos el botón de estilo redondo */
+.points-wrapper .points-icon{ position: static; }
+
+/* chip con los dos contadores */
+.points-chip{
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #eee;
+  box-shadow: 0 10px 20px rgba(0,0,0,.08);
+  font-weight: 800;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.points-chip .pp{ display: inline-flex; align-items: center; gap: 6px; }
+.points-chip .avatar-mini{
+  width: 20px; height: 20px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--gradient); color: #fff; font-size: .8rem; overflow: hidden;
+}
+.points-chip .avatar-mini img{ width: 100%; height: 100%; object-fit: cover; display: block; }
+.points-chip .name{ font-weight: 700; opacity: .75; }
+
+/* posición bajo el Admin en móvil */
+@media (max-width: 991.98px){
+  .points-wrapper{
+    top: calc(var(--gap) + 60px + 60px + 60px);  /* un “slot” debajo del Admin */
+    left: calc(var(--gap));
+  }
+}
+
+/* posición bajo el Admin en escritorio (barra lateral) */
+@media (min-width: 992px){
+  .points-wrapper{
+    top: 224px; /* 20 → 88 → 156 → 224  (mismo ritmo que admin/presence) */
+    left: calc(var(--nav-left-desktop) + var(--gap));
+  }
+}
+
+/* si el ancho es muy pequeño, ocultamos los nombres y dejamos solo números */
+@media (max-width: 420px){
+  .points-chip .name{ display: none; }
+}
 
     </style>
 </head>
@@ -2205,6 +2261,7 @@ body::before{ z-index: -1; }
           <h1>Christian Clara</h1>
           <!-- CHIPS RÁPIDOS EN BANNER -->
 <div class="home-chips" id="homeChips">
+  
   <div class="chip-stat">
     <i class="fa-solid fa-heart"></i>
     <span>{{ days_together }}</span> días juntos
@@ -2214,6 +2271,11 @@ body::before{ z-index: -1; }
     <i class="fa-solid fa-route"></i>
     — km
   </div>
+  
+  <a href="/medallas" class="chip-stat" id="chipPoints" style="text-decoration:none">
+  <i class="fa-solid fa-medal"></i> Puntos: —
+</a>
+
 
   {% if days_until_meeting is number and days_until_meeting >= 0 %}
     <div class="chip-stat {{ 'soon' if days_until_meeting <= 3 else '' }}" id="chipMeeting">
@@ -2244,6 +2306,40 @@ body::before{ z-index: -1; }
     <i class="fa-solid fa-toolbox" aria-hidden="fa"></i>
   </a>
 {% endif %}
+
+<!-- Puntos flotantes (icono + chip con los dos contadores) -->
+<div class="points-wrapper" id="pointsWrapper">
+  <a href="/medallas" class="settings-icon points-icon" title="Puntos" aria-label="Puntos">
+    <i class="fa-solid fa-medal" aria-hidden="true"></i>
+  </a>
+
+  <div class="points-chip" id="pointsChip" aria-live="polite">
+    <div class="pp">
+      <span class="avatar-mini">
+        {% if profile_pictures.get(username) %}
+          <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+        {% else %}
+          {{ username[0]|upper }}
+        {% endif %}
+      </span>
+      <span class="name">{{ username }}</span>
+      <b id="pts-me">—</b>
+    </div>
+    <div class="pp">
+      <span class="avatar-mini">
+        {% if profile_pictures.get(other_user) %}
+          <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+        {% else %}
+          {{ other_user[0]|upper }}
+        {% endif %}
+      </span>
+      <span class="name">{{ other_user }}</span>
+      <b id="pts-other">—</b>
+    </div>
+  </div>
+</div>
+
+
 
 
       <!-- PRESENCIA (chip junto al icono de perfil) -->
@@ -6906,37 +7002,54 @@ function flyOnce(){
 </script>
 
 
+<script>
+(async function(){
+  // helpers
+  const $ = (id)=>document.getElementById(id);
+  const me = (typeof LOGGED !== 'undefined' && LOGGED) ? LOGGED : '';
+  const other = (typeof OTHER !== 'undefined' && OTHER) ? OTHER : '';
+
+  async function fetchPoints(user){
+    if(!user) return null;
+    const tryUrls = [
+      `/api/medallas/summary?user=${encodeURIComponent(user)}`,
+      `/api/medallas/summary/${encodeURIComponent(user)}`,
+      user === me ? `/api/medallas/summary` : `/api/medallas/summary?who=${encodeURIComponent(user)}`,
+      `/api/medallas/all?only=${encodeURIComponent(user)}`
+    ];
+    for (const url of tryUrls){
+      try{
+        const r = await fetch(url, { credentials: 'same-origin' });
+        if(!r.ok) continue;
+        const d = await r.json();
+        const p = (d && (d.points ?? d.total ?? d.score ?? d.puntos));
+        if (typeof p === 'number') return p;
+      }catch(e){}
+    }
+    return null;
+  }
+
+  function setText(id, val){
+    const el = $(id);
+    if (!el) return;
+    el.textContent = (val ?? '—');
+  }
+
+  // pinta ambos
+  const [mePts, otherPts] = await Promise.all([fetchPoints(me), fetchPoints(other)]);
+  setText('pts-me', mePts);
+  setText('pts-other', otherPts);
+})();
+</script>
+
+
 {% if username in ('mochito','mochita') %}
 <button onclick="location.href='/push/debug'" class="debug-fab" aria-label="Debug push">🔧 Notificaciones</button>
 <style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:rgba(232,67,147,.4);color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>
 {% endif %}
 
 
-    <!-- === Medallas / Puntos (home) === -->
-    <section id="medallas-home" style="max-width:1100px;margin:30px auto;padding:0 16px;">
-      <div style="background:white;border-radius:18px;box-shadow:0 12px 28px rgba(0,0,0,.08);padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:center;">
-        <div>
-          <div style="font-size:14px;color:#888">Tus puntos</div>
-          <div id="home-pts" style="font-size:32px;font-weight:800">—</div>
-        </div>
-        <div>
-          <div style="font-size:14px;color:#888">Racha</div>
-          <div id="home-streak" style="font-size:32px;font-weight:800">—</div>
-        </div>
-        <div style="display:flex;gap:10px;align-items:center;">
-          <a href="/medallas" style="text-decoration:none;display:inline-block;padding:10px 14px;border-radius:12px;background:#e84393;color:white;">Ver medallas</a>
-          <a href="/tienda" style="text-decoration:none;display:inline-block;padding:10px 14px;border-radius:12px;background:#6c5ce7;color:white;">Ir a la tienda</a>
-        </div>
-      </div>
-    </section>
-    <script>
-      (function(){
-        fetch('/api/medallas/summary').then(r=>r.json()).then(d=>{
-          document.getElementById('home-pts').textContent = d.points;
-          document.getElementById('home-streak').textContent = d.streak;
-        }).catch(()=>{});
-      })();
-    </script>
+  
     
 </body>
 </html>

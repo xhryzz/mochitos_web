@@ -1,51 +1,225 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Tienda de premios</title>
-    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
   <style>
-    body{font-family:Montserrat,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:linear-gradient(135deg,#ffe8f3 0%,#dfe6e9 100%);margin:0;color:#222;}
-    .wrap{max-width:1000px;margin:30px auto;padding:0 16px;}
-    .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;}
-    .card{background:white;border-radius:16px;box-shadow:0 12px 24px rgba(0,0,0,.08);padding:16px;}
-    .btn{display:inline-block;padding:10px 12px;border-radius:12px;background:#e84393;color:white;text-decoration:none;border:none;cursor:pointer}
+    :root{
+      --primary:#e84393;
+      --bg1:#ffe8f3;
+      --bg2:#dfe6e9;
+      --card:#fff;
+      --ink:#222;
+      --muted:#6b7280;
+      --ring:#a29bfe;
+      --shadow:0 12px 26px rgba(0,0,0,.10);
+    }
+    *{box-sizing:border-box}
+    body{
+      font-family:Montserrat,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
+      background:linear-gradient(135deg,var(--bg1) 0%,var(--bg2) 100%);
+      color:var(--ink);
+      margin:0;
+      line-height:1.6;
+    }
+    .wrap{max-width:1100px;margin:38px auto;padding:0 18px 48px;}
+    .top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:22px;}
+    .top h1{margin:0;font-weight:800;letter-spacing:.2px}
+    .balance{
+      background:var(--card);
+      border:1px solid rgba(0,0,0,.06);
+      border-radius:14px;
+      padding:12px 16px;
+      box-shadow:var(--shadow);
+      font-weight:800;
+      display:flex;align-items:center;gap:10px;
+    }
+    .balance i{color:var(--primary)}
+    .section{
+      background:var(--card);
+      border:1px solid rgba(0,0,0,.06);
+      border-radius:18px;
+      box-shadow:var(--shadow);
+      padding:22px;
+      margin-top:24px;
+    }
+    .section h2{
+      margin:0 0 14px 0;
+      font-size:1.5rem;
+      letter-spacing:.2px;
+      color:#333;
+    }
+    .flash-wrap{display:grid;gap:12px;margin-top:10px;margin-bottom:6px;}
+    .flash{
+      background:#fff;border-radius:14px;padding:12px 14px;
+      border-left:6px solid #35b26f;
+      box-shadow:var(--shadow);
+    }
+    .flash.warn{border-left-color:#f39c12}
+
+    /* GRID DE LA TIENDA */
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+      gap:22px;
+      margin-top:6px;
+    }
+    .card{
+      background:#fff;border-radius:16px;padding:18px;
+      border:1px solid rgba(0,0,0,.06);
+      box-shadow:var(--shadow);
+      display:flex;flex-direction:column;gap:10px;min-height:200px;
+    }
+    .card .icon{font-size:30px}
+    .card .name{font-weight:800;margin-top:2px}
+    .card .desc{color:var(--muted);min-height:46px}
+    .price-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:auto}
+    .price{font-weight:800}
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;
+      padding:10px 14px;border-radius:12px;border:0;cursor:pointer;
+      background:linear-gradient(135deg,#ff6aa2,#a29bfe);color:#fff;
+      font-weight:800;letter-spacing:.2px;box-shadow:0 10px 22px rgba(232,67,147,.32);
+      transition:transform .15s ease, box-shadow .2s ease, filter .2s ease;
+    }
+    .btn:hover{transform:translateY(-2px)}
+    .btn[disabled]{opacity:.55;cursor:not-allowed;filter:grayscale(15%)}
+    .btn.secondary{
+      background:#fff;color:var(--primary);border:1px solid rgba(0,0,0,.08);
+      box-shadow:0 6px 16px rgba(0,0,0,.08);
+    }
+
+    /* HISTORIAL */
+    .history-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    @media (max-width:800px){.history-grid{grid-template-columns:1fr}}
+    .history-col{background:#fff;border:1px solid rgba(0,0,0,.06);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
+    .history-title{margin:0 0 10px 0;font-size:1.1rem;font-weight:800;color:#333;display:flex;align-items:center;gap:8px}
+    .redeem-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+    .redeem-item{
+      display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;
+      background:#fafafa;border:1px solid #eee;border-radius:12px;padding:10px 12px;
+    }
+    .redeem-icon{font-size:22px}
+    .redeem-name{font-weight:700}
+    .redeem-meta{font-size:.9rem;color:#8a8fa3}
+    .redeem-pts{font-weight:800;color:#b91c1c}
+    .redeem-empty{padding:12px 0;color:#8a8fa3;text-align:center}
+
+    /* Inputs */
+    form .input, input, select, textarea{
+      font-family:inherit;border-radius:12px;border:1px solid #e9e9e9;
+      padding:10px 12px;
+    }
+    input:focus, select:focus, textarea:focus, button:focus{
+      outline:0; box-shadow:0 0 0 3px rgba(162,155,254,.28);
+      border-color:var(--ring);
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
+
     <div class="top">
-      <h1 style="margin:0;font-weight:800">🛍️ Tienda</h1>
-      <div style="font-weight:700">Tus puntos: {{ points }}</div>
+      <h1>🛍️ Tienda</h1>
+      <div class="balance" aria-live="polite" title="Puntos disponibles">
+        <i>💎</i> <span>Tus puntos: <strong>{{ points }}</strong></span>
+      </div>
     </div>
+
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-      <div>
+      <div class="flash-wrap">
         {% for cat, msg in messages %}
-          <div class="card" style="border-left:6px solid {{ '#35b26f' if cat=='success' else '#f39c12' }}; margin-bottom:10px;">{{ msg|safe }}</div>
+          <div class="flash {{ 'warn' if cat!='success' else '' }}">{{ msg|safe }}</div>
         {% endfor %}
       </div>
       {% endif %}
     {% endwith %}
 
-    <div class="grid">
-      {% for it in items %}
-      <div class="card">
-        <div style="font-size:26px">{{ it.icon or '🎁' }}</div>
-        <div style="font-weight:700;margin:6px 0">{{ it.name }}</div>
-        <div style="color:#666;min-height:40px">{{ it.description }}</div>
-        <form method="post" style="margin-top:10px;display:flex;gap:10px;align-items:center;">
-          <div><strong>{{ it.cost }}</strong> pts</div>
-          <input type="hidden" name="item_id" value="{{ it.id }}">
-          <button class="btn" type="submit">Canjear</button>
-        </form>
+    <section class="section">
+      <h2>Canjea tus puntos</h2>
+      <div class="grid">
+        {% for it in items %}
+          <div class="card">
+            <div class="icon">{{ it.icon or '🎁' }}</div>
+            <div class="name">{{ it.name }}</div>
+            <div class="desc">{{ it.description }}</div>
+
+            <form method="post" class="price-row">
+              <div class="price"><strong>{{ it.cost }}</strong> pts</div>
+              <input type="hidden" name="item_id" value="{{ it.id }}">
+              <button
+                class="btn"
+                type="submit"
+                title="{{ 'No tienes puntos suficientes' if points < it.cost else 'Canjear' }}"
+                {{ 'disabled' if points < it.cost else '' }}>
+                Canjear
+              </button>
+            </form>
+          </div>
+        {% endfor %}
       </div>
-      {% endfor %}
-    </div>
+    </section>
+
+    <!-- ==================== HISTORIAL DE CANJES ==================== -->
+    {% set hist = namespace(mochito=[], mochita=[]) %}
+    {% if redemption_history is defined %}
+      {% set hist.mochito = redemption_history.get('mochito', []) %}
+      {% set hist.mochita = redemption_history.get('mochita', []) %}
+    {% else %}
+      {% if redemptions_mochito is defined %}{% set hist.mochito = redemptions_mochito %}{% endif %}
+      {% if redemptions_mochita is defined %}{% set hist.mochita = redemptions_mochita %}{% endif %}
+    {% endif %}
+
+    <section class="section" style="margin-top:28px">
+      <h2>Historial de premios canjeados</h2>
+      <div class="history-grid">
+
+        <!-- Columna Mochito -->
+        <div class="history-col">
+          <h3 class="history-title">👱‍♂️ Mochito</h3>
+          <ul class="redeem-list">
+            {% for r in hist.mochito %}
+              <li class="redeem-item">
+                <div class="redeem-icon">{{ r.icon or '🎁' }}</div>
+                <div>
+                  <div class="redeem-name">{{ r.item_name or r.name }}</div>
+                  <div class="redeem-meta">{{ (r.ts or r.created_at or r.date)[:16] }}</div>
+                </div>
+                <div class="redeem-pts">-{{ r.cost or r.points }} pts</div>
+              </li>
+            {% else %}
+              <li class="redeem-empty">Sin canjes todavía.</li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        <!-- Columna Mochita -->
+        <div class="history-col">
+          <h3 class="history-title">👩 Mochita</h3>
+          <ul class="redeem-list">
+            {% for r in hist.mochita %}
+              <li class="redeem-item">
+                <div class="redeem-icon">{{ r.icon or '🎁' }}</div>
+                <div>
+                  <div class="redeem-name">{{ r.item_name or r.name }}</div>
+                  <div class="redeem-meta">{{ (r.ts or r.created_at or r.date)[:16] }}</div>
+                </div>
+                <div class="redeem-pts">-{{ r.cost or r.points }} pts</div>
+              </li>
+            {% else %}
+              <li class="redeem-empty">Sin canjes todavía.</li>
+            {% endfor %}
+          </ul>
+        </div>
+
+      </div>
+    </section>
+
   </div>
 </body>
 </html>

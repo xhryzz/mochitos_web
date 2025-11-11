@@ -5319,7 +5319,6 @@ def _ensure_gamification_schema():
         c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE")
 
         conn.commit()
-    _ensure_gamification_schema()
 
 def _grant_achievement_to(user: str, ach_id: int, pts: int = 0):
     """Concede (idempotente) una medalla y abona puntos opcionales."""

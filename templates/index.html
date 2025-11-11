@@ -2075,6 +2075,52 @@ body::before{ z-index: -1; }
 .avatar-mini img{ width:100%; height:100%; object-fit:cover; }
 
 
+/* Puntos debajo del botón "Cerrar sesión" */
+.points-float{
+  position: fixed;
+  right: 30px;
+  top: 90px;         /* justo bajo el botón */
+  z-index: 1200;
+}
+@media (max-width: 768px){
+  /* En móvil, el logout deja de ser fijo; los puntos siguen el flujo */
+  .points-float{ position: static; margin: 10px 0 0 auto; }
+}
+
+
+.quick-links{ position: static; z-index: 2100; }
+.quick-icon i{ font-size: 16px; }
+
+/* El menú se posiciona con JS bajo el botón */
+.quick-menu{
+  position: fixed;           /* IMPORTANTE: fijo para anclar al botón */
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.12);
+  padding: 6px;
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+}
+.quick-menu[hidden]{ display: none; }
+
+.quick-menu a{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: #111;
+  text-decoration: none;
+  font-size: 14px;
+}
+.quick-menu a:hover{ background: #f5f5f5; }
+
+@media (max-width:640px){
+  .quick-menu{ min-width: 150px; }
+  .quick-menu a{ padding: 10px 12px; font-size: 14px; }
+}
 
     </style>
 </head>
@@ -2180,6 +2226,31 @@ body::before{ z-index: -1; }
 {% else %}
 
       <a href="/logout" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
+      <!-- Puntos debajo de "Cerrar sesión" -->
+<div class="points-chip points-float" id="pointsChip" aria-live="polite">
+  <div class="pp">
+    <span class="avatar-mini">
+      {% if profile_pictures.get(username) %}
+        <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+      {% else %}
+        {{ username[0]|upper }}
+      {% endif %}
+    </span>
+    <span class="name">{{ username }}</span>
+    <b id="pts-me" data-user="{{ username }}">{{ user_points }}</b>
+  </div>
+  <div class="pp">
+    <span class="avatar-mini">
+      {% if profile_pictures.get(other_user) %}
+        <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+      {% else %}
+        {{ other_user[0]|upper }}
+      {% endif %}
+    </span>
+    <span class="name">{{ other_user }}</span>
+    <b id="pts-other" data-user="{{ other_user }}">{{ other_points }}</b>
+  </div>
+</div>
 <!-- NAVBAR FONT AWESOME -->
 <nav class="app-nav" aria-label="Navegación principal">
   <button class="nav-btn active" data-goto="home" title="Inicio">
@@ -2300,100 +2371,50 @@ body::before{ z-index: -1; }
       <!-- Si tu tienda es una sección: usa href="/#tienda" -->
     </nav>
   </div>
-
-  <div class="points-chip" id="pointsChip" aria-live="polite">
-    <div class="pp">
-      <span class="avatar-mini">
-        {% if profile_pictures.get(username) %}
-          <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
-        {% else %}
-          {{ username[0]|upper }}
-        {% endif %}
-      </span>
-      <span class="name">{{ username }}</span>
-      <b id="pts-me" data-user="{{ username }}">{{ user_points }}</b>
-    </div>
-    <div class="pp">
-      <span class="avatar-mini">
-        {% if profile_pictures.get(other_user) %}
-          <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
-        {% else %}
-          {{ other_user[0]|upper }}
-        {% endif %}
-      </span>
-      <span class="name">{{ other_user }}</span>
-      <b id="pts-other" data-user="{{ other_user }}">{{ other_points }}</b>
-    </div>
-  </div>
-</div>
-
-<style>
-/* --- Menú rápido (debajo del icono) --- */
-.quick-links{ position: relative; z-index: 2100; }
-.quick-icon i{ font-size: 16px; }
-
-.quick-menu{
-  position: absolute;
-  top: 46px;         /* justo bajo el botón */
-  right: 0;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.12);
-  padding: 6px;
-  min-width: 170px;
-  display: flex;
-  flex-direction: column;
-}
-
-.quick-menu a{
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  color: #111;
-  text-decoration: none;
-  font-size: 14px;
-}
-.quick-menu a:hover{ background: #f5f5f5; }
-
-/* Responsive móvil */
-@media (max-width: 640px){
-  .quick-menu{ top: 50px; min-width: 150px; }
-  .quick-menu a{ padding: 10px 12px; font-size: 14px; }
-}
-
-/* (Opcional) si tu .hud-stack está muy cerca del borde superior,
-   asegura algo de separación entre iconos apilados */
-.hud-stack .settings-icon + .quick-links{ margin-top: 6px; }
-.quick-links + .points-chip{ margin-top: 8px; }
-</style>
-
 <script>
-(() => {
+(function () {
   const btn  = document.getElementById('quickIcon');
   const menu = document.getElementById('quickMenu');
-  if(!btn || !menu) return;
+  if (!btn || !menu) return;
 
-  const open  = () => { menu.hidden = false; btn.setAttribute('aria-expanded','true'); };
-  const close = () => { menu.hidden = true;  btn.setAttribute('aria-expanded','false'); };
+  function placeMenu(){
+    const r = btn.getBoundingClientRect();
+    const top  = window.scrollY + r.bottom + 8;  // 8px bajo el botón
+    const left = window.scrollX + r.left;        // alineado al borde izq
+    menu.style.top  = top + 'px';
+    menu.style.left = left + 'px';
+  }
+  function open(){
+    placeMenu();
+    menu.hidden = false;
+    btn.setAttribute('aria-expanded','true');
+  }
+  function close(){
+    menu.hidden = true;
+    btn.setAttribute('aria-expanded','false');
+  }
 
-  btn.addEventListener('click', (e) => {
+  btn.addEventListener('click', (e)=>{
     e.preventDefault();
     menu.hidden ? open() : close();
   });
 
-  // Cerrar al clicar fuera
-  document.addEventListener('click', (e) => {
-    if(menu.hidden) return;
-    if(!menu.contains(e.target) && !btn.contains(e.target)) close();
+  // Recolocar si se hace scroll o resize mientras está abierto
+  window.addEventListener('scroll', ()=>{ if(!menu.hidden) placeMenu(); }, {passive:true});
+  window.addEventListener('resize', ()=>{ if(!menu.hidden) placeMenu(); });
+
+  // Cerrar al hacer click fuera
+  document.addEventListener('click', (e)=>{
+    if (menu.hidden) return;
+    if (e.target.closest('#quickMenu') || e.target.closest('#quickIcon')) return;
+    close();
   });
 
   // Cerrar con ESC
-  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') close(); });
+  document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') close(); });
 })();
 </script>
+
 
 
 

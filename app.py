@@ -5932,7 +5932,7 @@ def shop():
                     """, (uid, it_id, f"Canje de {it_name}", now_madrid_str()))
                     conn.commit()
 
-                    # 🔔 NOTIFICACIÓN PUSH POR CANJE
+                    # 🔔 NOTIFICACIÓN PUSH POR CANJE (AL USUARIO QUE CANJEA)
                     try:
                         send_push_to(user,
                                     title="🎁 ¡Premio canjeado!",
@@ -5940,17 +5940,28 @@ def shop():
                     except Exception as e:
                         print("[push redeem] ", e)
 
+                    # 🔔 NOTIFICACIÓN PUSH AL OTRO USUARIO
+                    other_user = 'mochita' if user == 'mochito' else 'mochito'
+                    try:
+                        send_push_to(other_user,
+                                    title="🎁 ¡Se ha canjeado un premio!",
+                                    body=f"{user} ha canjeado '{it_name}' por {it_cost} puntos",
+                                    url="/tienda",
+                                    tag=f"shop-redeem-{it_id}")
+                    except Exception as e:
+                        print("[push redeem other] ", e)
+
                 flash(f"¡Canjeado! 🎉 Disfruta tu premio: {it_name}", "success")
                 try:
-                    send_discord("Shop redeem", {"by": user, "item_id": int(item_id)})
+                    send_discord("Shop redeem", {"by": user, "item_id": int(item_id), "item_name": it_name, "cost": it_cost})
                 except Exception:
                     pass
                 return redirect('/tienda')
 
-            # Solo admin: crear/editar/borrar
-            if not is_admin:
-                flash("Solo el admin puede modificar la tienda.", "error")
-                return redirect('/tienda')
+# Solo admin: crear/editar/borrar
+if not is_admin:
+    flash("Solo el admin puede modificar la tienda.", "error")
+    return redirect('/tienda')
 
             if op == 'create_item':
                 name = (request.form.get('name') or '').strip()
@@ -6087,6 +6098,14 @@ def shop():
                            is_admin=is_admin,
                            show_admin=show_admin,
                            points_map=points_map)
+
+def other_of(user: str) -> str:
+    """Devuelve el nombre del otro usuario"""
+    if user == 'mochito': 
+        return 'mochita'
+    if user == 'mochita': 
+        return 'mochito'
+    return 'mochita'  # fallback
 
 @app.route("/medallas")
 def medallas():

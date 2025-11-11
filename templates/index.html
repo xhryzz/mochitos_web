@@ -2043,62 +2043,38 @@ body::before{ z-index: -1; }
   box-shadow:0 6px 14px rgba(162,155,254,.4);
 }
 
-/* contenedor del icono + chip */
-.points-wrapper{
+
+
+.hud-stack{
   position: fixed;
-  z-index: 1200;
-  display: inline-flex;
-  align-items: center;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 10px;
+  z-index: 2000;
 }
 
-/* reutilizamos el botón de estilo redondo */
-.points-wrapper .points-icon{ position: static; }
-
-/* chip con los dos contadores */
+/* pinta el chip */
 .points-chip{
-  display: inline-flex;
-  gap: 10px;
+  display: flex;
   align-items: center;
-  padding: 8px 12px;
-  border-radius: 999px;
+  gap: 10px;
+  padding: 6px 10px;
   background: #fff;
-  border: 1px solid #eee;
-  box-shadow: 0 10px 20px rgba(0,0,0,.08);
-  font-weight: 800;
-  color: #374151;
-  white-space: nowrap;
+  border: 1px solid #e5e7eb;
+  border-radius: 9999px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.08);
 }
 
-.points-chip .pp{ display: inline-flex; align-items: center; gap: 6px; }
-.points-chip .avatar-mini{
-  width: 20px; height: 20px; border-radius: 50%;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: var(--gradient); color: #fff; font-size: .8rem; overflow: hidden;
-}
-.points-chip .avatar-mini img{ width: 100%; height: 100%; object-fit: cover; display: block; }
-.points-chip .name{ font-weight: 700; opacity: .75; }
+/* mini filas dentro del chip */
+.points-chip .pp{ display:flex; align-items:center; gap:6px; }
+.avatar-mini{ width:20px; height:20px; border-radius:50%; overflow:hidden;
+  display:inline-flex; align-items:center; justify-content:center; background:#f3f4f6; font-weight:600; font-size:.8rem; }
+.avatar-mini img{ width:100%; height:100%; object-fit:cover; }
 
-/* posición bajo el Admin en móvil */
-@media (max-width: 991.98px){
-  .points-wrapper{
-    top: calc(var(--gap) + 60px + 60px + 60px);  /* un “slot” debajo del Admin */
-    left: calc(var(--gap));
-  }
-}
 
-/* posición bajo el Admin en escritorio (barra lateral) */
-@media (min-width: 992px){
-  .points-wrapper{
-    top: 224px; /* 20 → 88 → 156 → 224  (mismo ritmo que admin/presence) */
-    left: calc(var(--nav-left-desktop) + var(--gap));
-  }
-}
-
-/* si el ancho es muy pequeño, ocultamos los nombres y dejamos solo números */
-@media (max-width: 420px){
-  .points-chip .name{ display: none; }
-}
 
     </style>
 </head>
@@ -2300,37 +2276,124 @@ body::before{ z-index: -1; }
           </form>
         </div>
       </div>
+<div class="hud-stack" id="hudStack">
+  {% if username == 'mochito' %}
+    <a target="_blank" href="/admin" class="settings-icon admin-icon" title="Admin" aria-label="Admin">
+      <i class="fa-solid fa-toolbox" aria-hidden="true"></i>
+    </a>
+  {% endif %}
 
-      {% if username == 'mochito' %}
-  <a target="_blank" href="/admin" class="settings-icon admin-icon" title="Admin" aria-label="Admin">
-    <i class="fa-solid fa-toolbox" aria-hidden="fa"></i>
-  </a>
-{% endif %}
-
-<div class="points-chip" id="pointsChip" aria-live="polite">
-  <div class="pp">
-    <span class="avatar-mini">
-      {% if profile_pictures.get(username) %}
-        <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
-      {% else %}
-        {{ username[0]|upper }}
-      {% endif %}
-    </span>
-    <span class="name">{{ username }}</span>
-    <b id="pts-me" data-user="{{ username }}">{{ user_points }}</b>
+  <!-- Icono menú rápido: Medallas / Tienda -->
+  <div class="quick-links">
+    <button type="button"
+            class="settings-icon quick-icon"
+            id="quickIcon"
+            title="Medallas y Tienda"
+            aria-label="Medallas y Tienda"
+            aria-expanded="false"
+            aria-controls="quickMenu">
+      <i class="fa-solid fa-gem" aria-hidden="true"></i>
+    </button>
+    <nav id="quickMenu" class="quick-menu" hidden>
+      <a href="/medallas"><i class="fa-solid fa-medal" aria-hidden="true"></i> Medallas</a>
+      <a href="/tienda"><i class="fa-solid fa-store" aria-hidden="true"></i> Tienda</a>
+      <!-- Si tu tienda es una sección: usa href="/#tienda" -->
+    </nav>
   </div>
-  <div class="pp">
-    <span class="avatar-mini">
-      {% if profile_pictures.get(other_user) %}
-        <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
-      {% else %}
-        {{ other_user[0]|upper }}
-      {% endif %}
-    </span>
-    <span class="name">{{ other_user }}</span>
-    <b id="pts-other" data-user="{{ other_user }}">{{ other_points }}</b>
+
+  <div class="points-chip" id="pointsChip" aria-live="polite">
+    <div class="pp">
+      <span class="avatar-mini">
+        {% if profile_pictures.get(username) %}
+          <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+        {% else %}
+          {{ username[0]|upper }}
+        {% endif %}
+      </span>
+      <span class="name">{{ username }}</span>
+      <b id="pts-me" data-user="{{ username }}">{{ user_points }}</b>
+    </div>
+    <div class="pp">
+      <span class="avatar-mini">
+        {% if profile_pictures.get(other_user) %}
+          <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+        {% else %}
+          {{ other_user[0]|upper }}
+        {% endif %}
+      </span>
+      <span class="name">{{ other_user }}</span>
+      <b id="pts-other" data-user="{{ other_user }}">{{ other_points }}</b>
+    </div>
   </div>
 </div>
+
+<style>
+/* --- Menú rápido (debajo del icono) --- */
+.quick-links{ position: relative; z-index: 2100; }
+.quick-icon i{ font-size: 16px; }
+
+.quick-menu{
+  position: absolute;
+  top: 46px;         /* justo bajo el botón */
+  right: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.12);
+  padding: 6px;
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+}
+
+.quick-menu a{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: #111;
+  text-decoration: none;
+  font-size: 14px;
+}
+.quick-menu a:hover{ background: #f5f5f5; }
+
+/* Responsive móvil */
+@media (max-width: 640px){
+  .quick-menu{ top: 50px; min-width: 150px; }
+  .quick-menu a{ padding: 10px 12px; font-size: 14px; }
+}
+
+/* (Opcional) si tu .hud-stack está muy cerca del borde superior,
+   asegura algo de separación entre iconos apilados */
+.hud-stack .settings-icon + .quick-links{ margin-top: 6px; }
+.quick-links + .points-chip{ margin-top: 8px; }
+</style>
+
+<script>
+(() => {
+  const btn  = document.getElementById('quickIcon');
+  const menu = document.getElementById('quickMenu');
+  if(!btn || !menu) return;
+
+  const open  = () => { menu.hidden = false; btn.setAttribute('aria-expanded','true'); };
+  const close = () => { menu.hidden = true;  btn.setAttribute('aria-expanded','false'); };
+
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    menu.hidden ? open() : close();
+  });
+
+  // Cerrar al clicar fuera
+  document.addEventListener('click', (e) => {
+    if(menu.hidden) return;
+    if(!menu.contains(e.target) && !btn.contains(e.target)) close();
+  });
+
+  // Cerrar con ESC
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') close(); });
+})();
+</script>
 
 
 

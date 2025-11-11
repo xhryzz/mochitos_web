@@ -182,13 +182,16 @@ def _init_pool():
         raise RuntimeError('Falta DATABASE_URL para PostgreSQL')
 
     # Máximo 3 conexiones por defecto (suficiente en 512 MB). Sube con DB_MAX_CONN si lo necesitas.
-    maxconn = max(3, int(os.environ.get('DB_MAX_CONN', '3')))
+    maxconn = max(10, int(os.environ.get('DB_MAX_CONN', '10')))  # Aumenta de 3 a 10
     PG_POOL = SimpleConnectionPool(
-        1, maxconn,
-        dsn=DATABASE_URL,
-        keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=5,
-        connect_timeout=8
-    )
+    1, maxconn,
+    dsn=DATABASE_URL,
+    keepalives=1, 
+    keepalives_idle=30, 
+    keepalives_interval=10, 
+    keepalives_count=5,
+    connect_timeout=8
+)
 
 
 class PooledConn:

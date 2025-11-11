@@ -720,6 +720,16 @@ def _ensure_gamification_schema():
                     purchased_at TEXT
                 )
                 """)
+                # En init_db(), después de crear la tabla purchases, añade:
+                c.execute('''CREATE TABLE IF NOT EXISTS purchases (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    item_id INTEGER NOT NULL,
+                    quantity INTEGER DEFAULT 1,
+                    note TEXT,
+                    purchased_at TEXT,
+                    FOREIGN KEY (item_id) REFERENCES shop_items(id) ON DELETE CASCADE
+                )''')
             conn.commit()
         finally:
             conn.close()
@@ -5814,28 +5824,41 @@ def shop():
                 except Exception:
                     flash("ID inválido.", "error")
                     return redirect('/tienda')
+                
+                conn = get_db_connection()
                 try:
                     with conn.cursor() as c:
+                        # Primero verificar si hay compras asociadas
+                        c.execute("SELECT COUNT(*) FROM purchases WHERE item_id=%s", (iid,))
+                        purchase_count = c.fetchone()[0] or 0
+                        
+                        if purchase_count > 0:
+                            flash("No se puede borrar: ya existen canjes asociados a este premio. Primero borra los canjes.", "error")
+                            return redirect('/tienda')
+                        
+                        # Si no hay compras, proceder con el borrado
                         c.execute("DELETE FROM shop_items WHERE id=%s", (iid,))
                         if c.rowcount == 0:
-                            conn.rollback()
                             flash("Premio no encontrado.", "error")
                             return redirect('/tienda')
+                        
                         conn.commit()
-                    flash("Premio borrado 🗑️", "info")
-                    try:
-                        send_discord("Shop item deleted", {"by": user, "id": iid})
-                    except Exception:
-                        pass
-                except (MY_INTEGRITY_ERROR, PG_FK_VIOLATION) as e:
-                    try: conn.rollback()
-                    except Exception: pass
-                    flash("No se puede borrar: ya existen canjes asociados a este premio.", "error")
+                        flash("Premio borrado 🗑️", "info")
+                        try:
+                            send_discord("Shop item deleted", {"by": user, "id": iid})
+                        except Exception:
+                            pass
+                            
                 except Exception as e:
-                    try: conn.rollback()
-                    except Exception: pass
+                    try: 
+                        conn.rollback()
+                    except Exception: 
+                        pass
                     app.logger.exception("[/tienda] delete_item error")
                     flash("Error en la tienda.", "error")
+                finally:
+                    conn.close()
+                
                 return redirect('/tienda')
 
             flash("Acción desconocida.", "error")

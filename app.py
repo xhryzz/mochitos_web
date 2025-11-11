@@ -933,6 +933,7 @@ def _maybe_award_achievements(u: str):
     except Exception as e:
         app.logger.warning("maybe_award_achievements: %s", e)
 
+# En la función award_points_for_answer, modificar para añadir notificación específica de puntos
 def award_points_for_answer(question_id: int, user: str, first_publication: bool):
     """
     Suma puntos cuando un usuario publica su respuesta del día por primera vez:
@@ -959,6 +960,20 @@ def award_points_for_answer(question_id: int, user: str, first_publication: bool
             delta = base + bonus
             c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE username=%s", (delta, user))
             conn.commit()
+            
+            # 🔔 NOTIFICACIÓN PUSH POR PUNTOS GANADOS
+            try:
+                if bonus > 0:
+                    send_push_to(user, 
+                                title="¡Puntos ganados! 🎉", 
+                                body=f"Has ganado {delta} puntos (+{base} por responder, +{bonus} por ser el primero)")
+                else:
+                    send_push_to(user, 
+                                title="¡Puntos ganados! 🎉", 
+                                body=f"Has ganado {delta} puntos por responder la pregunta")
+            except Exception as e:
+                print("[push points award] ", e)
+                
     finally:
         conn.close()
     # Revisa medallas
@@ -5323,23 +5338,53 @@ def _ensure_gamification_schema():
 
         conn.commit()
 
-def _grant_achievement_to(user: str, ach_id: int, pts: int = 0):
-    """Concede (idempotente) una medalla y abona puntos opcionales."""
+# En la función _grant_achievement_to, añadir notificación
+def _grant_achievement_to(user: str, achievement_id: int):
+    """Concede (si falta) la medalla a 'user' y suma puntos."""
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
+            # Primero obtener información del achievement
+            c.execute("SELECT title, points_on_award FROM achievements WHERE id=%s", (achievement_id,))
+            ach_info = c.fetchone()
+            ach_title = ach_info['title'] if ach_info else "Logro"
+            points_on_award = ach_info['points_on_award'] if ach_info else 0
+            
             c.execute("SELECT id FROM users WHERE username=%s", (user,))
             uid = (c.fetchone() or [None])[0]
             if not uid:
                 return
-            # Inserción idempotente
+
             c.execute("""
-                INSERT INTO user_achievements (user_id, achievement_id, earned_at)
-                VALUES (%s,%s,%s)
-                ON CONFLICT (user_id, achievement_id) DO NOTHING
-            """, (uid, ach_id, now_madrid_str()))
-            if pts and c.rowcount >= 0:
-                c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE id=%s", (pts, uid))
+              SELECT 1 FROM user_achievements
+              WHERE user_id=%s AND achievement_id=%s
+            """, (uid, achievement_id))
+            if c.fetchone():
+                return  # ya concedida
+
+            if points_on_award and int(points_on_award) != 0:
+                c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE id=%s",
+                          (int(points_on_award), uid))
+
+            c.execute("""
+              INSERT INTO user_achievements (user_id, achievement_id, earned_at)
+              VALUES (%s,%s,%s)
+              ON CONFLICT (user_id, achievement_id) DO NOTHING
+            """, (uid, achievement_id, now_madrid_str()))
+            
+            # 🔔 NOTIFICACIÓN PUSH POR LOGRO Y PUNTOS
+            try:
+                if points_on_award and int(points_on_award) > 0:
+                    send_push_to(user,
+                                title="🏆 ¡Nuevo logro desbloqueado!",
+                                body=f"{ach_title} - +{points_on_award} puntos")
+                else:
+                    send_push_to(user,
+                                title="🏆 ¡Nuevo logro desbloqueado!",
+                                body=ach_title)
+            except Exception as e:
+                print("[push achievement] ", e)
+                
         conn.commit()
     finally:
         conn.close()
@@ -5794,13 +5839,14 @@ def shop():
 
         # === ADMIN: sumar puntos a un usuario ===
         # En la sección de 'grant_points' dentro de @app.route('/tienda', methods=['GET', 'POST'])
+        # En la ruta /tienda, dentro del bloque op == 'grant_points', añadir notificaciones
         if op == 'grant_points':
             if not is_admin:
                 flash("Solo el admin puede modificar puntos.", "error")
                 return redirect('/tienda')
 
             to_user = (request.form.get('to_user') or '').strip()
-            action = (request.form.get('action') or 'add').strip()  # Nuevo campo
+            action = (request.form.get('action') or 'add').strip()
             delta = (request.form.get('points') or '').strip()
             note = (request.form.get('note') or '').strip()
 
@@ -5825,6 +5871,20 @@ def shop():
                 with conn.cursor() as c:
                     c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE username=%s", (d, to_user))
                     conn.commit()
+                    
+                # 🔔 NOTIFICACIÓN PUSH POR MODIFICACIÓN MANUAL DE PUNTOS
+                try:
+                    if d > 0:
+                        send_push_to(to_user,
+                                    title="⭐ ¡Puntos añadidos!",
+                                    body=f"Se te han añadido {d} puntos. {note or ''}")
+                    else:
+                        send_push_to(to_user,
+                                    title="📉 Puntos restados",
+                                    body=f"Se te han restado {abs(d)} puntos. {note or ''}")
+                except Exception as e:
+                    print("[push points modification] ", e)
+                    
                 action_text = "añadieron" if action == 'add' else "restaron"
                 flash(f"Se {action_text} {abs(d)} pts a {to_user} ✅", "success")
                 try:
@@ -5838,45 +5898,54 @@ def shop():
         # === Resto de acciones (redeem / CRUD items) ===
         conn = get_db_connection()
         try:
-            if op == 'redeem':
-                item_id = request.form.get('item_id')
-                if not item_id:
-                    flash("Falta item.", "error")
+            # También en la función de canje en la tienda, añadir notificación
+        if op == 'redeem':
+            item_id = request.form.get('item_id')
+            if not item_id:
+                flash("Falta item.", "error")
+                return redirect('/tienda')
+
+            with conn.cursor() as c:
+                c.execute("SELECT id, name, cost FROM shop_items WHERE id=%s", (item_id,))
+                row = c.fetchone()
+                if not row:
+                    flash("Premio no encontrado.", "error")
                     return redirect('/tienda')
 
-                with conn.cursor() as c:
-                    c.execute("SELECT id, name, cost FROM shop_items WHERE id=%s", (item_id,))
-                    row = c.fetchone()
-                    if not row:
-                        flash("Premio no encontrado.", "error")
-                        return redirect('/tienda')
+                it_id, it_name, it_cost = row['id'], row['name'], int(row['cost'])
 
-                    it_id, it_name, it_cost = row['id'], row['name'], int(row['cost'])
+                c.execute("SELECT id, COALESCE(points,0) AS pts FROM users WHERE username=%s FOR UPDATE", (user,))
+                urow = c.fetchone()
+                if not urow:
+                    flash("Usuario no encontrado.", "error")
+                    return redirect('/tienda')
 
-                    c.execute("SELECT id, COALESCE(points,0) AS pts FROM users WHERE username=%s FOR UPDATE", (user,))
-                    urow = c.fetchone()
-                    if not urow:
-                        flash("Usuario no encontrado.", "error")
-                        return redirect('/tienda')
+                uid, points = int(urow['id']), int(urow['pts'])
+                if points < it_cost:
+                    flash("No tienes puntos suficientes 😅", "error")
+                    return redirect('/tienda')
 
-                    uid, points = int(urow['id']), int(urow['pts'])
-                    if points < it_cost:
-                        flash("No tienes puntos suficientes 😅", "error")
-                        return redirect('/tienda')
+                c.execute("UPDATE users SET points = points - %s WHERE id=%s", (it_cost, uid))
+                c.execute("""
+                    INSERT INTO purchases (user_id, item_id, quantity, note, purchased_at)
+                    VALUES (%s,%s,1,%s,%s)
+                """, (uid, it_id, f"Canje de {it_name}", now_madrid_str()))
+                conn.commit()
 
-                    c.execute("UPDATE users SET points = points - %s WHERE id=%s", (it_cost, uid))
-                    c.execute("""
-                        INSERT INTO purchases (user_id, item_id, quantity, note, purchased_at)
-                        VALUES (%s,%s,1,%s,%s)
-                    """, (uid, it_id, f"Canje de {it_name}", now_madrid_str()))
-                    conn.commit()
-
-                flash(f"¡Canjeado! 🎉 Disfruta tu premio: {it_name}", "success")
+                # 🔔 NOTIFICACIÓN PUSH POR CANJE
                 try:
-                    send_discord("Shop redeem", {"by": user, "item_id": int(item_id)})
-                except Exception:
-                    pass
-                return redirect('/tienda')
+                    send_push_to(user,
+                                title="🎁 ¡Premio canjeado!",
+                                body=f"Has canjeado '{it_name}' por {it_cost} puntos")
+                except Exception as e:
+                    print("[push redeem] ", e)
+
+            flash(f"¡Canjeado! 🎉 Disfruta tu premio: {it_name}", "success")
+            try:
+                send_discord("Shop redeem", {"by": user, "item_id": int(item_id)})
+            except Exception:
+            pass
+            return redirect('/tienda')
 
             # Solo admin: crear/editar/borrar
             if not is_admin:

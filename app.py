@@ -5805,7 +5805,6 @@ try:
     from pymysql.err import IntegrityError as MY_INTEGRITY_ERROR
 except Exception:
     MY_INTEGRITY_ERROR = tuple()
-
 @app.route('/tienda', methods=['GET', 'POST'])
 def shop():
     if 'username' not in session:
@@ -5820,7 +5819,6 @@ def shop():
         app.logger.warning("gamification schema ensure failed: %s", e)
 
     if request.method == 'POST':
-        # ⚠️ CAMBIO: usamos _op en vez de action
         op = (request.form.get('_op') or '').strip()
 
         # === TOGGLE ADMIN VIEW (solo mochito) ===
@@ -5838,8 +5836,6 @@ def shop():
             return redirect('/tienda')
 
         # === ADMIN: sumar puntos a un usuario ===
-        # En la sección de 'grant_points' dentro de @app.route('/tienda', methods=['GET', 'POST'])
-        # En la ruta /tienda, dentro del bloque op == 'grant_points', añadir notificaciones
         if op == 'grant_points':
             if not is_admin:
                 flash("Solo el admin puede modificar puntos.", "error")
@@ -6075,19 +6071,47 @@ def shop():
         finally:
             conn.close()
 
-    # === GET === (tu bloque tal cual)
+    # === GET === 
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
+            # Puntos del usuario actual
             c.execute("SELECT COALESCE(points,0) FROM users WHERE username=%s", (user,))
             points = int((c.fetchone() or [0])[0] or 0)
 
+            # Items de la tienda
             c.execute("SELECT id, name, cost, description, icon FROM shop_items ORDER BY cost ASC, name ASC")
             items = c.fetchall()
 
+            # Puntos de ambos usuarios
             c.execute("SELECT username, COALESCE(points,0) AS p FROM users WHERE username IN ('mochito','mochita')")
             rows = c.fetchall()
             points_map = {r['username']: int(r['p']) for r in rows}
+
+            # 🔥 NUEVO: Obtener historial de canjes
+            c.execute("""
+                SELECT u.username, si.name AS item_name, si.cost, si.icon, p.purchased_at, p.note
+                FROM purchases p
+                JOIN users u ON p.user_id = u.id
+                JOIN shop_items si ON p.item_id = si.id
+                ORDER BY p.purchased_at DESC
+                LIMIT 50
+            """)
+            purchases = c.fetchall()
+
+            # Organizar historial por usuario
+            redemption_history = {'mochito': [], 'mochita': []}
+            for p in purchases:
+                username = p['username']
+                if username in redemption_history:
+                    redemption_history[username].append({
+                        'item_name': p['item_name'],
+                        'cost': p['cost'],
+                        'icon': p['icon'],
+                        'ts': p['purchased_at'],
+                        'note': p['note']
+                    })
+
     finally:
         conn.close()
 
@@ -6097,7 +6121,8 @@ def shop():
                            items=items,
                            is_admin=is_admin,
                            show_admin=show_admin,
-                           points_map=points_map)
+                           points_map=points_map,
+                           redemption_history=redemption_history)  # 🔥 Pasar el historial a la plantilla
 
 def other_of(user: str) -> str:
     """Devuelve el nombre del otro usuario"""
@@ -6106,7 +6131,6 @@ def other_of(user: str) -> str:
     if user == 'mochita': 
         return 'mochito'
     return 'mochita'  # fallback
-
 @app.route("/medallas")
 def medallas():
     user = session.get("username")

@@ -82,6 +82,15 @@
     .redeem-name{font-weight:800}
     .redeem-meta{font-size:.9rem;color:#8a8fa3}
     .redeem-pts{font-weight:800;color:#b91c1c}
+    .redeem-empty {
+      text-align: center;
+      color: #6b7280;
+      font-style: italic;
+      padding: 20px;
+      background: #fafafa;
+      border: 1px solid #eee;
+      border-radius: 12px;
+    }
   </style>
 </head>
 <body>
@@ -251,15 +260,6 @@
     </div>
 
     <!-- ==================== HISTORIAL DE CANJES ==================== -->
-    {% set hist = namespace(mochito=[], mochita=[]) %}
-    {% if redemption_history is defined %}
-      {% set hist.mochito = redemption_history.get('mochito', []) %}
-      {% set hist.mochita = redemption_history.get('mochita', []) %}
-    {% else %}
-      {% if redemptions_mochito is defined %}{% set hist.mochito = redemptions_mochito %}{% endif %}
-      {% if redemptions_mochita is defined %}{% set hist.mochita = redemptions_mochita %}{% endif %}
-    {% endif %}
-
     <div class="history card">
       <h2 style="margin:0 0 6px 0;font-weight:800">🧾 Historial de premios canjeados</h2>
       <p class="muted" style="margin:2px 0 14px 0">Últimos canjes de ambos (se agrupan por persona).</p>
@@ -268,36 +268,46 @@
         <div class="history-col">
           <h3 class="history-title">👱‍♂️ Mochito</h3>
           <ul class="redeem-list">
-            {% for r in hist.mochito %}
-              <li class="redeem-item">
-                <div class="redeem-icon">{{ r.icon or '🎁' }}</div>
-                <div>
-                  <div class="redeem-name">{{ r.item_name or r.name }}</div>
-                  <div class="redeem-meta">{{ (r.ts or r.created_at or r.date)[:16] }}</div>
-                </div>
-                <div class="redeem-pts">-{{ r.cost or r.points }} pts</div>
-              </li>
+            {% if redemption_history.mochito %}
+              {% for r in redemption_history.mochito %}
+                <li class="redeem-item">
+                  <div class="redeem-icon">{{ r.icon or '🎁' }}</div>
+                  <div>
+                    <div class="redeem-name">{{ r.item_name }}</div>
+                    <div class="redeem-meta">{{ r.ts[:16] if r.ts else '' }}</div>
+                    {% if r.note %}
+                    <div class="redeem-meta" style="font-size:0.8rem; color: #666;">{{ r.note }}</div>
+                    {% endif %}
+                  </div>
+                  <div class="redeem-pts">-{{ r.cost }} pts</div>
+                </li>
+              {% endfor %}
             {% else %}
               <li class="redeem-empty">Sin canjes todavía.</li>
-            {% endfor %}
+            {% endif %}
           </ul>
         </div>
 
         <div class="history-col">
           <h3 class="history-title">👩 Mochita</h3>
           <ul class="redeem-list">
-            {% for r in hist.mochita %}
-              <li class="redeem-item">
-                <div class="redeem-icon">{{ r.icon or '🎁' }}</div>
-                <div>
-                  <div class="redeem-name">{{ r.item_name or r.name }}</div>
-                  <div class="redeem-meta">{{ (r.ts or r.created_at or r.date)[:16] }}</div>
-                </div>
-                <div class="redeem-pts">-{{ r.cost or r.points }} pts</div>
-              </li>
+            {% if redemption_history.mochita %}
+              {% for r in redemption_history.mochita %}
+                <li class="redeem-item">
+                  <div class="redeem-icon">{{ r.icon or '🎁' }}</div>
+                  <div>
+                    <div class="redeem-name">{{ r.item_name }}</div>
+                    <div class="redeem-meta">{{ r.ts[:16] if r.ts else '' }}</div>
+                    {% if r.note %}
+                    <div class="redeem-meta" style="font-size:0.8rem; color: #666;">{{ r.note }}</div>
+                    {% endif %}
+                  </div>
+                  <div class="redeem-pts">-{{ r.cost }} pts</div>
+                </li>
+              {% endfor %}
             {% else %}
               <li class="redeem-empty">Sin canjes todavía.</li>
-            {% endfor %}
+            {% endif %}
           </ul>
         </div>
       </div>

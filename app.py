@@ -5626,6 +5626,18 @@ def api_medallas_summary():
         "shop": shop
     })
 
+from flask import request, redirect, flash, render_template, session
+# Si usas psycopg2:
+try:
+    from psycopg2.errors import ForeignKeyViolation as PG_FK_VIOLATION
+except Exception:
+    PG_FK_VIOLATION = tuple()
+# Si usas PyMySQL:
+try:
+    from pymysql.err import IntegrityError as MY_INTEGRITY_ERROR
+except Exception:
+    MY_INTEGRITY_ERROR = tuple()
+
 @app.route('/tienda', methods=['GET', 'POST'])
 def shop():
     if 'username' not in session:
@@ -5634,21 +5646,21 @@ def shop():
     user = session['username']
     is_admin = (user == 'mochito')
 
-    # Asegura tablas de gamificación
     try:
         _ensure_gamification_schema()
     except Exception as e:
         app.logger.warning("gamification schema ensure failed: %s", e)
 
     if request.method == 'POST':
-        action = request.form.get('action', '').strip()
+        # ⚠️ CAMBIO: usamos _op en vez de action
+        op = (request.form.get('_op') or '').strip()
 
         # === TOGGLE ADMIN VIEW (solo mochito) ===
-        if action == 'toggle_admin':
+        if op == 'toggle_admin':
             if not is_admin:
                 flash("Solo mochito puede usar la vista admin.", "error")
                 return redirect('/tienda')
-            current = bool(session.get('shop_admin_view', True))  # por defecto ON para mochito
+            current = bool(session.get('shop_admin_view', True))
             session['shop_admin_view'] = not current
             flash(("Vista admin activada ✅" if not current else "Vista admin desactivada 👀"), "success")
             try:
@@ -5658,7 +5670,7 @@ def shop():
             return redirect('/tienda')
 
         # === ADMIN: sumar puntos a un usuario ===
-        if action == 'grant_points':
+        if op == 'grant_points':
             if not is_admin:
                 flash("Solo el admin puede modificar puntos.", "error")
                 return redirect('/tienda')
@@ -5696,7 +5708,7 @@ def shop():
         # === Resto de acciones (redeem / CRUD items) ===
         conn = get_db_connection()
         try:
-            if action == 'redeem':
+            if op == 'redeem':
                 item_id = request.form.get('item_id')
                 if not item_id:
                     flash("Falta item.", "error")
@@ -5741,7 +5753,7 @@ def shop():
                 flash("Solo el admin puede modificar la tienda.", "error")
                 return redirect('/tienda')
 
-            if action == 'create_item':
+            if op == 'create_item':
                 name = (request.form.get('name') or '').strip()
                 cost = (request.form.get('cost') or '').strip()
                 desc = (request.form.get('description') or '').strip()
@@ -5764,7 +5776,7 @@ def shop():
                     pass
                 return redirect('/tienda')
 
-            if action == 'update_item':
+            if op == 'update_item':
                 item_id = request.form.get('item_id')
                 name = (request.form.get('name') or '').strip()
                 cost = (request.form.get('cost') or '').strip()
@@ -5772,15 +5784,21 @@ def shop():
                 icon = (request.form.get('icon') or '').strip() or '🎁'
                 try:
                     icost = int(cost)
+                    iid = int(item_id)
                     if icost < 1:
                         raise ValueError()
                 except Exception:
-                    flash("Coste inválido.", "error")
+                    flash("Coste/ID inválido.", "error")
                     return redirect('/tienda')
+
                 with conn.cursor() as c:
                     c.execute("""UPDATE shop_items
                                    SET name=%s, cost=%s, description=%s, icon=%s
-                                 WHERE id=%s""", (name, icost, desc, icon, item_id))
+                                 WHERE id=%s""", (name, icost, desc, icon, iid))
+                    if c.rowcount == 0:
+                        conn.rollback()
+                        flash("Premio no encontrado.", "error")
+                        return redirect('/tienda')
                     conn.commit()
                 flash("Premio actualizado ✏️", "success")
                 try:
@@ -5789,45 +5807,59 @@ def shop():
                     pass
                 return redirect('/tienda')
 
-            if action == 'delete_item':
+            if op == 'delete_item':
                 item_id = request.form.get('item_id')
-                with conn.cursor() as c:
-                    c.execute("DELETE FROM shop_items WHERE id=%s", (item_id,))
-                    conn.commit()
-                flash("Premio borrado 🗑️", "info")
                 try:
-                    send_discord("Shop item deleted", {"by": user, "id": int(item_id)})
+                    iid = int(item_id)
                 except Exception:
-                    pass
+                    flash("ID inválido.", "error")
+                    return redirect('/tienda')
+                try:
+                    with conn.cursor() as c:
+                        c.execute("DELETE FROM shop_items WHERE id=%s", (iid,))
+                        if c.rowcount == 0:
+                            conn.rollback()
+                            flash("Premio no encontrado.", "error")
+                            return redirect('/tienda')
+                        conn.commit()
+                    flash("Premio borrado 🗑️", "info")
+                    try:
+                        send_discord("Shop item deleted", {"by": user, "id": iid})
+                    except Exception:
+                        pass
+                except (MY_INTEGRITY_ERROR, PG_FK_VIOLATION) as e:
+                    try: conn.rollback()
+                    except Exception: pass
+                    flash("No se puede borrar: ya existen canjes asociados a este premio.", "error")
+                except Exception as e:
+                    try: conn.rollback()
+                    except Exception: pass
+                    app.logger.exception("[/tienda] delete_item error")
+                    flash("Error en la tienda.", "error")
                 return redirect('/tienda')
 
             flash("Acción desconocida.", "error")
             return redirect('/tienda')
 
         except Exception:
-            try:
-                conn.rollback()
-            except Exception:
-                pass
+            try: conn.rollback()
+            except Exception: pass
             app.logger.exception("[/tienda] error")
             flash("Error en la tienda.", "error")
             return redirect('/tienda')
         finally:
             conn.close()
 
-    # === GET: cargar datos para pintar la tienda ===
+    # === GET === (tu bloque tal cual)
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # Puntos del usuario actual
             c.execute("SELECT COALESCE(points,0) FROM users WHERE username=%s", (user,))
             points = int((c.fetchone() or [0])[0] or 0)
 
-            # Items de tienda
             c.execute("SELECT id, name, cost, description, icon FROM shop_items ORDER BY cost ASC, name ASC")
             items = c.fetchall()
 
-            # Puntos de ambos (para panel admin)
             c.execute("SELECT username, COALESCE(points,0) AS p FROM users WHERE username IN ('mochito','mochita')")
             rows = c.fetchall()
             points_map = {r['username']: int(r['p']) for r in rows}
@@ -5841,27 +5873,6 @@ def shop():
                            is_admin=is_admin,
                            show_admin=show_admin,
                            points_map=points_map)
-
-    # GET: listar items y puntos
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT COALESCE(points,0) FROM users WHERE username=%s", (user,))
-            points = int((c.fetchone() or [0])[0] or 0)
-            c.execute("SELECT id, name, cost, description, icon FROM shop_items ORDER BY cost ASC, name ASC")
-            items = c.fetchall()
-    finally:
-        conn.close()
-
-    # ← el toggle vive en sesión; por defecto ON para mochito
-    show_admin = is_admin and bool(session.get('shop_admin_view', True))
-
-    return render_template('tienda.html',
-                           points=points,
-                           items=items,
-                           is_admin=is_admin,
-                           show_admin=show_admin)
-
 
 @app.route("/medallas")
 def medallas():

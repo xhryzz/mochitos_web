@@ -103,7 +103,7 @@
       <div class="row">
         {% if is_admin %}
         <form method="post" action="{{ url_for('shop') }}">
-          <input type="hidden" name="action" value="toggle_admin">
+          <input type="hidden" name="_op" value="toggle_admin">
           <button class="btn gray" type="submit" title="Alternar entre vista normal y vista admin">
             {{ 'Vista admin: ON' if show_admin else 'Vista admin: OFF' }}
           </button>
@@ -128,7 +128,7 @@
     <div class="card">
       <h2 style="margin:0 0 10px;font-weight:800">⚙️ Admin · Nuevo premio</h2>
       <form method="post" action="{{ url_for('shop') }}" class="grid" style="grid-template-columns:1fr 160px;">
-        <input type="hidden" name="action" value="create_item">
+        <input type="hidden" name="_op" value="create_item">
         <div class="card" style="padding:14px">
           <div class="row" style="gap:12px">
             <div style="flex:1 1 220px">
@@ -160,7 +160,7 @@
     <div class="card">
       <h2 style="margin:0 0 10px;font-weight:800">➕ Añadir puntos</h2>
       <form method="post" action="{{ url_for('shop') }}" class="row" style="gap:12px;align-items:flex-end;flex-wrap:wrap">
-        <input type="hidden" name="action" value="grant_points">
+        <input type="hidden" name="_op" value="grant_points">
         <div>
           <label>Usuario</label>
           <select name="to_user" style="width:180px">
@@ -201,7 +201,7 @@
 
         <!-- Comprar/canjear -->
         <form method="post" action="{{ url_for('shop') }}" class="row" style="margin-top:12px">
-          <input type="hidden" name="action" value="redeem">
+          <input type="hidden" name="_op" value="redeem">
           <input type="hidden" name="item_id" value="{{ it.id }}">
           <button class="btn" type="submit"
                   title="{{ 'No tienes puntos suficientes' if points < it.cost else 'Canjear' }}"
@@ -216,7 +216,7 @@
           <summary style="margin-top:12px">Editar / borrar</summary>
 
           <form method="post" action="{{ url_for('shop') }}" style="margin-top:12px">
-            <input type="hidden" name="action" value="update_item">
+            <input type="hidden" name="_op" value="update_item">
             <input type="hidden" name="item_id" value="{{ it.id }}">
             <div class="row" style="gap:12px">
               <div style="flex:1 1 240px">
@@ -242,7 +242,7 @@
           </form>
 
           <form method="post" action="{{ url_for('shop') }}" onsubmit="return confirm('¿Borrar este premio?');" style="margin-top:10px">
-            <input type="hidden" name="action" value="delete_item">
+            <input type="hidden" name="_op" value="delete_item">
             <input type="hidden" name="item_id" value="{{ it.id }}">
             <button class="btn warn" type="submit">Borrar</button>
           </form>

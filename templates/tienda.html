@@ -82,7 +82,6 @@
     .redeem-name{font-weight:800}
     .redeem-meta{font-size:.9rem;color:#8a8fa3}
     .redeem-pts{font-weight:800;color:#b91c1c}
-    .redeem-empty{padding:12px 0;color:#8a8fa3;text-align:center}
   </style>
 </head>
 <body>
@@ -149,7 +148,7 @@
 
     {% if is_admin %}
     <div class="card">
-      <h2 style="margin:0 0 10px;font-weight:800">➕ Añadir puntos</h2>
+      <h2 style="margin:0 0 10px;font-weight:800">➕ Añadir / Quitar puntos</h2>
       <form method="post" action="{{ url_for('shop') }}" class="row" style="gap:12px;align-items:flex-end;flex-wrap:wrap">
         <input type="hidden" name="_op" value="grant_points">
         <div>
@@ -157,6 +156,13 @@
           <select name="to_user" style="width:180px">
             <option value="mochito">mochito</option>
             <option value="mochita">mochita</option>
+          </select>
+        </div>
+        <div>
+          <label>Acción</label>
+          <select name="action" style="width:180px">
+            <option value="add">Sumar puntos</option>
+            <option value="subtract">Restar puntos</option>
           </select>
         </div>
         <div>
@@ -168,7 +174,7 @@
           <input type="text" name="note" placeholder="Ej.: por sorpresa bonita">
         </div>
         <div>
-          <button class="btn" type="submit">Añadir</button>
+          <button class="btn" type="submit">Ejecutar</button>
         </div>
       </form>
       <div class="muted" style="margin-top:10px">

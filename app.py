@@ -5793,14 +5793,16 @@ def shop():
             return redirect('/tienda')
 
         # === ADMIN: sumar puntos a un usuario ===
+        # En la sección de 'grant_points' dentro de @app.route('/tienda', methods=['GET', 'POST'])
         if op == 'grant_points':
             if not is_admin:
                 flash("Solo el admin puede modificar puntos.", "error")
                 return redirect('/tienda')
 
             to_user = (request.form.get('to_user') or '').strip()
-            delta   = (request.form.get('points') or '').strip()
-            note    = (request.form.get('note') or '').strip()
+            action = (request.form.get('action') or 'add').strip()  # Nuevo campo
+            delta = (request.form.get('points') or '').strip()
+            note = (request.form.get('note') or '').strip()
 
             if to_user not in ('mochito', 'mochita'):
                 flash("Usuario destino inválido.", "error")
@@ -5814,14 +5816,19 @@ def shop():
                 flash("Cantidad inválida. Usa un entero positivo.", "error")
                 return redirect('/tienda')
 
+            # Aplicar signo según la acción
+            if action == 'subtract':
+                d = -d
+
             conn = get_db_connection()
             try:
                 with conn.cursor() as c:
                     c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE username=%s", (d, to_user))
                     conn.commit()
-                flash(f"Se añadieron +{d} pts a {to_user} ✅", "success")
+                action_text = "añadieron" if action == 'add' else "restaron"
+                flash(f"Se {action_text} {abs(d)} pts a {to_user} ✅", "success")
                 try:
-                    send_discord("Points granted", {"by": user, "to": to_user, "points": d, "note": note})
+                    send_discord("Points modified", {"by": user, "to": to_user, "points": d, "note": note})
                 except Exception:
                     pass
             finally:

@@ -736,7 +736,7 @@ def _ensure_gamification_schema():
         _seed_gamification()
         _gami_ready = True
 
-_ensure_gamification_schema()
+
 
 def _grant_achievement_to(user: str, achievement_id: int, points_on_award: int = 0):
     """Concede (si falta) la medalla a 'user' y suma puntos."""
@@ -5320,6 +5320,7 @@ def _ensure_gamification_schema():
 
         conn.commit()
     _seed_gamification()
+    _ensure_gamification_schema()
 
 def _grant_achievement_to(user: str, ach_id: int, pts: int = 0):
     """Concede (idempotente) una medalla y abona puntos opcionales."""

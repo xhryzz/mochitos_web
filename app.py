@@ -5835,7 +5835,7 @@ def shop():
         conn.close()
 
     show_admin = is_admin and bool(session.get('shop_admin_view', True))
-    return render_template('admin_achievements.html',
+    return render_template('tienda.html',
                            points=points,
                            items=items,
                            is_admin=is_admin,
@@ -5856,7 +5856,7 @@ def shop():
     # ← el toggle vive en sesión; por defecto ON para mochito
     show_admin = is_admin and bool(session.get('shop_admin_view', True))
 
-    return render_template('admin_achievements.html',
+    return render_template('tienda.html',
                            points=points,
                            items=items,
                            is_admin=is_admin,

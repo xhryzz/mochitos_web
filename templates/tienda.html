@@ -153,9 +153,8 @@
         </div>
       </form>
     </div>
-    {% endif %}
 
-    {% if is_admin %}
+    <!-- SECCIÓN DE AÑADIR/QUITAR PUNTOS - SOLO VISIBLE PARA ADMIN CON VISTA ADMIN ACTIVADA -->
     <div class="card">
       <h2 style="margin:0 0 10px;font-weight:800">➕ Añadir / Quitar puntos</h2>
       <form method="post" action="{{ url_for('shop') }}" class="row" style="gap:12px;align-items:flex-end;flex-wrap:wrap">

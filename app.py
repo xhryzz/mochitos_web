@@ -720,23 +720,54 @@ def _ensure_gamification_schema():
                     purchased_at TEXT
                 )
                 """)
-                # En init_db(), después de crear la tabla purchases, añade:
-                c.execute('''CREATE TABLE IF NOT EXISTS purchases (
-                    id SERIAL PRIMARY KEY,
-                    user_id INTEGER NOT NULL,
-                    item_id INTEGER NOT NULL,
-                    quantity INTEGER DEFAULT 1,
-                    note TEXT,
-                    purchased_at TEXT,
-                    FOREIGN KEY (item_id) REFERENCES shop_items(id) ON DELETE CASCADE
-                )''')
             conn.commit()
         finally:
             conn.close()
         _seed_gamification()
         _gami_ready = True
 
+def _seed_gamification():
+    """Semillas idempotentes de medallas y tienda."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            achs = [
+                ("answers_30",   "Constante 30",  "Has respondido 30 preguntas",                      "🧩", 30),
+                ("answers_100",  "Constante 100", "Has respondido 100 preguntas",                     "🧩", 100),
+                ("first_answer_1","¡Primera del día!", "Has sido la primera en contestar",            "⚡", 1),
+                ("first_answer_10","Velocista ×10",    "Primera en 10 ocasiones",                    "⚡", 10),
+                ("streak_7",     "Racha 7",       "7 días seguidos",                                  "🔥", 7),
+                ("streak_30",    "Racha 30",      "30 días seguidos",                                 "🔥", 30),
+                ("streak_50",    "Racha 50",      "50 días seguidos",                                 "🔥", 50),
+                ("days_100",     "100 días",      "El juego ya tiene 100 preguntas publicadas",       "💯", 100),
+            ]
+            for code, title, desc, icon, goal in achs:
+                c.execute("""
+                    INSERT INTO achievements (code,title,description,icon,goal)
+                    VALUES (%s,%s,%s,%s,%s)
+                    ON CONFLICT (code) DO UPDATE
+                    SET title=EXCLUDED.title, description=EXCLUDED.description,
+                        icon=EXCLUDED.icon, goal=EXCLUDED.goal
+                """, (code,title,desc,icon,goal))
 
+            items = [
+                ("Cena gratis",       120, "Vale por una cena pagada por tu pareja", "🍝"),
+                ("Cine juntos",        90, "Entradas para el cine (+ palomitas)",    "🎬"),
+                ("Desayuno a la cama", 60, "Cafecito + croissants servido con amor", "☕"),
+                ("Masaje 30’",         50, "30 minutos de masaje relajante",         "💆‍♀️"),
+                ("Día sin fregar",     40, "Te libras hoy de fregar platos",         "🧽"),
+            ]
+            for name, cost, desc, icon in items:
+                c.execute("""
+                    INSERT INTO shop_items (name,cost,description,icon)
+                    VALUES (%s,%s,%s,%s)
+                    ON CONFLICT (name) DO UPDATE
+                    SET cost=EXCLUDED.cost, description=EXCLUDED.description, icon=EXCLUDED.icon
+                """, (name,cost,desc,icon))
+        conn.commit()
+    finally:
+        conn.close()
+_ensure_gamification_schema()
 
 def _grant_achievement_to(user: str, achievement_id: int, points_on_award: int = 0):
     """Concede (si falta) la medalla a 'user' y suma puntos."""
@@ -2477,11 +2508,10 @@ def index():
                 send_discord("Change password OK", {"user": user}); return redirect('/')
 
             # 3) Responder pregunta
-            # En la sección donde se procesa la respuesta (busca esta parte en tu código):
             if request.method == 'POST' and 'answer' in request.form:
                 answer = (request.form.get('answer') or '').strip()
                 if question_id is not None and answer:
-                    now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+                    now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"  # UTC
 
                     c.execute("""
                         SELECT id, answer, created_at, updated_at
@@ -2492,7 +2522,6 @@ def index():
                     just_published = False
 
                     if not prev:
-                        # NUEVA respuesta - insertar
                         c.execute("""
                             INSERT INTO answers (question_id, username, answer, created_at, updated_at)
                             VALUES (%s,%s,%s,%s,%s)
@@ -2500,11 +2529,10 @@ def index():
                         """, (question_id, user, answer, now_txt, now_txt))
                         conn.commit()
                         send_discord("Answer submitted", {"user": user, "question_id": question_id})
-                        just_published = True  # ✅ Siempre es primera publicación si no existía
+                        just_published = True
                     else:
                         prev_id, prev_text, prev_created, prev_updated = prev
                         if answer != (prev_text or ""):
-                            # Respuesta editada - actualizar
                             if prev_created is None:
                                 c.execute("""
                                     UPDATE answers
@@ -2519,13 +2547,9 @@ def index():
                                 """, (answer, now_txt, prev_id))
                             conn.commit()
                             send_discord("Answer edited", {"user": user, "question_id": question_id})
-                            
-                            # ✅ OTORGAR PUNTOS SI ES LA PRIMERA VEZ QUE RESPONDE (aunque edite)
-                            # Verificar si antes estaba vacía o no tenía contenido significativo
                             if not (prev_text or "").strip():
                                 just_published = True
 
-                    # ✅ SIEMPRE verificar si es primera publicación después de cualquier cambio
                     if just_published:
                         try:
                             award_points_for_answer(question_id, user, first_publication=True)
@@ -2591,10 +2615,7 @@ def index():
                     c.execute("""INSERT INTO travels (destination, description, travel_date, is_visited, created_by, created_at)
                                  VALUES (%s,%s,%s,%s,%s,%s)""",
                               (destination, description, travel_date, is_visited, user, now_madrid_str()))
-                    conn.commit()
-                    check_travel_achievements(user)
-
-                    flash("Viaje añadido ✈️", "success")
+                    conn.commit(); flash("Viaje añadido ✈️", "success")
                     send_discord("Travel added", {"user": user, "dest": destination, "visited": is_visited})
                     broadcast("travel_update", {"type": "add"})
                 return redirect('/')
@@ -4295,7 +4316,6 @@ def media_add():
                 user, now_madrid_str()))
             mid = c.fetchone()[0]
             conn.commit()
-            check_media_achievements(user)
 
             # 🔔 Push al otro
             try:
@@ -5320,7 +5340,6 @@ def _ensure_gamification_schema():
 
         conn.commit()
     _seed_gamification()
-    _ensure_gamification_schema()
 
 def _grant_achievement_to(user: str, ach_id: int, pts: int = 0):
     """Concede (idempotente) una medalla y abona puntos opcionales."""
@@ -5400,9 +5419,9 @@ def check_relationship_milestones():
         conn.close()
 
 
+
 def _seed_gamification():
     with closing(get_db_connection()) as conn, conn.cursor() as c:
-        # Logros base
         achievements = [
             ("first_answer_1", "¡Primera del día!", "Responder la primera a una pregunta del día", "⚡", 1),
             ("first_answer_10", "Velocista x10", "Ser la primera en 10 preguntas del día", "⚡", 10),
@@ -5413,94 +5432,19 @@ def _seed_gamification():
             ("answers_100", "Constante 100", "Acumular 100 respuestas", "🧩", 100),
             ("days_100", "💯 100 días", "Haber publicado 100 preguntas en total", "💯", 100)
         ]
-        
-        # Logros de días juntos (100-365, cada 5 días)
-        for day in range(100, 366, 5):
-            achievements.append((
-                f"rel_day_{day}",
-                f"❤️ {day} días juntos",
-                f"Lleváis {day} días de relación",
-                "💖",
-                day
-            ))
-        
-        # Logros de contenido multimedia
-        media_achievements = [
-            (1, "🎬 Primera película/serie", "Añadir tu primera película o serie", "📺"),
-            (5, "🎬 Cinéfilo principiante", "Añadir 5 películas o series", "📺"),
-            (10, "🎬 Amante del cine", "Añadir 10 películas o series", "🎭"),
-            (20, "🎬 Crítico cinematográfico", "Añadir 20 películas o series", "🏆"),
-            (50, "🎬 Gurú del entretenimiento", "Añadir 50 películas o series", "👑")
-        ]
-        
-        for count, title, desc, icon in media_achievements:
-            achievements.append((
-                f"media_add_{count}",
-                title,
-                desc,
-                icon,
-                count
-            ))
-        
-        # Logros de viajes
-        travel_achievements = [
-            (1, "✈️ Primer destino", "Añadir vuestro primer viaje", "🧳"),
-            (3, "✈️ Viajeros frecuentes", "Añadir 3 viajes", "🧳"),
-            (5, "✈️ Trotamundos", "Añadir 5 viajes", "🌎"),
-            (10, "✈️ Exploradores", "Añadir 10 viajes", "🗺️"),
-            (15, "✈️ Nómadas digitales", "Añadir 15 viajes", "🌟")
-        ]
-        
-        for count, title, desc, icon in travel_achievements:
-            achievements.append((
-                f"travel_add_{count}",
-                title,
-                desc,
-                icon,
-                count
-            ))
-        
-        # Logros de canjes de premios
-        redeem_achievements = [
-            (1, "🛍️ Primer canje", "Canjear tu primer premio", "🎁"),
-            (3, "🛍️ Comprador habitual", "Canjear 3 premios", "🛒"),
-            (5, "🛍️ Amante de las recompensas", "Canjear 5 premios", "💎"),
-            (10, "🛍️ Coleccionista", "Canjear 10 premios", "🏅"),
-            (15, "🛍️ Rey/Reina de la tienda", "Canjear 15 premios", "👑")
-        ]
-        
-        for count, title, desc, icon in redeem_achievements:
-            achievements.append((
-                f"redeem_{count}",
-                title,
-                desc,
-                icon,
-                count
-            ))
-        
-        # Logros especiales adicionales
-        special_achievements = [
-            ("perfect_week", "🔥 Semana perfecta", "Responder todas las preguntas de una semana", "⭐", 7),
-            ("monthly_champion", "🏆 Campeón del mes", "Ser el primero en responder más veces en un mes", "🏅", 1),
-            ("early_bird", "🐦 Madrugador", "Ser el primero en responder 5 días seguidos antes del mediodía", "🌅", 5),
-            ("night_owl", "🦉 Noctámbulo", "Responder después de las 10 PM 5 veces", "🌙", 5),
-            ("creative_writer", "✍️ Escritor creativo", "Escribir respuestas de más de 100 caracteres 10 veces", "📝", 10),
-            ("quick_thinker", "⚡ Pensador rápido", "Responder en menos de 2 minutos después de publicada la pregunta", "⏱️", 3)
-        ]
-        
-        achievements.extend(special_achievements)
-        
-        # Insertar todos los logros
         for code, title, desc, icon, goal in achievements:
             c.execute(
                 "INSERT INTO achievements (code, title, description, icon, goal) VALUES (%s,%s,%s,%s,%s) "
                 "ON CONFLICT (code) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, icon=EXCLUDED.icon, goal=EXCLUDED.goal",
                 (code, title, desc, icon, goal)
             )
-        
-        # ÍTEMS VACÍOS - Sin premios por defecto
-        items = []
-        
+        items = [
+            ("Cena gratis", 120, "Vale por una cena pagada por tu mochito/mochita", "🍝"),
+            ("Cine juntos", 90, "Entradas para una película (+ palomitas)", "🎬"),
+            ("Desayuno a la cama", 60, "Croissants + café servido con amor", "☕"),
+            ("Masaje 30'", 50, "30 minutos de masaje relajante", "💆‍♀️"),
+            ("Día sin fregar", 40, "Hoy te libras de fregar platos", "🧽")
+        ]
         for name, cost, desc, icon in items:
             c.execute(
                 "INSERT INTO shop_items (name, cost, description, icon) VALUES (%s,%s,%s,%s) "
@@ -5508,72 +5452,6 @@ def _seed_gamification():
                 (name, cost, desc, icon)
             )
         conn.commit()
-
-
-def check_media_achievements(username):
-    """Verifica logros relacionados con añadir películas/series"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT COUNT(*) FROM media_items WHERE created_by=%s", (username,))
-            media_count = c.fetchone()[0] or 0
-            
-            # Verificar cada nivel de logro
-            levels = [1, 5, 10, 20, 50]
-            for level in levels:
-                if media_count >= level:
-                    _grant_achievement_by_code(username, f"media_add_{level}")
-    finally:
-        conn.close()
-
-def check_travel_achievements(username):
-    """Verifica logros relacionados con añadir viajes"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT COUNT(*) FROM travels WHERE created_by=%s", (username,))
-            travel_count = c.fetchone()[0] or 0
-            
-            # Verificar cada nivel de logro
-            levels = [1, 3, 5, 10, 15]
-            for level in levels:
-                if travel_count >= level:
-                    _grant_achievement_by_code(username, f"travel_add_{level}")
-    finally:
-        conn.close()
-
-def check_redeem_achievements(username):
-    """Verifica logros relacionados con canjear premios"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-                SELECT COUNT(*) FROM purchases p 
-                JOIN users u ON u.id = p.user_id 
-                WHERE u.username=%s
-            """, (username,))
-            redeem_count = c.fetchone()[0] or 0
-            
-            # Verificar cada nivel de logro
-            levels = [1, 3, 5, 10, 15]
-            for level in levels:
-                if redeem_count >= level:
-                    _grant_achievement_by_code(username, f"redeem_{level}")
-    finally:
-        conn.close()
-
-def _grant_achievement_by_code(username, achievement_code):
-    """Función helper para conceder logros por código"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT id FROM achievements WHERE code=%s", (achievement_code,))
-            row = c.fetchone()
-            if row:
-                achievement_id = row[0]
-                _grant_achievement_to(username, achievement_id)
-    finally:
-        conn.close()
 
 # --- Gamificación: bootstrap (seguro/idempotente, Flask 3.x) ---
 try:
@@ -5891,8 +5769,6 @@ def shop():
                     c.execute("""INSERT INTO shop_items (name, cost, description, icon)
                                  VALUES (%s,%s,%s,%s)""", (name, icost, desc, icon))
                     conn.commit()
-                    check_redeem_achievements(user)
-
                 flash("Premio añadido ✅", "success")
                 try:
                     send_discord("Shop item created", {"by": user, "name": name, "cost": icost})
@@ -5938,41 +5814,28 @@ def shop():
                 except Exception:
                     flash("ID inválido.", "error")
                     return redirect('/tienda')
-                
-                conn = get_db_connection()
                 try:
                     with conn.cursor() as c:
-                        # Primero verificar si hay compras asociadas
-                        c.execute("SELECT COUNT(*) FROM purchases WHERE item_id=%s", (iid,))
-                        purchase_count = c.fetchone()[0] or 0
-                        
-                        if purchase_count > 0:
-                            flash("No se puede borrar: ya existen canjes asociados a este premio. Primero borra los canjes.", "error")
-                            return redirect('/tienda')
-                        
-                        # Si no hay compras, proceder con el borrado
                         c.execute("DELETE FROM shop_items WHERE id=%s", (iid,))
                         if c.rowcount == 0:
+                            conn.rollback()
                             flash("Premio no encontrado.", "error")
                             return redirect('/tienda')
-                        
                         conn.commit()
-                        flash("Premio borrado 🗑️", "info")
-                        try:
-                            send_discord("Shop item deleted", {"by": user, "id": iid})
-                        except Exception:
-                            pass
-                            
-                except Exception as e:
-                    try: 
-                        conn.rollback()
-                    except Exception: 
+                    flash("Premio borrado 🗑️", "info")
+                    try:
+                        send_discord("Shop item deleted", {"by": user, "id": iid})
+                    except Exception:
                         pass
+                except (MY_INTEGRITY_ERROR, PG_FK_VIOLATION) as e:
+                    try: conn.rollback()
+                    except Exception: pass
+                    flash("No se puede borrar: ya existen canjes asociados a este premio.", "error")
+                except Exception as e:
+                    try: conn.rollback()
+                    except Exception: pass
                     app.logger.exception("[/tienda] delete_item error")
                     flash("Error en la tienda.", "error")
-                finally:
-                    conn.close()
-                
                 return redirect('/tienda')
 
             flash("Acción desconocida.", "error")

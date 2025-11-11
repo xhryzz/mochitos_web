@@ -5958,10 +5958,10 @@ def shop():
                     pass
                 return redirect('/tienda')
 
-# Solo admin: crear/editar/borrar
-if not is_admin:
-    flash("Solo el admin puede modificar la tienda.", "error")
-    return redirect('/tienda')
+            # Solo admin: crear/editar/borrar
+            if not is_admin:
+                flash("Solo el admin puede modificar la tienda.", "error")
+                return redirect('/tienda')
 
             if op == 'create_item':
                 name = (request.form.get('name') or '').strip()

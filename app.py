@@ -5822,7 +5822,7 @@ def shop():
         conn.close()
 
     show_admin = is_admin and bool(session.get('shop_admin_view', True))
-    return render_template('shop.html',
+    return render_template('admin_achievements.html',
                            points=points,
                            items=items,
                            is_admin=is_admin,

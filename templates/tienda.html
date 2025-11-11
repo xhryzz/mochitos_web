@@ -51,14 +51,10 @@
     .muted{color:var(--muted)}
     details > summary{cursor:pointer;user-select:none;font-weight:800}
     details{margin-top:12px}
-
-    /* Cabecera de puntos */
     .balance{
       background:#fff;border:1px solid rgba(0,0,0,.06);border-radius:14px;
       padding:10px 14px;box-shadow:var(--shadow);font-weight:800;display:flex;gap:8px;align-items:center;
     }
-
-    /* Flash messages */
     .flash-wrap{display:grid;gap:12px;margin-bottom:10px}
     .flash{
       background:#fff;border-radius:14px;padding:12px 14px;box-shadow:var(--shadow);
@@ -66,15 +62,11 @@
     }
     .flash.warn{border-left-color:#f39c12}
     .flash.err{border-left-color:#e11d48}
-
-    /* Items */
     .item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
     .item-icon{font-size:28px}
     .item-cost{color:var(--muted);font-weight:800}
     .item-name{font-weight:800;margin:8px 0 6px}
     .item-desc{color:var(--muted);min-height:44px}
-
-    /* Historial */
     .history{margin-top:28px}
     .history h2{margin:0 0 12px 0}
     .history-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
@@ -104,6 +96,7 @@
         {% if is_admin %}
         <form method="post" action="{{ url_for('shop') }}">
           <input type="hidden" name="action" value="toggle_admin">
+          <input type="hidden" name="_action" value="toggle_admin">
           <button class="btn gray" type="submit" title="Alternar entre vista normal y vista admin">
             {{ 'Vista admin: ON' if show_admin else 'Vista admin: OFF' }}
           </button>
@@ -124,11 +117,11 @@
     {% endwith %}
 
     {% if show_admin %}
-    <!-- ADMIN: crear nuevo premio -->
     <div class="card">
       <h2 style="margin:0 0 10px;font-weight:800">⚙️ Admin · Nuevo premio</h2>
       <form method="post" action="{{ url_for('shop') }}" class="grid" style="grid-template-columns:1fr 160px;">
         <input type="hidden" name="action" value="create_item">
+        <input type="hidden" name="_action" value="create_item">
         <div class="card" style="padding:14px">
           <div class="row" style="gap:12px">
             <div style="flex:1 1 220px">
@@ -161,6 +154,7 @@
       <h2 style="margin:0 0 10px;font-weight:800">➕ Añadir puntos</h2>
       <form method="post" action="{{ url_for('shop') }}" class="row" style="gap:12px;align-items:flex-end;flex-wrap:wrap">
         <input type="hidden" name="action" value="grant_points">
+        <input type="hidden" name="_action" value="grant_points">
         <div>
           <label>Usuario</label>
           <select name="to_user" style="width:180px">
@@ -199,9 +193,10 @@
         <div class="item-name">{{ it.name }}</div>
         <div class="item-desc">{{ it.description or '—' }}</div>
 
-        <!-- Comprar/canjear -->
+        <!-- Canjear -->
         <form method="post" action="{{ url_for('shop') }}" class="row" style="margin-top:12px">
           <input type="hidden" name="action" value="redeem">
+          <input type="hidden" name="_action" value="redeem">
           <input type="hidden" name="item_id" value="{{ it.id }}">
           <button class="btn" type="submit"
                   title="{{ 'No tienes puntos suficientes' if points < it.cost else 'Canjear' }}"
@@ -211,12 +206,13 @@
         </form>
 
         {% if show_admin %}
-        <!-- Admin: editar/borrar -->
         <details>
           <summary style="margin-top:12px">Editar / borrar</summary>
 
+          <!-- Editar -->
           <form method="post" action="{{ url_for('shop') }}" style="margin-top:12px">
             <input type="hidden" name="action" value="update_item">
+            <input type="hidden" name="_action" value="update_item">
             <input type="hidden" name="item_id" value="{{ it.id }}">
             <div class="row" style="gap:12px">
               <div style="flex:1 1 240px">
@@ -241,8 +237,10 @@
             </div>
           </form>
 
+          <!-- Borrar -->
           <form method="post" action="{{ url_for('shop') }}" onsubmit="return confirm('¿Borrar este premio?');" style="margin-top:10px">
             <input type="hidden" name="action" value="delete_item">
+            <input type="hidden" name="_action" value="delete_item">
             <input type="hidden" name="item_id" value="{{ it.id }}">
             <button class="btn warn" type="submit">Borrar</button>
           </form>
@@ -267,7 +265,6 @@
       <p class="muted" style="margin:2px 0 14px 0">Últimos canjes de ambos (se agrupan por persona).</p>
 
       <div class="history-grid">
-        <!-- Mochito -->
         <div class="history-col">
           <h3 class="history-title">👱‍♂️ Mochito</h3>
           <ul class="redeem-list">
@@ -286,7 +283,6 @@
           </ul>
         </div>
 
-        <!-- Mochita -->
         <div class="history-col">
           <h3 class="history-title">👩 Mochita</h3>
           <ul class="redeem-list">

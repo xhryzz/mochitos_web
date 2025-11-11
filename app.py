@@ -736,47 +736,6 @@ def _ensure_gamification_schema():
         _seed_gamification()
         _gami_ready = True
 
-def _seed_gamification():
-    """Semillas idempotentes de medallas y tienda."""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            achs = [
-                ("answers_30",   "Constante 30",  "Has respondido 30 preguntas",                      "🧩", 30),
-                ("answers_100",  "Constante 100", "Has respondido 100 preguntas",                     "🧩", 100),
-                ("first_answer_1","¡Primera del día!", "Has sido la primera en contestar",            "⚡", 1),
-                ("first_answer_10","Velocista ×10",    "Primera en 10 ocasiones",                    "⚡", 10),
-                ("streak_7",     "Racha 7",       "7 días seguidos",                                  "🔥", 7),
-                ("streak_30",    "Racha 30",      "30 días seguidos",                                 "🔥", 30),
-                ("streak_50",    "Racha 50",      "50 días seguidos",                                 "🔥", 50),
-                ("days_100",     "100 días",      "El juego ya tiene 100 preguntas publicadas",       "💯", 100),
-            ]
-            for code, title, desc, icon, goal in achs:
-                c.execute("""
-                    INSERT INTO achievements (code,title,description,icon,goal)
-                    VALUES (%s,%s,%s,%s,%s)
-                    ON CONFLICT (code) DO UPDATE
-                    SET title=EXCLUDED.title, description=EXCLUDED.description,
-                        icon=EXCLUDED.icon, goal=EXCLUDED.goal
-                """, (code,title,desc,icon,goal))
-
-            items = [
-                ("Cena gratis",       120, "Vale por una cena pagada por tu pareja", "🍝"),
-                ("Cine juntos",        90, "Entradas para el cine (+ palomitas)",    "🎬"),
-                ("Desayuno a la cama", 60, "Cafecito + croissants servido con amor", "☕"),
-                ("Masaje 30’",         50, "30 minutos de masaje relajante",         "💆‍♀️"),
-                ("Día sin fregar",     40, "Te libras hoy de fregar platos",         "🧽"),
-            ]
-            for name, cost, desc, icon in items:
-                c.execute("""
-                    INSERT INTO shop_items (name,cost,description,icon)
-                    VALUES (%s,%s,%s,%s)
-                    ON CONFLICT (name) DO UPDATE
-                    SET cost=EXCLUDED.cost, description=EXCLUDED.description, icon=EXCLUDED.icon
-                """, (name,cost,desc,icon))
-        conn.commit()
-    finally:
-        conn.close()
 _ensure_gamification_schema()
 
 def _grant_achievement_to(user: str, achievement_id: int, points_on_award: int = 0):

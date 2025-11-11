@@ -2307,35 +2307,28 @@ body::before{ z-index: -1; }
   </a>
 {% endif %}
 
-<!-- Puntos flotantes (icono + chip con los dos contadores) -->
-<div class="points-wrapper" id="pointsWrapper">
-  <a href="/medallas" class="settings-icon points-icon" title="Puntos" aria-label="Puntos">
-    <i class="fa-solid fa-medal" aria-hidden="true"></i>
-  </a>
-
-  <div class="points-chip" id="pointsChip" aria-live="polite">
-    <div class="pp">
-      <span class="avatar-mini">
-        {% if profile_pictures.get(username) %}
-          <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
-        {% else %}
-          {{ username[0]|upper }}
-        {% endif %}
-      </span>
-      <span class="name">{{ username }}</span>
-      <b id="pts-me">—</b>
-    </div>
-    <div class="pp">
-      <span class="avatar-mini">
-        {% if profile_pictures.get(other_user) %}
-          <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
-        {% else %}
-          {{ other_user[0]|upper }}
-        {% endif %}
-      </span>
-      <span class="name">{{ other_user }}</span>
-      <b id="pts-other">—</b>
-    </div>
+<div class="points-chip" id="pointsChip" aria-live="polite">
+  <div class="pp">
+    <span class="avatar-mini">
+      {% if profile_pictures.get(username) %}
+        <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+      {% else %}
+        {{ username[0]|upper }}
+      {% endif %}
+    </span>
+    <span class="name">{{ username }}</span>
+    <b id="pts-me" data-user="{{ username }}">{{ user_points }}</b>
+  </div>
+  <div class="pp">
+    <span class="avatar-mini">
+      {% if profile_pictures.get(other_user) %}
+        <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+      {% else %}
+        {{ other_user[0]|upper }}
+      {% endif %}
+    </span>
+    <span class="name">{{ other_user }}</span>
+    <b id="pts-other" data-user="{{ other_user }}">{{ other_points }}</b>
   </div>
 </div>
 
@@ -7004,41 +6997,23 @@ function flyOnce(){
 
 <script>
 (async function(){
-  // helpers
-  const $ = (id)=>document.getElementById(id);
-  const me = (typeof LOGGED !== 'undefined' && LOGGED) ? LOGGED : '';
-  const other = (typeof OTHER !== 'undefined' && OTHER) ? OTHER : '';
-
   async function fetchPoints(user){
-    if(!user) return null;
-    const tryUrls = [
-      `/api/medallas/summary?user=${encodeURIComponent(user)}`,
-      `/api/medallas/summary/${encodeURIComponent(user)}`,
-      user === me ? `/api/medallas/summary` : `/api/medallas/summary?who=${encodeURIComponent(user)}`,
-      `/api/medallas/all?only=${encodeURIComponent(user)}`
-    ];
-    for (const url of tryUrls){
-      try{
-        const r = await fetch(url, { credentials: 'same-origin' });
-        if(!r.ok) continue;
-        const d = await r.json();
-        const p = (d && (d.points ?? d.total ?? d.score ?? d.puntos));
-        if (typeof p === 'number') return p;
-      }catch(e){}
-    }
-    return null;
+    try{
+      const r = await fetch(`/api/points?user=${encodeURIComponent(user)}`, { credentials:'same-origin' });
+      if(!r.ok) return null;
+      const j = await r.json();
+      return (j && j.ok && typeof j.points === 'number') ? j.points : null;
+    }catch(e){ return null; }
   }
 
-  function setText(id, val){
-    const el = $(id);
-    if (!el) return;
-    el.textContent = (val ?? '—');
+  // Inicial: ya están los valores del servidor.
+  // Hidratación: refrescamos cada <b data-user="...">
+  const els = document.querySelectorAll('.points-chip b[data-user]');
+  for (const el of els){
+    const u = el.getAttribute('data-user');
+    const pts = await fetchPoints(u);
+    if (pts !== null) el.textContent = pts;
   }
-
-  // pinta ambos
-  const [mePts, otherPts] = await Promise.all([fetchPoints(me), fetchPoints(other)]);
-  setText('pts-me', mePts);
-  setText('pts-other', otherPts);
 })();
 </script>
 

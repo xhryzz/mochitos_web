@@ -2926,6 +2926,18 @@ def index():
         banner_file = get_banner()
         profile_pictures = get_profile_pictures()
 
+        # --- Puntos de ambos para el chip ---
+        with conn.cursor() as c2:
+            c2.execute("""
+                SELECT username, COALESCE(points,0)
+                FROM users
+                WHERE username IN (%s, %s)
+            """, (user, other_user))
+            rows = c2.fetchall()
+        pts_map = {r[0]: int(r[1]) for r in rows}
+        user_points   = pts_map.get(user, 0)
+        other_points  = pts_map.get(other_user, 0)
+
     finally:
         conn.close()
 
@@ -2991,6 +3003,7 @@ def index():
                            dq_reactions=dq_reactions_map,
                            dq_chat_messages=dq_chat_messages,
                            user_points=user_points,   # ⬅️ añade esto
+                           other_points=other_points,
                            )
 
 # ======= Rutas REST extra (con broadcast) =======
@@ -5963,6 +5976,23 @@ def admin_achievements_check_now():
         flash("Error al evaluar.", "error")
     return redirect("/admin/achievements")
 
+@app.get("/api/points")
+def api_points():
+    if 'username' not in session:
+        return jsonify({"ok": False, "error": "unauthenticated"}), 401
+    u = (request.args.get("user") or session['username']).strip()
+    # solo permitimos a mochito/mochita por seguridad
+    if u not in ("mochito", "mochita"):
+        return jsonify({"ok": False, "error": "bad_user"}), 400
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT COALESCE(points,0) FROM users WHERE username=%s", (u,))
+            row = c.fetchone()
+            pts = int((row or [0])[0] or 0)
+    finally:
+        conn.close()
+    return jsonify({"ok": True, "user": u, "points": pts})
 
 
 _old_init_db = init_db

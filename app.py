@@ -6372,11 +6372,13 @@ def historial():
     finally:
         conn.close()
     
+    # Pasar today_madrid al template
     return render_template('historial.html',
                          questions=questions,
                          current_page=page,
                          total_pages=total_pages,
-                         username=session['username'])
+                         username=session['username'],
+                         today_madrid=today_madrid())  # <-- Añadir esto
 
 _old_init_db = init_db
 def init_db():

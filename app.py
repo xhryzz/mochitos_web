@@ -13,15 +13,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 import re  # <-- Seguimiento de precio
 
-# --- Tuning ultra-ligero de memoria/threads ---
-import gc, threading
-try:
-    threading.stack_size(262144)  # 256 KB por hilo en vez de ~8MB
-except Exception:
-    pass
-gc.set_threshold(700, 10, 10)  # GC un poco más agresivo (sin exagerar)
-
-
+# Web Push
+from pywebpush import webpush, WebPushException
 
 try:
     import pytz  # opcional (fallback)
@@ -79,15 +72,6 @@ try:
     )
 except Exception as e:
     app.logger.warning("Jinja bytecode cache desactivado: %s", e)
-
-try:
-    from jinja2.utils import LRUCache
-    # 64 plantillas en RAM máx; el resto compila desde bytecode cache en disco
-    app.jinja_env.cache = LRUCache(64)
-except Exception as e:
-    app.logger.warning('Jinja LRU cache reducido no disponible: %s', e)
-
-
 
 # ========= Discord logs (asíncrono) =========
 DISCORD_WEBHOOK = os.environ.get('DISCORD_WEBHOOK', '')
@@ -192,17 +176,22 @@ def touch_presence(user: str, device: str = 'page-view'):
 
 def _init_pool():
     global PG_POOL
-    if PG_POOL: return
-    if not DATABASE_URL: raise RuntimeError('Falta DATABASE_URL para PostgreSQL')
-    # <= 128MB: mantener esto en 1–2 salvo que NECESITES más concurrencia
-    maxconn = max(1, int(os.environ.get('DB_MAX_CONN', '2')))
-    PG_POOL = SimpleConnectionPool(
-        1, maxconn,
-        dsn=DATABASE_URL,
-        keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=5,
-        connect_timeout=8
-    )
+    if PG_POOL:
+        return
+    if not DATABASE_URL:
+        raise RuntimeError('Falta DATABASE_URL para PostgreSQL')
 
+    # Máximo 3 conexiones por defecto (suficiente en 512 MB). Sube con DB_MAX_CONN si lo necesitas.
+    maxconn = max(10, int(os.environ.get('DB_MAX_CONN', '10')))  # Aumenta de 3 a 10
+    PG_POOL = SimpleConnectionPool(
+    1, maxconn,
+    dsn=DATABASE_URL,
+    keepalives=1, 
+    keepalives_idle=30, 
+    keepalives_interval=10, 
+    keepalives_count=5,
+    connect_timeout=8
+)
 
 
 class PooledConn:
@@ -671,6 +660,7 @@ init_db()
   # <-- importante
 
 # ========= Helpers =========
+# ========= Helpers =========
 
 # ========= Gamificación: esquema, puntos y medallas =========
 _gami_ready = False
@@ -723,6 +713,16 @@ def _ensure_gamification_schema():
                     icon TEXT
                 )
                 """)
+                c.execute("""
+                CREATE TABLE IF NOT EXISTS purchases (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    item_id INTEGER NOT NULL,
+                    quantity INTEGER DEFAULT 1,
+                    note TEXT,
+                    purchased_at TEXT
+                )
+                """)
                 # En init_db(), después de crear la tabla purchases, añade:
                 c.execute('''CREATE TABLE IF NOT EXISTS purchases (
                     id SERIAL PRIMARY KEY,
@@ -736,6 +736,7 @@ def _ensure_gamification_schema():
             conn.commit()
         finally:
             conn.close()
+        _seed_gamification()
         _gami_ready = True
 
 
@@ -1579,7 +1580,7 @@ def days_until_meeting():
         conn.close()
 
 
-@ttl_cache(seconds=int(os.environ.get('INLINE_IMAGE_CACHE_SECONDS', '0') or '0'))
+@ttl_cache(seconds=30)
 def get_banner():
     conn = get_db_connection()
     try:
@@ -1592,7 +1593,7 @@ def get_banner():
     finally:
         conn.close()
 
-@ttl_cache(seconds=int(os.environ.get('INLINE_IMAGE_CACHE_SECONDS', '0') or '0'))
+@ttl_cache(seconds=30)
 def get_profile_pictures():
     conn = get_db_connection()
     try:
@@ -1683,35 +1684,36 @@ def _delete_subscription_by_endpoint(endpoint: str):
     finally:
         conn.close()
 
-def send_push_raw(sub:dict,payload:dict):
+def send_push_raw(sub: dict, payload: dict):
     if not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY_HEX:
-        return False
-    # Importa pywebpush sólo cuando haga falta
-    try:
-        from pywebpush import webpush, WebPushException  # lazy import
-    except Exception as e:
-        print('[push] pywebpush no disponible:', e)
         return False
     try:
         webpush(
-            subscription_info={'endpoint':sub['endpoint'],'keys':{'p256dh':sub['keys']['p256dh'],'auth':sub['keys']['auth']}},
+            subscription_info={
+                "endpoint": sub["endpoint"],
+                "keys": {
+                    "p256dh": sub["keys"]["p256dh"],
+                    "auth": sub["keys"]["auth"],
+                }
+            },
             data=json.dumps(payload, ensure_ascii=False),
             vapid_private_key=VAPID_PRIVATE_KEY,
-            vapid_claims={'sub': VAPID_SUBJECT},
+            vapid_claims={"sub": VAPID_SUBJECT},
             timeout=5
         )
         return True
     except WebPushException as e:
-        status = getattr(e.response, 'status_code', None)
+        status = getattr(e.response, "status_code", None)
         if status in (404, 410):
-            try: _delete_subscription_by_endpoint(sub['endpoint'])
-            except Exception: pass
+            try:
+                _delete_subscription_by_endpoint(sub["endpoint"])
+            except Exception:
+                pass
         print(f"[push] error: {e}")
         return False
     except Exception as e:
         print(f"[push] error gen: {e}")
         return False
-
 
 def send_push_to(user: str,
                  title: str,
@@ -2091,29 +2093,35 @@ def other_of(u: str) -> str:
 
 def fetch_price(url:str)->tuple[int|None,str|None,str|None]:
     try:
-        with requests.get(url, timeout=(3.05,6), headers={'User-Agent':PRICE_UA}, stream=True) as resp:
+        # Stream con tope de bytes: evita tragarse HTML de 10-20 MB
+        with requests.get(
+            url,
+            timeout=(3.05, 6),
+            headers={'User-Agent': PRICE_UA},
+            stream=True
+        ) as resp:
             resp.raise_for_status()
-            max_bytes = int(os.environ.get('PRICE_MAX_BYTES','800000'))  # baja a 800 KB
+            max_bytes = int(os.environ.get('PRICE_MAX_BYTES', '1200000'))  # ~1.2MB
             buf = io.BytesIO()
             for chunk in resp.iter_content(chunk_size=16384):
-                if not chunk: break
+                if not chunk:
+                    break
                 buf.write(chunk)
-                if buf.tell() >= max_bytes: break
+                if buf.tell() >= max_bytes:
+                    break
             html = buf.getvalue().decode(resp.encoding or 'utf-8', errors='ignore')
-        mtitle = re.search('<title>(.*?)</title>', html, flags=re.I|re.S); title = mtitle.group(1).strip() if mtitle else None
+
+        # Título sin BeautifulSoup si no hace falta
+        mtitle = re.search(r'<title>(.*?)</title>', html, flags=re.I|re.S)
+        title = (mtitle.group(1).strip() if mtitle else None)
+
+        # Prioriza JSON-LD (rápido)
         c_jsonld, curr = _find_in_jsonld(html)
+
         cents_dom = None
         soup = None
-        # Importa bs4 sólo si realmente lo vamos a usar
-        if 'BeautifulSoup' in globals() and BeautifulSoup is not None:
-            pass
-        else:
-            try:
-                from bs4 import BeautifulSoup as _BS
-                globals()['BeautifulSoup'] = _BS
-            except Exception:
-                globals()['BeautifulSoup'] = None
-        if BeautifulSoup and len(html) <= 300_000:  # límites modestos
+        # Solo parsea con BS4 si el HTML no es gigante
+        if BeautifulSoup and len(html) <= 400_000:
             soup = BeautifulSoup(html, 'html.parser')
             cents_dom = _meta_price(soup)
 
@@ -2308,6 +2316,12 @@ def run_scheduled_jobs(now=None):
         push_relationship_milestones()
     except Exception as e:
         print("[tick milestone]", e)
+
+        # 3-bis) Hitos de relación configurables → medallas + puntos
+    try:
+        check_relationship_milestones()
+    except Exception as e:
+        print("[tick rel_milestones]", e)
 
 
     # 4) Notificaciones programadas (admin)
@@ -2629,6 +2643,7 @@ def index():
                                  VALUES (%s,%s,%s,%s,%s,%s)""",
                               (destination, description, travel_date, is_visited, user, now_madrid_str()))
                     conn.commit()
+                    check_travel_achievements(user)
 
                     flash("Viaje añadido ✈️", "success")
                     send_discord("Travel added", {"user": user, "dest": destination, "visited": is_visited})
@@ -4331,6 +4346,7 @@ def media_add():
                 user, now_madrid_str()))
             mid = c.fetchone()[0]
             conn.commit()
+            check_media_achievements(user)
 
             # 🔔 Push al otro
             try:
@@ -4496,6 +4512,39 @@ def media_rate_update():
         try: conn.rollback()
         except Exception: pass
         flash('No se pudo guardar la valoración.', 'error')
+    finally:
+        conn.close()
+
+    return redirect('/#pelis')
+
+
+@app.post('/media/unwatch')
+def media_unwatch():
+    if 'username' not in session:
+        return redirect('/')
+    mid = request.form.get('id')
+    if not mid:
+        flash('Falta ID.', 'error')
+        return redirect('/#pelis')
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                UPDATE media_items
+                SET is_watched = FALSE,
+                    watched_at = NULL,
+                    rating = NULL,
+                    watched_comment = NULL
+                WHERE id = %s
+            """, (mid,))
+            conn.commit()
+        flash('Devuelto a "Por ver".', 'info')
+    except Exception as e:
+        print('[media_unwatch] ', e)
+        try: conn.rollback()
+        except Exception: pass
+        flash('No se pudo desmarcar.', 'error')
     finally:
         conn.close()
 
@@ -5250,7 +5299,7 @@ def dq_chat_send():
 
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1
-if os.environ.get('RUN_SCHEDULER','0') == '1':
+if os.environ.get("RUN_SCHEDULER", "1") == "1":
     threading.Thread(target=background_loop, daemon=True).start()
 
 

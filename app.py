@@ -6374,11 +6374,11 @@ def historial():
     
     # Pasar today_madrid al template
     return render_template('historial.html',
-                         questions=questions,
-                         current_page=page,
-                         total_pages=total_pages,
-                         username=session['username'],
-                         today_madrid=today_madrid())  # <-- Añadir esto
+                            questions=questions,
+                            current_page=page,
+                            total_pages=total_pages,
+                            username=session['username'],
+                            today_iso=today_madrid().isoformat())  # <-- Cambiar a today_iso
 
 _old_init_db = init_db
 def init_db():

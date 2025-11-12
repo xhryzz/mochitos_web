@@ -2987,14 +2987,22 @@ body.loaded #main-content {
       </div>
     </div>
 
-  {# === D) Nadie ha respondido aún === #}
+     {# === D) Nadie ha respondido aún === #}
   {% else %}
     <form method="POST" class="inline-form" style="display:flex; gap:8px;">
       <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
       <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
     </form>
   {% endif %}
+
+  <!-- AÑADE ESTO JUSTO AQUÍ - Enlace al historial -->
+  <div style="text-align: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #eee;">
+    <a href="/historial" class="btn" style="display: inline-flex; align-items: center; gap: 0.5rem; background: #f8f9fa; color: #e84393; border: 1px solid #e84393;">
+      <i class="fas fa-history"></i> Ver historial completo
+    </a>
+  </div>
 </div>
+
 
 
 <!-- Lista de deseos -->

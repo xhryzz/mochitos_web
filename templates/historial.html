@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial de Preguntas - Mochitos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Montserrat:wght@300;400;500;600;700&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <meta name="theme-color" content="#e84393"/>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mochitos">
+    <style>
+        :root {
+            --primary-color: #e84393;
+            --secondary-color: #fd79a8;
+            --accent-color: #a29bfe;
+            --light-pink: #ffe8f3;
+            --dark-text: #2d3436;
+            --light-text: #ffffff;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+            --gradient: linear-gradient(135deg, #e84393 0%, #fd79a8 50%, #a29bfe 100%);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: linear-gradient(135deg, #ffe8f3 0%, #dfe6e9 100%);
+            color: var(--dark-text);
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0 0 0 0;
+            height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%23e84393' fill-opacity='0.05' d='M0,224L48,213.3C96,203,192,181,288,160C384,139,480,117,576,122.7C672,128,768,160,864,170.7C960,181,1056,171,1152,165.3C1248,160,1344,160,1392,160L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
+            background-size: cover;
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            padding-bottom: 40px;
+        }
+
+        /* Header Styles */
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 2rem 0;
+        }
+
+        header h1 {
+            font-family: 'Dancing Script', cursive;
+            font-size: 3.5rem;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            text-shadow: 0 3px 6px rgba(0,0,0,0.1);
+        }
+
+        nav {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.8rem 1.5rem;
+            background: var(--gradient);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(232,67,147,.4);
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(232,67,147,.5);
+        }
+
+        /* Section Styles */
+        .section {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255,255,255,.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .section::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: var(--gradient);
+        }
+
+        .historial-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .historial-header h2 {
+            font-family: 'Playfair Display', serif;
+            color: var(--primary-color);
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        /* Historial Container */
+        .historial-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .historial-item {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            border: 1px solid #f1f1f4;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+
+        .historial-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,.12);
+        }
+
+        .historial-item.first {
+            border-left: 5px solid var(--primary-color);
+        }
+
+        .historial-date {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 1.1rem;
+        }
+
+        .today-badge {
+            background: var(--gradient);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: auto;
+        }
+
+        .historial-question {
+            font-size: 1.2rem;
+            line-height: 1.4;
+            margin-bottom: 1.5rem;
+            color: #333;
+            padding: 1rem;
+            background: rgba(162,155,254,.1);
+            border-radius: 12px;
+            border-left: 4px solid var(--accent-color);
+            font-weight: 600;
+        }
+
+        .historial-answers {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .answer-pair {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .user-label {
+            flex-shrink: 0;
+            width: 120px;
+            padding: 0.8rem;
+            border-radius: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .user-label.mochito {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .user-label.mochita {
+            background: #fce4ec;
+            color: #c2185b;
+        }
+
+        .answer-content {
+            flex: 1;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+            line-height: 1.5;
+            font-size: 1rem;
+        }
+
+        .answer-content.missing {
+            background: #f5f5f5;
+            color: #999;
+            font-style: italic;
+        }
+
+        .no-answer {
+            color: #999;
+        }
+
+        .edited {
+            color: #666;
+            font-size: 0.8rem;
+            margin-left: 0.5rem;
+            font-style: italic;
+        }
+
+        .both-answered-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding: 1rem;
+        }
+
+        .page-btn {
+            padding: 0.8rem 1.5rem;
+            background: var(--gradient);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(232,67,147,.4);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .page-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(232,67,147,.5);
+        }
+
+        .page-info {
+            color: #666;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #666;
+        }
+
+        .empty-state i {
+            color: #ddd;
+            margin-bottom: 1rem;
+            font-size: 4rem;
+        }
+
+        .empty-state h3 {
+            font-family: 'Playfair Display', serif;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            header h1 {
+                font-size: 2.5rem;
+            }
+
+            .section {
+                padding: 20px;
+            }
+
+            .historial-header h2 {
+                font-size: 1.8rem;
+            }
+
+            .answer-pair {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .user-label {
+                width: auto;
+                align-self: flex-start;
+            }
+
+            .historial-item {
+                padding: 1rem;
+            }
+
+            .pagination {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .page-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            header h1 {
+                font-size: 2rem;
+            }
+
+            .historial-header h2 {
+                font-size: 1.5rem;
+            }
+
+            .historial-date {
+                font-size: 1rem;
+            }
+
+            .historial-question {
+                font-size: 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-history"></i> Historial de Preguntas</h1>
+            <nav>
+                <a href="/" class="btn"><i class="fas fa-home"></i> Inicio</a>
+                {% if username == 'mochito' %}
+                <a href="/admin" class="btn"><i class="fas fa-cog"></i> Admin</a>
+                {% endif %}
+            </nav>
+        </header>
+
+        <main>
+            <div class="section">
+                <div class="historial-header">
+                    <h2>Todas las preguntas anteriores</h2>
+                    <p class="subtitle">Revisa las preguntas y respuestas de días pasados</p>
+                </div>
+
+                {% if questions %}
+                <div class="historial-container">
+                    {% for q in questions %}
+                    <div class="historial-item {% if loop.first %}first{% endif %}">
+                        <div class="historial-date">
+                            <i class="fas fa-calendar-day"></i>
+                            {{ q.date }}
+                            {% if q.date == today_madrid().isoformat() %}
+                            <span class="today-badge">Hoy</span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="historial-question">
+                            <strong>{{ q.question }}</strong>
+                        </div>
+
+                        <div class="historial-answers">
+                            <!-- Respuesta de Mochito -->
+                            <div class="answer-pair">
+                                <div class="user-label mochito">
+                                    <i class="fas fa-user"></i>
+                                    Mochito:
+                                </div>
+                                <div class="answer-content {% if not q.mochito_answer %}missing{% endif %}">
+                                    {% if q.mochito_answer %}
+                                        {{ q.mochito_answer }}
+                                        {% if q.mochito_updated and q.mochito_updated != q.mochito_created %}
+                                        <small class="edited">(editada)</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="no-answer">No respondió</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Respuesta de Mochita -->
+                            <div class="answer-pair">
+                                <div class="user-label mochita">
+                                    <i class="fas fa-user"></i>
+                                    Mochita:
+                                </div>
+                                <div class="answer-content {% if not q.mochita_answer %}missing{% endif %}">
+                                    {% if q.mochita_answer %}
+                                        {{ q.mochita_answer }}
+                                        {% if q.mochita_updated and q.mochita_updated != q.mochita_created %}
+                                        <small class="edited">(editada)</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="no-answer">No respondió</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if q.mochito_answer and q.mochita_answer %}
+                        <div class="both-answered-badge">
+                            <i class="fas fa-check-circle"></i>
+                            Ambos respondieron
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Paginación -->
+                {% if total_pages > 1 %}
+                <div class="pagination">
+                    {% if current_page > 1 %}
+                    <a href="{{ url_for('historial', page=current_page-1) }}" class="page-btn">
+                        <i class="fas fa-chevron-left"></i> Anterior
+                    </a>
+                    {% endif %}
+
+                    <span class="page-info">Página {{ current_page }} de {{ total_pages }}</span>
+
+                    {% if current_page < total_pages %}
+                    <a href="{{ url_for('historial', page=current_page+1) }}" class="page-btn">
+                        Siguiente <i class="fas fa-chevron-right"></i>
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <h3>No hay preguntas en el historial</h3>
+                    <p>Las preguntas aparecerán aquí una vez que sean respondidas.</p>
+                </div>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+</body>
+</html>

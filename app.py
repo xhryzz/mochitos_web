@@ -6317,6 +6317,67 @@ def debug_points():
     finally:
         conn.close()
 
+@app.route('/historial')
+def historial():
+    if 'username' not in session:
+        return redirect('/')
+    
+    # Obtener parámetros de paginación
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # Obtener total de preguntas para paginación
+            c.execute("SELECT COUNT(*) FROM daily_questions")
+            total_questions = c.fetchone()[0]
+            
+            # Calcular offset
+            offset = (page - 1) * per_page
+            
+            # Obtener preguntas con respuestas (más recientes primero)
+            c.execute("""
+                SELECT dq.id, dq.date, dq.question,
+                       a_mochito.answer as mochito_answer, 
+                       a_mochito.created_at as mochito_created,
+                       a_mochito.updated_at as mochito_updated,
+                       a_mochita.answer as mochita_answer,
+                       a_mochita.created_at as mochita_created,
+                       a_mochita.updated_at as mochita_updated
+                FROM daily_questions dq
+                LEFT JOIN answers a_mochito ON dq.id = a_mochito.question_id AND a_mochito.username = 'mochito'
+                LEFT JOIN answers a_mochita ON dq.id = a_mochita.question_id AND a_mochita.username = 'mochita'
+                ORDER BY dq.date DESC
+                LIMIT %s OFFSET %s
+            """, (per_page, offset))
+            
+            questions = []
+            for row in c.fetchall():
+                questions.append({
+                    'id': row['id'],
+                    'date': row['date'],
+                    'question': row['question'],
+                    'mochito_answer': row['mochito_answer'],
+                    'mochita_answer': row['mochita_answer'],
+                    'mochito_created': row['mochito_created'],
+                    'mochito_updated': row['mochito_updated'],
+                    'mochita_created': row['mochita_created'],
+                    'mochita_updated': row['mochita_updated']
+                })
+            
+            # Calcular páginas
+            total_pages = (total_questions + per_page - 1) // per_page
+            
+    finally:
+        conn.close()
+    
+    return render_template('historial.html',
+                         questions=questions,
+                         current_page=page,
+                         total_pages=total_pages,
+                         username=session['username'])
+
 _old_init_db = init_db
 def init_db():
     _old_init_db()

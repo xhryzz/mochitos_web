@@ -934,31 +934,53 @@ def _maybe_award_achievements(u: str):
         app.logger.warning("maybe_award_achievements: %s", e)
 
 # En la función award_points_for_answer, modificar para añadir notificación específica de puntos
-def award_points_for_answer(question_id: int, user: str, first_publication: bool):
+def award_points_for_answer(question_id: int, user: str):
     """
     Suma puntos cuando un usuario publica su respuesta del día por primera vez:
       +5 pts por responder
       +10 pts extra si es la PRIMERA respuesta del día (global)
     Luego revisa medallas.
     """
-    if not first_publication:
-        return
     _ensure_gamification_schema()
     base = 5
     bonus = 0
-    # ¿fue la primera del día? (contamos tras el INSERT)
+    
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
+            # Verificar si el usuario YA ha recibido puntos por esta pregunta
+            c.execute("""
+                SELECT COUNT(*) FROM answers 
+                WHERE question_id=%s AND username=%s 
+                AND created_at IS NOT NULL
+            """, (question_id, user))
+            existing_answers = int((c.fetchone() or [0])[0] or 0)
+            
+            # Si ya existe una respuesta previa, no otorgar puntos nuevamente
+            if existing_answers > 1:
+                return
+            
+            # ¿Es la primera respuesta del día? (contamos respuestas no vacías)
             c.execute("""
                 SELECT COUNT(*) FROM answers
-                WHERE question_id=%s AND TRIM(COALESCE(answer,'')) <> ''
-            """, (question_id,))
-            total_ans = int((c.fetchone() or [0])[0] or 0)
-            if total_ans == 1:
+                WHERE question_id=%s 
+                AND TRIM(COALESCE(answer,'')) <> ''
+                AND username != %s
+            """, (question_id, user))
+            other_answers = int((c.fetchone() or [0])[0] or 0)
+            
+            # Si no hay otras respuestas, es el primero
+            if other_answers == 0:
                 bonus = 10
+            
             delta = base + bonus
-            c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE username=%s", (delta, user))
+            
+            # Actualizar puntos
+            c.execute("""
+                UPDATE users 
+                SET points = COALESCE(points,0) + %s 
+                WHERE username=%s
+            """, (delta, user))
             conn.commit()
             
             # 🔔 NOTIFICACIÓN PUSH POR PUNTOS GANADOS
@@ -974,8 +996,12 @@ def award_points_for_answer(question_id: int, user: str, first_publication: bool
             except Exception as e:
                 print("[push points award] ", e)
                 
+    except Exception as e:
+        print(f"[award_points_for_answer] Error: {e}")
+        conn.rollback()
     finally:
         conn.close()
+    
     # Revisa medallas
     _maybe_award_achievements(user)
 
@@ -2496,66 +2522,73 @@ def index():
 
             # 3) Responder pregunta
             # En la sección donde se procesa la respuesta (busca esta parte en tu código):
+            # 3) Responder pregunta
             if request.method == 'POST' and 'answer' in request.form:
                 answer = (request.form.get('answer') or '').strip()
                 if question_id is not None and answer:
                     now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
-                    c.execute("""
-                        SELECT id, answer, created_at, updated_at
-                        FROM answers
-                        WHERE question_id=%s AND username=%s
-                    """, (question_id, user))
-                    prev = c.fetchone()
-                    just_published = False
-
-                    if not prev:
-                        # NUEVA respuesta - insertar
-                        c.execute("""
-                            INSERT INTO answers (question_id, username, answer, created_at, updated_at)
-                            VALUES (%s,%s,%s,%s,%s)
-                            ON CONFLICT (question_id, username) DO NOTHING
-                        """, (question_id, user, answer, now_txt, now_txt))
-                        conn.commit()
-                        send_discord("Answer submitted", {"user": user, "question_id": question_id})
-                        just_published = True  # ✅ Siempre es primera publicación si no existía
-                    else:
-                        prev_id, prev_text, prev_created, prev_updated = prev
-                        if answer != (prev_text or ""):
-                            # Respuesta editada - actualizar
-                            if prev_created is None:
-                                c.execute("""
-                                    UPDATE answers
-                                    SET answer=%s, updated_at=%s, created_at=%s
-                                    WHERE id=%s
-                                """, (answer, now_txt, prev_updated or now_txt, prev_id))
-                            else:
-                                c.execute("""
-                                    UPDATE answers
-                                    SET answer=%s, updated_at=%s
-                                    WHERE id=%s
-                                """, (answer, now_txt, prev_id))
-                            conn.commit()
-                            send_discord("Answer edited", {"user": user, "question_id": question_id})
-                            
-                            # ✅ OTORGAR PUNTOS SI ES LA PRIMERA VEZ QUE RESPONDE (aunque edite)
-                            # Verificar si antes estaba vacía o no tenía contenido significativo
-                            if not (prev_text or "").strip():
-                                just_published = True
-
-                    # ✅ SIEMPRE verificar si es primera publicación después de cualquier cambio
-                    if just_published:
-                        try:
-                            award_points_for_answer(question_id, user, first_publication=True)
-                        except Exception as _e:
-                            app.logger.warning("award_points_for_answer failed: %s", _e)
-
-                    cache_invalidate('compute_streaks')
-                    broadcast("dq_answer", {"user": user})
+                    conn = get_db_connection()
                     try:
-                        push_answer_notice(user)
+                        with conn.cursor() as c:
+                            c.execute("""
+                                SELECT id, answer, created_at, updated_at
+                                FROM answers
+                                WHERE question_id=%s AND username=%s
+                            """, (question_id, user))
+                            prev = c.fetchone()
+
+                            if not prev:
+                                # NUEVA respuesta - insertar
+                                c.execute("""
+                                    INSERT INTO answers (question_id, username, answer, created_at, updated_at)
+                                    VALUES (%s,%s,%s,%s,%s)
+                                    ON CONFLICT (question_id, username) DO NOTHING
+                                    RETURNING id
+                                """, (question_id, user, answer, now_txt, now_txt))
+                                new_id = c.fetchone()
+                                conn.commit()
+                                
+                                if new_id:  # Si se insertó correctamente
+                                    send_discord("Answer submitted", {"user": user, "question_id": question_id})
+                                    # ✅ OTORGAR PUNTOS por primera respuesta
+                                    try:
+                                        award_points_for_answer(question_id, user)
+                                    except Exception as _e:
+                                        app.logger.warning("award_points_for_answer failed: %s", _e)
+                                        
+                            else:
+                                prev_id, prev_text, prev_created, prev_updated = prev
+                                if answer != (prev_text or ""):
+                                    # Respuesta editada - actualizar
+                                    if prev_created is None:
+                                        c.execute("""
+                                            UPDATE answers
+                                            SET answer=%s, updated_at=%s, created_at=%s
+                                            WHERE id=%s
+                                        """, (answer, now_txt, prev_updated or now_txt, prev_id))
+                                    else:
+                                        c.execute("""
+                                            UPDATE answers
+                                            SET answer=%s, updated_at=%s
+                                            WHERE id=%s
+                                        """, (answer, now_txt, prev_id))
+                                    conn.commit()
+                                    send_discord("Answer edited", {"user": user, "question_id": question_id})
+
+                        cache_invalidate('compute_streaks')
+                        broadcast("dq_answer", {"user": user})
+                        try:
+                            push_answer_notice(user)
+                        except Exception as e:
+                            print("[push answer] ", e)
+                            
                     except Exception as e:
-                        print("[push answer] ", e)
+                        print(f"[answer submission] Error: {e}")
+                        conn.rollback()
+                    finally:
+                        conn.close()
+                        
                 return redirect('/')
 
 
@@ -6262,6 +6295,27 @@ def api_points():
         conn.close()
     return jsonify({"ok": True, "user": u, "points": pts})
 
+@app.route('/debug/points')
+def debug_points():
+    if 'username' not in session:
+        return redirect('/')
+    
+    user = session['username']
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT points FROM users WHERE username=%s", (user,))
+            points = c.fetchone()[0]
+            c.execute("SELECT COUNT(*) FROM answers WHERE username=%s", (user,))
+            answer_count = c.fetchone()[0]
+            
+        return jsonify({
+            'user': user,
+            'points': points,
+            'total_answers': answer_count
+        })
+    finally:
+        conn.close()
 
 _old_init_db = init_db
 def init_db():

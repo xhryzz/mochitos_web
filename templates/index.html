@@ -2837,7 +2837,6 @@ body.loaded #main-content {
        <!-- Distancia (sin mapa, versión simple y chula) -->
 <div class="section animate-in delay-2">
   <h3>Distancia</h3>
-  <p>Aunque estemos en ciudades distintas, siempre estamos cerquita 💕</p>
 
   <div class="distance-map-container" style="
     height:auto;
@@ -2849,7 +2848,7 @@ body.loaded #main-content {
     justify-content:space-between;
     background:radial-gradient(circle at top, rgba(232,67,147,.12), #ffffff);
   ">
-    <!-- Columna avatares / ciudades -->
+    <!-- Columna personas / ciudades -->
     <div style="flex:1 1 240px; display:flex; flex-direction:column; gap:12px; justify-content:center;">
       <div style="
         display:flex;
@@ -2871,7 +2870,7 @@ body.loaded #main-content {
         {% endif %}
         <div>
           <strong>Christian</strong><br>
-          <small style="opacity:.8;">Algemesí, Valencia</small>
+          <small style="opacity:.8;" id="christianCityLabel">Algemesí, Valencia</small>
         </div>
       </div>
 
@@ -2895,13 +2894,33 @@ body.loaded #main-content {
         {% endif %}
         <div>
           <strong>Clara</strong><br>
-          <small style="opacity:.8;">Córdoba</small>
+          <small style="opacity:.8;" id="claraCityLabel">Córdoba</small>
         </div>
       </div>
 
-      <p style="font-size:.9rem;opacity:.8;margin-top:4px;">
-        La distancia es física, pero el corazón va por libre 🥹
-      </p>
+      <div class="distance-controls" style="margin-top:10px;">
+        <label for="distancePreset" style="font-size:.9rem;opacity:.85;display:block;margin-bottom:4px;">
+          Situación actual
+        </label>
+        <select id="distancePreset" name="distance_preset" style="
+          width:100%;
+          padding:8px 12px;
+          border-radius:12px;
+          border:1px solid #e5e7eb;
+          background:#fff;
+          font-size:.9rem;
+        ">
+          <option value="normal" selected>
+            Christian en Algemesí, Clara en Córdoba
+          </option>
+          <option value="both_alg">
+            Los dos en Algemesí
+          </option>
+          <option value="both_cor">
+            Los dos en Córdoba
+          </option>
+        </select>
+      </div>
     </div>
 
     <!-- Columna “stats” de distancia -->
@@ -2928,13 +2947,24 @@ body.loaded #main-content {
         <div class="fill" id="distanceFill" style="width:0%"></div>
       </div>
 
-      <p class="distance-last-update" id="distanceLastUpdate" style="font-size:.85rem;opacity:.8;">
+      <p class="distance-last-update" id="distanceLastUpdate"
+         style="font-size:.85rem;opacity:.8;">
         Distancia calculada...
       </p>
 
-      <p style="font-size:.85rem;opacity:.8;margin-top:4px;">
-        Usando Algemesí y Córdoba como puntos fijos. No hace falta permiso de ubicación ni nada raro 🥰
-      </p>
+      {% if days_until_meeting is number and days_until_meeting >= 0 %}
+        <p id="distanceCountdown" style="font-size:.9rem;margin-top:2px;">
+          {% if days_until_meeting == 0 %}
+            Hoy la distancia se acaba: <b>¡os veis!</b> ❤️
+          {% elif days_until_meeting == 1 %}
+            Queda <b>1 día</b> para que se acabe la distancia.
+          {% else %}
+            Quedan <b>{{ days_until_meeting }}</b> días para que se acabe la distancia.
+          {% endif %}
+        </p>
+      {% endif %}
+
+
     </div>
   </div>
 </div>

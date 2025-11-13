@@ -21,11 +21,6 @@ try:
 except Exception:
     pytz = None
 
-# (opcional) mejor parser HTML para precio
-try:
-    from bs4 import BeautifulSoup
-except Exception:
-    BeautifulSoup = None
 
 app = Flask(__name__)
 # Límite de subida (ajustable por env MAX_UPLOAD_MB). Evita BYTEA enormes que disparan RAM.
@@ -2091,58 +2086,6 @@ def other_of(u: str) -> str:
 
 
 
-def fetch_price(url:str)->tuple[int|None,str|None,str|None]:
-    try:
-        # Stream con tope de bytes: evita tragarse HTML de 10-20 MB
-        with requests.get(
-            url,
-            timeout=(3.05, 6),
-            headers={'User-Agent': PRICE_UA},
-            stream=True
-        ) as resp:
-            resp.raise_for_status()
-            max_bytes = int(os.environ.get('PRICE_MAX_BYTES', '1200000'))  # ~1.2MB
-            buf = io.BytesIO()
-            for chunk in resp.iter_content(chunk_size=16384):
-                if not chunk:
-                    break
-                buf.write(chunk)
-                if buf.tell() >= max_bytes:
-                    break
-            html = buf.getvalue().decode(resp.encoding or 'utf-8', errors='ignore')
-
-        # Título sin BeautifulSoup si no hace falta
-        mtitle = re.search(r'<title>(.*?)</title>', html, flags=re.I|re.S)
-        title = (mtitle.group(1).strip() if mtitle else None)
-
-        # Prioriza JSON-LD (rápido)
-        c_jsonld, curr = _find_in_jsonld(html)
-
-        cents_dom = None
-        soup = None
-        # Solo parsea con BS4 si el HTML no es gigante
-        if BeautifulSoup and len(html) <= 400_000:
-            soup = BeautifulSoup(html, 'html.parser')
-            cents_dom = _meta_price(soup)
-
-        cents_rx = None
-        for pat in [r'€\s*\d[\d\.\,]*', r'\d[\d\.\,]*\s*€', r'\b\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})\b']:
-            m = re.search(pat, html)
-            if m:
-                cents_rx = _to_cents_from_str(m.group(0))
-                break
-
-        price = c_jsonld or cents_dom or cents_rx
-        if price:
-            if not curr:
-                curr = 'EUR' if '€' in html else None
-            return price, curr, title
-        return None, None, title
-    except Exception as e:
-        print('[price] fetch error:', e)
-        return None, None, None
-
-
 def fmt_eur(cents: int | None) -> str:
     if cents is None: return "—"
     euros = cents/100.0
@@ -2175,43 +2118,6 @@ def _maybe_shrink_image(image_data: bytes, max_px: int = 1600, max_kb: int = 500
     return image_data, None
 
 
-def notify_price_drop(row, old_cents: int, new_cents: int):
-    """Notifica bajada de precio.
-       - Si es regalo (is_gift=True): SOLO al creador.
-       - Si no es regalo: a ambos.
-    """
-    # row es DictRow -> acceder por clave
-    wid         = row['id']
-    pname       = row['product_name']
-    link        = row.get('product_link')
-    created_by  = row.get('created_by')
-    is_gift     = bool(row.get('is_gift'))
-
-    drop = old_cents - new_cents
-    pct = (drop / old_cents) * 100 if old_cents else 0.0
-    title = "⬇️ ¡Bajada de precio!"
-    body  = f"{pname}\nDe {fmt_eur(old_cents)} a {fmt_eur(new_cents)} (−{pct:.1f}%)."
-    tag   = f"price-drop-{wid}"
-
-    try:
-        if is_gift and created_by in ("mochito", "mochita"):
-            # Regalo → notificar SOLO al creador
-            send_push_to(created_by, title=title, body=body, url=link, tag=tag)
-        else:
-            # No es regalo → ambos
-            send_push_both(title=title, body=body, url=link, tag=tag)
-    except Exception as e:
-        print("[push price]", e)
-
-    send_discord("Price drop", {
-        "wid": int(wid),
-        "name": pname,
-        "old": old_cents,
-        "new": new_cents,
-        "pct": round(pct, 1),
-        "is_gift": is_gift,
-        "created_by": created_by
-    })
 
 
 def form_or_json(*keys, default=None):
@@ -2220,73 +2126,6 @@ def form_or_json(*keys, default=None):
         if k in request.form: return request.form.get(k)
         if k in j:           return j.get(k)
     return default
-
-
-def sweep_price_checks(max_items: int = 6, min_age_minutes: int = 180):
-    """Consulta algunos items con tracking y actualiza si baja el precio."""
-    now_txt = now_madrid_str()
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-              SELECT id, product_name, product_link, created_by,
-                     is_gift,
-                     track_price, last_price_cents, currency, last_checked,
-                     COALESCE(alert_drop_percent, 0) AS alert_pct,
-                     alert_below_cents
-              FROM wishlist
-              WHERE track_price = TRUE AND is_purchased = FALSE
-                    AND product_link IS NOT NULL AND TRIM(product_link) <> ''
-              ORDER BY COALESCE(last_checked, '1970-01-01') ASC
-              LIMIT %s
-            """, (max_items,))
-            rows = c.fetchall()
-
-        for row in rows:
-            wid = row['id']
-            last_checked = _parse_dt(row['last_checked'] or "")
-            if last_checked:
-                from datetime import timedelta as _td
-                if (europe_madrid_now() - last_checked) < _td(minutes=min_age_minutes):
-                    continue
-
-            price_cents, curr, _title = fetch_price(row['product_link'])
-            if not price_cents:
-                with conn.cursor() as c2:
-                    c2.execute("UPDATE wishlist SET last_checked=%s WHERE id=%s", (now_txt, wid))
-                    conn.commit()
-                continue
-
-            old = row['last_price_cents']
-            notify = False
-            if old is None:
-                pass
-            else:
-                if price_cents < old:
-                    drop_pct = (old - price_cents) * 100 / old if old else 0
-                    if row['alert_below_cents'] is not None and price_cents <= int(row['alert_below_cents']):
-                        notify = True
-                    elif row['alert_pct'] and drop_pct < float(row['alert_pct']):
-                        notify = False
-                    else:
-                        notify = True
-
-            with conn.cursor() as c3:
-                c3.execute("""
-                  UPDATE wishlist
-                  SET last_price_cents=%s,
-                      currency=%s,
-                      last_checked=%s
-                  WHERE id=%s
-                """, (price_cents, curr or row['currency'] or "EUR", now_txt, wid))
-                conn.commit()
-
-            if notify and old is not None:
-                notify_price_drop(row, old, price_cents)
-
-    finally:
-        conn.close()
-
 
 
 def run_scheduled_jobs(now=None):
@@ -3365,40 +3204,6 @@ def push_list():
         print(f"[push_list] {e}")
         return jsonify({"ok": False, "error": "server_error"}), 500
 
-# ======= PRECIO: endpoint manual de prueba =======
-@app.post('/price_check_now')
-def price_check_now():
-    if 'username' not in session:
-        return jsonify({"ok":False,"error":"unauthenticated"}), 401
-    try:
-        wid = request.form.get('id')
-        if not wid: return jsonify({"ok":False,"error":"missing id"}), 400
-        conn = get_db_connection()
-        try:
-            with conn.cursor() as c:
-                c.execute("""SELECT id, product_name, product_link, created_by,
-                                    is_gift,
-                                    track_price, last_price_cents, currency,
-                                    alert_drop_percent, alert_below_cents
-                             FROM wishlist WHERE id=%s""", (wid,))
-                row = c.fetchone()
-            if not row or not row['product_link']: return jsonify({"ok":False,"error":"not_found_or_no_link"}), 404
-            price, curr, _ = fetch_price(row['product_link'])
-            if not price:
-                return jsonify({"ok":False,"error":"no_price"}), 200
-            old = row['last_price_cents']
-            with conn.cursor() as c2:
-                c2.execute("""UPDATE wishlist SET last_price_cents=%s, currency=COALESCE(%s,currency), last_checked=%s WHERE id=%s""",
-                           (price, curr, now_madrid_str(), wid))
-                conn.commit()
-            if old is not None and price < old:
-                notify_price_drop(row, old, price)
-            return jsonify({"ok":True,"old":old,"new":price})
-        finally:
-            conn.close()
-    except Exception as e:
-        print("[price_check_now]", e)
-        return jsonify({"ok":False,"error":"server_error"}), 500
 
 # ======= Errores simpáticos =======
 @app.errorhandler(404)

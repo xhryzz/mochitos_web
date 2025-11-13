@@ -5116,7 +5116,12 @@ def api_location():
 def api_other_location():
     if 'username' not in session:
         abort(401)
-    other = request.args.get('user') or ('mochita' if session['username'] == 'mochito' else 'mochito')
+
+    # Si no pasas ?user=... usa "la otra persona" por defecto
+    other = request.args.get('user') or (
+        'mochita' if session['username'] == 'mochito' else 'mochito'
+    )
+
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
@@ -5128,13 +5133,24 @@ def api_other_location():
             row = c.fetchone()
     finally:
         conn.close()
+
     if not row:
         return jsonify({})
-    # row puede ser DictRow o tupla, usa claves seguras:
+
     lat = row['latitude'] if isinstance(row, dict) else row[0]
     lng = row['longitude'] if isinstance(row, dict) else row[1]
     ts  = row['updated_at'] if isinstance(row, dict) else row[2]
-    return jsonify({'lat': lat, 'lng': lng, 'updated_at': (ts.isoformat() if ts else None)})
+
+    # Lo normalizamos a string para el front
+    if ts is None:
+        ts_str = None
+    elif hasattr(ts, "isoformat"):   # datetime
+        ts_str = ts.isoformat()
+    else:                            # ya es str (tu caso: "YYYY-MM-DD HH:MM:SS")
+        ts_str = str(ts)
+
+    return jsonify({'lat': lat, 'lng': lng, 'updated_at': ts_str})
+
 
 
 

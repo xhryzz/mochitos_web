@@ -2834,55 +2834,57 @@ body.loaded #main-content {
         {% endif %}
       </div>
 
-      <!-- Mapa de Distancia -->
+       <!-- Mapa de Distancia -->
       <div class="section animate-in delay-2">
         <h3>Distancia</h3>
         <p>Cuánta distancia hay entre nosotros.</p>
 
         <div class="distance-map-container">
           <div id="distanceMap"></div>
-          <!-- Botones utilitarios del mapa -->
-<button type="button" class="map-fab" id="toggleMapSize" title="Pantalla completa">
-  <i class="fa-solid fa-expand"></i>
-</button>
 
-<!-- Botón geolocalizar -->
-<button type="button" class="map-fab" id="useMyLocationBtn" title="Usar mi ubicación" style="right:66px">
-  <i class="fa-solid fa-location-crosshairs"></i>
-</button>
+          <!-- Botón pantalla completa -->
+          <button type="button" class="map-fab" id="toggleMapSize" title="Pantalla completa">
+            <i class="fa-solid fa-expand"></i>
+          </button>
+
+          <!-- Botón geolocalizar -->
+          <button type="button" class="map-fab" id="useMyLocationBtn" title="Usar mi ubicación" style="right:66px">
+            <i class="fa-solid fa-location-crosshairs"></i>
+          </button>
 
           <div class="distance-info">
-  <h4>Distancia entre nosotros</h4>
+            <h4>Distancia entre nosotros</h4>
 
-  <div class="distance-value" id="distanceValue">Cargando...</div>
-  <div class="distance-bar" aria-label="Cercanía">
-    <div class="fill" id="distanceFill" style="width:0%"></div>
-  </div>
+            <div class="distance-value" id="distanceValue">Cargando...</div>
 
-  <!-- NUEVO -->
-  <p class="distance-last-update" id="distanceLastUpdate">
-    Última actualización: —
-  </p>
+            <div class="distance-bar" aria-label="Cercanía">
+              <div class="fill" id="distanceFill" style="width:0%"></div>
+            </div>
 
-  <div class="location-badge">
-    {% if profile_pictures.get('mochito') %}
-      <img src="{{ profile_pictures.get('mochito') }}" alt="Christian">
-    {% else %}
-      <span>C</span>
-    {% endif %}
-    <span id="christianLocation">Algemesí, Valencia</span>
-  </div>
+            <p class="distance-last-update" id="distanceLastUpdate">
+              Última actualización: —
+            </p>
 
-  <div class="location-badge">
-    {% if profile_pictures.get('mochita') %}
-      <img src="{{ profile_pictures.get('mochita') }}" alt="Clara">
-    {% else %}
-      <span>C</span>
-    {% endif %}
-    <span id="claraLocation">Córdoba</span>
-  </div>
-</div>
+            <div class="location-badge">
+              {% if profile_pictures.get('mochito') %}
+                <img src="{{ profile_pictures.get('mochito') }}" alt="Christian">
+              {% else %}
+                <span>C</span>
+              {% endif %}
+              <span id="christianLocation">Algemesí, Valencia</span>
+            </div>
 
+            <div class="location-badge">
+              {% if profile_pictures.get('mochita') %}
+                <img src="{{ profile_pictures.get('mochita') }}" alt="Clara">
+              {% else %}
+                <span>C</span>
+              {% endif %}
+              <span id="claraLocation">Córdoba</span>
+            </div>
+          </div> <!-- /.distance-info -->
+        </div>   <!-- /.distance-map-container -->
+      </div>     <!-- /.section Distancia -->
 
       <!-- Horarios -->
       <div class="section animate-in delay-2">
@@ -6701,347 +6703,298 @@ function setDistanceBar(km){
 
 </script>
 <script>
-  /* ====== AUTO GEO (solo geolocalización, sin botones) ====== */
+(function(){
+  // Usuario logueado y la otra persona (Jinja)
   const LOGGED = {{ (username or '')|tojson }};
   const OTHER  = {{ (other_user or '')|tojson }};
-  
+
   let map, christianMarker, claraMarker, distanceLine;
   let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" };
   let claraLocation     = { lat: 37.8882, lng: -4.7794, name: "Córdoba" };
   let watchId = null;
-  
-  /* Haversine en km */
+
+  // --- Haversine en km ---
   function haversine(a, b){
-    const R=6371, toRad=d=>d*Math.PI/180;
-    const dLat=toRad(b.lat-a.lat), dLng=toRad(b.lng-a.lng);
-    const sLat1=toRad(a.lat), sLat2=toRad(b.lat);
-    const h=Math.sin(dLat/2)**2+Math.cos(sLat1)*Math.cos(sLat2)*Math.sin(dLng/2)**2;
-    return 2*R*Math.asin(Math.sqrt(h));
+    const R = 6371;
+    const toRad = d => d * Math.PI / 180;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const sLat1 = toRad(a.lat);
+    const sLat2 = toRad(b.lat);
+    const h = Math.sin(dLat/2)**2 +
+              Math.cos(sLat1) * Math.cos(sLat2) * Math.sin(dLng/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(h));
   }
 
-  /* Convierte timestamp en "hace X min/h/días" */
-  function formatLastSeen(ts){
-    if(!ts) return '';
-    // Si viene como "YYYY-MM-DD HH:MM:SS", lo pasamos a "YYYY-MM-DDTHH:MM:SS"
-    if(ts.indexOf('T') === -1 && ts.indexOf(' ') !== -1){
-      ts = ts.replace(' ', 'T');
-    }
-    const d = new Date(ts);
-    if(isNaN(d)) return '';
+  // --- Dibuja distancia, barra, chip y línea entre los dos ---
+  function renderDistance(sourceLabel){
+    if (!christianLocation || !claraLocation) return;
 
-    const now  = new Date();
-    const diff = now - d;
-    const mins = Math.floor(diff / 60000);
-
-    if(mins < 1) return 'justo ahora';
-    if(mins < 60) return `hace ${mins} min`;
-
-    const hours = Math.floor(mins / 60);
-    if(hours < 24) return `hace ${hours} h`;
-
-    const days = Math.floor(hours / 24);
-    return `hace ${days} día${days !== 1 ? 's' : ''}`;
-  }
-  
-  /* Pinta distancia, barra y línea */
-  function renderDistance(){
-    if(!christianLocation || !claraLocation) return;
     const km = haversine(christianLocation, claraLocation);
-    const val  = document.getElementById('distanceValue');
-    const fill = document.getElementById('distanceFill');
-    const chip = document.getElementById('chipDistance');
-    const kmTxt = `${km.toFixed(1)} km`;
+    const valEl  = document.getElementById('distanceValue');
+    const fillEl = document.getElementById('distanceFill');
+    const chipEl = document.getElementById('chipDistance');
+    const lastEl = document.getElementById('distanceLastUpdate');
 
-    if(val)  val.textContent = kmTxt;
-    if(chip) chip.innerHTML = `<i class="fa-solid fa-route"></i> ${kmTxt}`;
-    if(fill) fill.style.width = `${Math.min(100, (km/5)*100)}%`; // 0–5 km escala bonita
-  
-    // línea entre los dos
-    if(distanceLine){ distanceLine.remove(); }
-    if(map){
-      distanceLine = L.polyline(
-        [
-          [christianLocation.lat, christianLocation.lng],
-          [claraLocation.lat,     claraLocation.lng]
-        ],
-        {color:'#e84393', weight:4, opacity:.6}
-      ).addTo(map);
-  
-      const bounds = L.latLngBounds(
-        [christianLocation.lat, christianLocation.lng],
-        [claraLocation.lat,     claraLocation.lng]
-      );
-      map.fitBounds(bounds, { padding:[30,30] });
+    const kmTxt = km.toFixed(1) + ' km';
+
+    if (valEl)  valEl.textContent = kmTxt;
+    if (chipEl) chipEl.innerHTML  = '<i class="fa-solid fa-route"></i> ' + kmTxt;
+    if (fillEl) fillEl.style.width = Math.min(100, (km / 5) * 100) + '%'; // 0–5 km
+
+    if (lastEl) {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2,'0');
+      const mm = String(now.getMinutes()).padStart(2,'0');
+      lastEl.textContent = 'Última actualización: ' + hh + ':' + mm +
+        (sourceLabel ? ' · ' + sourceLabel : '');
     }
+
+    // Línea en el mapa
+    if (distanceLine) distanceLine.remove();
+    if (!map || typeof L === 'undefined') return;
+
+    distanceLine = L.polyline([
+      [christianLocation.lat, christianLocation.lng],
+      [claraLocation.lat,     claraLocation.lng]
+    ], { color:'#e84393', weight:4, opacity:0.6 }).addTo(map);
+
+    const bounds = L.latLngBounds(
+      [christianLocation.lat, christianLocation.lng],
+      [claraLocation.lat,     claraLocation.lng]
+    );
+    map.fitBounds(bounds, { padding:[30,30] });
   }
-  
-  /* Coloca/actualiza markers */
-  function upsertMarkers(){
-    if(!map || typeof L==='undefined') return;
+
+  // --- Crear / actualizar markers y llamar a renderDistance ---
+  function upsertMarkers(sourceLabel){
+    if (!map || typeof L === 'undefined') return;
+
     // Christian
-    if(!christianMarker){
+    if (!christianMarker){
       christianMarker = L.marker(
         [christianLocation.lat, christianLocation.lng],
         { title:'Christian' }
       ).addTo(map);
-    }else{
+    } else {
       christianMarker.setLatLng([christianLocation.lat, christianLocation.lng]);
     }
+
     // Clara
-    if(!claraMarker){
+    if (!claraMarker){
       claraMarker = L.marker(
         [claraLocation.lat, claraLocation.lng],
         { title:'Clara' }
       ).addTo(map);
-    }else{
+    } else {
       claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
     }
-    renderDistance();
+
+    renderDistance(sourceLabel);
   }
-  
-  /* Lógica para asignar MI posición (según usuario logueado) */
-  function setMyCoords(lat,lng,acc){
-    const who = (LOGGED||'').toLowerCase();
-    const point = {lat: Number(lat), lng: Number(lng)};
-    if(who === 'mochito' || who === 'christian'){
-      christianLocation = {...christianLocation, ...point, acc};
+
+  // --- Asigna MI posición según quién esté logueado ---
+  function setMyCoords(lat, lng, acc){
+    const who = (LOGGED || '').toLowerCase();
+    const point = { lat: Number(lat), lng: Number(lng), acc };
+
+    if (who === 'mochito' || who === 'christian'){
+      christianLocation = { ...christianLocation, ...point };
       const el = document.getElementById('christianLocation');
-      if(el) el.textContent = `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
-    }else{
-      claraLocation = {...claraLocation, ...point, acc};
+      if (el) el.textContent = point.lat.toFixed(5) + ', ' + point.lng.toFixed(5);
+    } else {
+      claraLocation = { ...claraLocation, ...point };
       const el = document.getElementById('claraLocation');
-      if(el) el.textContent = `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
+      if (el) el.textContent = point.lat.toFixed(5) + ', ' + point.lng.toFixed(5);
     }
-    upsertMarkers();
+
+    upsertMarkers('Tu ubicación');
   }
-  
-  /* Trae la última posición de la otra persona desde tu backend
-     y muestra "Última vez que se conectó X: hace Y" */
+
+  // --- Carga la última posición de la otra persona desde tu backend ---
   async function fetchOtherCoords(){
+    if (!OTHER) return;
     try{
       const r = await fetch(
-        `/api/other_location?user=${encodeURIComponent(OTHER||'')}`,
+        '/api/other_location?user=' + encodeURIComponent(OTHER),
         { cache:'no-store' }
       );
-      if(!r.ok) return;
+      if (!r.ok) return;
       const j = await r.json();
-      if(!j || !j.lat || !j.lng) return;
+      if (!j || !j.lat || !j.lng) return;
 
-      const point      = { lat:Number(j.lat), lng:Number(j.lng) };
-      const updatedRaw = j.updated_at || null;
+      const point = { lat:Number(j.lat), lng:Number(j.lng) };
+      const otherIsChristian =
+        (OTHER || '').toLowerCase() === 'mochito' ||
+        (OTHER || '').toLowerCase() === 'christian';
 
-      const otherName       = (OTHER||'').toLowerCase();
-      const otherIsChristian = otherName === 'mochito' || otherName === 'christian';
-
-      if(otherIsChristian){
-        christianLocation = {...christianLocation, ...point};
-      }else{
-        claraLocation = {...claraLocation, ...point};
+      if (otherIsChristian){
+        christianLocation = { ...christianLocation, ...point };
+      } else {
+        claraLocation = { ...claraLocation, ...point };
       }
-
-      upsertMarkers();
-
-      // Texto "Última vez que se conectó X: hace Y"
-      const lastEl = document.getElementById('distanceLastUpdate');
-      if(lastEl && updatedRaw){
-        const niceName = otherIsChristian ? 'Mochito' : 'Mochita';
-        const human = formatLastSeen(updatedRaw);
-        if(human){
-          lastEl.textContent = `Última vez que se conectó ${niceName}: ${human}`;
-        }
-      }
+      upsertMarkers('Ubicación de ' + OTHER);
     }catch(e){
       // silencioso
     }
   }
-  
-  /* Arranca geolocalización continua */
+
+  // --- Geolocalización continua (watchPosition) ---
   function startAutoGeolocation(){
-    if(!('geolocation' in navigator)){
-      showToast?.('error','Tu dispositivo no soporta geolocalización');
+    if (!('geolocation' in navigator)){
+      window.showToast?.('error','Tu dispositivo no soporta geolocalización');
       return;
     }
-    // Permisos: si ya está denegado, avisamos rápido
-    if(navigator.permissions && navigator.permissions.query){
-      navigator.permissions.query({name:'geolocation'}).then(p=>{
-        if(p.state==='denied'){
-          showToast?.('error','Activa el permiso de ubicación para ver la distancia en tiempo real');
+
+    // Aviso rápido si está denegado
+    if (navigator.permissions && navigator.permissions.query){
+      navigator.permissions.query({ name:'geolocation' }).then(p=>{
+        if (p.state === 'denied'){
+          window.showToast?.(
+            'error',
+            'Activa el permiso de ubicación para ver la distancia en tiempo real'
+          );
         }
       }).catch(()=>{});
     }
-  
-    // Observa mi posición y la envía al backend
+
     try{
       watchId = navigator.geolocation.watchPosition(async pos=>{
-        const {latitude, longitude, accuracy} = pos.coords;
+        const { latitude, longitude, accuracy } = pos.coords;
         setMyCoords(latitude, longitude, accuracy);
-        // Enviar al backend
+
+        // Enviar al backend tu posición
         try{
           await fetch('/api/location', {
             method:'POST',
             headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ lat:latitude, lng:longitude, acc:accuracy })
           });
-        }catch(_){ /* sin ruido */ }
+        }catch(_){}
       }, err=>{
-        showToast?.(
-          'error',
-          'No se pudo obtener tu ubicación: ' + (err && err.message ? err.message : '')
-        );
-      }, { enableHighAccuracy:true, maximumAge:15000, timeout:10000 });
+        let msg = 'No se pudo obtener tu ubicación';
+        if (err && err.message) msg += ': ' + err.message;
+        window.showToast?.('error', msg);
+      }, {
+        enableHighAccuracy:true,
+        maximumAge:15000,
+        timeout:10000
+      });
     }catch(e){
-      showToast?.('error','Error iniciando geolocalización');
+      window.showToast?.('error','Error iniciando geolocalización');
     }
-  
-    // Refresca cada 15 s la ubicación de la otra persona
+
+    // refrescar ubicación de la otra persona cada 15 s
     setInterval(fetchOtherCoords, 15000);
   }
-  
-  /* Inicializa el mapa (nuevo estilo más bonito) */
-  function initMap(){
-    const mapEl = document.getElementById('distanceMap');
-    if(!mapEl || typeof L==='undefined') return;
 
-    map = L.map('distanceMap', {
-      zoomControl: true,
-      scrollWheelZoom: true
-    }).setView([39.5, -3], 6); // centro aproximado España
-
-    // Tile layer bonito (Carto light)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      subdomains: 'abcd',
-      attribution: '&copy; OpenStreetMap &copy; CARTO'
-    }).addTo(map);
-
-    upsertMarkers();
-  }
-  
-  /* Arranque general */
-  document.addEventListener('DOMContentLoaded', () => {
-    createHearts?.();
-    initMap();
-    startAutoGeolocation();
-    // primer pull del otro usuario
-    fetchOtherCoords();
-  });
-
-
-  // === Geolocalización controlada por clic ===
-  async function requestGeolocationOnce() {
-    if (!('geolocation' in navigator)) {
-      showToast?.('error', 'Tu navegador no soporta geolocalización');
+  // --- Geolocalización bajo demanda (botón "usar mi ubicación") ---
+  async function requestGeolocationOnce(){
+    if (!('geolocation' in navigator)){
+      window.showToast?.('error','Tu navegador no soporta geolocalización');
       return null;
     }
-    // HTTPS o localhost es obligatorio
-    if (!window.isSecureContext && location.hostname !== 'localhost') {
-      showToast?.('error', 'Activa HTTPS para usar geolocalización');
+    if (!window.isSecureContext && location.hostname !== 'localhost'){
+      window.showToast?.('error','Activa HTTPS para usar geolocalización');
       return null;
     }
-    return new Promise((resolve) => {
+
+    return new Promise(resolve=>{
       navigator.geolocation.getCurrentPosition(
-        (pos) => resolve(pos),
-        (err) => {
+        pos => resolve(pos),
+        err => {
           let msg = 'No se pudo obtener tu ubicación';
-          if (err && err.code === err.PERMISSION_DENIED) msg = 'Permiso de ubicación denegado';
-          showToast?.('error', msg);
+          if (err && err.code === err.PERMISSION_DENIED){
+            msg = 'Permiso de ubicación denegado';
+          }
+          window.showToast?.('error', msg);
           resolve(null);
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
       );
     });
   }
 
-  // Actualiza tu marcador de "mi usuario" y el chip de distancia si procede
-  function applyMyLocationToMap(lat, lng, label='Mi ubicación') {
-    try {
-      // Si usas Christian como “yo”, actualizamos ese marcador:
-      if (typeof christianMarker !== 'undefined' && christianMarker) {
-        christianMarker.setLatLng([lat, lng]).bindPopup(label);
-        // Si tienes esa variable, actualízala también:
-        if (typeof christianLocation !== 'undefined') {
-          christianLocation.lat = lat;
-          christianLocation.lng = lng;
-          christianLocation.name = label;
+  // --- Botones (pantalla completa + usar mi ubicación) ---
+  function bindButtons(){
+    const btnUse = document.getElementById('useMyLocationBtn');
+    if (btnUse){
+      btnUse.addEventListener('click', async ()=>{
+        window.showToast?.('info','Solicitando tu ubicación…');
+        const pos = await requestGeolocationOnce();
+        if (!pos) return;
+        const { latitude, longitude, accuracy } = pos.coords;
+        setMyCoords(latitude, longitude, accuracy);
+        window.showToast?.('success','Ubicación actualizada');
+      });
+    }
+
+    const btnSize = document.getElementById('toggleMapSize');
+    const wrap    = document.querySelector('.distance-map-container');
+
+    if (btnSize && wrap){
+      btnSize.addEventListener('click', ()=>{
+        wrap.classList.toggle('full');
+        const full = wrap.classList.contains('full');
+        btnSize.innerHTML = '<i class="fa-solid ' +
+          (full ? 'fa-compress' : 'fa-expand') + '"></i>';
+        if (map){
+          setTimeout(()=> map.invalidateSize(), 300);
         }
-        map?.panTo([lat, lng]);
-      }
-      // Recalcula línea/distancia si tu lógica lo hace en otra función:
-      if (typeof updateDistanceUI === 'function') updateDistanceUI();
-    } catch (e) {
-      // Silencioso, por si aún no existe el mapa al cargar
+      });
     }
   }
 
-  // Evento del botón de "usar mi ubicación" (si existe)
-  document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('useMyLocationBtn');
-    btn?.addEventListener('click', async () => {
-      showToast?.('info', 'Solicitando tu ubicación…');
-      const pos = await requestGeolocationOnce();
-      if (!pos) return;
-      const { latitude, longitude } = pos.coords;
-      applyMyLocationToMap(latitude, longitude, 'Aquí estoy');
+  // --- Helper global para "última vez visto" (lo usan otros scripts) ---
+  window.formatLastSeen = function(ts){
+    if (!ts) return '';
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return '';
+    const diffMs = Date.now() - d.getTime();
+    const diffMin = Math.round(diffMs / 60000);
 
-      // (Opcional) Enviar al backend si tienes endpoint extra
-      // try {
-      //   await fetch('/update_my_location', {
-      //     method: 'POST',
-      //     headers: {'Content-Type':'application/json'},
-      //     body: JSON.stringify({ lat: latitude, lng: longitude })
-      //   });
-      // } catch {}
-      showToast?.('success', 'Ubicación actualizada');
-    });
+    if (diffMin < 1) return 'Justo ahora';
+    if (diffMin === 1) return 'Hace 1 minuto';
+    if (diffMin < 60) return 'Hace ' + diffMin + ' min';
 
-    // Estado del permiso (informativo)
-    if (navigator.permissions?.query) {
-      navigator.permissions.query({ name: 'geolocation' }).then((st) => {
-        if (st.state === 'denied') {
-          showToast?.('error','Tienes bloqueada la ubicación en el navegador');
-        }
-      }).catch(()=>{});
+    const diffH = Math.round(diffMin / 60);
+    if (diffH === 1) return 'Hace 1 hora';
+    if (diffH < 24) return 'Hace ' + diffH + ' h';
+
+    const diffD = Math.round(diffH / 24);
+    if (diffD === 1) return 'Hace 1 día';
+    return 'Hace ' + diffD + ' días';
+  };
+
+  // --- Inicializar mapa Leaflet ---
+  function initMap(){
+    const mapEl = document.getElementById('distanceMap');
+    if (!mapEl || typeof L === 'undefined') return;
+
+    map = L.map(mapEl, { zoomControl:true }).setView([39.5, -3], 6);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom:19,
+      attribution:'&copy; OpenStreetMap'
+    }).addTo(map);
+
+    upsertMarkers();
+    setTimeout(()=> map.invalidateSize(), 300);
+  }
+
+  // --- Arranque al cargar DOM ---
+  document.addEventListener('DOMContentLoaded', ()=>{
+    try{
+      initMap();
+      bindButtons();
+      startAutoGeolocation();
+      fetchOtherCoords();
+    }catch(e){
+      console.warn('Error iniciando módulo de distancia', e);
     }
   });
 
-  // Service Worker: auto-actualización de la PWA
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', async () => {
-      try {
-        // Registra tu SW (ya lo tienes en /sw.js)
-        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-
-        // 1) Busca actualización siempre que abres la app/página
-        reg.update();
-
-        // 2) Y también al volver a primer plano (PWA instalada o pestaña)
-        document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible') reg.update();
-        });
-
-        // 3) Cuando el nuevo SW tome el control, recargamos para aplicar la nueva versión
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (refreshing) return;
-          refreshing = true;
-          window.location.reload();
-        });
-
-        // (Opcional) Si quieres ver que detectó una actualización:
-        reg.addEventListener('updatefound', () => {
-          const nw = reg.installing;
-          nw?.addEventListener('statechange', () => {
-            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-              // Si usas toasts:
-              window.showToast?.('info', 'Actualizando a la última versión…');
-            }
-          });
-        });
-      } catch (e) {
-        console.warn('SW register error', e);
-      }
-    });
-  }
+})();
 </script>
 
 <!-- NAVIDAD (tema) se puede borrar-->

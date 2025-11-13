@@ -2834,57 +2834,110 @@ body.loaded #main-content {
         {% endif %}
       </div>
 
-       <!-- Mapa de Distancia -->
-      <div class="section animate-in delay-2">
-        <h3>Distancia</h3>
-        <p>Cuánta distancia hay entre nosotros.</p>
+       <!-- Distancia (sin mapa, versión simple y chula) -->
+<div class="section animate-in delay-2">
+  <h3>Distancia</h3>
+  <p>Aunque estemos en ciudades distintas, siempre estamos cerquita 💕</p>
 
-        <div class="distance-map-container">
-          <div id="distanceMap"></div>
+  <div class="distance-map-container" style="
+    height:auto;
+    padding:18px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:18px;
+    align-items:stretch;
+    justify-content:space-between;
+    background:radial-gradient(circle at top, rgba(232,67,147,.12), #ffffff);
+  ">
+    <!-- Columna avatares / ciudades -->
+    <div style="flex:1 1 240px; display:flex; flex-direction:column; gap:12px; justify-content:center;">
+      <div style="
+        display:flex;
+        align-items:center;
+        gap:10px;
+        padding:10px 14px;
+        border-radius:14px;
+        background:rgba(255,255,255,.85);
+        box-shadow:0 6px 16px rgba(0,0,0,.06);
+      ">
+        {% if profile_pictures.get('mochito') %}
+          <img src="{{ profile_pictures.get('mochito') }}" alt="Christian"
+               style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
+        {% else %}
+          <div style="width:40px;height:40px;border-radius:50%;background:var(--gradient);
+                      display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;">
+            C
+          </div>
+        {% endif %}
+        <div>
+          <strong>Christian</strong><br>
+          <small style="opacity:.8;">Algemesí, Valencia</small>
+        </div>
+      </div>
 
-          <!-- Botón pantalla completa -->
-          <button type="button" class="map-fab" id="toggleMapSize" title="Pantalla completa">
-            <i class="fa-solid fa-expand"></i>
-          </button>
+      <div style="
+        display:flex;
+        align-items:center;
+        gap:10px;
+        padding:10px 14px;
+        border-radius:14px;
+        background:rgba(255,255,255,.85);
+        box-shadow:0 6px 16px rgba(0,0,0,.06);
+      ">
+        {% if profile_pictures.get('mochita') %}
+          <img src="{{ profile_pictures.get('mochita') }}" alt="Clara"
+               style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
+        {% else %}
+          <div style="width:40px;height:40px;border-radius:50%;background:var(--gradient);
+                      display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;">
+            C
+          </div>
+        {% endif %}
+        <div>
+          <strong>Clara</strong><br>
+          <small style="opacity:.8;">Córdoba</small>
+        </div>
+      </div>
 
-          <!-- Botón geolocalizar -->
-          <button type="button" class="map-fab" id="useMyLocationBtn" title="Usar mi ubicación" style="right:66px">
-            <i class="fa-solid fa-location-crosshairs"></i>
-          </button>
+      <p style="font-size:.9rem;opacity:.8;margin-top:4px;">
+        La distancia es física, pero el corazón va por libre 🥹
+      </p>
+    </div>
 
-          <div class="distance-info">
-            <h4>Distancia entre nosotros</h4>
+    <!-- Columna “stats” de distancia -->
+    <div style="
+      flex:1 1 260px;
+      background:#fff;
+      border-radius:16px;
+      padding:16px 18px;
+      box-shadow:0 8px 22px rgba(0,0,0,.10);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    ">
+      <h4 style="margin:0 0 4px 0;color:var(--primary-color);font-family:'Playfair Display',serif;">
+        Distancia entre ciudades
+      </h4>
 
-            <div class="distance-value" id="distanceValue">Cargando...</div>
+      <div class="distance-value" id="distanceValue"
+           style="font-size:1.8rem;font-weight:800;color:var(--accent-color);">
+        — km
+      </div>
 
-            <div class="distance-bar" aria-label="Cercanía">
-              <div class="fill" id="distanceFill" style="width:0%"></div>
-            </div>
+      <div class="distance-bar" aria-label="Cercanía">
+        <div class="fill" id="distanceFill" style="width:0%"></div>
+      </div>
 
-            <p class="distance-last-update" id="distanceLastUpdate">
-              Última actualización: —
-            </p>
+      <p class="distance-last-update" id="distanceLastUpdate" style="font-size:.85rem;opacity:.8;">
+        Distancia calculada...
+      </p>
 
-            <div class="location-badge">
-              {% if profile_pictures.get('mochito') %}
-                <img src="{{ profile_pictures.get('mochito') }}" alt="Christian">
-              {% else %}
-                <span>C</span>
-              {% endif %}
-              <span id="christianLocation">Algemesí, Valencia</span>
-            </div>
-
-            <div class="location-badge">
-              {% if profile_pictures.get('mochita') %}
-                <img src="{{ profile_pictures.get('mochita') }}" alt="Clara">
-              {% else %}
-                <span>C</span>
-              {% endif %}
-              <span id="claraLocation">Córdoba</span>
-            </div>
-          </div> <!-- /.distance-info -->
-        </div>   <!-- /.distance-map-container -->
-      </div>     <!-- /.section Distancia -->
+      <p style="font-size:.85rem;opacity:.8;margin-top:4px;">
+        Usando Algemesí y Córdoba como puntos fijos. No hace falta permiso de ubicación ni nada raro 🥰
+      </p>
+    </div>
+  </div>
+</div>
 
       <!-- Horarios -->
       <div class="section animate-in delay-2">
@@ -4019,7 +4072,6 @@ window.openBasicEditMedia = function(btn){
     <!-- TODO tu contenido actual aquí -->
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
 
 <script>
   
@@ -4238,228 +4290,6 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => { if(e.key === 'Escape'){ document.querySelectorAll('.photo-popover.open').forEach(p => p.classList.remove('open')); } });
 
 
-// =====================
-// MAPA (Leaflet) + Distancia + Geocoding + GEOLOCALIZACIÓN REAL
-// =====================
-let map, christianMarker, claraMarker, distanceLine;
-let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" };
-let claraLocation     = { lat: 37.8882, lng: -4.7794, name: "Córdoba" };
-
-function initMap() {
-  const mapEl = document.getElementById('distanceMap');
-  if (!mapEl || typeof L === 'undefined') return;
-
-  map = L.map('distanceMap').setView([39.5, -3.0], 6);
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-  }).addTo(map);
-
-  const christianAvatar = {{ (profile_pictures.get('mochito') or 
-    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23e84393"/><text x="50" y="60" font-size="40" text-anchor="middle" fill="white">C</text></svg>') | tojson }};
-  const claraAvatar = {{ (profile_pictures.get('mochita') or 
-    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23a29bfe"/><text x="50" y="60" font-size="40" text-anchor="middle" fill="white">C</text></svg>') | tojson }};
-
-  const christianIcon = L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div style="background-image:url(${christianAvatar});background-size:cover;width:40px;height:40px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(0,0,0,.5);"></div>`,
-    iconSize: [40, 40], iconAnchor: [20, 20]
-  });
-  const claraIcon = L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div style="background-image:url(${claraAvatar});background-size:cover;width:40px;height:40px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(0,0,0,.5);"></div>`,
-    iconSize: [40, 40], iconAnchor: [20, 20]
-  });
-
-  christianMarker = L.marker([christianLocation.lat, christianLocation.lng], { icon: christianIcon }).addTo(map);
-  claraMarker     = L.marker([claraLocation.lat, claraLocation.lng], { icon: claraIcon }).addTo(map);
-
-  updateDistanceLine();
-  updateDistanceInfo();
-  loadSavedLocations();
-}
-
-function updateDistanceLine() {
-  if (!map || !christianMarker || !claraMarker) return;
-  if (distanceLine) map.removeLayer(distanceLine);
-
-  distanceLine = L.polyline(
-    [[christianLocation.lat, christianLocation.lng], [claraLocation.lat, claraLocation.lng]],
-    { color: '#e84393', weight: 3, dashArray: '10, 10', lineJoin: 'round' }
-  ).addTo(map);
-
-  const group = new L.featureGroup([christianMarker, claraMarker]);
-  map.fitBounds(group.getBounds().pad(0.2));
-}
-
-function updateDistanceInfo() {
-  const el = document.getElementById('distanceValue');
-  if (!el) return;
-  const distance = calculateDistance(
-    christianLocation.lat, christianLocation.lng,
-    claraLocation.lat, claraLocation.lng
-  );
-  el.textContent = `${distance.toFixed(1)} km`;
-
-  const ch = document.getElementById('christianLocation');
-  const cl = document.getElementById('claraLocation');
-  if (ch) ch.textContent = christianLocation.name;
-  if (cl) cl.textContent = claraLocation.name;
-}
-
-function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = deg2rad(lat2 - lat1);
-  const dLon = deg2rad(lon2 - lon1);
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
-function deg2rad(deg){ return deg * (Math.PI/180); }
-
-// Geocodificación directa (texto -> coords)
-async function geocodeAddress(address) {
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
-    const response = await fetch(url, { headers: { 'Accept-Language': 'es' } });
-    const data = await response.json();
-    if (Array.isArray(data) && data.length > 0) {
-      return {
-        lat: parseFloat(data[0].lat),
-        lng: parseFloat(data[0].lon),
-        name: (data[0].display_name || '').split(',')[0] || address
-      };
-    }
-    throw new Error('Ubicación no encontrada');
-  } catch (error) {
-    console.error('Error en geocodificación:', error);
-    window.showToast?.('error', 'No se pudo encontrar la ubicación. Intenta con una dirección más específica.');
-    return null;
-  }
-}
-
-// 🔁 Geocodificación inversa (coords -> nombre corto)
-async function reverseGeocode(lat, lon) {
-  try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`, { headers: { 'Accept-Language': 'es' }});
-    const data = await res.json();
-    const city = data.address?.city || data.address?.town || data.address?.village || data.address?.hamlet || data.name || 'Mi ubicación';
-    const country = data.address?.country_code ? data.address.country_code.toUpperCase() : '';
-    return `${city}${country ? ', ' + country : ''}`;
-  } catch {
-    return 'Mi ubicación';
-  }
-}
-
-// Persistencia local
-function saveLocations() {
-  try {
-    const locations = { christian: christianLocation, clara: claraLocation };
-    localStorage.setItem('coupleLocations', JSON.stringify(locations));
-  } catch { /* nada */ }
-}
-function loadSavedLocations() {
-  try {
-    const saved = localStorage.getItem('coupleLocations');
-    if (!saved) return;
-    const locations = JSON.parse(saved);
-    christianLocation = locations.christian || christianLocation;
-    claraLocation     = locations.clara     || claraLocation;
-    christianMarker?.setLatLng([christianLocation.lat, christianLocation.lng]);
-    claraMarker?.setLatLng([claraLocation.lat, claraLocation.lng]);
-    updateDistanceLine();
-    updateDistanceInfo();
-  } catch { /* nada */ }
-}
-
-// Formulario: actualizar por texto
-function setupLocationForm() {
-  const form = document.getElementById('locationForm');
-  if (!form) return;
-  form.addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const input = document.getElementById('userLocation');
-    if (!input || !input.value.trim()) return;
-
-    const btn = form.querySelector('button[type="submit"]');
-    const original = btn ? btn.innerHTML : '';
-    if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...'; btn.disabled = true; }
-
-    const locationData = await geocodeAddress(input.value.trim());
-
-    if (locationData) {
-      const currentUser = {{ (session.username or '') | tojson }};
-      if (currentUser === 'mochito') {
-        christianLocation = locationData;
-        christianMarker?.setLatLng([locationData.lat, locationData.lng]);
-      } else if (currentUser === 'mochita') {
-        claraLocation = locationData;
-        claraMarker?.setLatLng([locationData.lat, locationData.lng]);
-      } else {
-        christianLocation = locationData;
-        christianMarker?.setLatLng([locationData.lat, locationData.lng]);
-      }
-      updateDistanceLine();
-      updateDistanceInfo();
-      saveLocations();
-      input.value = '';
-      window.showToast?.('success', `¡Ubicación actualizada! Ahora estás en ${locationData.name}`);
-    }
-
-    if (btn) { btn.innerHTML = original; btn.disabled = false; }
-  });
-}
-
-// 🌐 Botón: usar ubicación real del navegador
-function setupUseMyLocation() {
-  const btn = document.getElementById('useMyLocationBtn');
-  if (!btn) return;
-
-  btn.addEventListener('click', () => {
-    if (!('geolocation' in navigator)) {
-      window.showToast?.('error', 'Tu navegador no soporta geolocalización.');
-      return;
-    }
-
-    const original = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Obteniendo...';
-    btn.disabled = true;
-
-    const opts = { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 };
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      const { latitude: lat, longitude: lng } = pos.coords;
-      const name = await reverseGeocode(lat, lng);
-
-      const currentUser = {{ (session.username or '') | tojson }};
-      if (currentUser === 'mochito') {
-        christianLocation = { lat, lng, name };
-        christianMarker?.setLatLng([lat, lng]);
-      } else if (currentUser === 'mochita') {
-        claraLocation = { lat, lng, name };
-        claraMarker?.setLatLng([lat, lng]);
-      } else {
-        christianLocation = { lat, lng, name };
-        christianMarker?.setLatLng([lat, lng]);
-      }
-
-      updateDistanceLine();
-      updateDistanceInfo();
-      saveLocations();
-      window.showToast?.('success', `Ubicación actualizada: ${name}`);
-      btn.innerHTML = original; btn.disabled = false;
-    }, (err) => {
-      const msg = {
-        1: 'Has denegado el permiso de ubicación.',
-        2: 'No se pudo determinar tu ubicación.',
-        3: 'Tiempo de espera agotado.'
-      }[err.code] || 'Error al obtener la ubicación.';
-      window.showToast?.('error', msg + ' Puedes introducir la ciudad manualmente.');
-      btn.innerHTML = original; btn.disabled = false;
-    }, opts);
-  });
-}
 
 
 // =====================
@@ -7287,6 +7117,53 @@ function flyOnce(){
 });
 
 </script>
+
+<script>
+(function(){
+  // Coordenadas fijas: Algemesí y Córdoba
+  const christian = { lat: 39.1925, lng: -0.4353 };
+  const clara     = { lat: 37.8882, lng: -4.7794 };
+
+  function haversine(a, b){
+    const R = 6371; // km
+    const toRad = d => d * Math.PI / 180;
+    const dLat  = toRad(b.lat - a.lat);
+    const dLng  = toRad(b.lng - a.lng);
+    const sLat1 = toRad(a.lat);
+    const sLat2 = toRad(b.lat);
+    const h = Math.sin(dLat/2)**2 +
+              Math.cos(sLat1) * Math.cos(sLat2) * Math.sin(dLng/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  const km = haversine(christian, clara);
+  const txt = km.toFixed(1) + ' km';
+
+  const val  = document.getElementById('distanceValue');
+  const fill = document.getElementById('distanceFill');
+  const chip = document.getElementById('chipDistance');
+  const last = document.getElementById('distanceLastUpdate');
+
+  if (val)  val.textContent = txt;
+  if (chip) chip.innerHTML  = '<i class="fa-solid fa-route"></i> ' + txt;
+
+  // Barra: 0 km = 100%, 800 km ~ 0% (ajusto para que quede “bonito”)
+  if (fill) {
+    const pct = Math.max(0, 100 - Math.min(100, km / 8)); // pura fantasía estética
+    fill.style.width = pct + '%';
+  }
+
+  if (last) {
+    const now = new Date();
+    last.textContent = 'Distancia calculada hoy a las ' +
+      now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  }
+})();
+</script>
+
+
+
+
 {% if username in ('mochito','mochita') %}
 <button onclick="location.href='/push/debug'" class="debug-fab" aria-label="Debug push">🔧 Notificaciones</button>
 <style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:rgba(232,67,147,.4);color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>

@@ -75,13 +75,19 @@ def touch_presence(user: str, device: str = 'page-view'):
 PG_POOL = None
 def _init_pool():
     global PG_POOL
-    if PG_POOL: return
-    if not DATABASE_URL: raise RuntimeError('Falta DATABASE_URL para PostgreSQL')
-    maxconn = max(3, int(os.environ.get('DB_MAX_CONN', '5')))  # Reducido de 10
-    PG_POOL = SimpleConnectionPool(1, maxconn, dsn=DATABASE_URL, 
-                                   keepalives=1, keepalives_idle=30, 
-                                   keepalives_interval=10, keepalives_count=5, 
-                                   connect_timeout=8)
+    if PG_POOL:
+        return
+    if not DATABASE_URL:
+        raise RuntimeError('Falta DATABASE_URL para PostgreSQL')
+    
+    # Aumentar temporalmente el pool
+    maxconn = max(10, int(os.environ.get('DB_MAX_CONN', '10')))  # Aumentar a 10
+    PG_POOL = SimpleConnectionPool(
+        1, maxconn, dsn=DATABASE_URL,
+        keepalives=1, keepalives_idle=30, 
+        keepalives_interval=10, keepalives_count=5,
+        connect_timeout=8
+    )
 
 
 class PooledConn:
@@ -2604,7 +2610,6 @@ def index():
     month_end = _last_day_of_month(m3_y, m3_m)
 
     cycle_entries = get_cycle_entries(cycle_user, month_start, month_end)
-    cycle_pred = predict_cycle(cycle_user)
 
     moods_for_select = list(ALLOWED_MOODS)
     flows_for_select = list(ALLOWED_FLOWS)
@@ -4325,7 +4330,6 @@ def api_cycle_get():
     else:
         end = (date(y, m+1, 1) - _td(days=1))
     data = get_cycle_entries(who, start, end)
-    pred = predict_cycle(who)
     return jsonify({"ok": True, "user": who, "from": start.isoformat(), "to": end.isoformat(), "entries": data, "prediction": pred})
 
 @app.post('/cycle/save')

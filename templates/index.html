@@ -2259,14 +2259,6 @@ body.loaded #main-content {
             margin: 20px 0;
             text-align: center;
         }
-
-        .distance-mode-btn.active{
-  border-color: var(--primary-color);
-  background: rgba(232,67,147,.12);
-  color: var(--primary-color);
-  box-shadow: 0 0 0 1px rgba(232,67,147,.18);
-}
-
     </style>
 </head>
 
@@ -2836,100 +2828,57 @@ body.loaded #main-content {
         {% endif %}
       </div>
 
- <!-- Distancia (sin mapa) -->
-<div class="section animate-in delay-2" id="distanceSection">
-  <h3>Distancia</h3>
-  <p>Cómo va nuestra distancia ahora mismo 💌</p>
+      <!-- Mapa de Distancia -->
+      <div class="section animate-in delay-2">
+        <h3>Distancia</h3>
+        <p>Cuánta distancia hay entre nosotros.</p>
 
-  <div style="display:flex;flex-direction:column;gap:1rem;">
+        <div class="distance-map-container">
+          <div id="distanceMap"></div>
+          <!-- Botones utilitarios del mapa -->
+<button type="button" class="map-fab" id="toggleMapSize" title="Pantalla completa">
+  <i class="fa-solid fa-expand"></i>
+</button>
 
-    <!-- Estado actual -->
-    <div style="display:flex;flex-direction:column;gap:.5rem;padding:.75rem 1rem;border-radius:16px;background:rgba(255,255,255,.7);backdrop-filter:blur(6px);border:1px solid rgba(0,0,0,.04);">
-      <div id="distanceStatusLabel" style="font-weight:600;">
-        Ahora mismo estamos en ciudades distintas 💔
+<!-- Botón geolocalizar -->
+<button type="button" class="map-fab" id="useMyLocationBtn" title="Usar mi ubicación" style="right:66px">
+  <i class="fa-solid fa-location-crosshairs"></i>
+</button>
+
+          <div class="distance-info">
+            <h4>Distancia entre nosotros</h4>
+            <div class="distance-value" id="distanceValue">Cargando...</div>
+            <div class="distance-bar" aria-label="Cercanía">
+              <div class="fill" id="distanceFill" style="width:0%"></div>
+            </div>
+            <small class="distance-scale" style="display:block; opacity:.8;">
+              0 km = juntitos • 500+ km = lejos
+            </small>
+            
+            <div id="locationInfo">
+              <div class="location-badge">
+                {% if profile_pictures.get('mochito') %}
+                  <img src="{{ profile_pictures.get('mochito') }}" alt="Christian">
+                {% else %}
+                  <span>C</span>
+                {% endif %}
+                <span id="christianLocation">Algemesí, Valencia</span>
+              </div>
+              <div class="location-badge">
+                {% if profile_pictures.get('mochita') %}
+                  <img src="{{ profile_pictures.get('mochita') }}" alt="Clara">
+                {% else %}
+                  <span>C</span>
+                {% endif %}
+                <span id="claraLocation">Córdoba</span>
+              </div>
+            </div>
+
+            <!-- 🌍 FORM: Actualizar ubicación (manual o automática) -->
+            
+          </div>
+        </div>
       </div>
-      <div id="distanceKmLabel" style="font-size:.9rem;color:var(--text-muted, #666);">
-        Aprox. 500 km entre Algemesí (Valencia) y Córdoba.
-      </div>
-    </div>
-
-    <!-- Quién está dónde -->
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;">
-      <div class="location-badge">
-        {% if profile_pictures.get('mochito') %}
-          <img src="{{ profile_pictures.get('mochito') }}" alt="Christian">
-        {% else %}
-          <span>C</span>
-        {% endif %}
-        <span id="christianLocation">Algemesí, Valencia</span>
-      </div>
-
-      <div style="font-size:1.4rem;opacity:.7;">↔</div>
-
-      <div class="location-badge">
-        {% if profile_pictures.get('mochita') %}
-          <img src="{{ profile_pictures.get('mochita') }}" alt="Clara">
-        {% else %}
-          <span>C</span>
-        {% endif %}
-        <span id="claraLocation">Córdoba</span>
-      </div>
-    </div>
-
-    <!-- Controles: dónde estáis hoy -->
-    <div style="display:flex;flex-direction:column;gap:.5rem;">
-      <span style="font-size:.85rem;color:var(--text-muted,#666);">¿Dónde estamos hoy?</span>
-      <div style="display:flex;flex-wrap:wrap;gap:.5rem;">
-        <button type="button"
-                class="distance-mode-btn"
-                data-mode="separate"
-                style="flex:1;min-width:150px;padding:.45rem .5rem;border-radius:999px;border:1px solid rgba(0,0,0,.08);background:rgba(255,255,255,.9);font-size:.9rem;cursor:pointer;">
-          Cada uno en su ciudad
-        </button>
-        <button type="button"
-                class="distance-mode-btn"
-                data-mode="together_algemesi"
-                style="flex:1;min-width:150px;padding:.45rem .5rem;border-radius:999px;border:1px solid rgba(0,0,0,.08);background:rgba(255,255,255,.9);font-size:.9rem;cursor:pointer;">
-          Juntos en Algemesí
-        </button>
-        <button type="button"
-                class="distance-mode-btn"
-                data-mode="together_cordoba"
-                style="flex:1;min-width:150px;padding:.45rem .5rem;border-radius:999px;border:1px solid rgba(0,0,0,.08);background:rgba(255,255,255,.9);font-size:.9rem;cursor:pointer;">
-          Juntos en Córdoba
-        </button>
-      </div>
-    </div>
-
-    <!-- Cuenta atrás Fin de la distancia -->
-    <div style="margin-top:.5rem;padding:.85rem 1rem;border-radius:16px;background:rgba(255,255,255,.75);border:1px solid rgba(0,0,0,.04);display:flex;flex-direction:column;gap:.4rem;">
-      <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
-        <span style="font-size:.85rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:rgba(232,67,147,.1);color:var(--primary-color,#e84393);">
-          Fin de la distancia
-        </span>
-        <span id="distanceCountdownText" style="font-size:.85rem;color:var(--text-muted,#666);">
-          Elegid una fecha para el próximo reencuentro 💞
-        </span>
-      </div>
-
-      <div style="display:flex;align-items:baseline;gap:.25rem;">
-        <div id="distanceDaysLeft" style="font-size:1.8rem;font-weight:800;line-height:1;">--</div>
-        <div style="font-size:.9rem;">días</div>
-      </div>
-
-      <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.25rem;">
-        <label for="distanceEndDate" style="font-size:.85rem;">Próximo día sin distancia:</label>
-        <input type="date"
-               id="distanceEndDate"
-               style="padding:.3rem .5rem;border-radius:999px;border:1px solid rgba(0,0,0,.12);background:rgba(255,255,255,.95);font-size:.85rem;">
-        <small style="font-size:.75rem;color:var(--text-muted,#777);">
-          Se guarda solo en este navegador, así que tú o ella lo podéis cambiar.
-        </small>
-      </div>
-    </div>
-
-  </div>
-</div>
 
       <!-- Horarios -->
       <div class="section animate-in delay-2">
@@ -7315,134 +7264,6 @@ function flyOnce(){
 });
 
 </script>
-
-<script>
-(function(){
-  const MODES = {
-    separate : {
-      label: "Ahora mismo estamos en ciudades distintas 💔",
-      kmText: "Aprox. 500 km entre Algemesí (Valencia) y Córdoba."
-    },
-    together_algemesi: {
-      label: "Ahora mismo estamos juntitos en Algemesí 🏡",
-      kmText: "Distancia física: 0 km. Solo mimos y achuchones."
-    },
-    together_cordoba: {
-      label: "Ahora mismo estamos juntitos en Córdoba 🌆",
-      kmText: "Distancia física: 0 km. Solo mimos y achuchones."
-    }
-  };
-
-  const STORAGE_KEY_MODE = "mochitos_distance_mode";
-  const STORAGE_KEY_DATE = "mochitos_distance_end_date";
-
-  function applyMode(mode){
-    const data = MODES[mode] || MODES.separate;
-
-    // Resaltar botón activo
-    const btns = document.querySelectorAll(".distance-mode-btn");
-    btns.forEach(b => {
-      b.classList.toggle("active", b.dataset.mode === mode);
-    });
-
-    // Texto principal
-    const statusLabel = document.getElementById("distanceStatusLabel");
-    const kmLabel = document.getElementById("distanceKmLabel");
-    if(statusLabel) statusLabel.textContent = data.label;
-    if(kmLabel) kmLabel.textContent = data.kmText;
-
-    // Texto debajo de cada avatar
-    const christianSpan = document.getElementById("christianLocation");
-    const claraSpan = document.getElementById("claraLocation");
-    if(christianSpan && claraSpan){
-      if(mode === "separate"){
-        christianSpan.textContent = "Algemesí, Valencia";
-        claraSpan.textContent = "Córdoba";
-      } else if(mode === "together_algemesi"){
-        christianSpan.textContent = "Algemesí, Valencia";
-        claraSpan.textContent = "Algemesí, Valencia";
-      } else if(mode === "together_cordoba"){
-        christianSpan.textContent = "Córdoba";
-        claraSpan.textContent = "Córdoba";
-      }
-    }
-
-    // Guardar en localStorage
-    try { localStorage.setItem(STORAGE_KEY_MODE, mode); } catch(e){}
-  }
-
-  function updateCountdown(){
-    const daysEl = document.getElementById("distanceDaysLeft");
-    const textEl = document.getElementById("distanceCountdownText");
-    const input  = document.getElementById("distanceEndDate");
-    if(!daysEl || !textEl || !input) return;
-
-    const value = input.value;
-    if(!value){
-      daysEl.textContent = "--";
-      textEl.textContent = "Elegid una fecha para el próximo reencuentro 💞";
-      return;
-    }
-
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const target = new Date(value + "T00:00:00");
-    const diffMs = target - today;
-    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-
-    if(diffDays < 0){
-      daysEl.textContent = "0";
-      textEl.textContent = "¡Esa fecha ya pasó! Tocará poner la próxima vez que se acabe la distancia 💫";
-    } else if(diffDays === 0){
-      daysEl.textContent = "0";
-      textEl.textContent = "¡Hoy se acaba la distancia! 🥹💖";
-    } else if(diffDays === 1){
-      daysEl.textContent = "1";
-      textEl.textContent = "Mañana se acaba la distancia ✨";
-    } else {
-      daysEl.textContent = String(diffDays);
-      textEl.textContent = "Faltan " + diffDays + " días para que se acabe la distancia ✈️";
-    }
-  }
-
-  document.addEventListener("DOMContentLoaded", function(){
-    // Botones de modo (distancia / juntos)
-    const btns = document.querySelectorAll(".distance-mode-btn");
-    btns.forEach(btn => {
-      btn.addEventListener("click", function(){
-        const mode = this.dataset.mode;
-        applyMode(mode);
-      });
-    });
-
-    // Cargar modo guardado
-    let savedMode = null;
-    try { savedMode = localStorage.getItem(STORAGE_KEY_MODE); } catch(e){}
-    if(!savedMode || !MODES[savedMode]) savedMode = "separate";
-    applyMode(savedMode);
-
-    // Fecha de fin de la distancia
-    const dateInput = document.getElementById("distanceEndDate");
-    if(dateInput){
-      let savedDate = null;
-      try { savedDate = localStorage.getItem(STORAGE_KEY_DATE); } catch(e){}
-      if(savedDate){
-        dateInput.value = savedDate;
-      }
-      // Si quieres que por defecto salga 18 de diciembre, descomenta esta línea
-      // if(!savedDate) dateInput.value = "2025-12-18";
-
-      dateInput.addEventListener("change", function(){
-        try { localStorage.setItem(STORAGE_KEY_DATE, this.value); } catch(e){}
-        updateCountdown();
-      });
-
-      updateCountdown();
-    }
-  });
-})();
-</script>
-
 {% if username in ('mochito','mochita') %}
 <button onclick="location.href='/push/debug'" class="debug-fab" aria-label="Debug push">🔧 Notificaciones</button>
 <style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:rgba(232,67,147,.4);color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>

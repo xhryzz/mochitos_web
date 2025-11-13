@@ -182,7 +182,7 @@ def _init_pool():
         raise RuntimeError('Falta DATABASE_URL para PostgreSQL')
 
     # Máximo 3 conexiones por defecto (suficiente en 512 MB). Sube con DB_MAX_CONN si lo necesitas.
-    maxconn = max(3, int(os.environ.get('DB_MAX_CONN', '5')))  # ¡Solo 3 conexiones!# Aumenta de 3 a 10
+    maxconn = max(10, int(os.environ.get('DB_MAX_CONN', '10')))  # Aumenta de 3 a 10
     PG_POOL = SimpleConnectionPool(
     1, maxconn,
     dsn=DATABASE_URL,
@@ -221,14 +221,14 @@ class PooledConn:
                 with self._conn.cursor() as c:
                     c.execute("SET application_name = 'mochitos';")
                     c.execute("SET idle_in_transaction_session_timeout = '5s';")
-                    c.execute("SET statement_timeout = '10s';")  # Un poco más de tiempo
+                    c.execute("SET statement_timeout = '5s';")
                 self._inited = True
             except (OperationalError, InterfaceError):
                 self._reconnect()
                 with self._conn.cursor() as c:
                     c.execute("SET application_name = 'mochitos';")
                     c.execute("SET idle_in_transaction_session_timeout = '5s';")
-                    c.execute("SET statement_timeout = '10s';")  # Un poco más de tiempo
+                    c.execute("SET statement_timeout = '5s';")
                 self._inited = True
 
         try:
@@ -244,50 +244,20 @@ class PooledConn:
             pass
 
 def get_db_connection():
-    # Si estamos fuera de contexto de Flask (como durante init_db), crear conexión directa
+    """Saca una conexión del pool y hace ping."""
+    _init_pool()
+    conn = PG_POOL.getconn()
+    wrapped = PooledConn(PG_POOL, conn)
     try:
-        from flask import g
-        if 'db_conn' not in g:
-            _init_pool()
-            conn = PG_POOL.getconn()
-            wrapped = PooledConn(PG_POOL, conn)
-            try:
-                with wrapped.cursor() as c:
-                    c.execute('SELECT 1;')
-                    _ = c.fetchone()
-            except (OperationalError, InterfaceError, DatabaseError):
-                wrapped._reconnect()
-                with wrapped.cursor() as c:
-                    c.execute('SELECT 1;')
-                    _ = c.fetchone()
-            g.db_conn = wrapped
-        return g.db_conn
-    except RuntimeError:
-        # Fuera de contexto de Flask - crear conexión directa
-        _init_pool()
-        conn = PG_POOL.getconn()
-        wrapped = PooledConn(PG_POOL, conn)
-        try:
-            with wrapped.cursor() as c:
-                c.execute('SELECT 1;')
-                _ = c.fetchone()
-        except (OperationalError, InterfaceError, DatabaseError):
-            wrapped._reconnect()
-            with wrapped.cursor() as c:
-                c.execute('SELECT 1;')
-                _ = c.fetchone()
-        return wrapped
-
-@app.teardown_appcontext
-def close_db_connection(error=None):
-    try:
-        from flask import g
-        db_conn = g.pop('db_conn', None)
-        if db_conn is not None:
-            db_conn.close()
-    except RuntimeError:
-        # Fuera de contexto, no hacer nada - la conexión se cerrará manualmente
-        pass
+        with wrapped.cursor() as c:
+            c.execute("SELECT 1;")
+            _ = c.fetchone()
+    except (OperationalError, InterfaceError, DatabaseError):
+        wrapped._reconnect()
+        with wrapped.cursor() as c:
+            c.execute("SELECT 1;")
+            _ = c.fetchone()
+    return wrapped
 
 # ========= Zona horaria Europe/Madrid =========
 def _eu_last_sunday(year: int, month: int) -> date:
@@ -350,87 +320,17 @@ def now_iso():
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
-# Pon esto después de tus funciones existentes, antes de los @app.route
-
-def get_homepage_data(user):
-    """Obtiene todos los datos de la página principal en una sola consulta"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            # Hacemos consultas separadas pero en la misma conexión
-            data = {}
-            
-            # 1. Pregunta del día
-            today_str = today_madrid().isoformat()
-            c.execute('SELECT id, question FROM daily_questions WHERE date=%s', (today_str,))
-            data['question'] = c.fetchone()
-            
-            # 2. Respuestas
-            if data['question']:
-                question_id = data['question']['id']
-                c.execute('SELECT username, answer FROM answers WHERE question_id=%s', (question_id,))
-                data['answers'] = {r['username']: r['answer'] for r in c.fetchall()}
-            else:
-                data['answers'] = {}
-            
-            # 3. Viajes recientes (solo 5)
-            # Viajes + fotos
-            # DESPUÉS:  
-            c.execute('''
-                SELECT
-                id,
-                destination,
-                description,
-                travel_date,
-                is_visited,
-                created_by
-                FROM travels
-                ORDER BY is_visited, travel_date DESC
-            ''')
-            travels = c.fetchall()
-            
-            # 4. Wishlist importante (solo 8 items)
-            c.execute('''
-                SELECT id, product_name, product_link, notes, is_purchased, priority 
-                FROM wishlist 
-                WHERE is_purchased = FALSE 
-                ORDER BY 
-                    CASE priority 
-                        WHEN 'alta' THEN 0 
-                        WHEN 'media' THEN 1 
-                        ELSE 2 
-                    END,
-                    created_at DESC 
-                LIMIT 8
-            ''')
-            data['wishlist'] = c.fetchall()
-            
-            return data
-    except Exception as e:
-        print(f"Error en get_homepage_data: {e}")
-        return {}
-
 # ========= SSE =========
 _subscribers_lock = threading.Lock()
 _subscribers: set[queue.Queue] = set()
 
 def broadcast(event_name: str, data: dict):
     with _subscribers_lock:
-        # LIMPIAR CLIENTES MUERTOS
-        dead_clients = []
-        for qcli in list(_subscribers):
-            if qcli.qsize() > 45:  # Si está casi lleno, probablemente murió
-                dead_clients.append(qcli)
-        
-        for dead in dead_clients:
-            _subscribers.discard(dead)
-            
-        # Ahora enviar a los que quedan
         for qcli in list(_subscribers):
             try:
-                qcli.put_nowait({'event': event_name, 'data': data})
+                qcli.put_nowait({"event": event_name, "data": data})
             except Exception:
-                pass  # Si falla, lo quitamos en la próxima limpieza
+                pass
 
 @app.route("/events")
 def sse_events():
@@ -525,232 +425,236 @@ RELATION_START = date(2025, 8, 2)
 INTIM_PIN = os.environ.get('INTIM_PIN', '6969')
 
 # ========= Mini-cache =========
-from functools import lru_cache
-import time
-
+import time as _time
+_cache_store = {}
+def _cache_key(fn_name): return f"_cache::{fn_name}"
 def ttl_cache(seconds=10):
-    def decorator(func):
-        @lru_cache(maxsize=128)
-        def cached_func(*args, **kwargs):
-            return func(*args, **kwargs)
-        return cached_func
-    return decorator
-
+    def deco(fn):
+        key = _cache_key(fn.__name__)
+        def wrapped(*a, **k):
+            now = _time.time()
+            item = _cache_store.get(key)
+            if item and (now - item[0] < seconds):
+                return item[1]
+            val = fn(*a, **k)
+            _cache_store[key] = (now, val)
+            return val
+        wrapped.__wrapped__ = fn
+        wrapped._cache_key = key
+        return wrapped
+    return deco
 def cache_invalidate(*fn_names):
-    # Para funciones específicas, limpiar cache manualmente
-    pass
-def init_db():
-    # Crear conexión directa para inicialización
-    _init_pool()
-    conn = PG_POOL.getconn()
-    try:
-        with conn.cursor() as c:
-            c.execute('''CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY, username TEXT UNIQUE, password TEXT)''')
-            c.execute('''CREATE TABLE IF NOT EXISTS schedule_times (
-                id SERIAL PRIMARY KEY, username TEXT NOT NULL, time TEXT NOT NULL,
-                UNIQUE (username, time))''')
-            c.execute('''CREATE TABLE IF NOT EXISTS daily_questions (
-                id SERIAL PRIMARY KEY, question TEXT, date TEXT)''')
-            c.execute('''CREATE TABLE IF NOT EXISTS answers (
-                id SERIAL PRIMARY KEY, question_id INTEGER, username TEXT, answer TEXT)''')
-            c.execute("ALTER TABLE answers ADD COLUMN IF NOT EXISTS created_at TEXT")
-            c.execute("ALTER TABLE answers ADD COLUMN IF NOT EXISTS updated_at TEXT")
-            c.execute("CREATE UNIQUE INDEX IF NOT EXISTS answers_unique ON answers (question_id, username)")
-            c.execute('''CREATE TABLE IF NOT EXISTS meeting (id SERIAL PRIMARY KEY, meeting_date TEXT)''')
-            c.execute('''CREATE TABLE IF NOT EXISTS banner (
-                id SERIAL PRIMARY KEY, image_data BYTEA, filename TEXT, mime_type TEXT, uploaded_at TEXT)''')
-            c.execute('''CREATE TABLE IF NOT EXISTS travels (
-                id SERIAL PRIMARY KEY, destination TEXT NOT NULL, description TEXT, travel_date TEXT,
-                is_visited BOOLEAN DEFAULT FALSE, created_by TEXT, created_at TEXT)''')
-            c.execute('''CREATE TABLE IF NOT EXISTS travel_photos (
-                id SERIAL PRIMARY KEY, travel_id INTEGER, image_url TEXT NOT NULL,
-                uploaded_by TEXT, uploaded_at TEXT, FOREIGN KEY(travel_id) REFERENCES travels(id))''')
-            c.execute('''CREATE TABLE IF NOT EXISTS wishlist (
-                id SERIAL PRIMARY KEY, product_name TEXT NOT NULL, product_link TEXT, notes TEXT,
-                created_by TEXT, created_at TEXT, is_purchased BOOLEAN DEFAULT FALSE)''')
-            c.execute("""ALTER TABLE wishlist
-                         ADD COLUMN IF NOT EXISTS priority TEXT
-                         CHECK (priority IN ('alta','media','baja')) DEFAULT 'media'""")
-            c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS is_gift BOOLEAN DEFAULT FALSE""")
-            c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS size TEXT""")
-            c.execute('''CREATE TABLE IF NOT EXISTS schedules (
-                id SERIAL PRIMARY KEY, username TEXT NOT NULL, day TEXT NOT NULL,
-                time TEXT NOT NULL, activity TEXT, color TEXT, UNIQUE(username, day, time))''')
-            c.execute('''CREATE TABLE IF NOT EXISTS locations (
-                id SERIAL PRIMARY KEY, username TEXT UNIQUE, location_name TEXT,
-                latitude REAL, longitude REAL, updated_at TEXT)''')
-            c.execute('''CREATE TABLE IF NOT EXISTS profile_pictures (
-                id SERIAL PRIMARY KEY, username TEXT UNIQUE, image_data BYTEA,
-                filename TEXT, mime_type TEXT, uploaded_at TEXT)''')
-            c.execute('''CREATE TABLE IF NOT EXISTS intimacy_events (
-                id SERIAL PRIMARY KEY, username TEXT NOT NULL, ts TEXT NOT NULL, place TEXT, notes TEXT)''')
-            # App state
-            c.execute('''CREATE TABLE IF NOT EXISTS app_state (
-                key TEXT PRIMARY KEY, value TEXT)''')
+    for name in fn_names:
+        _cache_store.pop(_cache_key(name), None)
 
-            # === ADMIN: notificaciones programadas ===
-            c.execute("""
-            CREATE TABLE IF NOT EXISTS scheduled_notifications (
-                id SERIAL PRIMARY KEY,
-                created_by TEXT NOT NULL,
-                target TEXT NOT NULL CHECK (target IN ('mochito','mochita','both')),
-                title TEXT NOT NULL,
-                body TEXT,
-                url TEXT,
-                tag TEXT,
-                icon TEXT,
-                badge TEXT,
-                when_at TEXT NOT NULL,  -- Europe/Madrid 'YYYY-MM-DD HH:MM:SS'
-                status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sent','cancelled')),
-                created_at TEXT NOT NULL,
-                sent_at TEXT
-            )
-            """)
-            c.execute("CREATE INDEX IF NOT EXISTS idx_sched_status_when ON scheduled_notifications (status, when_at)")
+# ========= DB init (añadimos app_state y push_subscriptions si no existen) =========
+def init_db():
+    with closing(get_db_connection()) as conn, conn.cursor() as c:
+        c.execute('''CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY, username TEXT UNIQUE, password TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS schedule_times (
+            id SERIAL PRIMARY KEY, username TEXT NOT NULL, time TEXT NOT NULL,
+            UNIQUE (username, time))''')
+        c.execute('''CREATE TABLE IF NOT EXISTS daily_questions (
+            id SERIAL PRIMARY KEY, question TEXT, date TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS answers (
+            id SERIAL PRIMARY KEY, question_id INTEGER, username TEXT, answer TEXT)''')
+        c.execute("ALTER TABLE answers ADD COLUMN IF NOT EXISTS created_at TEXT")
+        c.execute("ALTER TABLE answers ADD COLUMN IF NOT EXISTS updated_at TEXT")
+        c.execute("CREATE UNIQUE INDEX IF NOT EXISTS answers_unique ON answers (question_id, username)")
+        c.execute('''CREATE TABLE IF NOT EXISTS meeting (id SERIAL PRIMARY KEY, meeting_date TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS banner (
+            id SERIAL PRIMARY KEY, image_data BYTEA, filename TEXT, mime_type TEXT, uploaded_at TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS travels (
+            id SERIAL PRIMARY KEY, destination TEXT NOT NULL, description TEXT, travel_date TEXT,
+            is_visited BOOLEAN DEFAULT FALSE, created_by TEXT, created_at TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS travel_photos (
+            id SERIAL PRIMARY KEY, travel_id INTEGER, image_url TEXT NOT NULL,
+            uploaded_by TEXT, uploaded_at TEXT, FOREIGN KEY(travel_id) REFERENCES travels(id))''')
+        c.execute('''CREATE TABLE IF NOT EXISTS wishlist (
+            id SERIAL PRIMARY KEY, product_name TEXT NOT NULL, product_link TEXT, notes TEXT,
+            created_by TEXT, created_at TEXT, is_purchased BOOLEAN DEFAULT FALSE)''')
+        c.execute("""ALTER TABLE wishlist
+                     ADD COLUMN IF NOT EXISTS priority TEXT
+                     CHECK (priority IN ('alta','media','baja')) DEFAULT 'media'""")
+        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS is_gift BOOLEAN DEFAULT FALSE""")
+        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS size TEXT""")
+        c.execute('''CREATE TABLE IF NOT EXISTS schedules (
+            id SERIAL PRIMARY KEY, username TEXT NOT NULL, day TEXT NOT NULL,
+            time TEXT NOT NULL, activity TEXT, color TEXT, UNIQUE(username, day, time))''')
+        c.execute('''CREATE TABLE IF NOT EXISTS locations (
+            id SERIAL PRIMARY KEY, username TEXT UNIQUE, location_name TEXT,
+            latitude REAL, longitude REAL, updated_at TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS profile_pictures (
+            id SERIAL PRIMARY KEY, username TEXT UNIQUE, image_data BYTEA,
+            filename TEXT, mime_type TEXT, uploaded_at TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS intimacy_events (
+            id SERIAL PRIMARY KEY, username TEXT NOT NULL, ts TEXT NOT NULL, place TEXT, notes TEXT)''')
+        # App state
+        c.execute('''CREATE TABLE IF NOT EXISTS app_state (
+            key TEXT PRIMARY KEY, value TEXT)''')
+
+
+                # === ADMIN: notificaciones programadas ===
+        c.execute("""
+        CREATE TABLE IF NOT EXISTS scheduled_notifications (
+            id SERIAL PRIMARY KEY,
+            created_by TEXT NOT NULL,
+            target TEXT NOT NULL CHECK (target IN ('mochito','mochita','both')),
+            title TEXT NOT NULL,
+            body TEXT,
+            url TEXT,
+            tag TEXT,
+            icon TEXT,
+            badge TEXT,
+            when_at TEXT NOT NULL,  -- Europe/Madrid 'YYYY-MM-DD HH:MM:SS'
+            status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sent','cancelled')),
+            created_at TEXT NOT NULL,
+            sent_at TEXT
+        )
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_sched_status_when ON scheduled_notifications (status, when_at)")
 
             # --- Películas / Series ---
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS media_items (
-                    id SERIAL PRIMARY KEY,
-                    title           TEXT        NOT NULL,
-                    cover_url       TEXT,
-                    link_url        TEXT,
-                    on_netflix      BOOLEAN     DEFAULT FALSE,
-                    on_prime        BOOLEAN     DEFAULT FALSE,
-                    priority        TEXT        CHECK (priority IN ('alta','media','baja')) DEFAULT 'media',
-                    comment         TEXT,                -- comentario en "Por ver"
-                    created_by      TEXT,
-                    created_at      TEXT,
-                    is_watched      BOOLEAN     DEFAULT FALSE,
-                    watched_at      TEXT,
-                    rating          INTEGER     CHECK (rating BETWEEN 1 AND 5),
-                    watched_comment TEXT                 -- comentario en "Vistas"
-                );
-            """)
-            c.execute("CREATE INDEX IF NOT EXISTS idx_media_watched_prio ON media_items (is_watched, priority, created_at DESC);")
-            c.execute("CREATE INDEX IF NOT EXISTS idx_media_watched_at   ON media_items (is_watched, watched_at DESC);")
-            # Guardar reviews por usuario y media calcular medias
-            c.execute("""ALTER TABLE media_items ADD COLUMN IF NOT EXISTS reviews JSONB DEFAULT '{}'::jsonb""")
-            c.execute("""ALTER TABLE media_items ADD COLUMN IF NOT EXISTS avg_rating REAL""")
-
-            # === Ciclo (menstrual / estado de ánimo) ===
-            c.execute("""
-            CREATE TABLE IF NOT EXISTS cycle_entries (
-                id          SERIAL PRIMARY KEY,
-                username    TEXT        NOT NULL,                -- propietaria de los datos (normalmente 'mochita')
-                day         TEXT        NOT NULL,                -- 'YYYY-MM-DD' (fecha local Madrid)
-                mood        TEXT        CHECK (mood IN (
-                               'feliz','normal','triste','estresada','sensible','cansada','irritable','con_energia'
-                             )),
-                flow        TEXT        CHECK (flow IN ('nada','poco','medio','mucho')),
-                pain        INTEGER     CHECK (pain BETWEEN 0 AND 10),
-                notes       TEXT,
-                created_by  TEXT,
-                created_at  TEXT,
-                UNIQUE (username, day)
-            )
-            """)
-            c.execute("CREATE INDEX IF NOT EXISTS idx_cycle_user_day ON cycle_entries (username, day DESC)")
-            c.execute("CREATE INDEX IF NOT EXISTS idx_cycle_flow ON cycle_entries (flow)")
-
-            # === Preguntas (banco editable por admin) ===
-            c.execute("""
-            CREATE TABLE IF NOT EXISTS question_bank (
-            id SERIAL PRIMARY KEY,
-            text TEXT UNIQUE NOT NULL,
-            used BOOLEAN NOT NULL DEFAULT FALSE,
-            used_at TEXT,
-            active BOOLEAN NOT NULL DEFAULT TRUE,
-            created_at TEXT NOT NULL
-            )
-            """)
-            c.execute("CREATE INDEX IF NOT EXISTS idx_qbank_used_active ON question_bank (used, active)")
-            c.execute("ALTER TABLE daily_questions ADD COLUMN IF NOT EXISTS bank_id INTEGER")
-
-            # Seed inicial desde QUESTIONS si el banco está vacío
-            c.execute("SELECT COUNT(*) FROM question_bank")
-            if (c.fetchone()[0] or 0) == 0:
-                now = now_madrid_str()
-                for q in QUESTIONS:
-                    try:
-                        c.execute("INSERT INTO question_bank (text, created_at) VALUES (%s,%s)", (q, now))
-                    except Exception:
-                        pass
-                conn.commit()
-
-            # === Daily Question: reacciones y chat ===
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS dq_reactions (
-                    id SERIAL PRIMARY KEY,
-                    question_id INTEGER NOT NULL,
-                    from_user   TEXT    NOT NULL,
-                    to_user     TEXT    NOT NULL,
-                    reaction    TEXT    NOT NULL CHECK (char_length(reaction) <= 16),
-                    created_at  TEXT    NOT NULL,
-                    updated_at  TEXT    NOT NULL,
-                    UNIQUE (question_id, from_user, to_user)
-                )
-            """)
-            c.execute("CREATE INDEX IF NOT EXISTS idx_dq_react_q ON dq_reactions (question_id)")
-
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS dq_chat (
-                    id SERIAL PRIMARY KEY,
-                    question_id INTEGER NOT NULL,
-                    username   TEXT    NOT NULL,
-                    msg        TEXT    NOT NULL,
-                    created_at TEXT    NOT NULL
-                )
-            """)
-            c.execute("CREATE INDEX IF NOT EXISTS idx_dq_chat_q ON dq_chat (question_id)")
-
-            # Push subscriptions
-            c.execute('''CREATE TABLE IF NOT EXISTS push_subscriptions (
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS media_items (
                 id SERIAL PRIMARY KEY,
-                username TEXT NOT NULL,
-                endpoint TEXT UNIQUE NOT NULL,
-                p256dh TEXT NOT NULL,
-                auth TEXT NOT NULL,
-                created_at TEXT)''')
-            # Seed básico
-            try:
-                c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochito','1234'))
-                c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochita','1234'))
-                now = now_madrid_str()
-                c.execute("""INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
-                             VALUES (%s,%s,%s,%s,%s) ON CONFLICT (username) DO NOTHING""",
-                          ('mochito','Algemesí, Valencia', 39.1925, -0.4353, now))
-                c.execute("""INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
-                             VALUES (%s,%s,%s,%s,%s) ON CONFLICT (username) DO NOTHING""",
-                          ('mochita','Córdoba', 37.8882, -4.7794, now))
-                conn.commit()
-            except Exception as e:
-                print("Seed error:", e); conn.rollback()
-            # Índices
-            c.execute("CREATE INDEX IF NOT EXISTS idx_answers_q_user ON answers (question_id, username)")
-            c.execute("CREATE INDEX IF NOT EXISTS idx_travels_vdate ON travels (is_visited, travel_date DESC)")
-            c.execute("CREATE INDEX IF NOT EXISTS idx_wishlist_state_prio ON wishlist (is_purchased, priority, created_at DESC)")
-            c.execute("CREATE INDEX IF NOT EXISTS idx_intim_user_ts ON intimacy_events (username, ts DESC)")
-            c.execute("CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions (username)")
+                title           TEXT        NOT NULL,
+                cover_url       TEXT,
+                link_url        TEXT,
+                on_netflix      BOOLEAN     DEFAULT FALSE,
+                on_prime        BOOLEAN     DEFAULT FALSE,
+                priority        TEXT        CHECK (priority IN ('alta','media','baja')) DEFAULT 'media',
+                comment         TEXT,                -- comentario en "Por ver"
+                created_by      TEXT,
+                created_at      TEXT,
+                is_watched      BOOLEAN     DEFAULT FALSE,
+                watched_at      TEXT,
+                rating          INTEGER     CHECK (rating BETWEEN 1 AND 5),
+                watched_comment TEXT                 -- comentario en "Vistas"
+            );
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_media_watched_prio ON media_items (is_watched, priority, created_at DESC);")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_media_watched_at   ON media_items (is_watched, watched_at DESC);")
+        # Guardar reviews por usuario y media calcular medias
+        c.execute("""ALTER TABLE media_items ADD COLUMN IF NOT EXISTS reviews JSONB DEFAULT '{}'::jsonb""")
+        c.execute("""ALTER TABLE media_items ADD COLUMN IF NOT EXISTS avg_rating REAL""")
 
-            # ======= Seguimiento de PRECIO: migraciones =======
-            c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS track_price BOOLEAN DEFAULT FALSE""")
-            c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS last_price_cents INTEGER""")
-            c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS currency TEXT""")
-            c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS last_checked TEXT""")
-            c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS alert_drop_percent REAL""")
-            c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS alert_below_cents INTEGER""")
-            c.execute("""CREATE INDEX IF NOT EXISTS idx_wishlist_track ON wishlist (track_price, is_purchased)""")
 
-            c.execute('CREATE INDEX IF NOT EXISTS idx_answers_date ON answers(created_at)')
-            c.execute('CREATE INDEX IF NOT EXISTS idx_questions_date ON daily_questions(date)')
-            c.execute('CREATE INDEX IF NOT EXISTS idx_travels_date ON travels(travel_date)')
-            c.execute('CREATE INDEX IF NOT EXISTS idx_wishlist_priority ON wishlist(priority, is_purchased)')
-            
+
+                # === Ciclo (menstrual / estado de ánimo) ===
+        c.execute("""
+        CREATE TABLE IF NOT EXISTS cycle_entries (
+            id          SERIAL PRIMARY KEY,
+            username    TEXT        NOT NULL,                -- propietaria de los datos (normalmente 'mochita')
+            day         TEXT        NOT NULL,                -- 'YYYY-MM-DD' (fecha local Madrid)
+            mood        TEXT        CHECK (mood IN (
+                           'feliz','normal','triste','estresada','sensible','cansada','irritable','con_energia'
+                         )),
+            flow        TEXT        CHECK (flow IN ('nada','poco','medio','mucho')),
+            pain        INTEGER     CHECK (pain BETWEEN 0 AND 10),
+            notes       TEXT,
+            created_by  TEXT,
+            created_at  TEXT,
+            UNIQUE (username, day)
+        )
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_cycle_user_day ON cycle_entries (username, day DESC)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_cycle_flow ON cycle_entries (flow)")
+
+
+
+        # === Preguntas (banco editable por admin) ===
+        c.execute("""
+        CREATE TABLE IF NOT EXISTS question_bank (
+        id SERIAL PRIMARY KEY,
+        text TEXT UNIQUE NOT NULL,
+        used BOOLEAN NOT NULL DEFAULT FALSE,
+        used_at TEXT,
+        active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TEXT NOT NULL
+        )
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_qbank_used_active ON question_bank (used, active)")
+        c.execute("ALTER TABLE daily_questions ADD COLUMN IF NOT EXISTS bank_id INTEGER")
+
+        # Seed inicial desde QUESTIONS si el banco está vacío
+        c.execute("SELECT COUNT(*) FROM question_bank")
+        if (c.fetchone()[0] or 0) == 0:
+            now = now_madrid_str()
+            for q in QUESTIONS:
+                try:
+                    c.execute("INSERT INTO question_bank (text, created_at) VALUES (%s,%s)", (q, now))
+                except Exception:
+                    pass
             conn.commit()
-    finally:
-        PG_POOL.putconn(conn)
+
+                # === Daily Question: reacciones y chat ===
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS dq_reactions (
+                id SERIAL PRIMARY KEY,
+                question_id INTEGER NOT NULL,
+                from_user   TEXT    NOT NULL,
+                to_user     TEXT    NOT NULL,
+                reaction    TEXT    NOT NULL CHECK (char_length(reaction) <= 16),
+                created_at  TEXT    NOT NULL,
+                updated_at  TEXT    NOT NULL,
+                UNIQUE (question_id, from_user, to_user)
+            )
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_dq_react_q ON dq_reactions (question_id)")
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS dq_chat (
+                id SERIAL PRIMARY KEY,
+                question_id INTEGER NOT NULL,
+                username   TEXT    NOT NULL,
+                msg        TEXT    NOT NULL,
+                created_at TEXT    NOT NULL
+            )
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_dq_chat_q ON dq_chat (question_id)")
+
+
+        # Push subscriptions
+        c.execute('''CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id SERIAL PRIMARY KEY,
+            username TEXT NOT NULL,
+            endpoint TEXT UNIQUE NOT NULL,
+            p256dh TEXT NOT NULL,
+            auth TEXT NOT NULL,
+            created_at TEXT)''')
+        # Seed básico
+        try:
+            c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochito','1234'))
+            c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochita','1234'))
+            now = now_madrid_str()
+            c.execute("""INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
+                         VALUES (%s,%s,%s,%s,%s) ON CONFLICT (username) DO NOTHING""",
+                      ('mochito','Algemesí, Valencia', 39.1925, -0.4353, now))
+            c.execute("""INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
+                         VALUES (%s,%s,%s,%s,%s) ON CONFLICT (username) DO NOTHING""",
+                      ('mochita','Córdoba', 37.8882, -4.7794, now))
+            conn.commit()
+        except Exception as e:
+            print("Seed error:", e); conn.rollback()
+        # Índices
+        c.execute("CREATE INDEX IF NOT EXISTS idx_answers_q_user ON answers (question_id, username)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_travels_vdate ON travels (is_visited, travel_date DESC)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_wishlist_state_prio ON wishlist (is_purchased, priority, created_at DESC)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_intim_user_ts ON intimacy_events (username, ts DESC)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions (username)")
+
+        # ======= Seguimiento de PRECIO: migraciones =======
+        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS track_price BOOLEAN DEFAULT FALSE""")
+        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS last_price_cents INTEGER""")
+        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS currency TEXT""")
+        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS last_checked TEXT""")
+        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS alert_drop_percent REAL""")
+        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS alert_below_cents INTEGER""")
+        c.execute("""CREATE INDEX IF NOT EXISTS idx_wishlist_track ON wishlist (track_price, is_purchased)""")
+
+        conn.commit()
 
 init_db()
   # <-- importante
@@ -837,69 +741,32 @@ def _ensure_gamification_schema():
 
 
 
-def _grant_achievement_to(user: str, achievement_id: int, points_override=None):
-    """Concede (si falta) la medalla a 'user' y suma puntos.
-    Acepta opcionalmente points_override para compatibilidad con llamadas antiguas.
-    """
+def _grant_achievement_to(user: str, achievement_id: int, points_on_award: int = 0):
+    """Concede (si falta) la medalla a 'user' y suma puntos."""
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # Primero obtener información del achievement
-            c.execute(
-                "SELECT title, points_on_award FROM achievements WHERE id=%s",
-                (achievement_id,)
-            )
-            ach_info = c.fetchone()
-            ach_title = ach_info['title'] if ach_info else "Logro"
-            points_on_award = ach_info['points_on_award'] if ach_info else 0
-
-            # Si nos pasan un override explícito, usamos ese
-            if points_override is not None:
-                points_on_award = points_override
-
             c.execute("SELECT id FROM users WHERE username=%s", (user,))
             uid = (c.fetchone() or [None])[0]
             if not uid:
                 return
 
-            c.execute(
-                """SELECT 1 FROM user_achievements
-                     WHERE user_id=%s AND achievement_id=%s""",
-                (uid, achievement_id)
-            )
+            c.execute("""
+              SELECT 1 FROM user_achievements
+              WHERE user_id=%s AND achievement_id=%s
+            """, (uid, achievement_id))
             if c.fetchone():
                 return  # ya concedida
 
             if points_on_award and int(points_on_award) != 0:
-                c.execute(
-                    "UPDATE users SET points = COALESCE(points,0) + %s WHERE id=%s",
-                    (int(points_on_award), uid)
-                )
+                c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE id=%s",
+                          (int(points_on_award), uid))
 
-            c.execute(
-                """INSERT INTO user_achievements (user_id, achievement_id, earned_at)
-                     VALUES (%s,%s,%s)
-                     ON CONFLICT (user_id, achievement_id) DO NOTHING""",
-                (uid, achievement_id, now_madrid_str())
-            )
-
-            # 🔔 NOTIFICACIÓN PUSH POR LOGRO Y PUNTOS
-            try:
-                if points_on_award and int(points_on_award) > 0:
-                    send_push_to(
-                        user,
-                        title="🏆 ¡Nuevo logro desbloqueado!",
-                        body=f"{ach_title} - +{points_on_award} puntos"
-                    )
-                else:
-                    send_push_to(
-                        user,
-                        title="🏆 ¡Nuevo logro desbloqueado!",
-                        body=ach_title
-                    )
-            except Exception as e:
-                print("[push achievement] ", e)
-
+            c.execute("""
+              INSERT INTO user_achievements (user_id, achievement_id, earned_at)
+              VALUES (%s,%s,%s)
+              ON CONFLICT (user_id, achievement_id) DO NOTHING
+            """, (uid, achievement_id, now_madrid_str()))
         conn.commit()
     finally:
         conn.close()
@@ -1241,8 +1108,7 @@ def _daterange(d1: date, d2: date):
         yield cur
         cur += timedelta(days=1)
 
-def get_periods_for_user(user: str = 'mochita', lookback_days: int = 180):  # 6 meses en vez de 1 año
-
+def get_periods_for_user(user: str = 'mochita', lookback_days: int = 365):
     today = today_madrid()
     start = today - timedelta(days=lookback_days)
     end   = today
@@ -1739,18 +1605,6 @@ def get_profile_pictures():
             return pics
     finally:
         conn.close()
-
-
-# Y JUSTO DESPUÉS añade:
-from functools import lru_cache
-
-@lru_cache(maxsize=128)
-def get_banner_cached():
-    return get_banner()
-
-@lru_cache(maxsize=128)  
-def get_profile_pictures_cached():
-    return get_profile_pictures()
 
 @ttl_cache(seconds=8)
 def compute_streaks():
@@ -2295,32 +2149,30 @@ def fmt_eur(cents: int | None) -> str:
     return f"{euros:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def _maybe_shrink_image(image_data, max_px=800, max_kb=200):  # ¡Más pequeño!
+def _maybe_shrink_image(image_data: bytes, max_px: int = 1600, max_kb: int = 500):
+    """
+    Devuelve (bytes_optimizados, mime_override_o_None). Intenta convertir a WebP y limitar tamaño.
+    Si no hay PIL, corta a max_kb como red de seguridad (no cambia funcionalidad visible).
+    """
     try:
-        from PIL import Image
-        import io
-        
-        img = Image.open(io.BytesIO(image_data))
-        # Reducir calidad para web
-        img = img.convert('RGB')
-        
-        # Hacer más pequeño
-        w, h = img.size
+        from PIL import Image  # pip install Pillow (opcional)
+        im = Image.open(io.BytesIO(image_data)).convert('RGB')
+        w, h = im.size
         if max(w, h) > max_px:
-            ratio = max_px / max(w, h)
-            new_size = (int(w * ratio), int(h * ratio))
-            img = img.resize(new_size, Image.Resampling.LANCZOS)
-        
-        # Comprimir más
-        output = io.BytesIO()
-        img.save(output, format='WEBP', quality=70, optimize=True)  # Menor calidad
-        return output.getvalue(), 'image/webp'
-        
+            ratio = max_px / float(max(w, h))
+            im = im.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+        out = io.BytesIO()
+        im.save(out, format='WEBP', quality=82, method=6)
+        out_bytes = out.getvalue()
+        if len(out_bytes) <= len(image_data):
+            return out_bytes, 'image/webp'
     except Exception:
-        # Si falla, devolver original pero limitar tamaño
-        if len(image_data) > max_kb * 1024:
-            return image_data[:max_kb * 1024], None
-        return image_data, None
+        pass
+
+    if len(image_data) > max_kb * 1024:
+        # Último recurso: recorte duro para evitar BYTEA gigantes (mantiene “una imagen”, no cambia rutas)
+        return image_data[:max_kb * 1024], None
+    return image_data, None
 
 
 def notify_price_drop(row, old_cents: int, new_cents: int):
@@ -2574,7 +2426,6 @@ def background_loop():
 
 
 # ========= Rutas =========
-# ========= Rutas =========
 @app.route('/', methods=['GET', 'POST'])
 def index():
     # LOGIN
@@ -2607,31 +2458,14 @@ def index():
         return render_template('index.html', error=None, profile_pictures={})
 
     # LOGUEADO
-    user = session.get('username')
-    
+    user = session.get('username')  # <- mover fuera del if anterior
     # 👉 Marca presencia al cargar la página (crea/actualiza la fila)
     try:
         touch_presence(user, device='page-view')
     except Exception as e:
         app.logger.warning("touch_presence failed: %s", e)
 
-    # Cargar datos principales de forma optimizada
-    homepage_data = get_homepage_data(user)
-    
-    # Extraer datos optimizados
-    question_data = homepage_data.get('question', {})
-    question_id = question_data.get('id')
-    question_text = question_data.get('question', 'No hay pregunta para hoy')
-    answers = homepage_data.get('answers', {})
-    travels = homepage_data.get('travels', [])
-    wishlist_items = homepage_data.get('wishlist', [])
-    media_to_watch = homepage_data.get('media_to_watch', [])
-    media_watched = homepage_data.get('media_watched', [])
-    travel_photos_dict = homepage_data.get('travel_photos_dict', {})
-    dq_reactions_map = homepage_data.get('dq_reactions', {})
-    dq_chat_messages = homepage_data.get('dq_chat', [])
-    points_data = homepage_data.get('points', {})
-    
+    question_id, question_text = get_today_question()  # usa fecha de Madrid por defecto
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
@@ -2641,7 +2475,7 @@ def index():
                 file = request.files['profile_picture']
                 if file and file.filename:
                     raw = file.read()
-                    img_bytes, mime_over = _maybe_shrink_image(raw)  # ⬅️ optimizado
+                    img_bytes, mime_over = _maybe_shrink_image(raw)  # ⬅️ aquí se optimiza
                     filename = secure_filename(file.filename)
                     mime_type = mime_over or file.mimetype
                     c.execute("""
@@ -2658,6 +2492,8 @@ def index():
                     broadcast('profile_update', {'user': user})
 
                 return redirect('/')
+
+
 
             # 2) Cambio de contraseña
             if request.method == 'POST' and 'change_password' in request.form:
@@ -2685,11 +2521,14 @@ def index():
                 send_discord("Change password OK", {"user": user}); return redirect('/')
 
             # 3) Responder pregunta
+            # En la sección donde se procesa la respuesta (busca esta parte en tu código):
+            # 3) Responder pregunta
             if request.method == 'POST' and 'answer' in request.form:
                 answer = (request.form.get('answer') or '').strip()
                 if question_id is not None and answer:
                     now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
+                    conn = get_db_connection()
                     try:
                         with conn.cursor() as c:
                             c.execute("""
@@ -2747,10 +2586,13 @@ def index():
                     except Exception as e:
                         print(f"[answer submission] Error: {e}")
                         conn.rollback()
+                    finally:
+                        conn.close()
                         
                 return redirect('/')
 
-            # 3-bis) Cambiar la pregunta de HOY
+
+            # 3-bis) Cambiar la pregunta de HOY (no borra fila => preserva racha)
             if request.method == 'POST' and 'dq_reroll' in request.form:
                 ok = reroll_today_question()
                 if ok:
@@ -2760,6 +2602,7 @@ def index():
                 else:
                     flash("No quedan preguntas disponibles para cambiar 😅", "error")
                 return redirect('/')
+
 
             # 4) Meeting date
             if request.method == 'POST' and 'meeting_date' in request.form:
@@ -2774,7 +2617,7 @@ def index():
                 file = request.files['banner']
                 if file and file.filename:
                     raw = file.read()
-                    img_bytes, mime_over = _maybe_shrink_image(raw, max_px=800, max_kb=200)  # ⬅️ optimizado
+                    img_bytes, mime_over = _maybe_shrink_image(raw, max_px=1800, max_kb=700)
                     filename = secure_filename(file.filename)
                     mime_type = mime_over or file.mimetype
                     c.execute(
@@ -2820,7 +2663,8 @@ def index():
                     broadcast("travel_update", {"type": "photo_add", "id": int(travel_id)})
                 return redirect('/')
             
-            # 8) Wishlist add
+
+# 8) Wishlist add (acepta form o JSON y nombres antiguos/nuevos)
             if request.method == 'POST' and 'edit_wishlist_item' not in request.path:
                     data = request.get_json(silent=True) or request.form
 
@@ -2853,6 +2697,7 @@ def index():
                     alert_below_cents = euros_to_cents(alert_below_price)
                     alert_pct = float(alert_drop_percent) if alert_drop_percent else None
 
+                    # 👉 Solo actuar si realmente es un alta de wishlist
                     if product_name:
                         c.execute("""
                             INSERT INTO wishlist
@@ -2875,9 +2720,15 @@ def index():
                         except Exception as e:
                             print("[push wishlist] ", e)
 
+                        # Responder acorde al tipo de petición
                         if request.is_json or request.headers.get('Accept','').startswith('application/json'):
                             return jsonify({"ok": True})
                         return redirect('/')
+                    # Si NO hay product_name, seguimos con el resto de handlers sin devolver nada.
+
+                
+
+
 
             # INTIMIDAD
             if request.method == 'POST' and 'intim_unlock_pin' in request.form:
@@ -2908,30 +2759,231 @@ def index():
                 broadcast("intim_update", {"type": "add"})
                 return redirect('/')
 
+            # ------------ Consultas para render ------------
+            # Respuestas del día
+            c.execute("SELECT username, answer, created_at, updated_at FROM answers WHERE question_id=%s", (question_id,))
+            ans_rows = c.fetchall()
+            # Reacciones y chat de la Pregunta del Día actual
+            dq_reactions_map = {}
+            c.execute("SELECT to_user, from_user, reaction FROM dq_reactions WHERE question_id=%s", (question_id,))
+            for r in c.fetchall():
+                dq_reactions_map[r['to_user']] = {"from_user": r['from_user'], "reaction": r['reaction']}
+
+            c.execute("SELECT username, msg, created_at FROM dq_chat WHERE question_id=%s ORDER BY id ASC", (question_id,))
+            dq_chat_messages = [dict(row) for row in c.fetchall()]
+
+                        # PUNTOS DEL USUARIO (añade esto)
+            c.execute("SELECT COALESCE(points, 0) FROM users WHERE username=%s", (user,))
+            user_points = int((c.fetchone() or [0])[0] or 0)
+
+
+            # Viajes + fotos
+            c.execute("""
+                SELECT id, destination, description, travel_date, is_visited, created_by
+                FROM travels
+                ORDER BY is_visited, travel_date DESC
+            """)
+            travels = c.fetchall()
+
+            c.execute("SELECT travel_id, id, image_url, uploaded_by FROM travel_photos ORDER BY id DESC")
+            all_ph = c.fetchall()
+
+            # Wishlist (blindaje regalos)
+            c.execute("""
+                SELECT
+                    id,
+                    product_name,
+                    product_link,
+                    notes,
+                    created_by,
+                    created_at,
+                    is_purchased,
+                    COALESCE(priority,'media') AS priority,
+                    COALESCE(is_gift,false)   AS is_gift,
+                    size,
+                    COALESCE(track_price,false) AS track_price,
+                    last_price_cents,
+                    currency,
+                    last_checked,
+                    alert_drop_percent,
+                    alert_below_cents
+                FROM wishlist
+                ORDER BY
+                    is_purchased ASC,
+                    CASE COALESCE(priority,'media')
+                        WHEN 'alta' THEN 0
+                        WHEN 'media' THEN 1
+                        ELSE 2
+                    END,
+                    created_at DESC
+            """)
+            wl_rows = c.fetchall()  # <-- IMPORTANTE: justo después del SELECT de wishlist
+
+          # --- Media: POR VER ---
+            c.execute("""
+                SELECT
+                id, title, cover_url, link_url, on_netflix, on_prime,
+                comment, priority,
+                created_by, created_at,
+                reviews,            -- NUEVO (JSONB)
+                avg_rating          -- NUEVO (media)
+                FROM media_items
+                WHERE is_watched = FALSE
+                ORDER BY
+                CASE priority WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,
+                COALESCE(created_at, '1970-01-01') DESC,
+                id DESC
+            """)
+            media_to_watch = c.fetchall()
+
+            # --- Media: VISTAS ---
+            c.execute("""
+                SELECT
+                id, title, cover_url, link_url,
+                reviews,            -- NUEVO (JSONB)
+                avg_rating,         -- NUEVO (media)
+                watched_at,
+                created_by
+                FROM media_items
+                WHERE is_watched = TRUE
+                ORDER BY COALESCE(watched_at, '1970-01-01') DESC, id DESC
+            """)
+            media_watched = c.fetchall()
+
+
+            # Helpers para leer reviews y exponer campos cómodos a la plantilla
+        def _parse_reviews_value(raw):
+            # raw puede venir como dict (jsonb) o str (json)
+            if isinstance(raw, dict):
+                return dict(raw)
+            if isinstance(raw, str) and raw.strip():
+                try:
+                    return json.loads(raw)
+                except Exception:
+                    return {}
+            return {}
+
+        def _norm_rate(v):
+            try:
+                i = int(v)
+                return i if 1 <= i <= 5 else None
+            except Exception:
+                return None
+
+        def enrich_media(rows, me_user):
+            other_user = 'mochita' if me_user == 'mochito' else 'mochito'
+            out = []
+            for r in rows:
+                d = dict(r)  # DictRow -> dict
+                rv = _parse_reviews_value(d.get('reviews'))
+
+                my_r = rv.get(me_user) or {}
+                ot_r = rv.get(other_user) or {}
+
+                d['my_rating']     = _norm_rate(my_r.get('rating'))
+                d['my_comment']    = (my_r.get('comment') or '').strip()
+                d['other_rating']  = _norm_rate(ot_r.get('rating'))
+                d['other_comment'] = (ot_r.get('comment') or '').strip()
+
+                # Compatibilidad con plantillas antiguas:
+                if d.get('rating') is None and d.get('avg_rating') is not None:
+                    d['rating'] = d['avg_rating']              # usa la media como "rating"
+                if d.get('watched_comment') is None and d.get('my_comment'):
+                    d['watched_comment'] = d['my_comment']     # usa tu comentario como "watched_comment"
+
+                out.append(d)
+            return out
+
+        # Enriquecer las dos listas con campos cómodos para la plantilla
+        media_to_watch = enrich_media(media_to_watch, user)
+        media_watched  = enrich_media(media_watched, user)
+
+
+        # --- Procesamiento Python *fuera* del cursor ---
+        # Respuestas
+        answers = [(r[0], r[1]) for r in ans_rows]
+        answers_created_at = {r[0]: r[2] for r in ans_rows}
+        answers_updated_at = {r[0]: r[3] for r in ans_rows}
+        answers_edited = {r[0]: (r[2] is not None and r[3] is not None and r[2] != r[3]) for r in ans_rows}
+
+        other_user = 'mochita' if user == 'mochito' else 'mochito'
+        dict_ans = {u: a for (u, a) in answers}
+        user_answer, other_answer = dict_ans.get(user), dict_ans.get(other_user)
+        show_answers = (user_answer is not None) and (other_answer is not None)
+
+        # Fotos de viajes agrupadas
+        travel_photos_dict = {}
+        for tr_id, pid, url, up in all_ph:
+            travel_photos_dict.setdefault(tr_id, []).append({'id': pid, 'url': url, 'uploaded_by': up})
+
+        # Blindaje wishlist (regalos ocultos al no-creador)
+        safe_items = []
+        for (wid, product_name, product_link, notes, created_by, created_at,
+             is_purchased, priority, is_gift, size,
+             track_price, last_price_cents, currency, last_checked, alert_pct, alert_below_cents) in wl_rows:
+
+            priority = priority or 'media'
+            is_gift = bool(is_gift)
+            track_price = bool(track_price)
+
+            base_tuple_visible = (
+                wid, product_name, product_link, notes,
+                created_by, created_at, is_purchased,
+                priority, is_gift, size
+            )
+
+            extra_price = (track_price, last_price_cents, currency, last_checked, alert_pct, alert_below_cents)
+
+            if is_gift and created_by != user:
+                safe_items.append((
+                    wid,
+                    "🎁 Regalo oculto",
+                    None,
+                    None,
+                    created_by,
+                    created_at,
+                    is_purchased,
+                    priority,
+                    True,
+                    None,
+                    False, None, None, None, None, None  # oculta precio
+                ))
+            else:
+                safe_items.append(base_tuple_visible + extra_price)
+
+        wishlist_items = safe_items
+
+        banner_file = get_banner()
+        profile_pictures = get_profile_pictures()
+
+        # --- Puntos de ambos para el chip ---
+        with conn.cursor() as c2:
+            c2.execute("""
+                SELECT username, COALESCE(points,0)
+                FROM users
+                WHERE username IN (%s, %s)
+            """, (user, other_user))
+            rows = c2.fetchall()
+        pts_map = {r[0]: int(r[1]) for r in rows}
+        user_points   = pts_map.get(user, 0)
+        other_points  = pts_map.get(other_user, 0)
+
     finally:
         conn.close()
 
-    # --- Procesar datos para template ---
-    other_user = 'mochita' if user == 'mochito' else 'mochito'
-    dict_ans = answers
-    user_answer, other_answer = dict_ans.get(user), dict_ans.get(other_user)
-    show_answers = (user_answer is not None) and (other_answer is not None)
-
-    # Puntos
-    user_points = points_data.get(user, 0)
-    other_points = points_data.get(other_user, 0)
-
-    # --- Cargar datos adicionales ---
     current_streak, best_streak = compute_streaks()
     intim_unlocked = bool(session.get('intim_unlocked'))
     intim_stats = get_intim_stats()
     intim_events = get_intim_events(200) if intim_unlocked else []
 
-    # --- Ciclo para interfaz ---
-    cycle_user = 'mochita'
+
+     # --- Ciclo para interfaz ---
+    cycle_user = 'mochita'  # por defecto lo guardamos para ella; cambia si quieres
     today = today_madrid()
     month_start = today.replace(day=1)
+    # mostramos 3 meses: actual y los 2 siguientes para planificar
     from datetime import timedelta as _td
+    # último día del tercer mes
     def _last_day_of_month(y, m):
         import calendar
         return date(y, m, calendar.monthrange(y, m)[1])
@@ -2945,17 +2997,13 @@ def index():
     moods_for_select = list(ALLOWED_MOODS)
     flows_for_select = list(ALLOWED_FLOWS)
 
-    # --- Usar versiones cacheadas ---
-    banner_file = get_banner_cached()
-    profile_pictures = get_profile_pictures_cached()
-
     return render_template('index.html',
                            question=question_text,
                            show_answers=show_answers,
-                           answers=list(answers.items()),
-                           answers_edited={},  # Se calculaba antes, ahora simplificado
-                           answers_created_at={},  # Se calculaba antes, ahora simplificado  
-                           answers_updated_at={},  # Se calculaba antes, ahora simplificado
+                           answers=answers,
+                           answers_edited=answers_edited,
+                           answers_created_at=answers_created_at,
+                           answers_updated_at=answers_updated_at,
                            user_answer=user_answer,
                            other_user=other_user,
                            other_answer=other_answer,
@@ -2984,165 +3032,9 @@ def index():
                            question_id=question_id,
                            dq_reactions=dq_reactions_map,
                            dq_chat_messages=dq_chat_messages,
-                           user_points=user_points,
+                           user_points=user_points,   # ⬅️ añade esto
                            other_points=other_points,
                            )
-
-# ========= FUNCIÓN OPTIMIZADA PARA DATOS DE LA PÁGINA =========
-def get_homepage_data(user):
-    """Obtiene todos los datos de la página principal en consultas optimizadas"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            data = {}
-            today_str = today_madrid().isoformat()
-            
-            # 1. Pregunta del día
-            c.execute('SELECT id, question FROM daily_questions WHERE date=%s', (today_str,))
-            data['question'] = c.fetchone()
-            
-            # 2. Respuestas (solo las necesarias)
-            if data['question']:
-                question_id = data['question']['id']
-                c.execute('SELECT username, answer FROM answers WHERE question_id=%s', (question_id,))
-                data['answers'] = {r['username']: r['answer'] for r in c.fetchall()}
-            else:
-                data['answers'] = {}
-            
-            # 3. Viajes recientes (solo 5)
-            # Viajes + fotos
-            # DESPUÉS:  
-            c.execute('''
-                SELECT
-                id,
-                destination,
-                description,
-                travel_date,
-                is_visited,
-                created_by
-                FROM travels
-                ORDER BY is_visited, travel_date DESC
-            ''')
-            travels = c.fetchall()
-            
-            # 4. Wishlist importante (solo 8 items)
-            other_user = 'mochita' if user == 'mochito' else 'mochito'
-            c.execute('''
-                SELECT id, product_name, product_link, notes, created_by, created_at, 
-                       is_purchased, priority, is_gift, size,
-                       track_price, last_price_cents, currency, last_checked, 
-                       alert_drop_percent, alert_below_cents
-                FROM wishlist 
-                WHERE is_purchased = FALSE 
-                AND (is_gift = FALSE OR created_by = %s)
-                ORDER BY 
-                    CASE priority 
-                        WHEN 'alta' THEN 0 
-                        WHEN 'media' THEN 1 
-                        ELSE 2 
-                    END,
-                    created_at DESC 
-                LIMIT 8
-            ''', (user,))
-            data['wishlist'] = c.fetchall()
-            
-            # 5. Media por ver (limit 6)
-            c.execute('''
-                SELECT id, title, cover_url, link_url, on_netflix, on_prime, 
-                       comment, priority, created_by, created_at, reviews, avg_rating
-                FROM media_items
-                WHERE is_watched = FALSE
-                ORDER BY 
-                    CASE priority WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,
-                    created_at DESC
-                LIMIT 6
-            ''')
-            data['media_to_watch'] = c.fetchall()
-            
-            # 6. Media vistas (limit 6)
-            c.execute('''
-                SELECT id, title, cover_url, link_url, reviews, avg_rating, 
-                       watched_at, created_by
-                FROM media_items
-                WHERE is_watched = TRUE
-                ORDER BY watched_at DESC
-                LIMIT 6
-            ''')
-            data['media_watched'] = c.fetchall()
-            
-            # 7. Fotos de viajes (solo para los viajes mostrados)
-            if data['travels']:
-                travel_ids = [str(t[0]) for t in data['travels']]
-                placeholders = ','.join(['%s'] * len(travel_ids))
-                c.execute(f'SELECT travel_id, id, image_url, uploaded_by FROM travel_photos WHERE travel_id IN ({placeholders}) ORDER BY id DESC', travel_ids)
-                all_ph = c.fetchall()
-                data['travel_photos_dict'] = {}
-                for tr_id, pid, url, up in all_ph:
-                    data['travel_photos_dict'].setdefault(tr_id, []).append({'id': pid, 'url': url, 'uploaded_by': up})
-            else:
-                data['travel_photos_dict'] = {}
-            
-            # 8. Reacciones y chat
-            if data['question']:
-                question_id = data['question']['id']
-                c.execute("SELECT to_user, from_user, reaction FROM dq_reactions WHERE question_id=%s", (question_id,))
-                data['dq_reactions'] = {r['to_user']: {"from_user": r['from_user'], "reaction": r['reaction']} for r in c.fetchall()}
-                
-                c.execute("SELECT username, msg, created_at FROM dq_chat WHERE question_id=%s ORDER BY id ASC", (question_id,))
-                data['dq_chat'] = [dict(row) for row in c.fetchall()]
-            else:
-                data['dq_reactions'] = {}
-                data['dq_chat'] = []
-            
-            # 9. Puntos de ambos usuarios
-            c.execute("SELECT username, COALESCE(points,0) FROM users WHERE username IN (%s, %s)", (user, other_user))
-            data['points'] = {r[0]: int(r[1]) for r in c.fetchall()}
-            
-            return data
-    except Exception as e:
-        print(f"Error en get_homepage_data: {e}")
-        return {}
-    finally:
-        conn.close()
-
-# ========= FUNCIONES DE CACHE OPTIMIZADAS =========
-from functools import lru_cache
-
-@lru_cache(maxsize=128)
-def get_banner_cached():
-    return get_banner()
-
-@lru_cache(maxsize=128)  
-def get_profile_pictures_cached():
-    return get_profile_pictures()
-
-# ========= FUNCIÓN DE IMÁGENES OPTIMIZADA =========
-def _maybe_shrink_image(image_data, max_px=800, max_kb=200):  # ¡Más pequeño!
-    try:
-        from PIL import Image
-        import io
-        
-        img = Image.open(io.BytesIO(image_data))
-        # Reducir calidad para web
-        img = img.convert('RGB')
-        
-        # Hacer más pequeño
-        w, h = img.size
-        if max(w, h) > max_px:
-            ratio = max_px / max(w, h)
-            new_size = (int(w * ratio), int(h * ratio))
-            img = img.resize(new_size, Image.Resampling.LANCZOS)
-        
-        # Comprimir más
-        output = io.BytesIO()
-        img.save(output, format='WEBP', quality=70, optimize=True)  # Menor calidad
-        return output.getvalue(), 'image/webp'
-        
-    except Exception:
-        # Si falla, devolver original pero limitar tamaño
-        if len(image_data) > max_kb * 1024:
-            return image_data[:max_kb * 1024], None
-        return image_data, None
 
 # ======= Rutas REST extra (con broadcast) =======
 @app.route('/delete_travel', methods=['POST'])
@@ -5407,21 +5299,17 @@ def dq_chat_send():
 
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1
-# if os.environ.get("RUN_SCHEDULER", "1") == "1":
-#     threading.Thread(target=background_loop, daemon=True).start()
+if os.environ.get("RUN_SCHEDULER", "1") == "1":
+    threading.Thread(target=background_loop, daemon=True).start()
 
 
 # ======= WSGI / Run =======
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
-    # CONFIGURACIÓN PARA POCO MEMORIA:
-    app.run(
-        host='0.0.0.0', 
-        port=port, 
-        debug=False,  # ¡IMPORTANTE! Debug = False en producción
-        threaded=True,  # Mejor para múltiples requests
-        processes=1  # Solo 1 proceso para ahorrar memoria
-    )
+    app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
+
+
+
 
 # ========= Gamificación: puntos, medallas y tienda =========
 
@@ -5752,80 +5640,19 @@ def check_redeem_achievements(username):
                     _grant_achievement_by_code(username, f"redeem_{level}")
     finally:
         conn.close()
+
 def _grant_achievement_by_code(username, achievement_code):
-    """Concede (si existe y está activo) el logro con ese código al usuario.
-    Usa UNA sola conexión para evitar agotar el pool.
-    """
+    """Función helper para conceder logros por código"""
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # Buscar info del achievement
-            c.execute(
-                """SELECT id, title, points_on_award
-                     FROM achievements
-                     WHERE code=%s AND active=TRUE""",
-                (achievement_code,)
-            )
-            ach = c.fetchone()
-            if not ach:
-                return
-
-            achievement_id = ach[0]
-            ach_title = ach[1] or "Logro"
-            points_on_award = ach[2] or 0
-
-            # Buscar id de usuario
-            c.execute("SELECT id FROM users WHERE username=%s", (username,))
-            row_user = c.fetchone()
-            uid = (row_user or [None])[0]
-            if not uid:
-                return
-
-            # ¿Ya tiene este logro?
-            c.execute(
-                """SELECT 1 FROM user_achievements
-                     WHERE user_id=%s AND achievement_id=%s""",
-                (uid, achievement_id)
-            )
-            if c.fetchone():
-                return  # ya concedida
-
-            # Sumar puntos si toca
-            if points_on_award and int(points_on_award) != 0:
-                c.execute(
-                    "UPDATE users SET points = COALESCE(points,0) + %s WHERE id=%s",
-                    (int(points_on_award), uid)
-                )
-
-            # Insertar logro
-            c.execute(
-                """INSERT INTO user_achievements (user_id, achievement_id, earned_at)
-                     VALUES (%s,%s,%s)
-                     ON CONFLICT (user_id, achievement_id) DO NOTHING""",
-                (uid, achievement_id, now_madrid_str())
-            )
-
-        conn.commit()
-
-        # Notificación push (fuera del cursor, pero misma conexión ya ha hecho commit)
-        try:
-            if points_on_award and int(points_on_award) > 0:
-                send_push_to(
-                    username,
-                    title="🏆 ¡Nuevo logro desbloqueado!",
-                    body=f"{ach_title} - +{points_on_award} puntos"
-                )
-            else:
-                send_push_to(
-                    username,
-                    title="🏆 ¡Nuevo logro desbloqueado!",
-                    body=ach_title
-                )
-        except Exception as e:
-            print("[push achievement]", e)
+            c.execute("SELECT id FROM achievements WHERE code=%s", (achievement_code,))
+            row = c.fetchone()
+            if row:
+                achievement_id = row[0]
+                _grant_achievement_to(username, achievement_id)
     finally:
         conn.close()
-
 
 # --- Gamificación: bootstrap (seguro/idempotente, Flask 3.x) ---
 try:

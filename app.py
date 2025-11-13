@@ -374,8 +374,20 @@ def get_homepage_data(user):
                 data['answers'] = {}
             
             # 3. Viajes recientes (solo 5)
-            c.execute('SELECT id, destination, description, travel_date, is_visited FROM travels ORDER BY created_at DESC LIMIT 5')
-            data['travels'] = c.fetchall()
+            # Viajes + fotos
+            # DESPUÉS:  
+            c.execute('''
+                SELECT
+                id,
+                destination,
+                description,
+                travel_date,
+                is_visited,
+                created_by
+                FROM travels
+                ORDER BY is_visited, travel_date DESC
+            ''')
+            travels = c.fetchall()
             
             # 4. Wishlist importante (solo 8 items)
             c.execute('''
@@ -2998,8 +3010,20 @@ def get_homepage_data(user):
                 data['answers'] = {}
             
             # 3. Viajes recientes (solo 5)
-            c.execute('SELECT id, destination, description, travel_date, is_visited, created_by FROM travels ORDER BY created_at DESC LIMIT 5')
-            data['travels'] = c.fetchall()
+            # Viajes + fotos
+            # DESPUÉS:  
+            c.execute('''
+                SELECT
+                id,
+                destination,
+                description,
+                travel_date,
+                is_visited,
+                created_by
+                FROM travels
+                ORDER BY is_visited, travel_date DESC
+            ''')
+            travels = c.fetchall()
             
             # 4. Wishlist importante (solo 8 items)
             other_user = 'mochita' if user == 'mochito' else 'mochito'

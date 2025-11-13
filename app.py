@@ -1,6 +1,3 @@
-
-
-# app.py — con Web Push, notificaciones (Europe/Madrid a medianoche) y seguimiento de precio
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify, flash, Response, make_response, abort, url_for
 import psycopg2, psycopg2.extras
 from psycopg2.pool import SimpleConnectionPool
@@ -10,27 +7,18 @@ from werkzeug.utils import secure_filename
 from contextlib import closing
 from base64 import b64encode
 from werkzeug.security import generate_password_hash, check_password_hash
-import requests
-import re  # <-- Seguimiento de precio
-
-# Web Push
+import requests, re
 from pywebpush import webpush, WebPushException
 
 try:
-    import pytz  # opcional (fallback)
+    import pytz
 except Exception:
     pytz = None
 
-# (opcional) mejor parser HTML para precio
-try:
-    from bs4 import BeautifulSoup
-except Exception:
-    BeautifulSoup = None
-
 app = Flask(__name__)
-# Límite de subida (ajustable por env MAX_UPLOAD_MB). Evita BYTEA enormes que disparan RAM.
 app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_UPLOAD_MB', '2')) * 1024 * 1024
 app.secret_key = os.environ.get('SECRET_KEY', 'tu_clave_secreta_aqui')
+
 
 @app.before_request
 def _fast_head_for_healthchecks():
@@ -38,115 +26,25 @@ def _fast_head_for_healthchecks():
     if request.method == "HEAD" and request.path == "/":
         return ("", 204)
 
-# ======= Opciones de app =======
+# DESACTIVAR COMPRESIÓN Y CACHÉ PARA REDUCIR MEMORIA
 app.config['TEMPLATES_AUTO_RELOAD'] = False
-app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 300  # Reducido de 31536000
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
 
 
-# ======= Compresión (si está) =======
-try:
-    from flask_compress import Compress
-    app.config['COMPRESS_MIMETYPES'] = ['text/html', 'text/css', 'application/json', 'application/javascript']
-    app.config['COMPRESS_LEVEL'] = 6
-    app.config['COMPRESS_MIN_SIZE'] = 1024
-    Compress(app)
-except Exception:
-    pass
-
-# ⬇️ AÑADE ESTO AQUÍ (justo después de la config)
-import os, tempfile, pathlib
-try:
-    from jinja2 import FileSystemBytecodeCache
-
-    JINJA_CACHE_DIR = os.environ.get(
-        "JINJA_CACHE_DIR",
-        os.path.join(tempfile.gettempdir(), "jinja_cache")  # normalmente /tmp/jinja_cache en Render
-    )
-    pathlib.Path(JINJA_CACHE_DIR).mkdir(parents=True, exist_ok=True)
-
-    app.jinja_env.bytecode_cache = FileSystemBytecodeCache(
-        directory=JINJA_CACHE_DIR,
-        pattern='mochitos-%s.cache'
-    )
-except Exception as e:
-    app.logger.warning("Jinja bytecode cache desactivado: %s", e)
-
-# ========= Discord logs (asíncrono) =========
-DISCORD_WEBHOOK = os.environ.get('DISCORD_WEBHOOK', '')
-
-def client_ip():
-    return (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
-
-def _is_hashed(v: str) -> bool:
-    return isinstance(v, str) and (v.startswith('pbkdf2:') or v.startswith('scrypt:'))
-
-_DISCORD_Q = queue.Queue(maxsize=500)
-
-def _discord_worker():
-    while True:
-        url, payload = _DISCORD_Q.get()
-        try:
-            requests.post(url, json=payload, timeout=2)
-        except Exception as e:
-            print(f"[discord] error: {e}")
-        finally:
-            _DISCORD_Q.task_done()
-
-if DISCORD_WEBHOOK:
-    t = threading.Thread(target=_discord_worker, daemon=True)
-    t.start()
-
-def send_discord(event: str, payload: dict | None = None):
-    if not DISCORD_WEBHOOK:
-        return
-    try:
-        display_user = None
-        if 'username' in session and session['username'] in ('mochito', 'mochita'):
-            display_user = session['username']
-        embed = {
-            "title": event,
-            "color": 0xE84393,
-            "timestamp": datetime.utcnow().isoformat() + "Z",
-            "fields": []
-        }
-        if display_user:
-            embed["fields"].append({"name": "Usuario", "value": display_user, "inline": True})
-        try:
-            ruta = f"{request.method} {request.path}"
-        except Exception:
-            ruta = "(sin request)"
-        embed["fields"] += [
-            {"name": "Ruta", "value": ruta, "inline": True},
-            {"name": "IP", "value": client_ip() or "?", "inline": True}
-        ]
-        if payload:
-            raw = json.dumps(payload, ensure_ascii=False)
-            for i, ch in enumerate([raw[i:i+1000] for i in range(0, len(raw), 1000)][:3]):
-                embed["fields"].append({"name": "Datos" + (f" ({i+1})" if i else ""), "value": f"```json\n{ch}\n```", "inline": False})
-        _DISCORD_Q.put_nowait((DISCORD_WEBHOOK, {"username": "Mochitos Logs", "embeds": [embed]}))
-    except Exception as e:
-        print(f"[discord] prep error: {e}")
 
 # ========= Config Postgres + POOL =========
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
-
 def _normalize_database_url(url: str) -> str:
-    if not url:
-        return url
-    if url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql://", 1)
-    if "sslmode=" not in url:
-        sep = "&" if "?" in url else "?"
-        url = f"{url}{sep}sslmode=require"
+    if not url: return url
+    if url.startswith('postgres://'): url = url.replace('postgres://', 'postgresql://', 1)
+    if 'sslmode=' not in url: sep = '&' if '?' in url else '?'; url = f"{url}{sep}sslmode=require"
     return url
-
 DATABASE_URL = _normalize_database_url(DATABASE_URL)
 
 from psycopg2 import OperationalError, InterfaceError, DatabaseError
 
-PG_POOL = None
 
 
 # ===== Presencia: util para tocar/crear fila inmediatamente =====
@@ -174,24 +72,22 @@ def touch_presence(user: str, device: str = 'page-view'):
 
 
 
+PG_POOL = None
 def _init_pool():
     global PG_POOL
     if PG_POOL:
         return
     if not DATABASE_URL:
         raise RuntimeError('Falta DATABASE_URL para PostgreSQL')
-
-    # Máximo 3 conexiones por defecto (suficiente en 512 MB). Sube con DB_MAX_CONN si lo necesitas.
-    maxconn = max(10, int(os.environ.get('DB_MAX_CONN', '10')))  # Aumenta de 3 a 10
+    
+    # Aumentar temporalmente el pool
+    maxconn = max(3, int(os.environ.get('DB_MAX_CONN', '3')))  # ¡Solo 3 conexiones!
     PG_POOL = SimpleConnectionPool(
-    1, maxconn,
-    dsn=DATABASE_URL,
-    keepalives=1, 
-    keepalives_idle=30, 
-    keepalives_interval=10, 
-    keepalives_count=5,
-    connect_timeout=8
-)
+        1, maxconn, dsn=DATABASE_URL,
+        keepalives=1, keepalives_idle=30, 
+        keepalives_interval=10, keepalives_count=5,
+        connect_timeout=8
+    )
 
 
 class PooledConn:
@@ -221,14 +117,14 @@ class PooledConn:
                 with self._conn.cursor() as c:
                     c.execute("SET application_name = 'mochitos';")
                     c.execute("SET idle_in_transaction_session_timeout = '5s';")
-                    c.execute("SET statement_timeout = '5s';")
+                    c.execute("SET statement_timeout = '10s';")  # Un poco más de tiempo
                 self._inited = True
             except (OperationalError, InterfaceError):
                 self._reconnect()
                 with self._conn.cursor() as c:
                     c.execute("SET application_name = 'mochitos';")
                     c.execute("SET idle_in_transaction_session_timeout = '5s';")
-                    c.execute("SET statement_timeout = '5s';")
+                    c.execute("SET statement_timeout = '10s';")  # Un poco más de tiempo
                 self._inited = True
 
         try:
@@ -244,20 +140,15 @@ class PooledConn:
             pass
 
 def get_db_connection():
-    """Saca una conexión del pool y hace ping."""
     _init_pool()
     conn = PG_POOL.getconn()
-    wrapped = PooledConn(PG_POOL, conn)
     try:
-        with wrapped.cursor() as c:
-            c.execute("SELECT 1;")
-            _ = c.fetchone()
-    except (OperationalError, InterfaceError, DatabaseError):
-        wrapped._reconnect()
-        with wrapped.cursor() as c:
-            c.execute("SELECT 1;")
-            _ = c.fetchone()
-    return wrapped
+        with conn.cursor() as c:
+            c.execute('SELECT 1;')
+    except (psycopg2.OperationalError, psycopg2.InterfaceError, psycopg2.DatabaseError):
+        PG_POOL.putconn(conn, close=True)
+        conn = PG_POOL.getconn()
+    return conn
 
 # ========= Zona horaria Europe/Madrid =========
 def _eu_last_sunday(year: int, month: int) -> date:
@@ -282,16 +173,17 @@ def europe_madrid_now() -> datetime:
     utc_now = datetime.now(timezone.utc)
     try:
         from zoneinfo import ZoneInfo
-        return utc_now.astimezone(ZoneInfo("Europe/Madrid"))
+        return utc_now.astimezone(ZoneInfo('Europe/Madrid'))
     except Exception:
         pass
     if pytz:
         try:
-            tz = pytz.timezone("Europe/Madrid")
+            tz = pytz.timezone('Europe/Madrid')
             return tz.fromutc(utc_now.replace(tzinfo=pytz.utc))
         except Exception:
             pass
-    return _europe_madrid_now_fallback()
+    # Fallback simplificado
+    return utc_now + timedelta(hours=2)
 
 def today_madrid() -> date:
     return europe_madrid_now().date()
@@ -322,130 +214,70 @@ def now_iso():
 
 # ========= SSE =========
 _subscribers_lock = threading.Lock()
-_subscribers: set[queue.Queue] = set()
+_subscribers = set()
 
 def broadcast(event_name: str, data: dict):
     with _subscribers_lock:
+        # LIMPIAR CLIENTES MUERTOS
+        dead_clients = []
+        for qcli in list(_subscribers):
+            if qcli.qsize() > 45:  # Si está casi lleno, probablemente murió
+                dead_clients.append(qcli)
+        
+        for dead in dead_clients:
+            _subscribers.discard(dead)
+            
+        # Ahora enviar a los que quedan
         for qcli in list(_subscribers):
             try:
-                qcli.put_nowait({"event": event_name, "data": data})
+                qcli.put_nowait({'event': event_name, 'data': data})
             except Exception:
-                pass
-
-@app.route("/events")
+                pass  # Si falla, lo quitamos en la próxima limpieza
+@app.route('/events')
 def sse_events():
-    client_q: queue.Queue = queue.Queue(maxsize=200)
+    client_q = queue.Queue(maxsize=50)  # Reducido de 200
     with _subscribers_lock:
         _subscribers.add(client_q)
-
+    
     def gen():
         try:
-            yield ":\n\n"
+            yield ':\n\n'
             while True:
-                try:
-                    ev = client_q.get(timeout=15)
+                try: 
+                    ev = client_q.get(timeout=30)  # Aumentado timeout
                     payload = json.dumps(ev['data'], separators=(',', ':'))
                     yield f"event: {ev['event']}\ndata: {payload}\n\n"
-                except queue.Empty:
+                except queue.Empty: 
                     yield f": k {int(time.time())}\n\n"
         finally:
             with _subscribers_lock:
                 _subscribers.discard(client_q)
-
-    return Response(gen(), mimetype="text/event-stream", headers={
-        "Cache-Control": "no-cache, no-transform",
-        "Connection": "keep-alive",
-        "X-Accel-Buffering": "no"
-    })
+    
+    return Response(gen(), mimetype='text/event-stream', 
+                   headers={'Cache-Control': 'no-cache, no-transform', 
+                           'Connection': 'keep-alive', 
+                           'X-Accel-Buffering': 'no'})
 
 # ========= Constantes =========
 QUESTIONS = [
-    # Amorosas / Emocionales
-    "¿Qué fue lo que más te atrajo de mí al principio?",
-    "¿Qué parte de nuestra relación te hace sentir más feliz?",
-    "¿Qué canción te recuerda a nosotros?",
-    "¿Qué harías si solo tuviéramos un día más juntos?",
-    "¿Qué detalle pequeño que hago te enamora más?",
-    "¿Cómo describirías nuestro amor en tres palabras?",
-    "¿Qué es lo que más amas de nuestras conversaciones?",
-    "¿Qué sueñas para nuestro futuro juntos?",
-    "¿Qué te hace sentir más amado/a por mí?",
-    "¿Qué te gustaría que nunca cambiara entre nosotros?",
-    "¿Qué promesa me harías hoy sin pensarlo dos veces?",
-    # Divertidas
-    "Si fuéramos un dúo cómico, ¿cómo nos llamaríamos?",
-    "¿Qué harías si despertaras y fueras yo por un día?",
-    "¿Cuál es el apodo más ridículo que se te ocurre para mí?",
-    "¿Qué canción cantarías desnudo/a en la ducha como si fuera un show?",
-    "¿Qué superpoder inútil te gustaría tener?",
-    "¿Qué animal representa mejor nuestra relación y por qué?",
-    "¿Cuál es el momento más tonto que hemos vivido juntos?",
-    "¿Qué harías si estuviéramos atrapados en un supermercado por 24 horas?",
-    "¿Qué serie seríamos si nuestra vida fuera una comedia?",
-    "¿Con qué personaje de dibujos animados me comparas?",
-    # Picantes 🔥
-    "¿Qué parte de mi cuerpo te gusta más tocar?",
-    "¿Dónde te gustaría que te besara ahora mismo?",
-    "¿Has fantaseado conmigo hoy?",
-    "¿Cuál fue la última vez que soñaste algo caliente conmigo?",
-    "¿En qué lugar prohibido te gustaría hacerlo conmigo?",
-    "¿Qué prenda mía te gustaría quitarme con los dientes?",
-    "¿Qué harías si estuviéramos solos en un ascensor por 30 minutos?",
-    "¿Cuál es tu fantasía secreta conmigo que aún no me has contado?",
-    "¿Qué juguete usarías conmigo esta noche?",
-    "¿Te gustaría que te atara o prefieres atarme a mí?",
-    # Creativas
-    "Si tuviéramos una casa del árbol, ¿cómo sería por dentro?",
-    "Si hiciéramos una película sobre nosotros, ¿cómo se llamaría?",
-    "¿Cómo sería nuestro planeta si fuéramos los únicos habitantes?",
-    "Si pudieras diseñar una cita perfecta desde cero, ¿cómo sería?",
-    "Si nos perdiéramos en el tiempo, ¿en qué época te gustaría vivir conmigo?",
-    "Si nuestra historia de amor fuera un libro, ¿cómo sería el final?",
-    "Si pudieras regalarme una experiencia mágica, ¿ cuál sería?",
-    "¿Qué mundo ficticio te gustaría explorar conmigo?",
-    # Reflexivas
-    "¿Qué aprendiste sobre ti mismo/a desde que estamos juntos?",
-    "¿Qué miedos tienes sobre el futuro y cómo puedo ayudarte con ellos?",
-    "¿Cómo te gustaría crecer como pareja conmigo?",
-    "¿Qué errores cometiste en el pasado que no quieres repetir conmigo?",
-    "¿Qué significa para ti una relación sana?",
-    "¿Cuál es el mayor sueño que quieres cumplir y cómo puedo ayudarte?",
-    "¿Qué necesitas escuchar más seguido de mí?",
-    "¿Qué momento de tu infancia quisieras revivir conmigo al lado?",
-    # Random
-    "¿Cuál es el olor que más te recuerda a mí?",
-    "¿Qué comida describes como ‘sexy’?",
-    "¿Qué harías si fueras invisible por un día y solo yo te pudiera ver?",
-    "¿Qué parte de mi rutina diaria te parece más adorable?",
-    "¿Si pudieras clonar una parte de mí, cuál sería?",
-    "¿Qué emoji usarías para describir nuestra relación?",
-    "¿Si solo pudieras besarme o abrazarme por un mes, qué eliges?",
 ]
 RELATION_START = date(2025, 8, 2)
 INTIM_PIN = os.environ.get('INTIM_PIN', '6969')
 
 # ========= Mini-cache =========
 import time as _time
-_cache_store = {}
-def _cache_key(fn_name): return f"_cache::{fn_name}"
+# ELIMINAR CACHÉ EN MEMORIA
 def ttl_cache(seconds=10):
-    def deco(fn):
-        key = _cache_key(fn.__name__)
-        def wrapped(*a, **k):
-            now = _time.time()
-            item = _cache_store.get(key)
-            if item and (now - item[0] < seconds):
-                return item[1]
-            val = fn(*a, **k)
-            _cache_store[key] = (now, val)
-            return val
-        wrapped.__wrapped__ = fn
-        wrapped._cache_key = key
-        return wrapped
-    return deco
+    def decorator(func):
+        @lru_cache(maxsize=128)
+        def cached_func(*args, **kwargs):
+            return func(*args, **kwargs)
+        return cached_func
+    return decorator
+
 def cache_invalidate(*fn_names):
-    for name in fn_names:
-        _cache_store.pop(_cache_key(name), None)
+    # Para funciones específicas, limpiar cache manualmente
+    pass
 
 # ========= DB init (añadimos app_state y push_subscriptions si no existen) =========
 def init_db():
@@ -1048,56 +880,6 @@ def get_cycle_entries(user: str, d_from: date, d_to: date):
     finally:
         conn.close()
 
-def predict_cycle(user: str, lookback_days: int = 120):
-    """Predicción simple:
-       - Detecta inicios de regla como días con flow != 'nada' cuya víspera no tiene sangrado.
-       - Calcula longitud media entre los dos últimos inicios; si no, 28.
-       - Predice próximo inicio = último_inicio + longitud.
-       - Ovulación ≈ 14 días antes del próximo inicio; fértil = ovul-4 .. ovul+1
-    """
-    today = today_madrid()
-    start = today - timedelta(days=lookback_days)
-    entries = get_cycle_entries(user, start, today)
-    bleed_days = set()
-    for e in entries:
-        if (e.get('flow') or 'nada') != 'nada':
-            d = _parse_date(e['day'])
-            if d: bleed_days.add(d)
-    if not bleed_days:
-        return {"have_data": False, "cycle_length": 28}
-
-    # inicios = días con sangrado y día anterior SIN sangrado
-    inicios = []
-    for d in sorted(bleed_days):
-        prev = d - timedelta(days=1)
-        if prev not in bleed_days:
-            inicios.append(d)
-    if not inicios:
-        inicios = sorted(bleed_days)
-
-    last_start = inicios[-1]
-    cycle_len = 28
-    if len(inicios) >= 2:
-        cycle_len = (inicios[-1] - inicios[-2]).days or 28
-        if cycle_len < 21 or cycle_len > 40:
-            cycle_len = 28
-
-    next_start = last_start + timedelta(days=cycle_len)
-    ovulation = next_start - timedelta(days=14)
-    fertile_a = ovulation - timedelta(days=4)
-    fertile_b = ovulation + timedelta(days=1)
-    period_end = next_start + timedelta(days=4)
-
-    return {
-        "have_data": True,
-        "cycle_length": int(cycle_len),
-        "last_start": last_start.isoformat(),
-        "next_start": next_start.isoformat(),
-        "period_end": period_end.isoformat(),
-        "ovulation": ovulation.isoformat(),
-        "fertile_start": fertile_a.isoformat(),
-        "fertile_end": fertile_b.isoformat(),
-    }
 
 # ======= Ciclo: helpers para /regla (basados en cycle_entries) =======
 FLOW_ORDER = {'nada': 0, 'poco': 1, 'medio': 2, 'mucho': 3}
@@ -1108,7 +890,7 @@ def _daterange(d1: date, d2: date):
         yield cur
         cur += timedelta(days=1)
 
-def get_periods_for_user(user: str = 'mochita', lookback_days: int = 365):
+def get_periods_for_user(user: str = 'mochita', lookback_days: int = 180):  # 6 meses en vez de 1 año
     today = today_madrid()
     start = today - timedelta(days=lookback_days)
     end   = today
@@ -1466,49 +1248,46 @@ def parse_datetime_local_to_madrid(dt_local: str) -> str | None:
 # Sustituye la función entera por esta
 from datetime import date as _Date, datetime as _DateTime
 
-def get_today_question(today: _Date | _DateTime | None = None):
-    # Normaliza a date (YYYY-MM-DD)
+def get_today_question(today:_Date|_DateTime|None=None):
     if today is None:
         today = europe_madrid_now().date()
     elif isinstance(today, _DateTime):
         today = today.date()
-    # hoy como 'YYYY-MM-DD'
+    
     today_str = today.isoformat()
-
     conn = get_db_connection()
     try:
-        # ¿Ya existe para hoy?
         with conn.cursor() as c:
-            c.execute("""
+            c.execute('''
                 SELECT id, question, bank_id
                 FROM daily_questions
                 WHERE TRIM(date)=%s
                 ORDER BY id DESC
                 LIMIT 1
-            """, (today_str,))
+            ''', (today_str,))
             row = c.fetchone()
+            
             if row:
-                return row['id'], row['question']
-
-        # No existe → saca una del banco
+                # Acceder por índice numérico en lugar de clave de diccionario
+                return row[0], row[1]  # row[0] = id, row[1] = question
+            
         picked = qbank_pick_random(conn)
         if not picked:
-            return (None, "Ya no quedan preguntas sin usar. Añade más en Admin → Preguntas.")
-
+            return None, 'Ya no quedan preguntas sin usar. Añade más en Admin → Preguntas.'
+        
         with conn.cursor() as c:
-            c.execute("""
+            c.execute('''
                 INSERT INTO daily_questions (question, date, bank_id)
-                VALUES (%s,%s,%s)
+                VALUES (%s, %s, %s)
                 RETURNING id
-            """, (picked['text'], today_str, picked['id']))
+            ''', (picked['text'], today_str, picked['id']))
             qid = c.fetchone()[0]
             conn.commit()
-
+        
         qbank_mark_used(conn, picked['id'], True)
         return qid, picked['text']
     finally:
         conn.close()
-
 
 
 def reroll_today_question() -> bool:
@@ -2091,58 +1870,6 @@ def other_of(u: str) -> str:
 
 
 
-def fetch_price(url:str)->tuple[int|None,str|None,str|None]:
-    try:
-        # Stream con tope de bytes: evita tragarse HTML de 10-20 MB
-        with requests.get(
-            url,
-            timeout=(3.05, 6),
-            headers={'User-Agent': PRICE_UA},
-            stream=True
-        ) as resp:
-            resp.raise_for_status()
-            max_bytes = int(os.environ.get('PRICE_MAX_BYTES', '1200000'))  # ~1.2MB
-            buf = io.BytesIO()
-            for chunk in resp.iter_content(chunk_size=16384):
-                if not chunk:
-                    break
-                buf.write(chunk)
-                if buf.tell() >= max_bytes:
-                    break
-            html = buf.getvalue().decode(resp.encoding or 'utf-8', errors='ignore')
-
-        # Título sin BeautifulSoup si no hace falta
-        mtitle = re.search(r'<title>(.*?)</title>', html, flags=re.I|re.S)
-        title = (mtitle.group(1).strip() if mtitle else None)
-
-        # Prioriza JSON-LD (rápido)
-        c_jsonld, curr = _find_in_jsonld(html)
-
-        cents_dom = None
-        soup = None
-        # Solo parsea con BS4 si el HTML no es gigante
-        if BeautifulSoup and len(html) <= 400_000:
-            soup = BeautifulSoup(html, 'html.parser')
-            cents_dom = _meta_price(soup)
-
-        cents_rx = None
-        for pat in [r'€\s*\d[\d\.\,]*', r'\d[\d\.\,]*\s*€', r'\b\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})\b']:
-            m = re.search(pat, html)
-            if m:
-                cents_rx = _to_cents_from_str(m.group(0))
-                break
-
-        price = c_jsonld or cents_dom or cents_rx
-        if price:
-            if not curr:
-                curr = 'EUR' if '€' in html else None
-            return price, curr, title
-        return None, None, title
-    except Exception as e:
-        print('[price] fetch error:', e)
-        return None, None, None
-
-
 def fmt_eur(cents: int | None) -> str:
     if cents is None: return "—"
     euros = cents/100.0
@@ -2175,43 +1902,6 @@ def _maybe_shrink_image(image_data: bytes, max_px: int = 1600, max_kb: int = 500
     return image_data, None
 
 
-def notify_price_drop(row, old_cents: int, new_cents: int):
-    """Notifica bajada de precio.
-       - Si es regalo (is_gift=True): SOLO al creador.
-       - Si no es regalo: a ambos.
-    """
-    # row es DictRow -> acceder por clave
-    wid         = row['id']
-    pname       = row['product_name']
-    link        = row.get('product_link')
-    created_by  = row.get('created_by')
-    is_gift     = bool(row.get('is_gift'))
-
-    drop = old_cents - new_cents
-    pct = (drop / old_cents) * 100 if old_cents else 0.0
-    title = "⬇️ ¡Bajada de precio!"
-    body  = f"{pname}\nDe {fmt_eur(old_cents)} a {fmt_eur(new_cents)} (−{pct:.1f}%)."
-    tag   = f"price-drop-{wid}"
-
-    try:
-        if is_gift and created_by in ("mochito", "mochita"):
-            # Regalo → notificar SOLO al creador
-            send_push_to(created_by, title=title, body=body, url=link, tag=tag)
-        else:
-            # No es regalo → ambos
-            send_push_both(title=title, body=body, url=link, tag=tag)
-    except Exception as e:
-        print("[push price]", e)
-
-    send_discord("Price drop", {
-        "wid": int(wid),
-        "name": pname,
-        "old": old_cents,
-        "new": new_cents,
-        "pct": round(pct, 1),
-        "is_gift": is_gift,
-        "created_by": created_by
-    })
 
 
 def form_or_json(*keys, default=None):
@@ -2220,73 +1910,6 @@ def form_or_json(*keys, default=None):
         if k in request.form: return request.form.get(k)
         if k in j:           return j.get(k)
     return default
-
-
-def sweep_price_checks(max_items: int = 6, min_age_minutes: int = 180):
-    """Consulta algunos items con tracking y actualiza si baja el precio."""
-    now_txt = now_madrid_str()
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-              SELECT id, product_name, product_link, created_by,
-                     is_gift,
-                     track_price, last_price_cents, currency, last_checked,
-                     COALESCE(alert_drop_percent, 0) AS alert_pct,
-                     alert_below_cents
-              FROM wishlist
-              WHERE track_price = TRUE AND is_purchased = FALSE
-                    AND product_link IS NOT NULL AND TRIM(product_link) <> ''
-              ORDER BY COALESCE(last_checked, '1970-01-01') ASC
-              LIMIT %s
-            """, (max_items,))
-            rows = c.fetchall()
-
-        for row in rows:
-            wid = row['id']
-            last_checked = _parse_dt(row['last_checked'] or "")
-            if last_checked:
-                from datetime import timedelta as _td
-                if (europe_madrid_now() - last_checked) < _td(minutes=min_age_minutes):
-                    continue
-
-            price_cents, curr, _title = fetch_price(row['product_link'])
-            if not price_cents:
-                with conn.cursor() as c2:
-                    c2.execute("UPDATE wishlist SET last_checked=%s WHERE id=%s", (now_txt, wid))
-                    conn.commit()
-                continue
-
-            old = row['last_price_cents']
-            notify = False
-            if old is None:
-                pass
-            else:
-                if price_cents < old:
-                    drop_pct = (old - price_cents) * 100 / old if old else 0
-                    if row['alert_below_cents'] is not None and price_cents <= int(row['alert_below_cents']):
-                        notify = True
-                    elif row['alert_pct'] and drop_pct < float(row['alert_pct']):
-                        notify = False
-                    else:
-                        notify = True
-
-            with conn.cursor() as c3:
-                c3.execute("""
-                  UPDATE wishlist
-                  SET last_price_cents=%s,
-                      currency=%s,
-                      last_checked=%s
-                  WHERE id=%s
-                """, (price_cents, curr or row['currency'] or "EUR", now_txt, wid))
-                conn.commit()
-
-            if notify and old is not None:
-                notify_price_drop(row, old, price_cents)
-
-    finally:
-        conn.close()
-
 
 
 def run_scheduled_jobs(now=None):
@@ -2778,14 +2401,11 @@ def index():
 
 
             # Viajes + fotos
-            c.execute("""
-                SELECT id, destination, description, travel_date, is_visited, created_by
-                FROM travels
-                ORDER BY is_visited, travel_date DESC
-            """)
+            c.execute('SELECT id, destination, description, travel_date, is_visited, created_by FROM travels ORDER BY is_visited, travel_date DESC LIMIT 30')
             travels = c.fetchall()
 
-            c.execute("SELECT travel_id, id, image_url, uploaded_by FROM travel_photos ORDER BY id DESC")
+            # DESPUÉS (solución):
+            c.execute('SELECT travel_id, id, image_url, uploaded_by FROM travel_photos ORDER BY id DESC LIMIT 50')
             all_ph = c.fetchall()
 
             # Wishlist (blindaje regalos)
@@ -2992,7 +2612,6 @@ def index():
     month_end = _last_day_of_month(m3_y, m3_m)
 
     cycle_entries = get_cycle_entries(cycle_user, month_start, month_end)
-    cycle_pred = predict_cycle(cycle_user)
 
     moods_for_select = list(ALLOWED_MOODS)
     flows_for_select = list(ALLOWED_FLOWS)
@@ -3365,40 +2984,6 @@ def push_list():
         print(f"[push_list] {e}")
         return jsonify({"ok": False, "error": "server_error"}), 500
 
-# ======= PRECIO: endpoint manual de prueba =======
-@app.post('/price_check_now')
-def price_check_now():
-    if 'username' not in session:
-        return jsonify({"ok":False,"error":"unauthenticated"}), 401
-    try:
-        wid = request.form.get('id')
-        if not wid: return jsonify({"ok":False,"error":"missing id"}), 400
-        conn = get_db_connection()
-        try:
-            with conn.cursor() as c:
-                c.execute("""SELECT id, product_name, product_link, created_by,
-                                    is_gift,
-                                    track_price, last_price_cents, currency,
-                                    alert_drop_percent, alert_below_cents
-                             FROM wishlist WHERE id=%s""", (wid,))
-                row = c.fetchone()
-            if not row or not row['product_link']: return jsonify({"ok":False,"error":"not_found_or_no_link"}), 404
-            price, curr, _ = fetch_price(row['product_link'])
-            if not price:
-                return jsonify({"ok":False,"error":"no_price"}), 200
-            old = row['last_price_cents']
-            with conn.cursor() as c2:
-                c2.execute("""UPDATE wishlist SET last_price_cents=%s, currency=COALESCE(%s,currency), last_checked=%s WHERE id=%s""",
-                           (price, curr, now_madrid_str(), wid))
-                conn.commit()
-            if old is not None and price < old:
-                notify_price_drop(row, old, price)
-            return jsonify({"ok":True,"old":old,"new":price})
-        finally:
-            conn.close()
-    except Exception as e:
-        print("[price_check_now]", e)
-        return jsonify({"ok":False,"error":"server_error"}), 500
 
 # ======= Errores simpáticos =======
 @app.errorhandler(404)
@@ -4747,7 +4332,6 @@ def api_cycle_get():
     else:
         end = (date(y, m+1, 1) - _td(days=1))
     data = get_cycle_entries(who, start, end)
-    pred = predict_cycle(who)
     return jsonify({"ok": True, "user": who, "from": start.isoformat(), "to": end.isoformat(), "entries": data, "prediction": pred})
 
 @app.post('/cycle/save')
@@ -5116,7 +4700,12 @@ def api_location():
 def api_other_location():
     if 'username' not in session:
         abort(401)
-    other = request.args.get('user') or ('mochita' if session['username'] == 'mochito' else 'mochito')
+
+    # Si no pasas ?user=... usa "la otra persona" por defecto
+    other = request.args.get('user') or (
+        'mochita' if session['username'] == 'mochito' else 'mochito'
+    )
+
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
@@ -5128,13 +4717,24 @@ def api_other_location():
             row = c.fetchone()
     finally:
         conn.close()
+
     if not row:
         return jsonify({})
-    # row puede ser DictRow o tupla, usa claves seguras:
+
     lat = row['latitude'] if isinstance(row, dict) else row[0]
     lng = row['longitude'] if isinstance(row, dict) else row[1]
     ts  = row['updated_at'] if isinstance(row, dict) else row[2]
-    return jsonify({'lat': lat, 'lng': lng, 'updated_at': (ts.isoformat() if ts else None)})
+
+    # Lo normalizamos a string para el front
+    if ts is None:
+        ts_str = None
+    elif hasattr(ts, "isoformat"):   # datetime
+        ts_str = ts.isoformat()
+    else:                            # ya es str (tu caso: "YYYY-MM-DD HH:MM:SS")
+        ts_str = str(ts)
+
+    return jsonify({'lat': lat, 'lng': lng, 'updated_at': ts_str})
+
 
 
 
@@ -5299,16 +4899,21 @@ def dq_chat_send():
 
 
 # Arrancar el scheduler sólo si RUN_SCHEDULER=1
-if os.environ.get("RUN_SCHEDULER", "1") == "1":
-    threading.Thread(target=background_loop, daemon=True).start()
+# if os.environ.get("RUN_SCHEDULER", "1") == "1":
+ #   threading.Thread(target=background_loop, daemon=True).start()
 
 
 # ======= WSGI / Run =======
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
-    app.run(host='0.0.0.0', port=port, debug=bool(os.environ.get('FLASK_DEBUG')))
-
-
+    # CONFIGURACIÓN PARA POCO MEMORIA:
+    app.run(
+        host='0.0.0.0', 
+        port=port, 
+        debug=False,  # ¡IMPORTANTE! Debug = False en producción
+        threaded=True,  # Mejor para múltiples requests
+        processes=1  # Solo 1 proceso para ahorrar memoria
+    )
 
 
 # ========= Gamificación: puntos, medallas y tienda =========

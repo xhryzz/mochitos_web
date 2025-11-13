@@ -5709,64 +5709,6 @@ def _calc_streak(conn, username):
             break
     return streak
 
-def _award_points(conn, username, delta, reason):
-    with conn.cursor() as c:
-        c.execute("UPDATE users SET points = COALESCE(points,0)+%s WHERE username=%s", (delta, username))
-    conn.commit()
-
-def _maybe_award_achievements(conn, username):
-    user_id = _get_user_id(conn, username)
-    if not user_id:
-        return
-    with conn.cursor() as c:
-        c.execute("SELECT COUNT(*) FROM answers WHERE username=%s", (username,))
-        answers_total = c.fetchone()[0] or 0
-        c.execute("""
-            WITH firsts AS (
-                SELECT a.question_id, MIN(a.created_at) AS first_time
-                FROM answers a
-                GROUP BY a.question_id
-            )
-            SELECT COUNT(*) FROM answers a
-            JOIN firsts f ON f.question_id=a.question_id AND a.created_at=f.first_time
-            WHERE a.username=%s
-        """, (username,))
-        first_count = c.fetchone()[0] or 0
-        streak = _calc_streak(conn, username)
-        checks = [
-            ("answers_30", answers_total >= 30),
-            ("answers_100", answers_total >= 100),
-            ("first_answer_1", first_count >= 1),
-            ("first_answer_10", first_count >= 10),
-            ("streak_7", streak >= 7),
-            ("streak_30", streak >= 30),
-            ("streak_50", streak >= 50)
-        ]
-        for code, ok in checks:
-            if not ok:
-                continue
-            c.execute("SELECT id FROM achievements WHERE code=%s", (code,))
-            ach = c.fetchone()
-            if not ach:
-                continue
-            ach_id = ach[0]
-            c.execute(
-                "INSERT INTO user_achievements (user_id, achievement_id, earned_at) VALUES (%s,%s,%s) "
-                "ON CONFLICT (user_id, achievement_id) DO NOTHING",
-                (user_id, ach_id, now_madrid_str())
-            )
-    conn.commit()
-
-def award_points_for_answer(question_id, username, is_new_insert):
-    if not is_new_insert:
-        return
-    with closing(get_db_connection()) as conn, conn.cursor() as c:
-        base = 5
-        c.execute("SELECT COUNT(*) FROM answers WHERE question_id=%s", (question_id,))
-        count_after = c.fetchone()[0] or 0
-        bonus = 10 if count_after == 1 else 0
-        _award_points(conn, username, base + bonus, "answer")
-        _maybe_award_achievements(conn, username)
 
 
 _ensure_gamification_schema()

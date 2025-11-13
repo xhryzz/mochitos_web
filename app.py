@@ -527,226 +527,218 @@ def ttl_cache(seconds=10):
 def cache_invalidate(*fn_names):
     # Para funciones específicas, limpiar cache manualmente
     pass
-
-# ========= DB init (añadimos app_state y push_subscriptions si no existen) =========
 def init_db():
     # Crear conexión directa para inicialización
     _init_pool()
     conn = PG_POOL.getconn()
     try:
         with conn.cursor() as c:
-        c.execute('''CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY, username TEXT UNIQUE, password TEXT)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS schedule_times (
-            id SERIAL PRIMARY KEY, username TEXT NOT NULL, time TEXT NOT NULL,
-            UNIQUE (username, time))''')
-        c.execute('''CREATE TABLE IF NOT EXISTS daily_questions (
-            id SERIAL PRIMARY KEY, question TEXT, date TEXT)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS answers (
-            id SERIAL PRIMARY KEY, question_id INTEGER, username TEXT, answer TEXT)''')
-        c.execute("ALTER TABLE answers ADD COLUMN IF NOT EXISTS created_at TEXT")
-        c.execute("ALTER TABLE answers ADD COLUMN IF NOT EXISTS updated_at TEXT")
-        c.execute("CREATE UNIQUE INDEX IF NOT EXISTS answers_unique ON answers (question_id, username)")
-        c.execute('''CREATE TABLE IF NOT EXISTS meeting (id SERIAL PRIMARY KEY, meeting_date TEXT)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS banner (
-            id SERIAL PRIMARY KEY, image_data BYTEA, filename TEXT, mime_type TEXT, uploaded_at TEXT)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS travels (
-            id SERIAL PRIMARY KEY, destination TEXT NOT NULL, description TEXT, travel_date TEXT,
-            is_visited BOOLEAN DEFAULT FALSE, created_by TEXT, created_at TEXT)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS travel_photos (
-            id SERIAL PRIMARY KEY, travel_id INTEGER, image_url TEXT NOT NULL,
-            uploaded_by TEXT, uploaded_at TEXT, FOREIGN KEY(travel_id) REFERENCES travels(id))''')
-        c.execute('''CREATE TABLE IF NOT EXISTS wishlist (
-            id SERIAL PRIMARY KEY, product_name TEXT NOT NULL, product_link TEXT, notes TEXT,
-            created_by TEXT, created_at TEXT, is_purchased BOOLEAN DEFAULT FALSE)''')
-        c.execute("""ALTER TABLE wishlist
-                     ADD COLUMN IF NOT EXISTS priority TEXT
-                     CHECK (priority IN ('alta','media','baja')) DEFAULT 'media'""")
-        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS is_gift BOOLEAN DEFAULT FALSE""")
-        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS size TEXT""")
-        c.execute('''CREATE TABLE IF NOT EXISTS schedules (
-            id SERIAL PRIMARY KEY, username TEXT NOT NULL, day TEXT NOT NULL,
-            time TEXT NOT NULL, activity TEXT, color TEXT, UNIQUE(username, day, time))''')
-        c.execute('''CREATE TABLE IF NOT EXISTS locations (
-            id SERIAL PRIMARY KEY, username TEXT UNIQUE, location_name TEXT,
-            latitude REAL, longitude REAL, updated_at TEXT)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS profile_pictures (
-            id SERIAL PRIMARY KEY, username TEXT UNIQUE, image_data BYTEA,
-            filename TEXT, mime_type TEXT, uploaded_at TEXT)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS intimacy_events (
-            id SERIAL PRIMARY KEY, username TEXT NOT NULL, ts TEXT NOT NULL, place TEXT, notes TEXT)''')
-        # App state
-        c.execute('''CREATE TABLE IF NOT EXISTS app_state (
-            key TEXT PRIMARY KEY, value TEXT)''')
+            c.execute('''CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY, username TEXT UNIQUE, password TEXT)''')
+            c.execute('''CREATE TABLE IF NOT EXISTS schedule_times (
+                id SERIAL PRIMARY KEY, username TEXT NOT NULL, time TEXT NOT NULL,
+                UNIQUE (username, time))''')
+            c.execute('''CREATE TABLE IF NOT EXISTS daily_questions (
+                id SERIAL PRIMARY KEY, question TEXT, date TEXT)''')
+            c.execute('''CREATE TABLE IF NOT EXISTS answers (
+                id SERIAL PRIMARY KEY, question_id INTEGER, username TEXT, answer TEXT)''')
+            c.execute("ALTER TABLE answers ADD COLUMN IF NOT EXISTS created_at TEXT")
+            c.execute("ALTER TABLE answers ADD COLUMN IF NOT EXISTS updated_at TEXT")
+            c.execute("CREATE UNIQUE INDEX IF NOT EXISTS answers_unique ON answers (question_id, username)")
+            c.execute('''CREATE TABLE IF NOT EXISTS meeting (id SERIAL PRIMARY KEY, meeting_date TEXT)''')
+            c.execute('''CREATE TABLE IF NOT EXISTS banner (
+                id SERIAL PRIMARY KEY, image_data BYTEA, filename TEXT, mime_type TEXT, uploaded_at TEXT)''')
+            c.execute('''CREATE TABLE IF NOT EXISTS travels (
+                id SERIAL PRIMARY KEY, destination TEXT NOT NULL, description TEXT, travel_date TEXT,
+                is_visited BOOLEAN DEFAULT FALSE, created_by TEXT, created_at TEXT)''')
+            c.execute('''CREATE TABLE IF NOT EXISTS travel_photos (
+                id SERIAL PRIMARY KEY, travel_id INTEGER, image_url TEXT NOT NULL,
+                uploaded_by TEXT, uploaded_at TEXT, FOREIGN KEY(travel_id) REFERENCES travels(id))''')
+            c.execute('''CREATE TABLE IF NOT EXISTS wishlist (
+                id SERIAL PRIMARY KEY, product_name TEXT NOT NULL, product_link TEXT, notes TEXT,
+                created_by TEXT, created_at TEXT, is_purchased BOOLEAN DEFAULT FALSE)''')
+            c.execute("""ALTER TABLE wishlist
+                         ADD COLUMN IF NOT EXISTS priority TEXT
+                         CHECK (priority IN ('alta','media','baja')) DEFAULT 'media'""")
+            c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS is_gift BOOLEAN DEFAULT FALSE""")
+            c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS size TEXT""")
+            c.execute('''CREATE TABLE IF NOT EXISTS schedules (
+                id SERIAL PRIMARY KEY, username TEXT NOT NULL, day TEXT NOT NULL,
+                time TEXT NOT NULL, activity TEXT, color TEXT, UNIQUE(username, day, time))''')
+            c.execute('''CREATE TABLE IF NOT EXISTS locations (
+                id SERIAL PRIMARY KEY, username TEXT UNIQUE, location_name TEXT,
+                latitude REAL, longitude REAL, updated_at TEXT)''')
+            c.execute('''CREATE TABLE IF NOT EXISTS profile_pictures (
+                id SERIAL PRIMARY KEY, username TEXT UNIQUE, image_data BYTEA,
+                filename TEXT, mime_type TEXT, uploaded_at TEXT)''')
+            c.execute('''CREATE TABLE IF NOT EXISTS intimacy_events (
+                id SERIAL PRIMARY KEY, username TEXT NOT NULL, ts TEXT NOT NULL, place TEXT, notes TEXT)''')
+            # App state
+            c.execute('''CREATE TABLE IF NOT EXISTS app_state (
+                key TEXT PRIMARY KEY, value TEXT)''')
 
-
-                # === ADMIN: notificaciones programadas ===
-        c.execute("""
-        CREATE TABLE IF NOT EXISTS scheduled_notifications (
-            id SERIAL PRIMARY KEY,
-            created_by TEXT NOT NULL,
-            target TEXT NOT NULL CHECK (target IN ('mochito','mochita','both')),
-            title TEXT NOT NULL,
-            body TEXT,
-            url TEXT,
-            tag TEXT,
-            icon TEXT,
-            badge TEXT,
-            when_at TEXT NOT NULL,  -- Europe/Madrid 'YYYY-MM-DD HH:MM:SS'
-            status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sent','cancelled')),
-            created_at TEXT NOT NULL,
-            sent_at TEXT
-        )
-        """)
-        c.execute("CREATE INDEX IF NOT EXISTS idx_sched_status_when ON scheduled_notifications (status, when_at)")
+            # === ADMIN: notificaciones programadas ===
+            c.execute("""
+            CREATE TABLE IF NOT EXISTS scheduled_notifications (
+                id SERIAL PRIMARY KEY,
+                created_by TEXT NOT NULL,
+                target TEXT NOT NULL CHECK (target IN ('mochito','mochita','both')),
+                title TEXT NOT NULL,
+                body TEXT,
+                url TEXT,
+                tag TEXT,
+                icon TEXT,
+                badge TEXT,
+                when_at TEXT NOT NULL,  -- Europe/Madrid 'YYYY-MM-DD HH:MM:SS'
+                status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sent','cancelled')),
+                created_at TEXT NOT NULL,
+                sent_at TEXT
+            )
+            """)
+            c.execute("CREATE INDEX IF NOT EXISTS idx_sched_status_when ON scheduled_notifications (status, when_at)")
 
             # --- Películas / Series ---
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS media_items (
-                id SERIAL PRIMARY KEY,
-                title           TEXT        NOT NULL,
-                cover_url       TEXT,
-                link_url        TEXT,
-                on_netflix      BOOLEAN     DEFAULT FALSE,
-                on_prime        BOOLEAN     DEFAULT FALSE,
-                priority        TEXT        CHECK (priority IN ('alta','media','baja')) DEFAULT 'media',
-                comment         TEXT,                -- comentario en "Por ver"
-                created_by      TEXT,
-                created_at      TEXT,
-                is_watched      BOOLEAN     DEFAULT FALSE,
-                watched_at      TEXT,
-                rating          INTEGER     CHECK (rating BETWEEN 1 AND 5),
-                watched_comment TEXT                 -- comentario en "Vistas"
-            );
-        """)
-        c.execute("CREATE INDEX IF NOT EXISTS idx_media_watched_prio ON media_items (is_watched, priority, created_at DESC);")
-        c.execute("CREATE INDEX IF NOT EXISTS idx_media_watched_at   ON media_items (is_watched, watched_at DESC);")
-        # Guardar reviews por usuario y media calcular medias
-        c.execute("""ALTER TABLE media_items ADD COLUMN IF NOT EXISTS reviews JSONB DEFAULT '{}'::jsonb""")
-        c.execute("""ALTER TABLE media_items ADD COLUMN IF NOT EXISTS avg_rating REAL""")
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS media_items (
+                    id SERIAL PRIMARY KEY,
+                    title           TEXT        NOT NULL,
+                    cover_url       TEXT,
+                    link_url        TEXT,
+                    on_netflix      BOOLEAN     DEFAULT FALSE,
+                    on_prime        BOOLEAN     DEFAULT FALSE,
+                    priority        TEXT        CHECK (priority IN ('alta','media','baja')) DEFAULT 'media',
+                    comment         TEXT,                -- comentario en "Por ver"
+                    created_by      TEXT,
+                    created_at      TEXT,
+                    is_watched      BOOLEAN     DEFAULT FALSE,
+                    watched_at      TEXT,
+                    rating          INTEGER     CHECK (rating BETWEEN 1 AND 5),
+                    watched_comment TEXT                 -- comentario en "Vistas"
+                );
+            """)
+            c.execute("CREATE INDEX IF NOT EXISTS idx_media_watched_prio ON media_items (is_watched, priority, created_at DESC);")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_media_watched_at   ON media_items (is_watched, watched_at DESC);")
+            # Guardar reviews por usuario y media calcular medias
+            c.execute("""ALTER TABLE media_items ADD COLUMN IF NOT EXISTS reviews JSONB DEFAULT '{}'::jsonb""")
+            c.execute("""ALTER TABLE media_items ADD COLUMN IF NOT EXISTS avg_rating REAL""")
 
-
-
-                # === Ciclo (menstrual / estado de ánimo) ===
-        c.execute("""
-        CREATE TABLE IF NOT EXISTS cycle_entries (
-            id          SERIAL PRIMARY KEY,
-            username    TEXT        NOT NULL,                -- propietaria de los datos (normalmente 'mochita')
-            day         TEXT        NOT NULL,                -- 'YYYY-MM-DD' (fecha local Madrid)
-            mood        TEXT        CHECK (mood IN (
-                           'feliz','normal','triste','estresada','sensible','cansada','irritable','con_energia'
-                         )),
-            flow        TEXT        CHECK (flow IN ('nada','poco','medio','mucho')),
-            pain        INTEGER     CHECK (pain BETWEEN 0 AND 10),
-            notes       TEXT,
-            created_by  TEXT,
-            created_at  TEXT,
-            UNIQUE (username, day)
-        )
-        """)
-        c.execute("CREATE INDEX IF NOT EXISTS idx_cycle_user_day ON cycle_entries (username, day DESC)")
-        c.execute("CREATE INDEX IF NOT EXISTS idx_cycle_flow ON cycle_entries (flow)")
-
-
-
-        # === Preguntas (banco editable por admin) ===
-        c.execute("""
-        CREATE TABLE IF NOT EXISTS question_bank (
-        id SERIAL PRIMARY KEY,
-        text TEXT UNIQUE NOT NULL,
-        used BOOLEAN NOT NULL DEFAULT FALSE,
-        used_at TEXT,
-        active BOOLEAN NOT NULL DEFAULT TRUE,
-        created_at TEXT NOT NULL
-        )
-        """)
-        c.execute("CREATE INDEX IF NOT EXISTS idx_qbank_used_active ON question_bank (used, active)")
-        c.execute("ALTER TABLE daily_questions ADD COLUMN IF NOT EXISTS bank_id INTEGER")
-
-        # Seed inicial desde QUESTIONS si el banco está vacío
-        c.execute("SELECT COUNT(*) FROM question_bank")
-        if (c.fetchone()[0] or 0) == 0:
-            now = now_madrid_str()
-            for q in QUESTIONS:
-                try:
-                    c.execute("INSERT INTO question_bank (text, created_at) VALUES (%s,%s)", (q, now))
-                except Exception:
-                    pass
-            conn.commit()
-
-                # === Daily Question: reacciones y chat ===
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS dq_reactions (
-                id SERIAL PRIMARY KEY,
-                question_id INTEGER NOT NULL,
-                from_user   TEXT    NOT NULL,
-                to_user     TEXT    NOT NULL,
-                reaction    TEXT    NOT NULL CHECK (char_length(reaction) <= 16),
-                created_at  TEXT    NOT NULL,
-                updated_at  TEXT    NOT NULL,
-                UNIQUE (question_id, from_user, to_user)
+            # === Ciclo (menstrual / estado de ánimo) ===
+            c.execute("""
+            CREATE TABLE IF NOT EXISTS cycle_entries (
+                id          SERIAL PRIMARY KEY,
+                username    TEXT        NOT NULL,                -- propietaria de los datos (normalmente 'mochita')
+                day         TEXT        NOT NULL,                -- 'YYYY-MM-DD' (fecha local Madrid)
+                mood        TEXT        CHECK (mood IN (
+                               'feliz','normal','triste','estresada','sensible','cansada','irritable','con_energia'
+                             )),
+                flow        TEXT        CHECK (flow IN ('nada','poco','medio','mucho')),
+                pain        INTEGER     CHECK (pain BETWEEN 0 AND 10),
+                notes       TEXT,
+                created_by  TEXT,
+                created_at  TEXT,
+                UNIQUE (username, day)
             )
-        """)
-        c.execute("CREATE INDEX IF NOT EXISTS idx_dq_react_q ON dq_reactions (question_id)")
+            """)
+            c.execute("CREATE INDEX IF NOT EXISTS idx_cycle_user_day ON cycle_entries (username, day DESC)")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_cycle_flow ON cycle_entries (flow)")
 
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS dq_chat (
-                id SERIAL PRIMARY KEY,
-                question_id INTEGER NOT NULL,
-                username   TEXT    NOT NULL,
-                msg        TEXT    NOT NULL,
-                created_at TEXT    NOT NULL
-            )
-        """)
-        c.execute("CREATE INDEX IF NOT EXISTS idx_dq_chat_q ON dq_chat (question_id)")
-
-
-        # Push subscriptions
-        c.execute('''CREATE TABLE IF NOT EXISTS push_subscriptions (
+            # === Preguntas (banco editable por admin) ===
+            c.execute("""
+            CREATE TABLE IF NOT EXISTS question_bank (
             id SERIAL PRIMARY KEY,
-            username TEXT NOT NULL,
-            endpoint TEXT UNIQUE NOT NULL,
-            p256dh TEXT NOT NULL,
-            auth TEXT NOT NULL,
-            created_at TEXT)''')
-        # Seed básico
-        try:
-            c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochito','1234'))
-            c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochita','1234'))
-            now = now_madrid_str()
-            c.execute("""INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
-                         VALUES (%s,%s,%s,%s,%s) ON CONFLICT (username) DO NOTHING""",
-                      ('mochito','Algemesí, Valencia', 39.1925, -0.4353, now))
-            c.execute("""INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
-                         VALUES (%s,%s,%s,%s,%s) ON CONFLICT (username) DO NOTHING""",
-                      ('mochita','Córdoba', 37.8882, -4.7794, now))
+            text TEXT UNIQUE NOT NULL,
+            used BOOLEAN NOT NULL DEFAULT FALSE,
+            used_at TEXT,
+            active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at TEXT NOT NULL
+            )
+            """)
+            c.execute("CREATE INDEX IF NOT EXISTS idx_qbank_used_active ON question_bank (used, active)")
+            c.execute("ALTER TABLE daily_questions ADD COLUMN IF NOT EXISTS bank_id INTEGER")
+
+            # Seed inicial desde QUESTIONS si el banco está vacío
+            c.execute("SELECT COUNT(*) FROM question_bank")
+            if (c.fetchone()[0] or 0) == 0:
+                now = now_madrid_str()
+                for q in QUESTIONS:
+                    try:
+                        c.execute("INSERT INTO question_bank (text, created_at) VALUES (%s,%s)", (q, now))
+                    except Exception:
+                        pass
+                conn.commit()
+
+            # === Daily Question: reacciones y chat ===
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS dq_reactions (
+                    id SERIAL PRIMARY KEY,
+                    question_id INTEGER NOT NULL,
+                    from_user   TEXT    NOT NULL,
+                    to_user     TEXT    NOT NULL,
+                    reaction    TEXT    NOT NULL CHECK (char_length(reaction) <= 16),
+                    created_at  TEXT    NOT NULL,
+                    updated_at  TEXT    NOT NULL,
+                    UNIQUE (question_id, from_user, to_user)
+                )
+            """)
+            c.execute("CREATE INDEX IF NOT EXISTS idx_dq_react_q ON dq_reactions (question_id)")
+
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS dq_chat (
+                    id SERIAL PRIMARY KEY,
+                    question_id INTEGER NOT NULL,
+                    username   TEXT    NOT NULL,
+                    msg        TEXT    NOT NULL,
+                    created_at TEXT    NOT NULL
+                )
+            """)
+            c.execute("CREATE INDEX IF NOT EXISTS idx_dq_chat_q ON dq_chat (question_id)")
+
+            # Push subscriptions
+            c.execute('''CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id SERIAL PRIMARY KEY,
+                username TEXT NOT NULL,
+                endpoint TEXT UNIQUE NOT NULL,
+                p256dh TEXT NOT NULL,
+                auth TEXT NOT NULL,
+                created_at TEXT)''')
+            # Seed básico
+            try:
+                c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochito','1234'))
+                c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochita','1234'))
+                now = now_madrid_str()
+                c.execute("""INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
+                             VALUES (%s,%s,%s,%s,%s) ON CONFLICT (username) DO NOTHING""",
+                          ('mochito','Algemesí, Valencia', 39.1925, -0.4353, now))
+                c.execute("""INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
+                             VALUES (%s,%s,%s,%s,%s) ON CONFLICT (username) DO NOTHING""",
+                          ('mochita','Córdoba', 37.8882, -4.7794, now))
+                conn.commit()
+            except Exception as e:
+                print("Seed error:", e); conn.rollback()
+            # Índices
+            c.execute("CREATE INDEX IF NOT EXISTS idx_answers_q_user ON answers (question_id, username)")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_travels_vdate ON travels (is_visited, travel_date DESC)")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_wishlist_state_prio ON wishlist (is_purchased, priority, created_at DESC)")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_intim_user_ts ON intimacy_events (username, ts DESC)")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions (username)")
+
+            # ======= Seguimiento de PRECIO: migraciones =======
+            c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS track_price BOOLEAN DEFAULT FALSE""")
+            c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS last_price_cents INTEGER""")
+            c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS currency TEXT""")
+            c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS last_checked TEXT""")
+            c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS alert_drop_percent REAL""")
+            c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS alert_below_cents INTEGER""")
+            c.execute("""CREATE INDEX IF NOT EXISTS idx_wishlist_track ON wishlist (track_price, is_purchased)""")
+
+            c.execute('CREATE INDEX IF NOT EXISTS idx_answers_date ON answers(created_at)')
+            c.execute('CREATE INDEX IF NOT EXISTS idx_questions_date ON daily_questions(date)')
+            c.execute('CREATE INDEX IF NOT EXISTS idx_travels_date ON travels(travel_date)')
+            c.execute('CREATE INDEX IF NOT EXISTS idx_wishlist_priority ON wishlist(priority, is_purchased)')
+            
             conn.commit()
-        except Exception as e:
-            print("Seed error:", e); conn.rollback()
-        # Índices
-        c.execute("CREATE INDEX IF NOT EXISTS idx_answers_q_user ON answers (question_id, username)")
-        c.execute("CREATE INDEX IF NOT EXISTS idx_travels_vdate ON travels (is_visited, travel_date DESC)")
-        c.execute("CREATE INDEX IF NOT EXISTS idx_wishlist_state_prio ON wishlist (is_purchased, priority, created_at DESC)")
-        c.execute("CREATE INDEX IF NOT EXISTS idx_intim_user_ts ON intimacy_events (username, ts DESC)")
-        c.execute("CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions (username)")
-
-        # ======= Seguimiento de PRECIO: migraciones =======
-        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS track_price BOOLEAN DEFAULT FALSE""")
-        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS last_price_cents INTEGER""")
-        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS currency TEXT""")
-        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS last_checked TEXT""")
-        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS alert_drop_percent REAL""")
-        c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS alert_below_cents INTEGER""")
-        c.execute("""CREATE INDEX IF NOT EXISTS idx_wishlist_track ON wishlist (track_price, is_purchased)""")
-
-
-        c.execute('CREATE INDEX IF NOT EXISTS idx_answers_date ON answers(created_at)')
-        c.execute('CREATE INDEX IF NOT EXISTS idx_questions_date ON daily_questions(date)')
-        c.execute('CREATE INDEX IF NOT EXISTS idx_travels_date ON travels(travel_date)')
-        c.execute('CREATE INDEX IF NOT EXISTS idx_wishlist_priority ON wishlist(priority, is_purchased)')
-        
-
-        conn.commit()
+    finally:
+        PG_POOL.putconn(conn)
 
 init_db()
   # <-- importante

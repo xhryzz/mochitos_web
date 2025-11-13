@@ -2834,9 +2834,13 @@ body.loaded #main-content {
         {% endif %}
       </div>
 
-       <!-- Distancia (sin mapa, versión simple y chula) -->
+      <!-- Distancia (versión sin mapa, con selector manual y contador) -->
 <div class="section animate-in delay-2">
   <h3>Distancia</h3>
+  <p>
+    Aunque ahora estemos en ciudades distintas, la distancia es física…
+    el corazón va por libre 💘
+  </p>
 
   <div class="distance-map-container" style="
     height:auto;
@@ -2921,6 +2925,10 @@ body.loaded #main-content {
           </option>
         </select>
       </div>
+
+      <p style="font-size:.9rem;opacity:.8;margin-top:6px;">
+        La distancia se mueve, pero vosotros siempre vais en el mismo equipo 🥹
+      </p>
     </div>
 
     <!-- Columna “stats” de distancia -->
@@ -2952,6 +2960,7 @@ body.loaded #main-content {
         Distancia calculada...
       </p>
 
+      {# Contador de días para que se acabe la distancia #}
       {% if days_until_meeting is number and days_until_meeting >= 0 %}
         <p id="distanceCountdown" style="font-size:.9rem;margin-top:2px;">
           {% if days_until_meeting == 0 %}
@@ -2962,9 +2971,29 @@ body.loaded #main-content {
             Quedan <b>{{ days_until_meeting }}</b> días para que se acabe la distancia.
           {% endif %}
         </p>
+      {% else %}
+        <p id="distanceCountdown" style="font-size:.9rem;margin-top:2px;opacity:.8;">
+          Aún no hay fecha guardada para el próximo encuentro.
+        </p>
       {% endif %}
 
+      <!-- Formulario para actualizar la fecha del próximo encuentro (igual que en Inicio) -->
+      <div class="mini-note" style="margin-top:8px;color:#6b7280;font-size:.9rem;">
+        Cambiad aquí la fecha del próximo encuentro y el contador se actualizará
+        también en el inicio 💫
+      </div>
 
+      <form method="POST" class="inline-form" style="margin-top:6px;">
+        <input type="date" name="meeting_date" required>
+        <button type="submit">
+          <i class="fas fa-calendar-alt"></i> Actualizar fecha
+        </button>
+      </form>
+
+      <p style="font-size:.85rem;opacity:.8;margin-top:6px;">
+        Usando Algemesí y Córdoba como puntos fijos según el modo elegido arriba.
+        Todo manual, sin GPS ni permisos de ubicación 😌
+      </p>
     </div>
   </div>
 </div>

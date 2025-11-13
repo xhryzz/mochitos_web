@@ -626,16 +626,28 @@ def init_db():
             created_at TEXT)''')
         # Seed básico
         try:
-            c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochito','1234'))
-            c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING", ('mochita','1234'))
+            c.execute('INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING',
+                      ('mochito', '1234'))
+            c.execute('INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING',
+                      ('mochita', '1234'))
+
             now = now_madrid_str()
-            c.execute("""INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
-                         VALUES (%s,%s,%s,%s,%s) ON CONFLICT (username) DO NOTHING""",
-                      ('mochito','Algemesí, Valencia', 39.1925, -0.4353, now))
-            c.execute("""INSERT INTO locations (username, location_name, latitude, longitude, updated_at)
-                         VALUES (%s,%s,%s,%s,%s) ON CONFLICT (username) DO NOTHING""",
-                      ('mochita','Córdoba', 37.8882, -4.7794, now))
+            c.execute('INSERT INTO locations (username, location_name, latitude, longitude, updated_at)\n'
+                      '                         VALUES (%s,%s,%s,%s,%s) ON CONFLICT (username) DO NOTHING',
+                      ('mochito', 'Algemesí, Valencia', 39.1925, -.4353, now))
+            c.execute('INSERT INTO locations (username, location_name, latitude, longitude, updated_at)\n'
+                      '                         VALUES (%s,%s,%s,%s,%s) ON CONFLICT (username) DO NOTHING',
+                      ('mochita', 'Córdoba', 37.8882, -4.7794, now))
+
+            # 🔸 Semilla ajustes de pareja (fila única id=1)
+            c.execute("""
+                INSERT INTO couple_settings (id, distance_mode, distance_km, updated_at, updated_by)
+                VALUES (1, %s, %s, %s, %s)
+                ON CONFLICT (id) DO NOTHING
+            """, ('separated', DEFAULT_DISTANCE_KM, now, 'seed'))
+
             conn.commit()
+
         except Exception as e:
             print("Seed error:", e); conn.rollback()
         # Índices
@@ -1894,6 +1906,84 @@ def state_set(key: str, value: str):
     finally:
         conn.close()
 
+def get_couple_distance():
+    """
+    Devuelve (distance_mode, distance_km) para la pareja.
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT distance_mode, distance_km
+                FROM couple_settings
+                WHERE id = 1
+            """)
+            row = c.fetchone()
+            if not row:
+                # Por si la fila no existe por algún motivo raro
+                return 'separated', DEFAULT_DISTANCE_KM
+
+            mode = (row['distance_mode'] or 'separated').strip()
+            if mode not in ('together_alg', 'together_cor', 'separated'):
+                mode = 'separated'
+
+            km = row['distance_km']
+            try:
+                km = float(km) if km is not None else DEFAULT_DISTANCE_KM
+            except Exception:
+                km = DEFAULT_DISTANCE_KM
+
+            return mode, km
+    finally:
+        conn.close()
+
+
+def set_couple_distance(mode: str, updated_by: str):
+    """
+    Guarda el modo (together_alg, together_cor, separated) y ajusta los km
+    (0 si están juntos, DEFAULT_DISTANCE_KM si están en distancia).
+    """
+    mode = (mode or '').strip()
+    if mode not in ('together_alg', 'together_cor', 'separated'):
+        mode = 'separated'
+
+    if mode in ('together_alg', 'together_cor'):
+        km = 0.0
+    else:
+        km = DEFAULT_DISTANCE_KM
+
+    now_txt = now_madrid_str()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO couple_settings (id, distance_mode, distance_km, updated_at, updated_by)
+                VALUES (1, %s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE
+                   SET distance_mode = EXCLUDED.distance_mode,
+                       distance_km   = EXCLUDED.distance_km,
+                       updated_at    = EXCLUDED.updated_at,
+                       updated_by    = EXCLUDED.updated_by
+            """, (mode, km, now_txt, updated_by))
+            conn.commit()
+    finally:
+        conn.close()
+
+    # Logs / tiempo real (opcional pero chulo)
+    try:
+        send_discord('Distance mode updated', {'mode': mode, 'km': km, 'by': updated_by})
+    except Exception:
+        pass
+
+    try:
+        broadcast('distance_update', {'mode': mode, 'km': km, 'by': updated_by})
+    except Exception:
+        pass
+
+    return mode, km
+
+
+
 def _meet_times_key(day: date): return f"meet_times::{day.isoformat()}"
 def _meet_sent_key(day: date, hhmm: str): return f"meet_sent::{day.isoformat()}::{hhmm}"
 
@@ -2001,6 +2091,12 @@ def due_now(now_madrid: datetime, hhmm: str) -> bool:
 
 # ========= Seguimiento de PRECIO: helpers =========
 PRICE_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
+try:
+    DEFAULT_DISTANCE_KM = float(os.environ.get('DEFAULT_DISTANCE_KM', '520'))
+except Exception:
+    DEFAULT_DISTANCE_KM = 520.0  # Algemesí ⇄ Córdoba aproximado
+
+
 
 def _to_cents_from_str(s: str) -> int | None:
     if not s: return None
@@ -2423,6 +2519,19 @@ def background_loop():
         except Exception as e:
             print(f"[bg] error: {e}")
         time.sleep(interval)
+
+
+@app.context_processor
+def inject_distance_settings():
+    distance_mode, distance_km = get_couple_distance()
+    try:
+        distance_km = int(round(distance_km))
+    except Exception:
+        distance_km = int(DEFAULT_DISTANCE_KM)
+    return dict(
+        distance_mode=distance_mode,
+        distance_km=distance_km,
+    )
 
 
 # ========= Rutas =========
@@ -3032,7 +3141,7 @@ def index():
                            question_id=question_id,
                            dq_reactions=dq_reactions_map,
                            dq_chat_messages=dq_chat_messages,
-                           user_points=user_points,   # ⬅️ añade esto
+                           user_points=user_points, 
                            other_points=other_points,
                            )
 
@@ -5385,6 +5494,17 @@ def _ensure_gamification_schema():
         c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS grant_both BOOLEAN DEFAULT TRUE")
         c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE")
 
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS couple_settings (
+                id            INTEGER PRIMARY KEY,
+                distance_mode TEXT CHECK (distance_mode IN ('together_alg','together_cor','separated')),
+                distance_km   REAL,
+                updated_at    TEXT,
+                updated_by    TEXT
+            )
+        """)
+
+
         conn.commit()
 
 # En la función _grant_achievement_to, añadir notificación
@@ -6337,6 +6457,31 @@ def historial():
                             total_pages=total_pages,
                             username=session['username'],
                             today_iso=today_madrid().isoformat())  # <-- Cambiar a today_iso
+
+
+@app.route('/update_distance', methods=['POST'])
+def update_distance():
+    if 'username' not in session:
+        return redirect('/')
+
+    user = session['username']
+    mode = (request.form.get('distance_mode') or '').strip()
+
+    new_mode, km = set_couple_distance(mode, updated_by=user)
+
+    if new_mode in ('together_alg', 'together_cor'):
+        msg = 'Modo actualizado: ¡estáis juntitos! 🥰'
+    elif new_mode == 'separated':
+        msg = 'Modo actualizado: toca distancia, pero cada día menos 💌'
+    else:
+        msg = 'Modo de distancia actualizado.'
+
+    flash(msg, 'success')
+
+    # Si tu sección Distancia tiene un id="distancia", esto te lleva directo allí.
+    # Si no, cambia a "/" normal o al anchor que tengas.
+    return redirect('/#distancia')
+
 
 _old_init_db = init_db
 def init_db():

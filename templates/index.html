@@ -187,6 +187,90 @@
         .location-form .row > * { flex: 1 1 auto; }
         .location-badge { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 20px; background: var(--gradient); color: white; font-size: .8rem; margin-top: 5px; }
         .location-badge img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
+        /* Nueva UI de distancia (modo juntos / separados) */
+.distance-layout{
+  display:grid;
+  gap:18px;
+  margin-top:12px;
+}
+@media (min-width:768px){
+  .distance-layout{
+    grid-template-columns: minmax(0,1.1fr) minmax(0,1.2fr);
+    align-items:stretch;
+  }
+}
+.distance-summary-card{
+  background:#fff;
+  border-radius:16px;
+  padding:16px 18px;
+  box-shadow:0 8px 20px rgba(0,0,0,.06);
+  border:1px solid #f1f1f4;
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.distance-mode-form{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.distance-mode-card{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid #eee;
+  background:#fff;
+  box-shadow:0 4px 14px rgba(0,0,0,.04);
+  cursor:pointer;
+  transition:.18s transform,.18s box-shadow,.18s border-color;
+}
+.distance-mode-card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 10px 24px rgba(0,0,0,.08);
+}
+
+.distance-mode-card input[type="radio"]{
+  margin-right:8px;
+  accent-color: var(--primary-color);
+}
+
+.distance-mode-main{
+  flex:1;
+}
+
+.distance-mode-title{
+  font-weight:700;
+  margin-bottom:2px;
+}
+
+.distance-mode-desc{
+  font-size:.9rem;
+  color:#6b7280;
+}
+
+.mode-tag{
+  font-weight:700;
+  font-size:.85rem;
+  padding:6px 10px;
+  border-radius:999px;
+  background:var(--light-pink);
+  color:var(--primary-color);
+}
+
+/* Resaltar tarjeta seleccionada */
+.distance-mode-card input[type="radio"]:checked + .distance-mode-main .distance-mode-title{
+  color:var(--primary-color);
+}
+.distance-mode-card input[type="radio"]:checked ~ .mode-tag{
+  background:var(--gradient);
+  color:#fff;
+}
+
 
         /* Perfil */
         .profile-section { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
@@ -2461,10 +2545,19 @@ body.loaded #main-content {
     <span>{{ days_together }}</span> días juntos
   </div>
 
-  <div class="chip-stat" id="chipDistance">
-    <i class="fa-solid fa-route"></i>
-    — km
-  </div>
+ <div class="chip-stat" id="chipDistance">
+  <i class="fa-solid fa-route"></i>
+  {% if distance_mode == 'together_alg' %}
+    Juntitos en Algemesí 🏠 (0 km)
+  {% elif distance_mode == 'together_cor' %}
+    Juntitos en Córdoba 🎓 (0 km)
+  {% elif distance_mode == 'separated' %}
+    En distancia: Algemesí ⇄ Córdoba (~{{ distance_km }} km)
+  {% else %}
+    Ajustad vuestra distancia ✨
+  {% endif %}
+</div>
+
   
 
   {% if days_until_meeting is number and days_until_meeting >= 0 %}
@@ -2828,57 +2921,129 @@ body.loaded #main-content {
         {% endif %}
       </div>
 
-      <!-- Mapa de Distancia -->
       <div class="section animate-in delay-2">
-        <h3>Distancia</h3>
-        <p>Cuánta distancia hay entre nosotros.</p>
+  <h3>Distancia</h3>
+  <p style="margin-bottom:10px;">
+    La distancia es física, pero el corazón va por libre 💘
+  </p>
 
-        <div class="distance-map-container">
-          <div id="distanceMap"></div>
-          <!-- Botones utilitarios del mapa -->
-<button type="button" class="map-fab" id="toggleMapSize" title="Pantalla completa">
-  <i class="fa-solid fa-expand"></i>
-</button>
+  <div class="distance-layout">
+    <!-- Resumen bonito -->
+    <div class="distance-summary-card">
+      <h4 style="margin:0 0 8px 0; color:var(--primary-color); font-family:'Playfair Display',serif;">
+        Modo actual
+      </h4>
 
-<!-- Botón geolocalizar -->
-<button type="button" class="map-fab" id="useMyLocationBtn" title="Usar mi ubicación" style="right:66px">
-  <i class="fa-solid fa-location-crosshairs"></i>
-</button>
+      {% if distance_mode == 'together_alg' %}
+        <p style="margin:0 0 6px 0;">
+          Ahora estáis <b>los dos en Algemesí</b> 🏠.  
+          Nada de kilómetros, solo tiempo juntitos.
+        </p>
+        <div class="distance-value" id="distanceValue">0 km</div>
+      {% elif distance_mode == 'together_cor' %}
+        <p style="margin:0 0 6px 0;">
+          Ahora estáis <b>los dos en Córdoba</b> 🎓.  
+          Plan de pisos, facultad y vida universitaria juntos.
+        </p>
+        <div class="distance-value" id="distanceValue">0 km</div>
+      {% elif distance_mode == 'separated' %}
+        <p style="margin:0 0 6px 0;">
+          Estáis en <b>distancia</b>: tú en Algemesí y ella en Córdoba  
+          (o al revés, pero el corazón va en AVE 😌).
+        </p>
+        <div class="distance-value" id="distanceValue">
+          ~{{ distance_km }} km
+        </div>
+      {% else %}
+        <p style="margin:0 0 6px 0;">
+          Elegid cómo estáis ahora mismo para ver vuestra distancia 🧭
+        </p>
+        <div class="distance-value" id="distanceValue">— km</div>
+      {% endif %}
 
-          <div class="distance-info">
-            <h4>Distancia entre nosotros</h4>
-            <div class="distance-value" id="distanceValue">Cargando...</div>
-            <div class="distance-bar" aria-label="Cercanía">
-              <div class="fill" id="distanceFill" style="width:0%"></div>
-            </div>
-            <small class="distance-scale" style="display:block; opacity:.8;">
-              0 km = juntitos • 500+ km = lejos
-            </small>
-            
-            <div id="locationInfo">
-              <div class="location-badge">
-                {% if profile_pictures.get('mochito') %}
-                  <img src="{{ profile_pictures.get('mochito') }}" alt="Christian">
-                {% else %}
-                  <span>C</span>
-                {% endif %}
-                <span id="christianLocation">Algemesí, Valencia</span>
-              </div>
-              <div class="location-badge">
-                {% if profile_pictures.get('mochita') %}
-                  <img src="{{ profile_pictures.get('mochita') }}" alt="Clara">
-                {% else %}
-                  <span>C</span>
-                {% endif %}
-                <span id="claraLocation">Córdoba</span>
-              </div>
-            </div>
+      <div class="distance-bar" aria-label="Cercanía">
+        <div class="fill" id="distanceFill"
+             style="
+               width:{% if distance_mode in ['together_alg','together_cor'] %}100%
+                     {% elif distance_mode == 'separated' %}25%
+                     {% else %}0%
+                     {% endif %};
+             "></div>
+      </div>
+      <small style="opacity:.8;">
+        0 km = juntitos • más km = toca echar de menos, pero también se cuentan los abrazos pendientes 🥹
+      </small>
 
-            <!-- 🌍 FORM: Actualizar ubicación (manual o automática) -->
-            
+      <div class="mini-note" style="margin-top:10px; font-size:.9rem; color:#6b7280;">
+        Cualquiera de los dos puede cambiar el modo y se actualizará igual
+        en vuestras dos cuentas 💑
+      </div>
+    </div>
+
+    <!-- Selector de modo, compartido -->
+    <form method="POST"
+          action="{{ url_for('update_distance') }}"
+          class="distance-mode-form">
+      <h4 style="margin:0 0 8px 0; font-size:1rem; color:#4b5563;">
+        ¿Cómo estáis ahora mismo?
+      </h4>
+
+      <!-- Los dos en Algemesí -->
+      <label class="distance-mode-card">
+        <input type="radio" name="distance_mode" value="together_alg"
+               {% if distance_mode == 'together_alg' %}checked{% endif %}>
+        <div class="distance-mode-main">
+          <div class="distance-mode-title">
+            Los dos en Algemesí 🏠
+          </div>
+          <div class="distance-mode-desc">
+            Los dos en casa, sin kilómetros de por medio.
           </div>
         </div>
-      </div>
+        <div class="mode-tag">0 km</div>
+      </label>
+
+      <!-- Los dos en Córdoba -->
+      <label class="distance-mode-card">
+        <input type="radio" name="distance_mode" value="together_cor"
+               {% if distance_mode == 'together_cor' %}checked{% endif %}>
+        <div class="distance-mode-main">
+          <div class="distance-mode-title">
+            Los dos en Córdoba 🎓
+          </div>
+          <div class="distance-mode-desc">
+            Vida universitaria juntos, piso, cafecitos y clases.
+          </div>
+        </div>
+        <div class="mode-tag">0 km</div>
+      </label>
+
+      <!-- Separados: uno en Algemesí, otro en Córdoba -->
+      <label class="distance-mode-card">
+        <input type="radio" name="distance_mode" value="separated"
+               {% if distance_mode == 'separated' %}checked{% endif %}>
+        <div class="distance-mode-main">
+          <div class="distance-mode-title">
+            En distancia (Algemesí ⇄ Córdoba) 🚄
+          </div>
+          <div class="distance-mode-desc">
+            Uno en casa y otro estudiando, pero con la próxima visita en mente.
+          </div>
+        </div>
+        <div class="mode-tag">~{{ distance_km }} km</div>
+      </label>
+
+      <button type="submit" style="margin-top:8px;">
+        <i class="fas fa-save"></i> Guardar modo
+      </button>
+    </form>
+  </div>
+
+  <!-- Para no romper JS antiguo del mapa si lo tienes aún,
+       dejamos un div oculto con el mismo id -->
+  <div id="distanceMap" style="display:none;"></div>
+</div>
+
 
       <!-- Horarios -->
       <div class="section animate-in delay-2">

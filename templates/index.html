@@ -187,12 +187,6 @@
         .location-form .row > * { flex: 1 1 auto; }
         .location-badge { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 20px; background: var(--gradient); color: white; font-size: .8rem; margin-top: 5px; }
         .location-badge img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
-        .distance-last-update{
-        margin-top: 8px;
-        font-size: 0.8rem;
-        opacity: 0.8;
-      }
-
 
         /* Perfil */
         .profile-section { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
@@ -2265,6 +2259,14 @@ body.loaded #main-content {
             margin: 20px 0;
             text-align: center;
         }
+
+        .distance-mode-btn.active{
+  border-color: var(--primary-color);
+  background: rgba(232,67,147,.12);
+  color: var(--primary-color);
+  box-shadow: 0 0 0 1px rgba(232,67,147,.18);
+}
+
     </style>
 </head>
 
@@ -2834,167 +2836,98 @@ body.loaded #main-content {
         {% endif %}
       </div>
 
-      <!-- Distancia (versión sin mapa, con selector manual y contador) -->
-<div class="section animate-in delay-2">
+ <!-- Distancia (sin mapa) -->
+<div class="section animate-in delay-2" id="distanceSection">
   <h3>Distancia</h3>
-  <p>
-    Aunque ahora estemos en ciudades distintas, la distancia es física…
-    el corazón va por libre 💘
-  </p>
+  <p>Cómo va nuestra distancia ahora mismo 💌</p>
 
-  <div class="distance-map-container" style="
-    height:auto;
-    padding:18px;
-    display:flex;
-    flex-wrap:wrap;
-    gap:18px;
-    align-items:stretch;
-    justify-content:space-between;
-    background:radial-gradient(circle at top, rgba(232,67,147,.12), #ffffff);
-  ">
-    <!-- Columna personas / ciudades -->
-    <div style="flex:1 1 240px; display:flex; flex-direction:column; gap:12px; justify-content:center;">
-      <div style="
-        display:flex;
-        align-items:center;
-        gap:10px;
-        padding:10px 14px;
-        border-radius:14px;
-        background:rgba(255,255,255,.85);
-        box-shadow:0 6px 16px rgba(0,0,0,.06);
-      ">
+  <div style="display:flex;flex-direction:column;gap:1rem;">
+
+    <!-- Estado actual -->
+    <div style="display:flex;flex-direction:column;gap:.5rem;padding:.75rem 1rem;border-radius:16px;background:rgba(255,255,255,.7);backdrop-filter:blur(6px);border:1px solid rgba(0,0,0,.04);">
+      <div id="distanceStatusLabel" style="font-weight:600;">
+        Ahora mismo estamos en ciudades distintas 💔
+      </div>
+      <div id="distanceKmLabel" style="font-size:.9rem;color:var(--text-muted, #666);">
+        Aprox. 500 km entre Algemesí (Valencia) y Córdoba.
+      </div>
+    </div>
+
+    <!-- Quién está dónde -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;">
+      <div class="location-badge">
         {% if profile_pictures.get('mochito') %}
-          <img src="{{ profile_pictures.get('mochito') }}" alt="Christian"
-               style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
+          <img src="{{ profile_pictures.get('mochito') }}" alt="Christian">
         {% else %}
-          <div style="width:40px;height:40px;border-radius:50%;background:var(--gradient);
-                      display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;">
-            C
-          </div>
+          <span>C</span>
         {% endif %}
-        <div>
-          <strong>Christian</strong><br>
-          <small style="opacity:.8;" id="christianCityLabel">Algemesí, Valencia</small>
-        </div>
+        <span id="christianLocation">Algemesí, Valencia</span>
       </div>
 
-      <div style="
-        display:flex;
-        align-items:center;
-        gap:10px;
-        padding:10px 14px;
-        border-radius:14px;
-        background:rgba(255,255,255,.85);
-        box-shadow:0 6px 16px rgba(0,0,0,.06);
-      ">
+      <div style="font-size:1.4rem;opacity:.7;">↔</div>
+
+      <div class="location-badge">
         {% if profile_pictures.get('mochita') %}
-          <img src="{{ profile_pictures.get('mochita') }}" alt="Clara"
-               style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
+          <img src="{{ profile_pictures.get('mochita') }}" alt="Clara">
         {% else %}
-          <div style="width:40px;height:40px;border-radius:50%;background:var(--gradient);
-                      display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;">
-            C
-          </div>
+          <span>C</span>
         {% endif %}
-        <div>
-          <strong>Clara</strong><br>
-          <small style="opacity:.8;" id="claraCityLabel">Córdoba</small>
-        </div>
+        <span id="claraLocation">Córdoba</span>
       </div>
-
-      <div class="distance-controls" style="margin-top:10px;">
-        <label for="distancePreset" style="font-size:.9rem;opacity:.85;display:block;margin-bottom:4px;">
-          Situación actual
-        </label>
-        <select id="distancePreset" name="distance_preset" style="
-          width:100%;
-          padding:8px 12px;
-          border-radius:12px;
-          border:1px solid #e5e7eb;
-          background:#fff;
-          font-size:.9rem;
-        ">
-          <option value="normal" selected>
-            Christian en Algemesí, Clara en Córdoba
-          </option>
-          <option value="both_alg">
-            Los dos en Algemesí
-          </option>
-          <option value="both_cor">
-            Los dos en Córdoba
-          </option>
-        </select>
-      </div>
-
-      <p style="font-size:.9rem;opacity:.8;margin-top:6px;">
-        La distancia se mueve, pero vosotros siempre vais en el mismo equipo 🥹
-      </p>
     </div>
 
-    <!-- Columna “stats” de distancia -->
-    <div style="
-      flex:1 1 260px;
-      background:#fff;
-      border-radius:16px;
-      padding:16px 18px;
-      box-shadow:0 8px 22px rgba(0,0,0,.10);
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    ">
-      <h4 style="margin:0 0 4px 0;color:var(--primary-color);font-family:'Playfair Display',serif;">
-        Distancia entre ciudades
-      </h4>
-
-      <div class="distance-value" id="distanceValue"
-           style="font-size:1.8rem;font-weight:800;color:var(--accent-color);">
-        — km
-      </div>
-
-      <div class="distance-bar" aria-label="Cercanía">
-        <div class="fill" id="distanceFill" style="width:0%"></div>
-      </div>
-
-      <p class="distance-last-update" id="distanceLastUpdate"
-         style="font-size:.85rem;opacity:.8;">
-        Distancia calculada...
-      </p>
-
-      {# Contador de días para que se acabe la distancia #}
-      {% if days_until_meeting is number and days_until_meeting >= 0 %}
-        <p id="distanceCountdown" style="font-size:.9rem;margin-top:2px;">
-          {% if days_until_meeting == 0 %}
-            Hoy la distancia se acaba: <b>¡os veis!</b> ❤️
-          {% elif days_until_meeting == 1 %}
-            Queda <b>1 día</b> para que se acabe la distancia.
-          {% else %}
-            Quedan <b>{{ days_until_meeting }}</b> días para que se acabe la distancia.
-          {% endif %}
-        </p>
-      {% else %}
-        <p id="distanceCountdown" style="font-size:.9rem;margin-top:2px;opacity:.8;">
-          Aún no hay fecha guardada para el próximo encuentro.
-        </p>
-      {% endif %}
-
-      <!-- Formulario para actualizar la fecha del próximo encuentro (igual que en Inicio) -->
-      <div class="mini-note" style="margin-top:8px;color:#6b7280;font-size:.9rem;">
-        Cambiad aquí la fecha del próximo encuentro y el contador se actualizará
-        también en el inicio 💫
-      </div>
-
-      <form method="POST" class="inline-form" style="margin-top:6px;">
-        <input type="date" name="meeting_date" required>
-        <button type="submit">
-          <i class="fas fa-calendar-alt"></i> Actualizar fecha
+    <!-- Controles: dónde estáis hoy -->
+    <div style="display:flex;flex-direction:column;gap:.5rem;">
+      <span style="font-size:.85rem;color:var(--text-muted,#666);">¿Dónde estamos hoy?</span>
+      <div style="display:flex;flex-wrap:wrap;gap:.5rem;">
+        <button type="button"
+                class="distance-mode-btn"
+                data-mode="separate"
+                style="flex:1;min-width:150px;padding:.45rem .5rem;border-radius:999px;border:1px solid rgba(0,0,0,.08);background:rgba(255,255,255,.9);font-size:.9rem;cursor:pointer;">
+          Cada uno en su ciudad
         </button>
-      </form>
-
-      <p style="font-size:.85rem;opacity:.8;margin-top:6px;">
-        Usando Algemesí y Córdoba como puntos fijos según el modo elegido arriba.
-        Todo manual, sin GPS ni permisos de ubicación 😌
-      </p>
+        <button type="button"
+                class="distance-mode-btn"
+                data-mode="together_algemesi"
+                style="flex:1;min-width:150px;padding:.45rem .5rem;border-radius:999px;border:1px solid rgba(0,0,0,.08);background:rgba(255,255,255,.9);font-size:.9rem;cursor:pointer;">
+          Juntos en Algemesí
+        </button>
+        <button type="button"
+                class="distance-mode-btn"
+                data-mode="together_cordoba"
+                style="flex:1;min-width:150px;padding:.45rem .5rem;border-radius:999px;border:1px solid rgba(0,0,0,.08);background:rgba(255,255,255,.9);font-size:.9rem;cursor:pointer;">
+          Juntos en Córdoba
+        </button>
+      </div>
     </div>
+
+    <!-- Cuenta atrás Fin de la distancia -->
+    <div style="margin-top:.5rem;padding:.85rem 1rem;border-radius:16px;background:rgba(255,255,255,.75);border:1px solid rgba(0,0,0,.04);display:flex;flex-direction:column;gap:.4rem;">
+      <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+        <span style="font-size:.85rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:rgba(232,67,147,.1);color:var(--primary-color,#e84393);">
+          Fin de la distancia
+        </span>
+        <span id="distanceCountdownText" style="font-size:.85rem;color:var(--text-muted,#666);">
+          Elegid una fecha para el próximo reencuentro 💞
+        </span>
+      </div>
+
+      <div style="display:flex;align-items:baseline;gap:.25rem;">
+        <div id="distanceDaysLeft" style="font-size:1.8rem;font-weight:800;line-height:1;">--</div>
+        <div style="font-size:.9rem;">días</div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.25rem;">
+        <label for="distanceEndDate" style="font-size:.85rem;">Próximo día sin distancia:</label>
+        <input type="date"
+               id="distanceEndDate"
+               style="padding:.3rem .5rem;border-radius:999px;border:1px solid rgba(0,0,0,.12);background:rgba(255,255,255,.95);font-size:.85rem;">
+        <small style="font-size:.75rem;color:var(--text-muted,#777);">
+          Se guarda solo en este navegador, así que tú o ella lo podéis cambiar.
+        </small>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -4131,6 +4064,7 @@ window.openBasicEditMedia = function(btn){
     <!-- TODO tu contenido actual aquí -->
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
 
 <script>
   
@@ -4349,6 +4283,228 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => { if(e.key === 'Escape'){ document.querySelectorAll('.photo-popover.open').forEach(p => p.classList.remove('open')); } });
 
 
+// =====================
+// MAPA (Leaflet) + Distancia + Geocoding + GEOLOCALIZACIÓN REAL
+// =====================
+let map, christianMarker, claraMarker, distanceLine;
+let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" };
+let claraLocation     = { lat: 37.8882, lng: -4.7794, name: "Córdoba" };
+
+function initMap() {
+  const mapEl = document.getElementById('distanceMap');
+  if (!mapEl || typeof L === 'undefined') return;
+
+  map = L.map('distanceMap').setView([39.5, -3.0], 6);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+
+  const christianAvatar = {{ (profile_pictures.get('mochito') or 
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23e84393"/><text x="50" y="60" font-size="40" text-anchor="middle" fill="white">C</text></svg>') | tojson }};
+  const claraAvatar = {{ (profile_pictures.get('mochita') or 
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23a29bfe"/><text x="50" y="60" font-size="40" text-anchor="middle" fill="white">C</text></svg>') | tojson }};
+
+  const christianIcon = L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div style="background-image:url(${christianAvatar});background-size:cover;width:40px;height:40px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(0,0,0,.5);"></div>`,
+    iconSize: [40, 40], iconAnchor: [20, 20]
+  });
+  const claraIcon = L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div style="background-image:url(${claraAvatar});background-size:cover;width:40px;height:40px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(0,0,0,.5);"></div>`,
+    iconSize: [40, 40], iconAnchor: [20, 20]
+  });
+
+  christianMarker = L.marker([christianLocation.lat, christianLocation.lng], { icon: christianIcon }).addTo(map);
+  claraMarker     = L.marker([claraLocation.lat, claraLocation.lng], { icon: claraIcon }).addTo(map);
+
+  updateDistanceLine();
+  updateDistanceInfo();
+  loadSavedLocations();
+}
+
+function updateDistanceLine() {
+  if (!map || !christianMarker || !claraMarker) return;
+  if (distanceLine) map.removeLayer(distanceLine);
+
+  distanceLine = L.polyline(
+    [[christianLocation.lat, christianLocation.lng], [claraLocation.lat, claraLocation.lng]],
+    { color: '#e84393', weight: 3, dashArray: '10, 10', lineJoin: 'round' }
+  ).addTo(map);
+
+  const group = new L.featureGroup([christianMarker, claraMarker]);
+  map.fitBounds(group.getBounds().pad(0.2));
+}
+
+function updateDistanceInfo() {
+  const el = document.getElementById('distanceValue');
+  if (!el) return;
+  const distance = calculateDistance(
+    christianLocation.lat, christianLocation.lng,
+    claraLocation.lat, claraLocation.lng
+  );
+  el.textContent = `${distance.toFixed(1)} km`;
+
+  const ch = document.getElementById('christianLocation');
+  const cl = document.getElementById('claraLocation');
+  if (ch) ch.textContent = christianLocation.name;
+  if (cl) cl.textContent = claraLocation.name;
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+function deg2rad(deg){ return deg * (Math.PI/180); }
+
+// Geocodificación directa (texto -> coords)
+async function geocodeAddress(address) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
+    const response = await fetch(url, { headers: { 'Accept-Language': 'es' } });
+    const data = await response.json();
+    if (Array.isArray(data) && data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon),
+        name: (data[0].display_name || '').split(',')[0] || address
+      };
+    }
+    throw new Error('Ubicación no encontrada');
+  } catch (error) {
+    console.error('Error en geocodificación:', error);
+    window.showToast?.('error', 'No se pudo encontrar la ubicación. Intenta con una dirección más específica.');
+    return null;
+  }
+}
+
+// 🔁 Geocodificación inversa (coords -> nombre corto)
+async function reverseGeocode(lat, lon) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`, { headers: { 'Accept-Language': 'es' }});
+    const data = await res.json();
+    const city = data.address?.city || data.address?.town || data.address?.village || data.address?.hamlet || data.name || 'Mi ubicación';
+    const country = data.address?.country_code ? data.address.country_code.toUpperCase() : '';
+    return `${city}${country ? ', ' + country : ''}`;
+  } catch {
+    return 'Mi ubicación';
+  }
+}
+
+// Persistencia local
+function saveLocations() {
+  try {
+    const locations = { christian: christianLocation, clara: claraLocation };
+    localStorage.setItem('coupleLocations', JSON.stringify(locations));
+  } catch { /* nada */ }
+}
+function loadSavedLocations() {
+  try {
+    const saved = localStorage.getItem('coupleLocations');
+    if (!saved) return;
+    const locations = JSON.parse(saved);
+    christianLocation = locations.christian || christianLocation;
+    claraLocation     = locations.clara     || claraLocation;
+    christianMarker?.setLatLng([christianLocation.lat, christianLocation.lng]);
+    claraMarker?.setLatLng([claraLocation.lat, claraLocation.lng]);
+    updateDistanceLine();
+    updateDistanceInfo();
+  } catch { /* nada */ }
+}
+
+// Formulario: actualizar por texto
+function setupLocationForm() {
+  const form = document.getElementById('locationForm');
+  if (!form) return;
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const input = document.getElementById('userLocation');
+    if (!input || !input.value.trim()) return;
+
+    const btn = form.querySelector('button[type="submit"]');
+    const original = btn ? btn.innerHTML : '';
+    if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...'; btn.disabled = true; }
+
+    const locationData = await geocodeAddress(input.value.trim());
+
+    if (locationData) {
+      const currentUser = {{ (session.username or '') | tojson }};
+      if (currentUser === 'mochito') {
+        christianLocation = locationData;
+        christianMarker?.setLatLng([locationData.lat, locationData.lng]);
+      } else if (currentUser === 'mochita') {
+        claraLocation = locationData;
+        claraMarker?.setLatLng([locationData.lat, locationData.lng]);
+      } else {
+        christianLocation = locationData;
+        christianMarker?.setLatLng([locationData.lat, locationData.lng]);
+      }
+      updateDistanceLine();
+      updateDistanceInfo();
+      saveLocations();
+      input.value = '';
+      window.showToast?.('success', `¡Ubicación actualizada! Ahora estás en ${locationData.name}`);
+    }
+
+    if (btn) { btn.innerHTML = original; btn.disabled = false; }
+  });
+}
+
+// 🌐 Botón: usar ubicación real del navegador
+function setupUseMyLocation() {
+  const btn = document.getElementById('useMyLocationBtn');
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    if (!('geolocation' in navigator)) {
+      window.showToast?.('error', 'Tu navegador no soporta geolocalización.');
+      return;
+    }
+
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Obteniendo...';
+    btn.disabled = true;
+
+    const opts = { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 };
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      const name = await reverseGeocode(lat, lng);
+
+      const currentUser = {{ (session.username or '') | tojson }};
+      if (currentUser === 'mochito') {
+        christianLocation = { lat, lng, name };
+        christianMarker?.setLatLng([lat, lng]);
+      } else if (currentUser === 'mochita') {
+        claraLocation = { lat, lng, name };
+        claraMarker?.setLatLng([lat, lng]);
+      } else {
+        christianLocation = { lat, lng, name };
+        christianMarker?.setLatLng([lat, lng]);
+      }
+
+      updateDistanceLine();
+      updateDistanceInfo();
+      saveLocations();
+      window.showToast?.('success', `Ubicación actualizada: ${name}`);
+      btn.innerHTML = original; btn.disabled = false;
+    }, (err) => {
+      const msg = {
+        1: 'Has denegado el permiso de ubicación.',
+        2: 'No se pudo determinar tu ubicación.',
+        3: 'Tiempo de espera agotado.'
+      }[err.code] || 'Error al obtener la ubicación.';
+      window.showToast?.('error', msg + ' Puedes introducir la ciudad manualmente.');
+      btn.innerHTML = original; btn.disabled = false;
+    }, opts);
+  });
+}
 
 
 // =====================
@@ -6591,300 +6747,283 @@ function setDistanceBar(km){
 
 
 </script>
+
 <script>
-(function(){
-  // Usuario logueado y la otra persona (Jinja)
+  /* ====== AUTO GEO (solo geolocalización, sin botones) ====== */
   const LOGGED = {{ (username or '')|tojson }};
   const OTHER  = {{ (other_user or '')|tojson }};
-
+  
   let map, christianMarker, claraMarker, distanceLine;
   let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" };
   let claraLocation     = { lat: 37.8882, lng: -4.7794, name: "Córdoba" };
   let watchId = null;
-
-  // --- Haversine en km ---
+  
+  /* Haversine en km */
   function haversine(a, b){
-    const R = 6371;
-    const toRad = d => d * Math.PI / 180;
-    const dLat = toRad(b.lat - a.lat);
-    const dLng = toRad(b.lng - a.lng);
-    const sLat1 = toRad(a.lat);
-    const sLat2 = toRad(b.lat);
-    const h = Math.sin(dLat/2)**2 +
-              Math.cos(sLat1) * Math.cos(sLat2) * Math.sin(dLng/2)**2;
-    return 2 * R * Math.asin(Math.sqrt(h));
+    const R=6371, toRad=d=>d*Math.PI/180;
+    const dLat=toRad(b.lat-a.lat), dLng=toRad(b.lng-a.lng);
+    const sLat1=toRad(a.lat), sLat2=toRad(b.lat);
+    const h=Math.sin(dLat/2)**2+Math.cos(sLat1)*Math.cos(sLat2)*Math.sin(dLng/2)**2;
+    return 2*R*Math.asin(Math.sqrt(h));
   }
-
-  // --- Dibuja distancia, barra, chip y línea entre los dos ---
-  function renderDistance(sourceLabel){
-    if (!christianLocation || !claraLocation) return;
-
+  
+  /* Pinta distancia, barra y línea */
+  function renderDistance(){
+    if(!christianLocation || !claraLocation) return;
     const km = haversine(christianLocation, claraLocation);
-    const valEl  = document.getElementById('distanceValue');
-    const fillEl = document.getElementById('distanceFill');
-    const chipEl = document.getElementById('chipDistance');
-    const lastEl = document.getElementById('distanceLastUpdate');
-
-    const kmTxt = km.toFixed(1) + ' km';
-
-    if (valEl)  valEl.textContent = kmTxt;
-    if (chipEl) chipEl.innerHTML  = '<i class="fa-solid fa-route"></i> ' + kmTxt;
-    if (fillEl) fillEl.style.width = Math.min(100, (km / 5) * 100) + '%'; // 0–5 km
-
-    if (lastEl) {
-      const now = new Date();
-      const hh = String(now.getHours()).padStart(2,'0');
-      const mm = String(now.getMinutes()).padStart(2,'0');
-      lastEl.textContent = 'Última actualización: ' + hh + ':' + mm +
-        (sourceLabel ? ' · ' + sourceLabel : '');
-    }
-
-    // Línea en el mapa
-    if (distanceLine) distanceLine.remove();
-    if (!map || typeof L === 'undefined') return;
-
-    distanceLine = L.polyline([
-      [christianLocation.lat, christianLocation.lng],
-      [claraLocation.lat,     claraLocation.lng]
-    ], { color:'#e84393', weight:4, opacity:0.6 }).addTo(map);
-
-    const bounds = L.latLngBounds(
-      [christianLocation.lat, christianLocation.lng],
-      [claraLocation.lat,     claraLocation.lng]
-    );
-    map.fitBounds(bounds, { padding:[30,30] });
-  }
-
-  // --- Crear / actualizar markers y llamar a renderDistance ---
-  function upsertMarkers(sourceLabel){
-    if (!map || typeof L === 'undefined') return;
-
-    // Christian
-    if (!christianMarker){
-      christianMarker = L.marker(
+    const val = document.getElementById('distanceValue');
+    const fill = document.getElementById('distanceFill');
+    const chip = document.getElementById('chipDistance');
+    const kmTxt = `${km.toFixed(1)} km`;
+    if(val)  val.textContent = kmTxt;
+    if(chip) chip.innerHTML = `<i class="fa-solid fa-route"></i> ${kmTxt}`;
+    if(fill) fill.style.width = `${Math.min(100, (km/5)*100)}%`; // 0–5 km escala bonita
+  
+    // línea entre los dos
+    if(distanceLine){ distanceLine.remove(); }
+    if(map){
+      distanceLine = L.polyline([
         [christianLocation.lat, christianLocation.lng],
-        { title:'Christian' }
-      ).addTo(map);
-    } else {
+        [claraLocation.lat,     claraLocation.lng]
+      ], {color:'#e84393', weight:4, opacity:.6}).addTo(map);
+  
+      const bounds = L.latLngBounds(
+        [christianLocation.lat, christianLocation.lng],
+        [claraLocation.lat,     claraLocation.lng]
+      );
+      map.fitBounds(bounds, { padding:[30,30] });
+    }
+  }
+  
+  /* Coloca/actualiza markers */
+  function upsertMarkers(){
+    if(!map || typeof L==='undefined') return;
+    // Cristian
+    if(!christianMarker){
+      christianMarker = L.marker([christianLocation.lat, christianLocation.lng], { title:'Christian' }).addTo(map);
+    }else{
       christianMarker.setLatLng([christianLocation.lat, christianLocation.lng]);
     }
-
     // Clara
-    if (!claraMarker){
-      claraMarker = L.marker(
-        [claraLocation.lat, claraLocation.lng],
-        { title:'Clara' }
-      ).addTo(map);
-    } else {
+    if(!claraMarker){
+      claraMarker = L.marker([claraLocation.lat, claraLocation.lng], { title:'Clara' }).addTo(map);
+    }else{
       claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
     }
-
-    renderDistance(sourceLabel);
+    renderDistance();
   }
-
-  // --- Asigna MI posición según quién esté logueado ---
-  function setMyCoords(lat, lng, acc){
-    const who = (LOGGED || '').toLowerCase();
-    const point = { lat: Number(lat), lng: Number(lng), acc };
-
-    if (who === 'mochito' || who === 'christian'){
-      christianLocation = { ...christianLocation, ...point };
+  
+  /* Lógica para asignar MI posición (según usuario logueado) */
+  function setMyCoords(lat,lng,acc){
+    const who = (LOGGED||'').toLowerCase();
+    const point = {lat: Number(lat), lng: Number(lng)};
+    if(who === 'mochito' || who === 'christian'){
+      christianLocation = {...christianLocation, ...point, acc};
       const el = document.getElementById('christianLocation');
-      if (el) el.textContent = point.lat.toFixed(5) + ', ' + point.lng.toFixed(5);
-    } else {
-      claraLocation = { ...claraLocation, ...point };
+      if(el) el.textContent = `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
+    }else{
+      claraLocation = {...claraLocation, ...point, acc};
       const el = document.getElementById('claraLocation');
-      if (el) el.textContent = point.lat.toFixed(5) + ', ' + point.lng.toFixed(5);
+      if(el) el.textContent = `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
     }
-
-    upsertMarkers('Tu ubicación');
+    upsertMarkers();
   }
-
-  // --- Carga la última posición de la otra persona desde tu backend ---
+  
+  /* (Opcional) trae la última posición de la otra persona desde tu backend */
   async function fetchOtherCoords(){
-    if (!OTHER) return;
     try{
-      const r = await fetch(
-        '/api/other_location?user=' + encodeURIComponent(OTHER),
-        { cache:'no-store' }
-      );
-      if (!r.ok) return;
+      const r = await fetch(`/api/other_location?user=${encodeURIComponent(OTHER||'')}`, {cache:'no-store'});
+      if(!r.ok) return;
       const j = await r.json();
-      if (!j || !j.lat || !j.lng) return;
-
-      const point = { lat:Number(j.lat), lng:Number(j.lng) };
-      const otherIsChristian =
-        (OTHER || '').toLowerCase() === 'mochito' ||
-        (OTHER || '').toLowerCase() === 'christian';
-
-      if (otherIsChristian){
-        christianLocation = { ...christianLocation, ...point };
-      } else {
-        claraLocation = { ...claraLocation, ...point };
+      if(!j || !j.lat || !j.lng) return;
+      const point = {lat:Number(j.lat), lng:Number(j.lng)};
+      // Decide a quién corresponde “other”
+      const otherIsChristian = (OTHER||'').toLowerCase() === 'mochito' || (OTHER||'').toLowerCase()==='christian';
+      if(otherIsChristian){
+        christianLocation = {...christianLocation, ...point};
+      }else{
+        claraLocation = {...claraLocation, ...point};
       }
-      upsertMarkers('Ubicación de ' + OTHER);
-    }catch(e){
-      // silencioso
-    }
+      upsertMarkers();
+    }catch(e){ /* silenciar */ }
   }
-
-  // --- Geolocalización continua (watchPosition) ---
+  
+  /* Arranca geolocalización continua */
   function startAutoGeolocation(){
-    if (!('geolocation' in navigator)){
-      window.showToast?.('error','Tu dispositivo no soporta geolocalización');
+    if(!('geolocation' in navigator)){
+      showToast?.('error','Tu dispositivo no soporta geolocalización');
       return;
     }
-
-    // Aviso rápido si está denegado
-    if (navigator.permissions && navigator.permissions.query){
-      navigator.permissions.query({ name:'geolocation' }).then(p=>{
-        if (p.state === 'denied'){
-          window.showToast?.(
-            'error',
-            'Activa el permiso de ubicación para ver la distancia en tiempo real'
-          );
+    // Permisos: si ya está denegado, avisamos rápido
+    if(navigator.permissions && navigator.permissions.query){
+      navigator.permissions.query({name:'geolocation'}).then(p=>{
+        if(p.state==='denied'){
+          showToast?.('error','Activa el permiso de ubicación para ver la distancia en tiempo real');
         }
       }).catch(()=>{});
     }
-
+  
+    // Observa mi posición y (opcional) la envía al backend
     try{
       watchId = navigator.geolocation.watchPosition(async pos=>{
-        const { latitude, longitude, accuracy } = pos.coords;
+        const {latitude, longitude, accuracy} = pos.coords;
         setMyCoords(latitude, longitude, accuracy);
-
-        // Enviar al backend tu posición
+        // Enviar al backend (ajusta la URL si ya tienes otra ruta)
         try{
           await fetch('/api/location', {
             method:'POST',
             headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ lat:latitude, lng:longitude, acc:accuracy })
           });
-        }catch(_){}
+        }catch(_){ /* sin ruido */ }
       }, err=>{
-        let msg = 'No se pudo obtener tu ubicación';
-        if (err && err.message) msg += ': ' + err.message;
-        window.showToast?.('error', msg);
-      }, {
-        enableHighAccuracy:true,
-        maximumAge:15000,
-        timeout:10000
-      });
+        showToast?.('error', 'No se pudo obtener tu ubicación: '+ (err && err.message ? err.message : ''));
+      }, { enableHighAccuracy:true, maximumAge:15000, timeout:10000 });
     }catch(e){
-      window.showToast?.('error','Error iniciando geolocalización');
+      showToast?.('error','Error iniciando geolocalización');
     }
-
-    // refrescar ubicación de la otra persona cada 15 s
+  
+    // Refresca cada 15 s la ubicación de la otra persona (si hay backend)
     setInterval(fetchOtherCoords, 15000);
   }
-
-  // --- Geolocalización bajo demanda (botón "usar mi ubicación") ---
-  async function requestGeolocationOnce(){
-    if (!('geolocation' in navigator)){
-      window.showToast?.('error','Tu navegador no soporta geolocalización');
-      return null;
-    }
-    if (!window.isSecureContext && location.hostname !== 'localhost'){
-      window.showToast?.('error','Activa HTTPS para usar geolocalización');
-      return null;
-    }
-
-    return new Promise(resolve=>{
-      navigator.geolocation.getCurrentPosition(
-        pos => resolve(pos),
-        err => {
-          let msg = 'No se pudo obtener tu ubicación';
-          if (err && err.code === err.PERMISSION_DENIED){
-            msg = 'Permiso de ubicación denegado';
-          }
-          window.showToast?.('error', msg);
-          resolve(null);
-        },
-        { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
-      );
-    });
-  }
-
-  // --- Botones (pantalla completa + usar mi ubicación) ---
-  function bindButtons(){
-    const btnUse = document.getElementById('useMyLocationBtn');
-    if (btnUse){
-      btnUse.addEventListener('click', async ()=>{
-        window.showToast?.('info','Solicitando tu ubicación…');
-        const pos = await requestGeolocationOnce();
-        if (!pos) return;
-        const { latitude, longitude, accuracy } = pos.coords;
-        setMyCoords(latitude, longitude, accuracy);
-        window.showToast?.('success','Ubicación actualizada');
-      });
-    }
-
-    const btnSize = document.getElementById('toggleMapSize');
-    const wrap    = document.querySelector('.distance-map-container');
-
-    if (btnSize && wrap){
-      btnSize.addEventListener('click', ()=>{
-        wrap.classList.toggle('full');
-        const full = wrap.classList.contains('full');
-        btnSize.innerHTML = '<i class="fa-solid ' +
-          (full ? 'fa-compress' : 'fa-expand') + '"></i>';
-        if (map){
-          setTimeout(()=> map.invalidateSize(), 300);
-        }
-      });
-    }
-  }
-
-  // --- Helper global para "última vez visto" (lo usan otros scripts) ---
-  window.formatLastSeen = function(ts){
-    if (!ts) return '';
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return '';
-    const diffMs = Date.now() - d.getTime();
-    const diffMin = Math.round(diffMs / 60000);
-
-    if (diffMin < 1) return 'Justo ahora';
-    if (diffMin === 1) return 'Hace 1 minuto';
-    if (diffMin < 60) return 'Hace ' + diffMin + ' min';
-
-    const diffH = Math.round(diffMin / 60);
-    if (diffH === 1) return 'Hace 1 hora';
-    if (diffH < 24) return 'Hace ' + diffH + ' h';
-
-    const diffD = Math.round(diffH / 24);
-    if (diffD === 1) return 'Hace 1 día';
-    return 'Hace ' + diffD + ' días';
-  };
-
-  // --- Inicializar mapa Leaflet ---
+  
+  /* Inicializa el mapa (sustituye tu initMap si estaba a medias) */
   function initMap(){
     const mapEl = document.getElementById('distanceMap');
-    if (!mapEl || typeof L === 'undefined') return;
-
-    map = L.map(mapEl, { zoomControl:true }).setView([39.5, -3], 6);
-
+    if(!mapEl || typeof L==='undefined') return;
+    map = L.map('distanceMap', { zoomControl:true }).setView([39.5, -3], 6);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom:19,
-      attribution:'&copy; OpenStreetMap'
+      maxZoom: 19, attribution: '&copy; OpenStreetMap'
     }).addTo(map);
-
     upsertMarkers();
-    setTimeout(()=> map.invalidateSize(), 300);
   }
-
-  // --- Arranque al cargar DOM ---
-  document.addEventListener('DOMContentLoaded', ()=>{
-    try{
-      initMap();
-      bindButtons();
-      startAutoGeolocation();
-      fetchOtherCoords();
-    }catch(e){
-      console.warn('Error iniciando módulo de distancia', e);
-    }
+  
+  /* Arranque */
+  document.addEventListener('DOMContentLoaded', () => {
+    createHearts?.();
+    initMap();
+    startAutoGeolocation();
+    // primer pull del otro usuario (si lo tienes en backend)
+    fetchOtherCoords();
   });
 
-})();
-</script>
+
+// === Geolocalización controlada por clic ===
+async function requestGeolocationOnce() {
+  if (!('geolocation' in navigator)) {
+    showToast?.('error', 'Tu navegador no soporta geolocalización');
+    return null;
+  }
+  // HTTPS o localhost es obligatorio
+  if (!window.isSecureContext && location.hostname !== 'localhost') {
+    showToast?.('error', 'Activa HTTPS para usar geolocalización');
+    return null;
+  }
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve(pos),
+      (err) => {
+        let msg = 'No se pudo obtener tu ubicación';
+        if (err && err.code === err.PERMISSION_DENIED) msg = 'Permiso de ubicación denegado';
+        showToast?.('error', msg);
+        resolve(null);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  });
+}
+
+// Actualiza tu marcador de "mi usuario" y el chip de distancia si procede
+function applyMyLocationToMap(lat, lng, label='Mi ubicación') {
+  try {
+    // Si usas Christian como “yo”, actualizamos ese marcador:
+    if (typeof christianMarker !== 'undefined' && christianMarker) {
+      christianMarker.setLatLng([lat, lng]).bindPopup(label);
+      // Si tienes esa variable, actualízala también:
+      if (typeof christianLocation !== 'undefined') {
+        christianLocation.lat = lat;
+        christianLocation.lng = lng;
+        christianLocation.name = label;
+      }
+      map?.panTo([lat, lng]);
+    }
+    // Recalcula línea/distancia si tu lógica lo hace en otra función:
+    if (typeof updateDistanceUI === 'function') updateDistanceUI();
+  } catch (e) {
+    // Silencioso, por si aún no existe el mapa al cargar
+  }
+}
+
+// Evento del botón
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('useMyLocationBtn');
+  btn?.addEventListener('click', async () => {
+    showToast?.('info', 'Solicitando tu ubicación…');
+    const pos = await requestGeolocationOnce();
+    if (!pos) return;
+    const { latitude, longitude } = pos.coords;
+    applyMyLocationToMap(latitude, longitude, 'Aquí estoy');
+
+    // (Opcional) Enviar al backend si tienes endpoint
+    // try {
+    //   await fetch('/update_my_location', {
+    //     method: 'POST',
+    //     headers: {'Content-Type':'application/json'},
+    //     body: JSON.stringify({ lat: latitude, lng: longitude })
+    //   });
+    // } catch {}
+    showToast?.('success', 'Ubicación actualizada');
+  });
+
+  // Estado del permiso (informativo)
+  if (navigator.permissions?.query) {
+    navigator.permissions.query({ name: 'geolocation' }).then((st) => {
+      if (st.state === 'denied') {
+        showToast?.('error','Tienes bloqueada la ubicación en el navegador');
+      }
+    }).catch(()=>{});
+  }
+});
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      // Registra tu SW (ya lo tienes en /sw.js)
+      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+
+      // 1) Busca actualización siempre que abres la app/página
+      reg.update();
+
+      // 2) Y también al volver a primer plano (PWA instalada o pestaña)
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update();
+      });
+
+      // 3) Cuando el nuevo SW tome el control, recargamos para aplicar la nueva versión
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+
+      // (Opcional) Si quieres ver que detectó una actualización:
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        nw?.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            // Si usas toasts:
+            window.showToast?.('info', 'Actualizando a la última versión…');
+          }
+        });
+      });
+    } catch (e) {
+      console.warn('SW register error', e);
+    }
+  });
+}
+
+  </script>
+  
 
 <!-- NAVIDAD (tema) se puede borrar-->
 
@@ -7179,141 +7318,126 @@ function flyOnce(){
 
 <script>
 (function(){
-  // Coordenadas fijas: Algemesí y Córdoba
-  const christian = { lat: 39.1925, lng: -0.4353 };
-  const clara     = { lat: 37.8882, lng: -4.7794 };
+  const MODES = {
+    separate : {
+      label: "Ahora mismo estamos en ciudades distintas 💔",
+      kmText: "Aprox. 500 km entre Algemesí (Valencia) y Córdoba."
+    },
+    together_algemesi: {
+      label: "Ahora mismo estamos juntitos en Algemesí 🏡",
+      kmText: "Distancia física: 0 km. Solo mimos y achuchones."
+    },
+    together_cordoba: {
+      label: "Ahora mismo estamos juntitos en Córdoba 🌆",
+      kmText: "Distancia física: 0 km. Solo mimos y achuchones."
+    }
+  };
 
-  function haversine(a, b){
-    const R = 6371; // km
-    const toRad = d => d * Math.PI / 180;
-    const dLat  = toRad(b.lat - a.lat);
-    const dLng  = toRad(b.lng - a.lng);
-    const sLat1 = toRad(a.lat);
-    const sLat2 = toRad(b.lat);
-    const h = Math.sin(dLat/2)**2 +
-              Math.cos(sLat1) * Math.cos(sLat2) * Math.sin(dLng/2)**2;
-    return 2 * R * Math.asin(Math.sqrt(h));
-  }
+  const STORAGE_KEY_MODE = "mochitos_distance_mode";
+  const STORAGE_KEY_DATE = "mochitos_distance_end_date";
 
-  const km = haversine(christian, clara);
-  const txt = km.toFixed(1) + ' km';
+  function applyMode(mode){
+    const data = MODES[mode] || MODES.separate;
 
-  const val  = document.getElementById('distanceValue');
-  const fill = document.getElementById('distanceFill');
-  const chip = document.getElementById('chipDistance');
-  const last = document.getElementById('distanceLastUpdate');
+    // Resaltar botón activo
+    const btns = document.querySelectorAll(".distance-mode-btn");
+    btns.forEach(b => {
+      b.classList.toggle("active", b.dataset.mode === mode);
+    });
 
-  if (val)  val.textContent = txt;
-  if (chip) chip.innerHTML  = '<i class="fa-solid fa-route"></i> ' + txt;
+    // Texto principal
+    const statusLabel = document.getElementById("distanceStatusLabel");
+    const kmLabel = document.getElementById("distanceKmLabel");
+    if(statusLabel) statusLabel.textContent = data.label;
+    if(kmLabel) kmLabel.textContent = data.kmText;
 
-  // Barra: 0 km = 100%, 800 km ~ 0% (ajusto para que quede “bonito”)
-  if (fill) {
-    const pct = Math.max(0, 100 - Math.min(100, km / 8)); // pura fantasía estética
-    fill.style.width = pct + '%';
-  }
-
-  if (last) {
-    const now = new Date();
-    last.textContent = 'Distancia calculada hoy a las ' +
-      now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  }
-})();
-</script>
-
-
-<script>
-(function(){
-  // Coordenadas base
-  const ALG = { lat: 39.1925, lng: -0.4353, name: 'Algemesí, Valencia' };
-  const COR = { lat: 37.8882, lng: -4.7794, name: 'Córdoba' };
-
-  function haversine(a, b){
-    const R = 6371; // km
-    const toRad = d => d * Math.PI / 180;
-    const dLat  = toRad(b.lat - a.lat);
-    const dLng  = toRad(b.lng - a.lng);
-    const sLat1 = toRad(a.lat);
-    const sLat2 = toRad(b.lat);
-    const h = Math.sin(dLat/2)**2 +
-              Math.cos(sLat1) * Math.cos(sLat2) * Math.sin(dLng/2)**2;
-    return 2 * R * Math.asin(Math.sqrt(h));
-  }
-
-  function updateDistance(christian, clara, preset){
-    const km = haversine(christian, clara);
-    const txt = (km < 0.05) ? '0 km' : km.toFixed(1) + ' km';
-
-    const val  = document.getElementById('distanceValue');
-    const fill = document.getElementById('distanceFill');
-    const chip = document.getElementById('chipDistance');
-    const last = document.getElementById('distanceLastUpdate');
-
-    if (val)  val.textContent = txt;
-    if (chip) chip.innerHTML  = '<i class="fa-solid fa-route"></i> ' + txt;
-
-    // Barra: si estáis juntos (0 km) → 100%, si separados → baja un poco
-    if (fill) {
-      let pct;
-      if (km < 0.05) {
-        pct = 100;
-      } else {
-        // a más km, menos "cercanía visual" (puro dibujito)
-        pct = Math.max(10, 100 - Math.min(90, km / 8));
+    // Texto debajo de cada avatar
+    const christianSpan = document.getElementById("christianLocation");
+    const claraSpan = document.getElementById("claraLocation");
+    if(christianSpan && claraSpan){
+      if(mode === "separate"){
+        christianSpan.textContent = "Algemesí, Valencia";
+        claraSpan.textContent = "Córdoba";
+      } else if(mode === "together_algemesi"){
+        christianSpan.textContent = "Algemesí, Valencia";
+        claraSpan.textContent = "Algemesí, Valencia";
+      } else if(mode === "together_cordoba"){
+        christianSpan.textContent = "Córdoba";
+        claraSpan.textContent = "Córdoba";
       }
-      fill.style.width = pct + '%';
     }
 
-    if (last) {
-      const now = new Date();
-      let base = 'Distancia calculada hoy a las ' +
-        now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-      if (km < 0.05) {
-        base += ' (ahora estáis en la misma ciudad ❤️)';
-      }
-      last.textContent = base;
-    }
+    // Guardar en localStorage
+    try { localStorage.setItem(STORAGE_KEY_MODE, mode); } catch(e){}
   }
 
-  function applyPreset(preset){
-    let c, cl;
+  function updateCountdown(){
+    const daysEl = document.getElementById("distanceDaysLeft");
+    const textEl = document.getElementById("distanceCountdownText");
+    const input  = document.getElementById("distanceEndDate");
+    if(!daysEl || !textEl || !input) return;
 
-    switch (preset) {
-      case 'both_alg':
-        c  = ALG;
-        cl = ALG;
-        break;
-      case 'both_cor':
-        c  = COR;
-        cl = COR;
-        break;
-      case 'normal':
-      default:
-        c  = ALG; // Christian en Algemesí
-        cl = COR; // Clara en Córdoba
-        break;
+    const value = input.value;
+    if(!value){
+      daysEl.textContent = "--";
+      textEl.textContent = "Elegid una fecha para el próximo reencuentro 💞";
+      return;
     }
 
-    const cLabel  = document.getElementById('christianCityLabel');
-    const clLabel = document.getElementById('claraCityLabel');
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const target = new Date(value + "T00:00:00");
+    const diffMs = target - today;
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
 
-    if (cLabel)  cLabel.textContent  = c.name;
-    if (clLabel) clLabel.textContent = cl.name;
-
-    updateDistance(c, cl, preset);
-  }
-
-  document.addEventListener('DOMContentLoaded', function(){
-    const select = document.getElementById('distancePreset');
-    if (select) {
-      // Inicial
-      applyPreset(select.value || 'normal');
-      // Cambios manuales
-      select.addEventListener('change', () => {
-        applyPreset(select.value || 'normal');
-      });
+    if(diffDays < 0){
+      daysEl.textContent = "0";
+      textEl.textContent = "¡Esa fecha ya pasó! Tocará poner la próxima vez que se acabe la distancia 💫";
+    } else if(diffDays === 0){
+      daysEl.textContent = "0";
+      textEl.textContent = "¡Hoy se acaba la distancia! 🥹💖";
+    } else if(diffDays === 1){
+      daysEl.textContent = "1";
+      textEl.textContent = "Mañana se acaba la distancia ✨";
     } else {
-      // Por si acaso no existiera el select
-      applyPreset('normal');
+      daysEl.textContent = String(diffDays);
+      textEl.textContent = "Faltan " + diffDays + " días para que se acabe la distancia ✈️";
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function(){
+    // Botones de modo (distancia / juntos)
+    const btns = document.querySelectorAll(".distance-mode-btn");
+    btns.forEach(btn => {
+      btn.addEventListener("click", function(){
+        const mode = this.dataset.mode;
+        applyMode(mode);
+      });
+    });
+
+    // Cargar modo guardado
+    let savedMode = null;
+    try { savedMode = localStorage.getItem(STORAGE_KEY_MODE); } catch(e){}
+    if(!savedMode || !MODES[savedMode]) savedMode = "separate";
+    applyMode(savedMode);
+
+    // Fecha de fin de la distancia
+    const dateInput = document.getElementById("distanceEndDate");
+    if(dateInput){
+      let savedDate = null;
+      try { savedDate = localStorage.getItem(STORAGE_KEY_DATE); } catch(e){}
+      if(savedDate){
+        dateInput.value = savedDate;
+      }
+      // Si quieres que por defecto salga 18 de diciembre, descomenta esta línea
+      // if(!savedDate) dateInput.value = "2025-12-18";
+
+      dateInput.addEventListener("change", function(){
+        try { localStorage.setItem(STORAGE_KEY_DATE, this.value); } catch(e){}
+        updateCountdown();
+      });
+
+      updateCountdown();
     }
   });
 })();

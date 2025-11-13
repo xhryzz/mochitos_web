@@ -244,34 +244,50 @@ class PooledConn:
             pass
 
 def get_db_connection():
-    """Obtiene una conexión reutilizable para la petición actual"""
-    # Si ya tenemos conexión para esta petición, la reusamos
-    if 'db_conn' not in g:
+    # Si estamos fuera de contexto de Flask (como durante init_db), crear conexión directa
+    try:
+        from flask import g
+        if 'db_conn' not in g:
+            _init_pool()
+            conn = PG_POOL.getconn()
+            wrapped = PooledConn(PG_POOL, conn)
+            try:
+                with wrapped.cursor() as c:
+                    c.execute('SELECT 1;')
+                    _ = c.fetchone()
+            except (OperationalError, InterfaceError, DatabaseError):
+                wrapped._reconnect()
+                with wrapped.cursor() as c:
+                    c.execute('SELECT 1;')
+                    _ = c.fetchone()
+            g.db_conn = wrapped
+        return g.db_conn
+    except RuntimeError:
+        # Fuera de contexto de Flask - crear conexión directa
         _init_pool()
         conn = PG_POOL.getconn()
         wrapped = PooledConn(PG_POOL, conn)
-        
-        # Verificamos que la conexión esté viva
         try:
             with wrapped.cursor() as c:
-                c.execute("SELECT 1;")
+                c.execute('SELECT 1;')
                 _ = c.fetchone()
         except (OperationalError, InterfaceError, DatabaseError):
             wrapped._reconnect()
             with wrapped.cursor() as c:
-                c.execute("SELECT 1;")
+                c.execute('SELECT 1;')
                 _ = c.fetchone()
-        
-        g.db_conn = wrapped
-    
-    return g.db_conn
+        return wrapped
 
 @app.teardown_appcontext
 def close_db_connection(error=None):
-    """Cierra la conexión al final de cada petición"""
-    db_conn = g.pop('db_conn', None)
-    if db_conn is not None:
-        db_conn.close()
+    try:
+        from flask import g
+        db_conn = g.pop('db_conn', None)
+        if db_conn is not None:
+            db_conn.close()
+    except RuntimeError:
+        # Fuera de contexto, no hacer nada - la conexión se cerrará manualmente
+        pass
 
 # ========= Zona horaria Europe/Madrid =========
 def _eu_last_sunday(year: int, month: int) -> date:
@@ -514,7 +530,11 @@ def cache_invalidate(*fn_names):
 
 # ========= DB init (añadimos app_state y push_subscriptions si no existen) =========
 def init_db():
-    with closing(get_db_connection()) as conn, conn.cursor() as c:
+    # Crear conexión directa para inicialización
+    _init_pool()
+    conn = PG_POOL.getconn()
+    try:
+        with conn.cursor() as c:
         c.execute('''CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY, username TEXT UNIQUE, password TEXT)''')
         c.execute('''CREATE TABLE IF NOT EXISTS schedule_times (

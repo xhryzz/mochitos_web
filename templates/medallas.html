@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -50,7 +49,7 @@
       {% endif %}
     </div>
 
-    <!-- PANEL ADMIN (SOLO MOCHITO + VISTA ACTIVADA) -->
+        <!-- PANEL ADMIN (SOLO MOCHITO + VISTA ACTIVADA) -->
     {% if is_admin and show_admin %}
       <h2 style="margin:32px 0 8px;">⚙️ Admin medallas</h2>
       <div class="card">
@@ -101,7 +100,46 @@
           </button>
         </form>
       </div>
+
+      <!-- NUEVA TARJETA: OTORGAR MEDALLAS MANUALMENTE -->
+      <div class="card" style="margin-top:16px;">
+        <p style="margin-top:0;color:#555;font-size:14px;">
+          Aquí puedes otorgar manualmente cualquier medalla a cualquier usuario.
+          Al concederla se sumarán automáticamente los <b>puntos al conseguir</b> que hayas configurado arriba.
+        </p>
+
+        <form method="post" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+          <input type="hidden" name="_op" value="grant_manual">
+
+          <div style="min-width:180px;">
+            <label style="font-size:13px;color:#555;display:block;margin-bottom:4px;">Usuario</label>
+            <select name="to_user" style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid #ddd;">
+              {% for u in admin_users %}
+                <option value="{{ u.username }}">{{ u.username }} ({{ u.points }} pts)</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div style="min-width:220px;">
+            <label style="font-size:13px;color:#555;display:block;margin-bottom:4px;">Medalla</label>
+            <select name="achievement_id" style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid #ddd;">
+              {% for a in ach_admin %}
+                <option value="{{ a.id }}">[{{ a.id }}] {{ a.title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <button type="submit" class="btn">
+            Otorgar medalla
+          </button>
+        </form>
+
+        <p style="margin-top:8px;color:#888;font-size:12px;">
+          Si la medalla tiene <code>grant_both = TRUE</code>, también se dará automáticamente al otro usuario.
+        </p>
+      </div>
     {% endif %}
+
 
     <!-- ESTADÍSTICAS -->
     <div class="grid" style="margin-top:24px">
@@ -180,4 +218,3 @@
   </script>
 </body>
 </html>
-

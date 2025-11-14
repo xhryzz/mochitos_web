@@ -6167,15 +6167,46 @@ def medallas():
 
             return redirect("/medallas")
 
+        # 3) Otorgar medalla manualmente
+        if op == "grant_manual":
+            if not is_admin:
+                flash("Solo el admin puede otorgar medallas.", "error")
+                return redirect("/medallas")
+
+            to_user = (request.form.get("to_user") or "").strip()
+            ach_raw = (request.form.get("achievement_id") or "").strip()
+
+            if not to_user or not ach_raw:
+                flash("Faltan datos para otorgar la medalla.", "error")
+                return redirect("/medallas")
+
+            try:
+                ach_id = int(ach_raw)
+            except ValueError:
+                flash("ID de medalla inválido.", "error")
+                return redirect("/medallas")
+
+            try:
+                # Usa el helper global que ya tienes definido
+                _grant_achievement_to(to_user, ach_id)
+                flash(f"Medalla #{ach_id} otorgada a {to_user} ✅", "success")
+            except Exception as e:
+                app.logger.exception("[/medallas] grant_manual error: %s", e)
+                flash("No se pudo otorgar la medalla.", "error")
+
+            return redirect("/medallas")
+
         # Si llega aquí, op desconocida
         flash("Acción desconocida en medallas.", "error")
         return redirect("/medallas")
 
     # --- GET: pintar página ---
+        # --- GET: pintar página ---
     show_admin = is_admin and bool(session.get("medallas_admin_view", False))
 
-    # Datos para el panel admin (lista de medallas)
+    # Datos para el panel admin (lista de medallas + usuarios)
     ach_admin = []
+    admin_users = []
     if is_admin:
         conn = get_db_connection()
         try:
@@ -6186,6 +6217,14 @@ def medallas():
                     ORDER BY id
                 """)
                 ach_admin = c.fetchall()
+
+                # Lista de usuarios para el selector
+                c.execute("""
+                    SELECT username, COALESCE(points,0) AS points
+                    FROM users
+                    ORDER BY username
+                """)
+                admin_users = c.fetchall()
         finally:
             conn.close()
 
@@ -6195,7 +6234,9 @@ def medallas():
         is_admin=is_admin,
         show_admin=show_admin,
         ach_admin=ach_admin,
+        admin_users=admin_users,
     )
+
 
 
 

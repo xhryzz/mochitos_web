@@ -74,6 +74,7 @@ except Exception as e:
     app.logger.warning("Jinja bytecode cache desactivado: %s", e)
 
 # ========= Discord logs (asíncrono) =========
+# ========= Discord logs (DESACTIVADO) =========
 DISCORD_WEBHOOK = os.environ.get('DISCORD_WEBHOOK', '')
 
 def client_ip():
@@ -82,52 +83,10 @@ def client_ip():
 def _is_hashed(v: str) -> bool:
     return isinstance(v, str) and (v.startswith('pbkdf2:') or v.startswith('scrypt:'))
 
-_DISCORD_Q = queue.Queue(maxsize=500)
-
-def _discord_worker():
-    while True:
-        url, payload = _DISCORD_Q.get()
-        try:
-            requests.post(url, json=payload, timeout=2)
-        except Exception as e:
-            print(f"[discord] error: {e}")
-        finally:
-            _DISCORD_Q.task_done()
-
-if DISCORD_WEBHOOK:
-    t = threading.Thread(target=_discord_worker, daemon=True)
-    t.start()
-
 def send_discord(event: str, payload: dict | None = None):
-    if not DISCORD_WEBHOOK:
-        return
-    try:
-        display_user = None
-        if 'username' in session and session['username'] in ('mochito', 'mochita'):
-            display_user = session['username']
-        embed = {
-            "title": event,
-            "color": 0xE84393,
-            "timestamp": datetime.utcnow().isoformat() + "Z",
-            "fields": []
-        }
-        if display_user:
-            embed["fields"].append({"name": "Usuario", "value": display_user, "inline": True})
-        try:
-            ruta = f"{request.method} {request.path}"
-        except Exception:
-            ruta = "(sin request)"
-        embed["fields"] += [
-            {"name": "Ruta", "value": ruta, "inline": True},
-            {"name": "IP", "value": client_ip() or "?", "inline": True}
-        ]
-        if payload:
-            raw = json.dumps(payload, ensure_ascii=False)
-            for i, ch in enumerate([raw[i:i+1000] for i in range(0, len(raw), 1000)][:3]):
-                embed["fields"].append({"name": "Datos" + (f" ({i+1})" if i else ""), "value": f"```json\n{ch}\n```", "inline": False})
-        _DISCORD_Q.put_nowait((DISCORD_WEBHOOK, {"username": "Mochitos Logs", "embeds": [embed]}))
-    except Exception as e:
-        print(f"[discord] prep error: {e}")
+    """Logs a Discord desactivados.
+    Deja la firma igual para no tocar el resto del código."""
+    return
 
 # ========= Config Postgres + POOL =========
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
@@ -181,17 +140,21 @@ def _init_pool():
     if not DATABASE_URL:
         raise RuntimeError('Falta DATABASE_URL para PostgreSQL')
 
-    # Máximo 3 conexiones por defecto (suficiente en 512 MB). Sube con DB_MAX_CONN si lo necesitas.
-    maxconn = max(10, int(os.environ.get('DB_MAX_CONN', '10')))  # Aumenta de 3 a 10
+    # Máximo 3 conexiones por defecto (ideal para <300 MB).
+    # Si algún día necesitas más, cambia DB_MAX_CONN en el entorno,
+    # pero lo capamos como mucho a 6 para que no se dispare la RAM.
+    maxconn_env = int(os.environ.get('DB_MAX_CONN', '3'))
+    maxconn = max(1, min(maxconn_env, 6))
+
     PG_POOL = SimpleConnectionPool(
-    1, maxconn,
-    dsn=DATABASE_URL,
-    keepalives=1, 
-    keepalives_idle=30, 
-    keepalives_interval=10, 
-    keepalives_count=5,
-    connect_timeout=8
-)
+        1, maxconn,
+        dsn=DATABASE_URL,
+        keepalives=1,
+        keepalives_idle=30,
+        keepalives_interval=10,
+        keepalives_count=5,
+        connect_timeout=8
+    )
 
 
 class PooledConn:
@@ -334,7 +297,9 @@ def broadcast(event_name: str, data: dict):
 
 @app.route("/events")
 def sse_events():
-    client_q: queue.Queue = queue.Queue(maxsize=200)
+    # Cola pequeña para no acumular demasiados eventos en memoria
+    client_q: queue.Queue = queue.Queue(maxsize=50)
+
     with _subscribers_lock:
         _subscribers.add(client_q)
 

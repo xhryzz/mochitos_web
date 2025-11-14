@@ -706,35 +706,78 @@ def _ensure_gamification_schema():
 
 
 
-def _grant_achievement_to(user: str, achievement_id: int, points_on_award: int = 0):
-    """Concede (si falta) la medalla a 'user' y suma puntos."""
+def _grant_achievement_to(user: str, achievement_id: int, points_on_award=None):
+    """
+    Concede (si falta) la medalla a 'user', suma puntos y manda una noti con el logro.
+    - achievement_id: id de la medalla (tabla achievements)
+    - points_on_award:
+        * si es None -> se usa achievements.points_on_award
+        * si viene con número -> se usa ese número
+    """
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
+            # Info del logro (título + puntos por defecto)
+            c.execute(
+                "SELECT title, points_on_award FROM achievements WHERE id=%s",
+                (achievement_id,)
+            )
+            ach_info = c.fetchone()
+            ach_title = ach_info["title"] if ach_info else "Logro"
+            db_points = ach_info["points_on_award"] if ach_info else 0
+
+            # Usuario
             c.execute("SELECT id FROM users WHERE username=%s", (user,))
             uid = (c.fetchone() or [None])[0]
             if not uid:
                 return
 
+            # ¿Ya tenía la medalla?
             c.execute("""
-              SELECT 1 FROM user_achievements
-              WHERE user_id=%s AND achievement_id=%s
+                SELECT 1 FROM user_achievements
+                WHERE user_id=%s AND achievement_id=%s
             """, (uid, achievement_id))
             if c.fetchone():
                 return  # ya concedida
 
-            if points_on_award and int(points_on_award) != 0:
-                c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE id=%s",
-                          (int(points_on_award), uid))
+            # Puntos finales a sumar
+            if points_on_award is None:
+                pts = int(db_points or 0)
+            else:
+                pts = int(points_on_award or 0)
 
+            if pts != 0:
+                c.execute(
+                    "UPDATE users SET points = COALESCE(points,0) + %s WHERE id=%s",
+                    (pts, uid)
+                )
+
+            # Registrar la medalla
             c.execute("""
-              INSERT INTO user_achievements (user_id, achievement_id, earned_at)
-              VALUES (%s,%s,%s)
-              ON CONFLICT (user_id, achievement_id) DO NOTHING
+                INSERT INTO user_achievements (user_id, achievement_id, earned_at)
+                VALUES (%s,%s,%s)
+                ON CONFLICT (user_id, achievement_id) DO NOTHING
             """, (uid, achievement_id, now_madrid_str()))
+
+            # 🔔 NOTIFICACIÓN PUSH POR LOGRO Y PUNTOS
+            try:
+                if pts > 0:
+                    body = f"{ach_title} - +{pts} puntos"
+                else:
+                    body = ach_title
+
+                send_push_to(
+                    user,
+                    title="🏆 ¡Nuevo logro desbloqueado!",
+                    body=body
+                )
+            except Exception as e:
+                print("[push achievement]", e)
+
         conn.commit()
     finally:
         conn.close()
+
 
 
 def check_relationship_milestones():
@@ -5363,56 +5406,7 @@ def _ensure_gamification_schema():
 
         conn.commit()
 
-# En la función _grant_achievement_to, añadir notificación
-def _grant_achievement_to(user: str, achievement_id: int):
-    """Concede (si falta) la medalla a 'user' y suma puntos."""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            # Primero obtener información del achievement
-            c.execute("SELECT title, points_on_award FROM achievements WHERE id=%s", (achievement_id,))
-            ach_info = c.fetchone()
-            ach_title = ach_info['title'] if ach_info else "Logro"
-            points_on_award = ach_info['points_on_award'] if ach_info else 0
-            
-            c.execute("SELECT id FROM users WHERE username=%s", (user,))
-            uid = (c.fetchone() or [None])[0]
-            if not uid:
-                return
 
-            c.execute("""
-              SELECT 1 FROM user_achievements
-              WHERE user_id=%s AND achievement_id=%s
-            """, (uid, achievement_id))
-            if c.fetchone():
-                return  # ya concedida
-
-            if points_on_award and int(points_on_award) != 0:
-                c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE id=%s",
-                          (int(points_on_award), uid))
-
-            c.execute("""
-              INSERT INTO user_achievements (user_id, achievement_id, earned_at)
-              VALUES (%s,%s,%s)
-              ON CONFLICT (user_id, achievement_id) DO NOTHING
-            """, (uid, achievement_id, now_madrid_str()))
-            
-            # 🔔 NOTIFICACIÓN PUSH POR LOGRO Y PUNTOS
-            try:
-                if points_on_award and int(points_on_award) > 0:
-                    send_push_to(user,
-                                title="🏆 ¡Nuevo logro desbloqueado!",
-                                body=f"{ach_title} - +{points_on_award} puntos")
-                else:
-                    send_push_to(user,
-                                title="🏆 ¡Nuevo logro desbloqueado!",
-                                body=ach_title)
-            except Exception as e:
-                print("[push achievement] ", e)
-                
-        conn.commit()
-    finally:
-        conn.close()
 
 def check_relationship_milestones():
     """

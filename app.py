@@ -921,11 +921,11 @@ def award_points_for_answer(question_id: int, user: str):
             """, (question_id, user))
             existing_answers = int((c.fetchone() or [0])[0] or 0)
             
-            # Si ya existe una respuesta previa, no otorgar puntos nuevamente
-            if existing_answers > 1:
+            # ⚠️ Si ya existe UNA respuesta, no otorgar puntos nuevamente
+            if existing_answers >= 1:
                 return
             
-            # ¿Es la primera respuesta del día? (contamos respuestas no vacías)
+            # ¿Es la primera respuesta del día? (contamos respuestas no vacías de otros)
             c.execute("""
                 SELECT COUNT(*) FROM answers
                 WHERE question_id=%s 
@@ -934,13 +934,11 @@ def award_points_for_answer(question_id: int, user: str):
             """, (question_id, user))
             other_answers = int((c.fetchone() or [0])[0] or 0)
             
-            # Si no hay otras respuestas, es el primero
             if other_answers == 0:
                 bonus = 10
             
             delta = base + bonus
             
-            # Actualizar puntos
             c.execute("""
                 UPDATE users 
                 SET points = COALESCE(points,0) + %s 
@@ -951,13 +949,17 @@ def award_points_for_answer(question_id: int, user: str):
             # 🔔 NOTIFICACIÓN PUSH POR PUNTOS GANADOS
             try:
                 if bonus > 0:
-                    send_push_to(user, 
-                                title="¡Puntos ganados! 🎉", 
-                                body=f"Has ganado {delta} puntos (+{base} por responder, +{bonus} por ser el primero)")
+                    send_push_to(
+                        user, 
+                        title="¡Puntos ganados! 🎉", 
+                        body=f"Has ganado {delta} puntos (+{base} por responder, +{bonus} por ser el primero)"
+                    )
                 else:
-                    send_push_to(user, 
-                                title="¡Puntos ganados! 🎉", 
-                                body=f"Has ganado {delta} puntos por responder la pregunta")
+                    send_push_to(
+                        user, 
+                        title="¡Puntos ganados! 🎉", 
+                        body=f"Has ganado {delta} puntos por responder la pregunta"
+                    )
             except Exception as e:
                 print("[push points award] ", e)
                 
@@ -969,6 +971,17 @@ def award_points_for_answer(question_id: int, user: str):
     
     # Revisa medallas
     _maybe_award_achievements(user)
+
+def push_answer_edited_notice(editor: str):
+    other = 'mochita' if editor == 'mochito' else 'mochito'
+    who   = "tu pareja" if editor in ("mochito", "mochita") else editor
+    send_push_to(
+        other,
+        title="Respuesta editada ✏️",
+        body=f"{who} ha editado su respuesta de hoy. 💬",
+        url="/#pregunta",
+        tag="dq-answer-edit"
+    )
 
 
 def _parse_dt(txt: str):
@@ -2485,13 +2498,14 @@ def index():
                 conn.commit(); flash("Contraseña cambiado correctamente 🎉", "success")
                 send_discord("Change password OK", {"user": user}); return redirect('/')
 
-            # 3) Responder pregunta
-            # En la sección donde se procesa la respuesta (busca esta parte en tu código):
-            # 3) Responder pregunta
+                        # 3) Responder pregunta
             if request.method == 'POST' and 'answer' in request.form:
                 answer = (request.form.get('answer') or '').strip()
                 if question_id is not None and answer:
                     now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+
+                    is_new = False      # se usará para saber si es primera vez
+                    was_edited = False  # se usará para saber si es edición
 
                     conn = get_db_connection()
                     try:
@@ -2511,10 +2525,11 @@ def index():
                                     ON CONFLICT (question_id, username) DO NOTHING
                                     RETURNING id
                                 """, (question_id, user, answer, now_txt, now_txt))
-                                new_id = c.fetchone()
+                                new_row = c.fetchone()
                                 conn.commit()
                                 
-                                if new_id:  # Si se insertó correctamente
+                                if new_row:
+                                    is_new = True
                                     send_discord("Answer submitted", {"user": user, "question_id": question_id})
                                     # ✅ OTORGAR PUNTOS por primera respuesta
                                     try:
@@ -2525,7 +2540,8 @@ def index():
                             else:
                                 prev_id, prev_text, prev_created, prev_updated = prev
                                 if answer != (prev_text or ""):
-                                    # Respuesta editada - actualizar
+                                    # Respuesta editada - actualizar SIN sumar puntos
+                                    was_edited = True
                                     if prev_created is None:
                                         c.execute("""
                                             UPDATE answers
@@ -2541,13 +2557,24 @@ def index():
                                     conn.commit()
                                     send_discord("Answer edited", {"user": user, "question_id": question_id})
 
+                        # --- Después de tocar BD, refrescamos cosas y mandamos eventos ---
                         cache_invalidate('compute_streaks')
-                        broadcast("dq_answer", {"user": user})
-                        try:
-                            push_answer_notice(user)
-                        except Exception as e:
-                            print("[push answer] ", e)
-                            
+
+                        # SSE para el front: indicamos si es nueva o editada
+                        if is_new:
+                            broadcast("dq_answer", {"user": user, "kind": "new"})
+                            try:
+                                push_answer_notice(user)
+                            except Exception as e:
+                                print("[push answer new] ", e)
+                        elif was_edited:
+                            broadcast("dq_answer", {"user": user, "kind": "edit"})
+                            try:
+                                push_answer_edited_notice(user)
+                            except Exception as e:
+                                print("[push answer edited] ", e)
+                        # si no cambia el texto, no hacemos nada (ni puntos ni notis)
+
                     except Exception as e:
                         print(f"[answer submission] Error: {e}")
                         conn.rollback()

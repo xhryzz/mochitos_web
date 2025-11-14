@@ -2249,6 +2249,131 @@ body.loaded #main-content {
             margin: 20px 0;
             text-align: center;
         }
+
+        /* ===== MINI TARJETA DE PUNTOS (HUD SUPERIOR DERECHA) ===== */
+.points-mini-card{
+  position:fixed;
+  top:90px; 
+  right:20px;
+  z-index:1500;
+
+  background:#ffffffee;
+  backdrop-filter:blur(6px);
+  border:1px solid rgba(148,163,184,0.35);
+  border-radius:18px;
+  box-shadow:0 10px 28px rgba(15,23,42,.14);
+  padding:10px 14px;
+
+  width:220px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.pmc-row{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.pmc-user{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.pmc-avatar{
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  background:#f3f4f6;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  color:#374151;
+  overflow:hidden;
+}
+.pmc-avatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.pmc-info{
+  display:flex;
+  flex-direction:column;
+  line-height:1.1;
+}
+.pmc-name{
+  font-size:13px;
+  font-weight:600;
+}
+.pmc-points{
+  font-size:12px;
+  font-weight:700;
+  color:#374151;
+}
+
+.pmc-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:4px;
+}
+
+.pmc-btn{
+  width:38px;
+  height:38px;
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:17px;
+  text-decoration:none;
+  transition:all .15s ease;
+}
+
+.pmc-btn-ghost{
+  background:#ffffff;
+  border:1px solid rgba(148,163,184,0.50);
+  color:#111827;
+}
+.pmc-btn-ghost:hover{
+  background:#f3f4f6;
+}
+
+.pmc-btn-primary{
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color:#fff;
+  border:1px solid transparent;
+}
+.pmc-btn-primary:hover{
+  filter:brightness(1.08);
+}
+
+
+@media (max-width:768px){
+  .points-mini-card{
+    right:10px;
+    top:85px;
+    width:185px;
+    padding:8px 10px;
+  }
+}
+
+.pmc-btn{
+  width:auto;
+  min-width:70px;
+  padding:0 10px;
+  gap:6px;
+}
+
+.pmc-btn-label{
+  font-size:12px;
+  font-weight:600;
+}
+
     </style>
 </head>
 
@@ -2364,30 +2489,53 @@ body.loaded #main-content {
 
       <a href="/logout" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
       <!-- Puntos debajo de "Cerrar sesión" -->
-<div class="points-chip points-float" id="pointsChip" aria-live="polite">
-  <div class="pp">
-    <span class="avatar-mini">
-      {% if profile_pictures.get(username) %}
-        <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
-      {% else %}
-        {{ username[0]|upper }}
-      {% endif %}
-    </span>
-    <span class="name">{{ username }}</span>
-    <b id="pts-me" data-user="{{ username }}">{{ user_points }}</b>
+
+    <!-- MINI TARJETA DE PUNTOS ARRIBA DERECHA -->
+<div class="points-mini-card">
+  <div class="pmc-row">
+    <div class="pmc-user">
+      <div class="pmc-avatar">
+        {% if profile_pictures.get(username) %}
+          <img src="{{ profile_pictures.get(username) }}">
+        {% else %}
+          {{ username[0] | upper }}
+        {% endif %}
+      </div>
+      <div class="pmc-info">
+        <span class="pmc-name">{{ username }}</span>
+        <span class="pmc-points">{{ user_points }} pts</span>
+      </div>
+    </div>
+
+    <div class="pmc-user">
+      <div class="pmc-avatar">
+        {% if profile_pictures.get(other_user) %}
+          <img src="{{ profile_pictures.get(other_user) }}">
+        {% else %}
+          {{ other_user[0] | upper }}
+        {% endif %}
+      </div>
+      <div class="pmc-info">
+        <span class="pmc-name">{{ other_user }}</span>
+        <span class="pmc-points">{{ other_points }} pts</span>
+      </div>
+    </div>
   </div>
-  <div class="pp">
-    <span class="avatar-mini">
-      {% if profile_pictures.get(other_user) %}
-        <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
-      {% else %}
-        {{ other_user[0]|upper }}
-      {% endif %}
-    </span>
-    <span class="name">{{ other_user }}</span>
-    <b id="pts-other" data-user="{{ other_user }}">{{ other_points }}</b>
+
+    <div class="pmc-actions">
+    <a href="/medallas" class="pmc-btn pmc-btn-ghost">
+      <i class="fas fa-medal"></i>
+      <span class="pmc-btn-label">Medallas</span>
+    </a>
+    <a href="/tienda" class="pmc-btn pmc-btn-primary">
+      <i class="fas fa-gift"></i>
+      <span class="pmc-btn-label">Tienda</span>
+    </a>
   </div>
+
 </div>
+
+
 <!-- NAVBAR FONT AWESOME -->
 <nav class="app-nav" aria-label="Navegación principal">
   <button class="nav-btn active" data-goto="home" title="Inicio">
@@ -2487,23 +2635,7 @@ body.loaded #main-content {
     </a>
   {% endif %}
 
-  <!-- Icono menú rápido: Medallas / Tienda -->
-  <div class="quick-links">
-    <button type="button"
-            class="settings-icon quick-icon"
-            id="quickIcon"
-            title="Medallas y Tienda"
-            aria-label="Medallas y Tienda"
-            aria-expanded="false"
-            aria-controls="quickMenu">
-      <i class="fa-solid fa-gem" aria-hidden="true"></i>
-    </button>
-    <nav id="quickMenu" class="quick-menu" hidden>
-      <a href="/medallas"><i class="fa-solid fa-medal" aria-hidden="true"></i> Medallas</a>
-      <a href="/tienda"><i class="fa-solid fa-store" aria-hidden="true"></i> Tienda</a>
-      <!-- Si tu tienda es una sección: usa href="/#tienda" -->
-    </nav>
-  </div>
+
 <script>
 (function () {
   const btn  = document.getElementById('quickIcon');
@@ -7264,5 +7396,4 @@ function flyOnce(){
     
 </body>
 </html>
-
 

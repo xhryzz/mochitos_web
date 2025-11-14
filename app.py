@@ -140,11 +140,9 @@ def _init_pool():
     if not DATABASE_URL:
         raise RuntimeError('Falta DATABASE_URL para PostgreSQL')
 
-    # Máximo 3 conexiones por defecto (ideal para <300 MB).
-    # Si algún día necesitas más, cambia DB_MAX_CONN en el entorno,
-    # pero lo capamos como mucho a 6 para que no se dispare la RAM.
-    maxconn_env = int(os.environ.get('DB_MAX_CONN', '3'))
-    maxconn = max(1, min(maxconn_env, 6))
+    # Aumentar el número máximo de conexiones
+    maxconn_env = int(os.environ.get('DB_MAX_CONN', '10'))  # Aumentado a 10
+    maxconn = max(1, min(maxconn_env, 15))  # Máximo 15
 
     PG_POOL = SimpleConnectionPool(
         1, maxconn,
@@ -153,16 +151,15 @@ def _init_pool():
         keepalives_idle=30,
         keepalives_interval=10,
         keepalives_count=5,
-        connect_timeout=8
+        connect_timeout=10  # Aumentado timeout
     )
 
-
 class PooledConn:
-    """Wrapper que inicializa la sesión y se autorecupera si la conexión está rota."""
     def __init__(self, pool, conn):
         self._pool = pool
         self._conn = conn
         self._inited = False
+        self._closed = False
 
     def _reconnect(self):
         try:
@@ -171,11 +168,17 @@ class PooledConn:
             pass
         self._conn = self._pool.getconn()
         self._inited = False
+        self._closed = False
 
     def __getattr__(self, name):
+        if self._closed:
+            raise Exception("Connection is closed")
         return getattr(self._conn, name)
 
     def cursor(self, *a, **k):
+        if self._closed:
+            raise Exception("Connection is closed")
+            
         if "cursor_factory" not in k:
             k["cursor_factory"] = psycopg2.extras.DictCursor
 
@@ -183,15 +186,15 @@ class PooledConn:
             try:
                 with self._conn.cursor() as c:
                     c.execute("SET application_name = 'mochitos';")
-                    c.execute("SET idle_in_transaction_session_timeout = '5s';")
-                    c.execute("SET statement_timeout = '5s';")
+                    c.execute("SET idle_in_transaction_session_timeout = '30s';")  # Aumentado
+                    c.execute("SET statement_timeout = '30s';")  # Aumentado
                 self._inited = True
             except (OperationalError, InterfaceError):
                 self._reconnect()
                 with self._conn.cursor() as c:
                     c.execute("SET application_name = 'mochitos';")
-                    c.execute("SET idle_in_transaction_session_timeout = '5s';")
-                    c.execute("SET statement_timeout = '5s';")
+                    c.execute("SET idle_in_transaction_session_timeout = '30s';")
+                    c.execute("SET statement_timeout = '30s';")
                 self._inited = True
 
         try:
@@ -201,26 +204,49 @@ class PooledConn:
             return self._conn.cursor(*a, **k)
 
     def close(self):
-        try:
-            self._pool.putconn(self._conn)
-        except Exception:
-            pass
+        if not self._closed:
+            try:
+                self._pool.putconn(self._conn)
+                self._closed = True
+            except Exception:
+                try:
+                    self._pool.putconn(self._conn, close=True)
+                except Exception:
+                    pass
+                self._closed = True
 
 def get_db_connection():
     """Saca una conexión del pool y hace ping."""
     _init_pool()
-    conn = PG_POOL.getconn()
-    wrapped = PooledConn(PG_POOL, conn)
+    conn = None
+    wrapped = None
     try:
+        conn = PG_POOL.getconn()
+        wrapped = PooledConn(PG_POOL, conn)
         with wrapped.cursor() as c:
             c.execute("SELECT 1;")
             _ = c.fetchone()
+        return wrapped
     except (OperationalError, InterfaceError, DatabaseError):
-        wrapped._reconnect()
-        with wrapped.cursor() as c:
-            c.execute("SELECT 1;")
-            _ = c.fetchone()
-    return wrapped
+        if wrapped:
+            try:
+                wrapped._reconnect()
+                with wrapped.cursor() as c:
+                    c.execute("SELECT 1;")
+                    _ = c.fetchone()
+                return wrapped
+            except Exception:
+                if conn:
+                    PG_POOL.putconn(conn, close=True)
+                raise
+        else:
+            if conn:
+                PG_POOL.putconn(conn, close=True)
+            raise
+    except Exception:
+        if conn:
+            PG_POOL.putconn(conn, close=True)
+        raise
 
 # ========= Zona horaria Europe/Madrid =========
 def _eu_last_sunday(year: int, month: int) -> date:

@@ -5,75 +5,105 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Medallas & Puntos</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-      <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
-
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
   <style>
-    body{font-family:Montserrat,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:linear-gradient(135deg,#ffe8f3 0%,#dfe6e9 100%);margin:0;color:#222;}
+    body{
+      font-family:Montserrat,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
+      background:linear-gradient(135deg,#ffe8f3 0%,#dfe6e9 100%);
+      margin:0;
+      color:#222;
+    }
     .wrap{max-width:1100px;margin:30px auto;padding:0 16px;}
     h1{font-family:'Playfair Display',serif;font-weight:900;margin:0 0 8px 0}
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;}
     .card{background:white;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,.08);padding:18px;}
-    .btn{display:inline-block;padding:10px 14px;border-radius:12px;background:#e84393;color:white;text-decoration:none}
+    .btn{display:inline-block;padding:10px 14px;border-radius:12px;background:#e84393;color:white;text-decoration:none;border:none;cursor:pointer;font-family:inherit;font-size:14px;}
     .ach{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;}
   </style>
 </head>
 <body>
   <div class="wrap">
-    {% if is_admin and show_admin %}
-  <h2 style="margin:32px 0 8px;">⚙️ Admin medallas</h2>
-  <div class="card">
-    <p style="margin-top:0;color:#555;font-size:14px;">
-      Aquí puedes decidir cuántos puntos da cada medalla cuando se desbloquea.
-    </p>
 
-    <form method="post">
-      <input type="hidden" name="_op" value="update_points">
-
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:14px;">
-          <thead>
-            <tr style="border-bottom:1px solid #eee;">
-              <th style="text-align:left;padding:6px 4px;">ID</th>
-              <th style="text-align:left;padding:6px 4px;">Código</th>
-              <th style="text-align:left;padding:6px 4px;">Título</th>
-              <th style="text-align:left;padding:6px 4px;">Descripción</th>
-              <th style="text-align:right;padding:6px 4px;">Puntos al conseguir</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for a in ach_admin %}
-              <tr style="border-bottom:1px solid #f3f3f3;">
-                <td style="padding:6px 4px;">{{ a.id }}</td>
-                <td style="padding:6px 4px;"><code>{{ a.code }}</code></td>
-                <td style="padding:6px 4px;">{{ a.title }}</td>
-                <td style="padding:6px 4px;color:#666;max-width:260px;">
-                  {{ a.description or '' }}
-                </td>
-                <td style="padding:6px 4px;text-align:right;white-space:nowrap;">
-                  <input
-                    type="number"
-                    name="points_{{ a.id }}"
-                    value="{{ a.points_on_award or 0 }}"
-                    step="1"
-                    style="width:80px;padding:4px 6px;border-radius:8px;border:1px solid #ddd;text-align:right;"
-                  >
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+    <!-- CABECERA + BOTÓN VISTA ADMIN -->
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div>
+        <h1>🏅 Medallas & Puntos</h1>
+        <div style="color:#666">Tus logros, rachas y el ranking entre nosotros.</div>
       </div>
 
-      <button type="submit" class="btn" style="margin-top:12px;">
-        Guardar puntos
-      </button>
-    </form>
-  </div>
-{% endif %}
+      {% if is_admin %}
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
+          <form method="post" style="margin:0;">
+            <input type="hidden" name="_op" value="toggle_admin">
+            <button type="submit" class="btn" style="background:#2d3436;">
+              {% if show_admin %}Ocultar vista admin{% else %}Ver vista admin{% endif %}
+            </button>
+          </form>
+          <a class="btn" href="/tienda">Ir a la tienda</a>
+        </div>
+      {% else %}
+        <div>
+          <a class="btn" href="/tienda">Ir a la tienda</a>
+        </div>
+      {% endif %}
+    </div>
 
+    <!-- PANEL ADMIN (SOLO MOCHITO + VISTA ACTIVADA) -->
+    {% if is_admin and show_admin %}
+      <h2 style="margin:32px 0 8px;">⚙️ Admin medallas</h2>
+      <div class="card">
+        <p style="margin-top:0;color:#555;font-size:14px;">
+          Aquí puedes decidir cuántos puntos da cada medalla cuando se desbloquea.
+        </p>
 
-    <div class="grid" style="margin-top:14px">
+        <form method="post">
+          <input type="hidden" name="_op" value="update_points">
+
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:14px;">
+              <thead>
+                <tr style="border-bottom:1px solid #eee;">
+                  <th style="text-align:left;padding:6px 4px;">ID</th>
+                  <th style="text-align:left;padding:6px 4px;">Código</th>
+                  <th style="text-align:left;padding:6px 4px;">Título</th>
+                  <th style="text-align:left;padding:6px 4px;">Descripción</th>
+                  <th style="text-align:right;padding:6px 4px;">Puntos al conseguir</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for a in ach_admin %}
+                  <tr style="border-bottom:1px solid #f3f3f3;">
+                    <td style="padding:6px 4px;">{{ a.id }}</td>
+                    <td style="padding:6px 4px;"><code>{{ a.code }}</code></td>
+                    <td style="padding:6px 4px;">{{ a.title }}</td>
+                    <td style="padding:6px 4px;color:#666;max-width:260px;">
+                      {{ a.description or '' }}
+                    </td>
+                    <td style="padding:6px 4px;text-align:right;white-space:nowrap;">
+                      <input
+                        type="number"
+                        name="points_{{ a.id }}"
+                        value="{{ a.points_on_award or 0 }}"
+                        step="1"
+                        style="width:80px;padding:4px 6px;border-radius:8px;border:1px solid #ddd;text-align:right;"
+                      >
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <button type="submit" class="btn" style="margin-top:12px;">
+            Guardar puntos
+          </button>
+        </form>
+      </div>
+    {% endif %}
+
+    <!-- ESTADÍSTICAS -->
+    <div class="grid" style="margin-top:24px">
       <div class="card">
         <div style="font-size:14px;color:#888;">Puntos</div>
         <div id="pts" style="font-size:38px;font-weight:800;line-height:1.1;">—</div>
@@ -100,106 +130,52 @@
     <div id="ranking" class="grid"></div>
   </div>
 
+  <script>
+  fetch('/api/medallas/summary').then(r=>r.json()).then(d=>{
+    document.getElementById('pts').textContent = d.points;
+    document.getElementById('streak').textContent = d.streak;
+    document.getElementById('firsts').textContent = d.first_count;
+    document.getElementById('days').textContent = d.total_days;
 
-  {% if is_admin and show_admin %}
-  <h2 style="margin:32px 0 8px;">⚙️ Admin medallas</h2>
-  <div class="card">
-    <p style="margin-top:0;color:#555;font-size:14px;">
-      Aquí puedes decidir cuántos puntos da cada medalla cuando se desbloquea.
-    </p>
+    const wrap = document.getElementById('medallas-list');
+    wrap.innerHTML = '';
+    d.achievements.forEach(a => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.display = 'flex';
+      card.style.gap = '12px';
+      card.style.alignItems = 'center';
+      const icon = document.createElement('div');
+      icon.style.fontSize = '28px';
+      icon.textContent = a.icon || '🏅';
+      const info = document.createElement('div');
+      const title = document.createElement('div');
+      title.style.fontWeight = '700';
+      title.textContent = a.title;
+      const desc = document.createElement('div');
+      desc.style.color = '#666';
+      desc.style.fontSize = '0.95rem';
+      desc.textContent = a.description || '';
+      const chip = document.createElement('div');
+      chip.textContent = a.earned ? 'Conseguida' : 'Pendiente';
+      chip.style.cssText = 'margin-top:6px;display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;' + (a.earned ? 'background:#e8fff1;color:#0a8f3f;' : 'background:#fff4f4;color:#cc1e3f;');
+      info.appendChild(title); info.appendChild(desc); info.appendChild(chip);
+      card.appendChild(icon); card.appendChild(info);
+      wrap.appendChild(card);
+    });
 
-    <form method="post">
-      <input type="hidden" name="_op" value="update_points">
-
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:14px;">
-          <thead>
-            <tr style="border-bottom:1px solid #eee;">
-              <th style="text-align:left;padding:6px 4px;">ID</th>
-              <th style="text-align:left;padding:6px 4px;">Código</th>
-              <th style="text-align:left;padding:6px 4px;">Título</th>
-              <th style="text-align:left;padding:6px 4px;">Descripción</th>
-              <th style="text-align:right;padding:6px 4px;">Puntos al conseguir</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for a in ach_admin %}
-              <tr style="border-bottom:1px solid #f3f3f3;">
-                <td style="padding:6px 4px;">{{ a.id }}</td>
-                <td style="padding:6px 4px;"><code>{{ a.code }}</code></td>
-                <td style="padding:6px 4px;">{{ a.title }}</td>
-                <td style="padding:6px 4px;color:#666;max-width:260px;">
-                  {{ a.description or '' }}
-                </td>
-                <td style="padding:6px 4px;text-align:right;white-space:nowrap;">
-                  <input
-                    type="number"
-                    name="points_{{ a.id }}"
-                    value="{{ a.points_on_award or 0 }}"
-                    step="1"
-                    style="width:80px;padding:4px 6px;border-radius:8px;border:1px solid #ddd;text-align:right;"
-                  >
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      <button type="submit" class="btn" style="margin-top:12px;">
-        Guardar puntos
-      </button>
-    </form>
-  </div>
-{% endif %}
-
-
-<script>
-fetch('/api/medallas/summary').then(r=>r.json()).then(d=>{
-  document.getElementById('pts').textContent = d.points;
-  document.getElementById('streak').textContent = d.streak;
-  document.getElementById('firsts').textContent = d.first_count;
-  document.getElementById('days').textContent = d.total_days;
-
-  const wrap = document.getElementById('medallas-list');
-  wrap.innerHTML = '';
-  d.achievements.forEach(a => {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.style.display = 'flex';
-    card.style.gap = '12px';
-    card.style.alignItems = 'center';
-    const icon = document.createElement('div');
-    icon.style.fontSize = '28px';
-    icon.textContent = a.icon || '🏅';
-    const info = document.createElement('div');
-    const title = document.createElement('div');
-    title.style.fontWeight = '700';
-    title.textContent = a.title;
-    const desc = document.createElement('div');
-    desc.style.color = '#666';
-    desc.style.fontSize = '0.95rem';
-    desc.textContent = a.description || '';
-    const chip = document.createElement('div');
-    chip.textContent = a.earned ? 'Conseguida' : 'Pendiente';
-    chip.style.cssText = 'margin-top:6px;display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;' + (a.earned ? 'background:#e8fff1;color:#0a8f3f;' : 'background:#fff4f4;color:#cc1e3f;');
-    info.appendChild(title); info.appendChild(desc); info.appendChild(chip);
-    card.appendChild(icon); card.appendChild(info);
-    wrap.appendChild(card);
+    const rk = document.getElementById('ranking');
+    rk.innerHTML = '';
+    d.ranking.forEach((r,i)=>{
+      const li = document.createElement('div');
+      li.className = 'card';
+      li.style.display = 'flex';
+      li.style.justifyContent = 'space-between';
+      li.style.alignItems = 'center';
+      li.innerHTML = `<div><strong>#${i+1}</strong> ${r.username}</div><div style="font-weight:800">${r.points} pts</div>`;
+      rk.appendChild(li);
+    });
   });
-
-  const rk = document.getElementById('ranking');
-  rk.innerHTML = '';
-  d.ranking.forEach((r,i)=>{
-    const li = document.createElement('div');
-    li.className = 'card';
-    li.style.display = 'flex';
-    li.style.justifyContent = 'space-between';
-    li.style.alignItems = 'center';
-    li.innerHTML = `<div><strong>#${i+1}</strong> ${r.username}</div><div style="font-weight:800">${r.points} pts</div>`;
-    rk.appendChild(li);
-  });
-});
-</script>
+  </script>
 </body>
 </html>

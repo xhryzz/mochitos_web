@@ -6066,15 +6066,116 @@ def shop():
 
 def other_of(user: str) -> str:
     """Devuelve el nombre del otro usuario"""
-    if user == 'mochito': 
+    if user == 'mochito':
         return 'mochita'
-    if user == 'mochita': 
+    if user == 'mochita':
         return 'mochito'
     return 'mochita'  # fallback
-@app.route("/medallas")
+
+
+@app.route("/medallas", methods=["GET", "POST"])
 def medallas():
-    user = session.get("username")
-    return render_template("medallas.html", user=user)
+    # Solo usuarios logueados
+    if "username" not in session:
+        return redirect("/")
+
+    user = session["username"]
+    is_admin = (user == "mochito")
+
+    # Por si acaso, asegurar esquema de gamificación
+    try:
+        _ensure_gamification_schema()
+    except Exception as e:
+        app.logger.warning("gamification schema ensure failed (medallas): %s", e)
+
+    # --- POST: acciones admin ---
+    if request.method == "POST":
+        op = (request.form.get("_op") or "").strip()
+
+        # 1) Toggle vista admin (igual que en /tienda)
+        if op == "toggle_admin":
+            if not is_admin:
+                flash("Solo mochito puede usar la vista admin.", "error")
+                return redirect("/medallas")
+            current = bool(session.get("medallas_admin_view", False))
+            session["medallas_admin_view"] = not current
+            flash(
+                "Vista admin activada ✅" if not current else "Vista admin desactivada 👀",
+                "success"
+            )
+            return redirect("/medallas")
+
+        # 2) Guardar puntos de cada medalla
+        if op == "update_points":
+            if not is_admin:
+                flash("Solo el admin puede modificar las medallas.", "error")
+                return redirect("/medallas")
+
+            conn = get_db_connection()
+            try:
+                with conn.cursor() as c:
+                    # Coger todos los IDs de achievements
+                    c.execute("SELECT id FROM achievements ORDER BY id")
+                    all_ids = [row[0] for row in c.fetchall()]
+
+                    for ach_id in all_ids:
+                        field_name = f"points_{ach_id}"
+                        raw = (request.form.get(field_name) or "").strip()
+                        if raw == "":
+                            pts = 0
+                        else:
+                            try:
+                                pts = int(raw)
+                            except ValueError:
+                                pts = 0
+                        c.execute(
+                            "UPDATE achievements SET points_on_award=%s WHERE id=%s",
+                            (pts, ach_id),
+                        )
+                    conn.commit()
+                flash("Puntos de medallas actualizados ✅", "success")
+            except Exception as e:
+                app.logger.exception("[/medallas] update_points error: %s", e)
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                flash("No se pudieron guardar los puntos.", "error")
+            finally:
+                conn.close()
+
+            return redirect("/medallas")
+
+        # Si llega aquí, op desconocida
+        flash("Acción desconocida en medallas.", "error")
+        return redirect("/medallas")
+
+    # --- GET: pintar página ---
+    show_admin = is_admin and bool(session.get("medallas_admin_view", False))
+
+    # Datos para el panel admin (lista de medallas)
+    ach_admin = []
+    if is_admin:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute("""
+                    SELECT id, code, title, description, points_on_award
+                    FROM achievements
+                    ORDER BY id
+                """)
+                ach_admin = c.fetchall()
+        finally:
+            conn.close()
+
+    return render_template(
+        "medallas.html",
+        user=user,
+        is_admin=is_admin,
+        show_admin=show_admin,
+        ach_admin=ach_admin,
+    )
+
 
 
 

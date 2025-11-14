@@ -20,13 +20,58 @@
 </head>
 <body>
   <div class="wrap">
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-      <div>
-        <h1>🏅 Medallas & Puntos</h1>
-        <div style="color:#666">Tus logros, rachas y el ranking entre nosotros.</div>
+    {% if is_admin and show_admin %}
+  <h2 style="margin:32px 0 8px;">⚙️ Admin medallas</h2>
+  <div class="card">
+    <p style="margin-top:0;color:#555;font-size:14px;">
+      Aquí puedes decidir cuántos puntos da cada medalla cuando se desbloquea.
+    </p>
+
+    <form method="post">
+      <input type="hidden" name="_op" value="update_points">
+
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+          <thead>
+            <tr style="border-bottom:1px solid #eee;">
+              <th style="text-align:left;padding:6px 4px;">ID</th>
+              <th style="text-align:left;padding:6px 4px;">Código</th>
+              <th style="text-align:left;padding:6px 4px;">Título</th>
+              <th style="text-align:left;padding:6px 4px;">Descripción</th>
+              <th style="text-align:right;padding:6px 4px;">Puntos al conseguir</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in ach_admin %}
+              <tr style="border-bottom:1px solid #f3f3f3;">
+                <td style="padding:6px 4px;">{{ a.id }}</td>
+                <td style="padding:6px 4px;"><code>{{ a.code }}</code></td>
+                <td style="padding:6px 4px;">{{ a.title }}</td>
+                <td style="padding:6px 4px;color:#666;max-width:260px;">
+                  {{ a.description or '' }}
+                </td>
+                <td style="padding:6px 4px;text-align:right;white-space:nowrap;">
+                  <input
+                    type="number"
+                    name="points_{{ a.id }}"
+                    value="{{ a.points_on_award or 0 }}"
+                    step="1"
+                    style="width:80px;padding:4px 6px;border-radius:8px;border:1px solid #ddd;text-align:right;"
+                  >
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
-      <div><a class="btn" href="/tienda">Ir a la tienda</a></div>
-    </div>
+
+      <button type="submit" class="btn" style="margin-top:12px;">
+        Guardar puntos
+      </button>
+    </form>
+  </div>
+{% endif %}
+
 
     <div class="grid" style="margin-top:14px">
       <div class="card">
@@ -54,6 +99,60 @@
     <h2 style="margin:28px 0 8px;">Ranking</h2>
     <div id="ranking" class="grid"></div>
   </div>
+
+
+  {% if is_admin and show_admin %}
+  <h2 style="margin:32px 0 8px;">⚙️ Admin medallas</h2>
+  <div class="card">
+    <p style="margin-top:0;color:#555;font-size:14px;">
+      Aquí puedes decidir cuántos puntos da cada medalla cuando se desbloquea.
+    </p>
+
+    <form method="post">
+      <input type="hidden" name="_op" value="update_points">
+
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+          <thead>
+            <tr style="border-bottom:1px solid #eee;">
+              <th style="text-align:left;padding:6px 4px;">ID</th>
+              <th style="text-align:left;padding:6px 4px;">Código</th>
+              <th style="text-align:left;padding:6px 4px;">Título</th>
+              <th style="text-align:left;padding:6px 4px;">Descripción</th>
+              <th style="text-align:right;padding:6px 4px;">Puntos al conseguir</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in ach_admin %}
+              <tr style="border-bottom:1px solid #f3f3f3;">
+                <td style="padding:6px 4px;">{{ a.id }}</td>
+                <td style="padding:6px 4px;"><code>{{ a.code }}</code></td>
+                <td style="padding:6px 4px;">{{ a.title }}</td>
+                <td style="padding:6px 4px;color:#666;max-width:260px;">
+                  {{ a.description or '' }}
+                </td>
+                <td style="padding:6px 4px;text-align:right;white-space:nowrap;">
+                  <input
+                    type="number"
+                    name="points_{{ a.id }}"
+                    value="{{ a.points_on_award or 0 }}"
+                    step="1"
+                    style="width:80px;padding:4px 6px;border-radius:8px;border:1px solid #ddd;text-align:right;"
+                  >
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <button type="submit" class="btn" style="margin-top:12px;">
+        Guardar puntos
+      </button>
+    </form>
+  </div>
+{% endif %}
+
 
 <script>
 fetch('/api/medallas/summary').then(r=>r.json()).then(d=>{

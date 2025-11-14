@@ -747,10 +747,8 @@ def _grant_achievement_to(user: str, achievement_id: int, points_on_award=None):
                 pts = int(points_on_award or 0)
 
             if pts != 0:
-                c.execute(
-                    "UPDATE users SET points = COALESCE(points,0) + %s WHERE id=%s",
-                    (pts, uid)
-                )
+                add_points(conn, uid, pts, "daily", "Respuesta pregunta del día")
+                conn.commit()
 
             # Registrar la medalla
             c.execute("""
@@ -758,6 +756,16 @@ def _grant_achievement_to(user: str, achievement_id: int, points_on_award=None):
                 VALUES (%s,%s,%s)
                 ON CONFLICT (user_id, achievement_id) DO NOTHING
             """, (uid, achievement_id, now_madrid_str()))
+
+            # después de insertar en user_achievements
+            c.execute("SELECT points_reward, name FROM achievements WHERE id=%s", (achievement_id,))
+            row = c.fetchone()
+            if row:
+                pts_logro, logro_name = row
+                if pts_logro:
+                    add_points(conn, uid, pts_logro, "achievement", f"Logro: {logro_name}")
+            conn.commit()
+
 
             # 🔔 NOTIFICACIÓN PUSH POR LOGRO Y PUNTOS
             try:
@@ -941,6 +949,28 @@ def _maybe_award_achievements(u: str):
     except Exception as e:
         app.logger.warning("maybe_award_achievements: %s", e)
 
+def add_points(conn, user_id, delta, source, note=""):
+    """
+    Suma/resta puntos a un usuario y guarda el movimiento en points_history.
+
+    source: 'daily', 'achievement', 'admin', 'shop', 'other', etc.
+    """
+    with conn.cursor() as c:
+        # Actualizar puntos del usuario
+        c.execute("""
+            UPDATE users
+               SET points = COALESCE(points, 0) + %s
+             WHERE id = %s
+        """, (delta, user_id))
+
+        # Guardar historial
+        c.execute("""
+            INSERT INTO points_history (user_id, delta, source, note, created_at)
+            VALUES (%s, %s, %s, %s, NOW())
+        """, (user_id, delta, source, note))
+
+
+
 # En la función award_points_for_answer, modificar para añadir notificación específica de puntos
 def award_points_for_answer(question_id: int, user: str):
     """
@@ -982,12 +1012,13 @@ def award_points_for_answer(question_id: int, user: str):
             
             delta = base + bonus
             
-            c.execute("""
-                UPDATE users 
-                SET points = COALESCE(points,0) + %s 
-                WHERE username=%s
-            """, (delta, user))
-            conn.commit()
+            # Primero obtén el id del usuario (si aún no lo tienes)
+            c.execute("SELECT id FROM users WHERE username=%s", (user,))
+            row = c.fetchone()
+            if row:
+                uid = row[0]
+                add_points(conn, uid, delta, "admin", f"Puntos dados por admin a {user}")
+                conn.commit()
             
             # 🔔 NOTIFICACIÓN PUSH POR PUNTOS GANADOS
             try:
@@ -1017,7 +1048,7 @@ def award_points_for_answer(question_id: int, user: str):
 
 def push_answer_edited_notice(editor: str):
     other = 'mochita' if editor == 'mochito' else 'mochito'
-    who   = "tu pareja" if editor in ("mochito", "mochita") else editor
+    who   = "Tu pareja" if editor in ("mochito", "mochita") else editor
     send_push_to(
         other,
         title="Respuesta editada ✏️",
@@ -1806,9 +1837,12 @@ def push_media_watched(watcher: str, mid: int, title: str, rating: int | None = 
     )
 
 
+
+
+
 def push_answer_notice(responder: str):
     other = 'mochita' if responder == 'mochito' else 'mochito'
-    who   = "tu pareja" if responder in ("mochito", "mochita") else responder
+    who   = "Tu pareja" if responder in ("mochito", "mochita") else responder
     send_push_to(other,
                  title="Pregunta del día",
                  body=f"{who} ha respondido la pregunta de hoy. ¡Mírala! 💬",
@@ -5882,7 +5916,7 @@ def shop():
                         flash("No tienes puntos suficientes 😅", "error")
                         return redirect('/tienda')
 
-                    c.execute("UPDATE users SET points = points - %s WHERE id=%s", (it_cost, uid))
+                    add_points(conn, uid, -it_cost, "shop", f"Canje de {it_name}")
                     c.execute("""
                         INSERT INTO purchases (user_id, item_id, quantity, note, purchased_at)
                         VALUES (%s,%s,1,%s,%s)
@@ -6201,16 +6235,19 @@ def medallas():
         return redirect("/medallas")
 
     # --- GET: pintar página ---
-        # --- GET: pintar página ---
     show_admin = is_admin and bool(session.get("medallas_admin_view", False))
 
     # Datos para el panel admin (lista de medallas + usuarios)
     ach_admin = []
     admin_users = []
-    if is_admin:
-        conn = get_db_connection()
-        try:
-            with conn.cursor() as c:
+    achievements_feed = []
+    points_feed = []
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            if is_admin:
+                # Lista de medallas para configurar puntos
                 c.execute("""
                     SELECT id, code, title, description, points_on_award
                     FROM achievements
@@ -6225,8 +6262,36 @@ def medallas():
                     ORDER BY username
                 """)
                 admin_users = c.fetchall()
-        finally:
-            conn.close()
+
+            # Feed de logros conseguidos (para ver qué logros ha pillado cada uno)
+            c.execute("""
+                SELECT ua.earned_at,
+                       u.username,
+                       a.title AS achievement_title,
+                       a.points_on_award
+                  FROM user_achievements ua
+                  JOIN users u ON ua.user_id = u.id
+                  JOIN achievements a ON ua.achievement_id = a.id
+                 ORDER BY ua.earned_at DESC
+                 LIMIT 50
+            """)
+            achievements_feed = c.fetchall()
+
+            # Historial de puntos (de dónde salen / se van)
+            c.execute("""
+                SELECT ph.created_at,
+                       u.username,
+                       ph.delta,
+                       ph.source,
+                       ph.note
+                  FROM points_history ph
+                  JOIN users u ON ph.user_id = u.id
+                 ORDER BY ph.created_at DESC
+                 LIMIT 100
+            """)
+            points_feed = c.fetchall()
+    finally:
+        conn.close()
 
     return render_template(
         "medallas.html",
@@ -6235,9 +6300,9 @@ def medallas():
         show_admin=show_admin,
         ach_admin=ach_admin,
         admin_users=admin_users,
+        achievements_feed=achievements_feed,
+        points_feed=points_feed,
     )
-
-
 
 
 

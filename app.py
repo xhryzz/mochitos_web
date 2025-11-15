@@ -630,11 +630,22 @@ def init_db():
         except Exception as e:
             print("Seed error:", e); conn.rollback()
         # Índices
-        c.execute("CREATE INDEX IF NOT EXISTS idx_answers_q_user ON answers (question_id, username)")
+                c.execute("CREATE INDEX IF NOT EXISTS idx_answers_q_user ON answers (question_id, username)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_travels_vdate ON travels (is_visited, travel_date DESC)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_wishlist_state_prio ON wishlist (is_purchased, priority, created_at DESC)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_intim_user_ts ON intimacy_events (username, ts DESC)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions (username)")
+
+        # Índices para pelis/series -> aceleran muchísimo el / (home)
+        c.execute("""
+            CREATE INDEX IF NOT EXISTS idx_media_iswatched_prio_created
+            ON media_items (is_watched, priority, created_at DESC, id DESC)
+        """)
+        c.execute("""
+            CREATE INDEX IF NOT EXISTS idx_media_iswatched_watchedat
+            ON media_items (is_watched, watched_at DESC, id DESC)
+        """)
+
 
         # ======= Seguimiento de PRECIO: migraciones =======
         c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS track_price BOOLEAN DEFAULT FALSE""")
@@ -1452,6 +1463,8 @@ def _enrich_media_row(row, user):
 
 
 # --- Lógica dependiente de fecha en Madrid ---
+# --- Lógica dependiente de fecha en Madrid ---
+@ttl_cache(seconds=15)
 def get_intim_stats():
     today = today_madrid()
     conn = get_db_connection()
@@ -1467,20 +1480,63 @@ def get_intim_stats():
         if dt:
             dts.append(dt)
     if not dts:
-        return {'today_count': 0, 'month_total': 0, 'year_total': 0, 'days_since_last': None, 'last_dt': None, 'streak_days': 0}
+        return {
+            'today_count': 0,
+            'month_total': 0,
+            'year_total': 0,
+            'days_since_last': None,
+            'last_dt': None,
+            'streak_days': 0
+        }
     today_count = sum(1 for dt in dts if dt.date() == today)
     month_total = sum(1 for dt in dts if dt.year == today.year and dt.month == today.month)
     year_total = sum(1 for dt in dts if dt.year == today.year)
-    last_dt = max(dts); days_since_last = (today - last_dt.date()).days
+    last_dt = max(dts)
+    days_since_last = (today - last_dt.date()).days
     if today_count == 0:
         streak_days = 0
     else:
         dates_with = {dt.date() for dt in dts}
-        streak_days = 0; cur = today
+        streak_days = 0
+        cur = today
         while cur in dates_with:
-            streak_days += 1; cur = cur - timedelta(days=1)
-    return {'today_count': today_count, 'month_total': month_total, 'year_total': year_total,
-            'days_since_last': days_since_last, 'last_dt': last_dt, 'streak_days': streak_days}
+            streak_days += 1
+            cur = cur - timedelta(days=1)
+    return {
+        'today_count': today_count,
+        'month_total': month_total,
+        'year_total': year_total,
+        'days_since_last': days_since_last,
+        'last_dt': last_dt,
+        'streak_days': streak_days
+    }
+
+@ttl_cache(seconds=15)
+def get_intim_events(limit: int = 200):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT id, username, ts, place, notes
+                FROM intimacy_events
+                WHERE username IN ('mochito','mochita')
+                ORDER BY ts DESC
+                LIMIT %s
+            """, (limit,))
+            rows = c.fetchall()
+            return [
+                {
+                    'id': r[0],
+                    'username': r[1],
+                    'ts': r[2],
+                    'place': r[3] or '',
+                    'notes': r[4] or ''
+                }
+                for r in rows
+            ]
+    finally:
+        conn.close()
+
 
 def get_intim_events(limit: int = 200):
     conn = get_db_connection()
@@ -2872,6 +2928,7 @@ def index():
             all_ph = c.fetchall()
 
             # Wishlist (blindaje regalos)
+                        # Wishlist (blindaje regalos)
             c.execute("""
                 SELECT
                     id,
@@ -2902,36 +2959,41 @@ def index():
             """)
             wl_rows = c.fetchall()  # <-- IMPORTANTE: justo después del SELECT de wishlist
 
-          # --- Media: POR VER ---
+            # --- Media: POR VER ---
+            # Solo mostramos las 300 más recientes / prioritarias en el home
             c.execute("""
                 SELECT
-                id, title, cover_url, link_url, on_netflix, on_prime,
-                comment, priority,
-                created_by, created_at,
-                reviews,            -- NUEVO (JSONB)
-                avg_rating          -- NUEVO (media)
+                    id, title, cover_url, link_url, on_netflix, on_prime,
+                    comment, priority,
+                    created_by, created_at,
+                    reviews,            -- JSONB
+                    avg_rating          -- media
                 FROM media_items
                 WHERE is_watched = FALSE
                 ORDER BY
-                CASE priority WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,
-                COALESCE(created_at, '1970-01-01') DESC,
-                id DESC
+                    CASE priority WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,
+                    COALESCE(created_at, '1970-01-01') DESC,
+                    id DESC
+                LIMIT 300
             """)
             media_to_watch = c.fetchall()
 
             # --- Media: VISTAS ---
+            # Igual: solo las 300 últimas vistas (para que el home no explote)
             c.execute("""
                 SELECT
-                id, title, cover_url, link_url,
-                reviews,            -- NUEVO (JSONB)
-                avg_rating,         -- NUEVO (media)
-                watched_at,
-                created_by
+                    id, title, cover_url, link_url,
+                    reviews,            -- JSONB
+                    avg_rating,         -- media
+                    watched_at,
+                    created_by
                 FROM media_items
                 WHERE is_watched = TRUE
                 ORDER BY COALESCE(watched_at, '1970-01-01') DESC, id DESC
+                LIMIT 300
             """)
             media_watched = c.fetchall()
+
 
 
             # Helpers para leer reviews y exponer campos cómodos a la plantilla

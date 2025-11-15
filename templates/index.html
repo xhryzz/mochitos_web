@@ -2374,6 +2374,111 @@ body.loaded #main-content {
   font-weight:600;
 }
 
+        /* Distancia sencilla (juntos / separados) */
+        .distance-status-card{
+          margin-top: 20px;
+          border-radius: 20px;
+          padding: 18px 18px 16px;
+          background: #fff;
+          box-shadow: 0 10px 26px rgba(0,0,0,.08);
+        }
+        .ds-header{
+          display:flex;
+          flex-direction:column;
+          gap:4px;
+          margin-bottom:14px;
+        }
+        .ds-label{
+          display:inline-flex;
+          align-items:center;
+          gap:6px;
+          padding:4px 10px;
+          border-radius:999px;
+          font-size:.82rem;
+          font-weight:600;
+          background: rgba(232,67,147,.08);
+          color:#c2185b;
+        }
+        .ds-sub{
+          font-size:.9rem;
+          color:#555;
+        }
+        .ds-modes{
+          display:flex;
+          flex-direction:column;
+          gap:8px;
+          margin-bottom:14px;
+        }
+        .ds-mode-btn{
+          border:none;
+          border-radius:14px;
+          padding:10px 12px;
+          display:flex;
+          align-items:flex-start;
+          gap:10px;
+          background:#fafafa;
+          cursor:pointer;
+          transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+        }
+        .ds-mode-btn .ds-icon{
+          flex-shrink:0;
+          width:32px;
+          height:32px;
+          border-radius:999px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          /* Usa tu gradiente rosa principal */
+          background: var(--gradient);
+          color:#fff;
+        }
+        .ds-mode-btn .ds-text{
+          text-align:left;
+        }
+        .ds-mode-title{
+          font-weight:600;
+          font-size:.98rem;
+          display:block;
+        }
+        .ds-mode-sub{
+          font-size:.82rem;
+          color:#666;
+        }
+        .ds-mode-btn:hover{
+          transform:translateY(-1px);
+          box-shadow:0 6px 18px rgba(0,0,0,.08);
+          background:#fff;
+        }
+        .ds-mode-btn.active{
+          box-shadow:0 10px 26px rgba(232,67,147,.25);
+          background:linear-gradient(135deg, rgba(232,67,147,.12), rgba(255,255,255,1));
+          border:1px solid rgba(232,67,147,.3);
+        }
+        .distance-bar{
+          margin-top:6px;
+          width:100%;
+          height:6px;
+          border-radius:999px;
+          background:#f0f0f0;
+          overflow:hidden;
+        }
+        .distance-bar .fill{
+          height:100%;
+          width:22%;
+          border-radius:inherit;
+          background: var(--gradient);
+          transition:width .25s ease-out;
+        }
+        .ds-footnote{
+          margin-top:16px;
+          font-size:.78rem;
+          color:#777;
+        }
+        .distance-status-card #distanceMap{
+          display:none;
+        }
+
+
     </style>
 </head>
 
@@ -2950,55 +3055,58 @@ body.loaded #main-content {
         {% endif %}
       </div>
 
-      <!-- Mapa de Distancia -->
+      <  <!-- Distancia / Estado de ciudades -->
       <div class="section animate-in delay-2">
         <h3>Distancia</h3>
-        <p>Cuánta distancia hay entre nosotros.</p>
+        <p>Nuestro estado ahora mismo 💌</p>
 
-        <div class="distance-map-container">
-          <div id="distanceMap"></div>
-          <!-- Botones utilitarios del mapa -->
-<button type="button" class="map-fab" id="toggleMapSize" title="Pantalla completa">
-  <i class="fa-solid fa-expand"></i>
-</button>
-
-<!-- Botón geolocalizar -->
-<button type="button" class="map-fab" id="useMyLocationBtn" title="Usar mi ubicación" style="right:66px">
-  <i class="fa-solid fa-location-crosshairs"></i>
-</button>
-
-          <div class="distance-info">
-            <h4>Distancia entre nosotros</h4>
-            <div class="distance-value" id="distanceValue">Cargando...</div>
-            <div class="distance-bar" aria-label="Cercanía">
-              <div class="fill" id="distanceFill" style="width:0%"></div>
-            </div>
-            <small class="distance-scale" style="display:block; opacity:.8;">
-              0 km = juntitos • 500+ km = lejos
-            </small>
-            
-            <div id="locationInfo">
-              <div class="location-badge">
-                {% if profile_pictures.get('mochito') %}
-                  <img src="{{ profile_pictures.get('mochito') }}" alt="Christian">
-                {% else %}
-                  <span>C</span>
-                {% endif %}
-                <span id="christianLocation">Algemesí, Valencia</span>
-              </div>
-              <div class="location-badge">
-                {% if profile_pictures.get('mochita') %}
-                  <img src="{{ profile_pictures.get('mochita') }}" alt="Clara">
-                {% else %}
-                  <span>C</span>
-                {% endif %}
-                <span id="claraLocation">Córdoba</span>
-              </div>
-            </div>
-
-            <!-- 🌍 FORM: Actualizar ubicación (manual o automática) -->
-            
+        <div class="distance-status-card">
+          <div class="ds-header">
+            <span class="ds-label" id="distanceStatusLabel">Separados</span>
+            <span class="ds-sub" id="distanceStatusSub">Mochito en Algemesí · Mochita en Córdoba</span>
           </div>
+
+          <div class="ds-modes">
+            <button type="button" class="ds-mode-btn active" data-mode="separated">
+              <span class="ds-icon"><i class="fa-solid fa-route"></i></span>
+              <span class="ds-text">
+                <span class="ds-mode-title">Separados</span>
+                <span class="ds-mode-sub">Mochito en Algemesí · Mochita en Córdoba</span>
+              </span>
+            </button>
+
+            <button type="button" class="ds-mode-btn" data-mode="together_alg">
+              <span class="ds-icon"><i class="fa-solid fa-house-chimney-heart"></i></span>
+              <span class="ds-text">
+                <span class="ds-mode-title">Juntos en Algemesí</span>
+                <span class="ds-mode-sub">Los dos en Algemesí</span>
+              </span>
+            </button>
+
+            <button type="button" class="ds-mode-btn" data-mode="together_cor">
+              <span class="ds-icon"><i class="fa-solid fa-city"></i></span>
+              <span class="ds-text">
+                <span class="ds-mode-title">Juntos en Córdoba</span>
+                <span class="ds-mode-sub">Los dos en Córdoba</span>
+              </span>
+            </button>
+          </div>
+
+          <div class="distance-bar" aria-label="Cercanía">
+            <div class="fill" id="distanceFill" style="width:22%"></div>
+          </div>
+
+          <small class="distance-scale" style="display:block; opacity:.8; margin-top:6px;">
+            <span style="float:left;">Separados</span>
+            <span style="float:right;">Muy juntitos</span>
+          </small>
+
+          <p class="ds-footnote">
+            Cualquiera de los dos puede cambiarlo y se actualizará para los dos en tiempo real ✨
+          </p>
+
+          <!-- Mapa oculto solo para que el JS viejo no reviente (no se ve) -->
+          <div id="distanceMap" style="display:none;"></div>
         </div>
       </div>
 
@@ -5000,7 +5108,7 @@ window.openEditIntimModal = function(eventId, place, notes) {
     try {
       var data = JSON.parse(e.data || '{}');
       // Puedes filtrar si quieres, pero recargar es lo más sólido sin tocar HTML
-      if (['question','answer','wishlist','travel','intim','banner','profile','schedules','locations'].includes(data.kind)) {
+      if (['question','answer','wishlist','travel','intim','banner','profile','schedules','locations','couple_mode'].includes(data.kind)) {
         // Espera un micro-tick por si llegan varios eventos seguidos
         setTimeout(function(){ location.reload(); }, 80);
       }
@@ -6731,88 +6839,109 @@ document.addEventListener('DOMContentLoaded', function mediaTitleSearchAutoFix()
   // Primera pasada
   applyFilter();
 });
+/* ========= Distancia sencilla (juntos / separados) ========= */
 
-/* ========= Mejoras Inicio/Distancia ========= */
+/*
+  Modos:
+    - separated    -> Mochito en Algemesí, Mochita en Córdoba
+    - together_alg -> Juntos en Algemesí
+    - together_cor -> Juntos en Córdoba
+  Se guarda en /api/couple_mode para que valga para los dos.
+*/
 
-/* 1) Chip de distancia en el banner */
-function setChipDistance(km){
-  try{
-    const el = document.getElementById('chipDistance');
-    if(el) el.innerHTML = `<i class="fa-solid fa-route"></i> ${km.toFixed(1)} km`;
-  }catch(e){}
-}
-
-/* 2) Barra de cercanía (0km => 100% | >=500km => 0%) */
-function setDistanceBar(km){
-  const fill = document.getElementById('distanceFill');
-  if(!fill) return;
-  const pct = Math.max(0, Math.min(1, 1 - (km / 500))) * 100;
-  fill.style.width = pct.toFixed(0) + '%';
-}
-
-/* 3) Extiende updateDistanceInfo() para actualizar chips y barra */
-(function(){
-  const _orig = window.updateDistanceInfo;
-  if(typeof _orig === 'function'){
-    window.updateDistanceInfo = function(){
-      const res = _orig.apply(this, arguments);
-      try{
-        const km = calculateDistance(
-          christianLocation.lat, christianLocation.lng,
-          claraLocation.lat, claraLocation.lng
-        );
-        setChipDistance(km);
-        setDistanceBar(km);
-      }catch(e){}
-      return res;
-    };
-  }else{
-    // Si aún no existe, intenta calcular una vez cuando cargue
-    document.addEventListener('DOMContentLoaded', ()=>{
-      if(typeof calculateDistance === 'function' && window.christianLocation && window.claraLocation){
-        const km = calculateDistance(
-          christianLocation.lat, christianLocation.lng,
-          claraLocation.lat, claraLocation.lng
-        );
-        if(isFinite(km)){ setChipDistance(km); setDistanceBar(km); }
-      }
-    });
+const COUPLE_MODES = {
+  separated: {
+    chip: 'Separados',
+    badge: 'Mochito en Algemesí · Mochita en Córdoba',
+    icon: 'fa-route',
+    bar: 22
+  },
+  together_alg: {
+    chip: 'Juntos en Algemesí',
+    badge: 'Ambos en Algemesí',
+    icon: 'fa-house-chimney-heart',
+    bar: 100
+  },
+  together_cor: {
+    chip: 'Juntos en Córdoba',
+    badge: 'Ambos en Córdoba',
+    icon: 'fa-city',
+    bar: 100
   }
-})();
+};
 
-/* 4) Botón “pantalla completa” del mapa */
-(function(){
-  const btn = document.getElementById('toggleMapSize');
-  const wrap = document.querySelector('.distance-map-container');
-  if(!btn || !wrap) return;
-  btn.addEventListener('click', ()=>{
-    wrap.classList.toggle('full');
-    try{ setTimeout(()=> map?.invalidateSize?.(), 220); }catch(e){}
-    btn.innerHTML = wrap.classList.contains('full')
-      ? '<i class="fa-solid fa-compress"></i>'
-      : '<i class="fa-solid fa-expand"></i>';
+function applyCoupleMode(mode){
+  const cfg = COUPLE_MODES[mode] || COUPLE_MODES.separated;
+
+  // Chip del banner (id="chipDistance")
+  const chip = document.getElementById('chipDistance');
+  if (chip){
+    chip.innerHTML = `<i class="fa-solid ${cfg.icon}"></i> ${cfg.chip}`;
+  }
+
+  // Tarjeta de la sección Distancia
+  const cardLabel = document.getElementById('distanceStatusLabel');
+  const cardSub   = document.getElementById('distanceStatusSub');
+  if (cardLabel) cardLabel.textContent = cfg.chip;
+  if (cardSub)   cardSub.textContent   = cfg.badge;
+
+  // Barra de "cercanía"
+  const bar = document.getElementById('distanceFill');
+  if (bar){
+    bar.style.width = (cfg.bar || 0) + '%';
+  }
+
+  // Resaltar botón activo
+  document.querySelectorAll('.ds-mode-btn').forEach(btn=>{
+    const m = btn.dataset.mode;
+    if (m === mode) btn.classList.add('active');
+    else btn.classList.remove('active');
   });
-})();
+}
 
-/* 5) Botón “intercambiar ubicaciones” (swap) */
-(function(){
-  const btn = document.getElementById('swapLocations');
-  if(!btn) return;
-  btn.addEventListener('click', ()=>{
-    try{
-      const tmp = {...christianLocation};
-      christianLocation = {...claraLocation};
-      claraLocation     = tmp;
+async function fetchCoupleMode(){
+  try{
+    const r = await fetch('/api/couple_mode');
+    if (!r.ok) throw new Error('resp');
+    const j = await r.json();
+    applyCoupleMode(j.mode || 'separated');
+  }catch(e){
+    console.warn('No pude cargar couple_mode', e);
+    applyCoupleMode('separated');
+  }
+}
 
-      christianMarker?.setLatLng([christianLocation.lat, christianLocation.lng]);
-      claraMarker?.setLatLng([claraLocation.lat, claraLocation.lng]);
-
-      window.updateDistanceLine?.();
-      window.updateDistanceInfo?.();
-    }catch(e){
-      console.warn('No se pudo hacer swap de ubicaciones', e);
+async function setCoupleMode(mode){
+  // feedback instantáneo en la UI
+  applyCoupleMode(mode);
+  try{
+    const r = await fetch('/api/couple_mode', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({mode})
+    });
+    const j = await r.json().catch(()=>({}));
+    if (!r.ok || j.ok === false){
+      throw new Error(j.error || 'error');
     }
+    window.showToast?.('success','Estado de distancia actualizado 💌');
+  }catch(e){
+    window.showToast?.('error','No se pudo guardar el estado');
+    console.error('setCoupleMode', e);
+  }
+}
+
+(function initCoupleModeUI(){
+  // listeners en los botones
+  document.querySelectorAll('.ds-mode-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const mode = btn.dataset.mode;
+      if (mode) setCoupleMode(mode);
+    });
   });
+
+  // Cargar estado al iniciar
+  fetchCoupleMode();
 })();
 
 

@@ -6467,94 +6467,10 @@ def historial():
                             today_iso=today_madrid().isoformat())  # <-- Cambiar a today_iso
 
 
-@app.route("/fix_pregunta_hoy_puntos")
-def fix_pregunta_hoy_puntos():
-    """
-    Ruta temporal para dar los puntos de la pregunta de HOY
-    a quienes ya han contestado pero no recibieron nada.
-    - 10 pts por contestar
-    - +10 pts extra para la primera respuesta (global)
-    También manda la notificación push.
-    Solo accesible para 'mochito'.
-    """
-    if "username" not in session or session["username"] != "mochito":
-        return "No autorizado", 403
-
-    # Obtener la pregunta de hoy
-    qid, qtext = get_today_question()
-    if not qid:
-        return "No hay pregunta de hoy", 400
-
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            # Cogemos todas las respuestas NO vacías de hoy,
-            # ordenadas por creation (si la tienes) o por id
-            c.execute("""
-                SELECT username
-                FROM answers
-                WHERE question_id=%s
-                  AND TRIM(COALESCE(answer,'')) <> ''
-                ORDER BY id ASC
-            """, (qid,))
-            rows = c.fetchall()
-
-        if not rows:
-            return "Nadie ha contestado la pregunta de hoy", 200
-
-        # Calculamos puntos y enviamos notificaciones
-        base = 10
-        total_info = []
-        conn = get_db_connection()
-        try:
-            with conn.cursor() as c:
-                for idx, row in enumerate(rows):
-                    uname = row[0]
-                    bonus = 10 if idx == 0 else 0  # primer@ en contestar
-                    delta = base + bonus
-
-                    # Sumamos puntos
-                    c.execute("""
-                        UPDATE users
-                           SET points = COALESCE(points,0) + %s
-                         WHERE username=%s
-                    """, (delta, uname))
-
-                    total_info.append(f"{uname}: +{delta} puntos")
-
-                    # Notificación push
-                    try:
-                        if bonus > 0:
-                            send_push_to(
-                                uname,
-                                title="¡Puntos ganados! 🎉",
-                                body=f"Has ganado {delta} puntos (+{base} por responder, +{bonus} por ser el primero)"
-                            )
-                        else:
-                            send_push_to(
-                                uname,
-                                title="¡Puntos ganados! 🎉",
-                                body=f"Has ganado {delta} puntos por responder la pregunta"
-                            )
-                    except Exception as e:
-                        print("[fix_pregunta_hoy_puntos push] ", e)
-
-                conn.commit()
-        finally:
-            conn.close()
-
-        return "OK: " + ", ".join(total_info)
-
-    except Exception as e:
-        print("[fix_pregunta_hoy_puntos] Error:", e)
-        conn.rollback()
-        return "Error interno", 500
-    finally:
-        conn.close()
-
 
 _old_init_db = init_db
 def init_db():
     _old_init_db()
     _ensure_gamification_schema()
+
 

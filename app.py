@@ -2909,22 +2909,47 @@ def index():
             # Respuestas del día
             c.execute("SELECT username, answer, created_at, updated_at FROM answers WHERE question_id=%s", (question_id,))
             ans_rows = c.fetchall()
+
             # Reacciones y chat de la Pregunta del Día actual
             dq_reactions_map = {}
             c.execute("SELECT to_user, from_user, reaction FROM dq_reactions WHERE question_id=%s", (question_id,))
             for r in c.fetchall():
-                dq_reactions_map[r['to_user']] = {"from_user": r['from_user'], "reaction": r['reaction']}
+                dq_reactions_map[r['to_user']] = {
+                    "from_user": r['from_user'],
+                    "reaction": r['reaction']
+                }
 
-            c.execute("SELECT username, msg, created_at FROM dq_chat WHERE question_id=%s ORDER BY id ASC", (question_id,))
+            c.execute("""
+                SELECT username, msg, created_at
+                FROM dq_chat
+                WHERE question_id=%s
+                ORDER BY id ASC
+            """, (question_id,))
             dq_chat_messages = [dict(row) for row in c.fetchall()]
 
-                        # PUNTOS DEL USUARIO (añade esto)
+            # PUNTOS DEL USUARIO
             c.execute("SELECT COALESCE(points, 0) FROM users WHERE username=%s", (user,))
             user_points = int((c.fetchone() or [0])[0] or 0)
 
+            # 👉 VIAJES (lista)
+            c.execute("""
+                SELECT
+                    id,
+                    destination,
+                    description,
+                    travel_date,
+                    is_visited,
+                    created_by,
+                    created_at
+                FROM travels
+                ORDER BY
+                    is_visited ASC,               -- primero los no visitados
+                    travel_date DESC NULLS LAST,  -- más recientes arriba
+                    id DESC
+            """)
+            travels = c.fetchall()
 
-            # Viajes + fotos
-            # Máx 400 fotos más recientes para no petar el home
+            # 👉 FOTOS DE VIAJES (máx 400 para no petar el home)
             c.execute("""
                 SELECT travel_id, id, image_url, uploaded_by
                 FROM travel_photos
@@ -2933,12 +2958,7 @@ def index():
             """)
             all_ph = c.fetchall()
 
-            c.execute("SELECT travel_id, id, image_url, uploaded_by FROM travel_photos ORDER BY id DESC")
-            all_ph = c.fetchall()
-
             # Wishlist (blindaje regalos)
-                        # Wishlist (blindaje regalos)
-                        # Wishlist (blindaje regalos)
             c.execute("""
                 SELECT
                     id,
@@ -2948,10 +2968,10 @@ def index():
                     created_by,
                     created_at,
                     is_purchased,
-                    COALESCE(priority,'media') AS priority,
-                    COALESCE(is_gift,false)   AS is_gift,
+                    COALESCE(priority,'media')     AS priority,
+                    COALESCE(is_gift,false)        AS is_gift,
                     size,
-                    COALESCE(track_price,false) AS track_price,
+                    COALESCE(track_price,false)    AS track_price,
                     last_price_cents,
                     currency,
                     last_checked,
@@ -2961,7 +2981,7 @@ def index():
                 ORDER BY
                     is_purchased ASC,
                     CASE COALESCE(priority,'media')
-                        WHEN 'alta' THEN 0
+                        WHEN 'alta'  THEN 0
                         WHEN 'media' THEN 1
                         ELSE 2
                     END,
@@ -2970,14 +2990,13 @@ def index():
             wl_rows = c.fetchall()
 
             # --- Media: POR VER ---
-            # Solo mostramos las 200 más recientes/prioritarias en el home
             c.execute("""
                 SELECT
                     id, title, cover_url, link_url, on_netflix, on_prime,
                     comment, priority,
                     created_by, created_at,
-                    reviews,            -- JSONB
-                    avg_rating          -- media
+                    reviews,
+                    avg_rating
                 FROM media_items
                 WHERE is_watched = FALSE
                 ORDER BY
@@ -2989,12 +3008,11 @@ def index():
             media_to_watch = c.fetchall()
 
             # --- Media: VISTAS ---
-            # Solo las 200 últimas vistas para que el inicio no vaya a trompicones
             c.execute("""
                 SELECT
                     id, title, cover_url, link_url,
-                    reviews,            -- JSONB
-                    avg_rating,         -- media
+                    reviews,
+                    avg_rating,
                     watched_at,
                     created_by
                 FROM media_items

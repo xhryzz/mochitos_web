@@ -971,13 +971,13 @@ def _maybe_award_achievements(u: str):
 def award_points_for_answer(question_id: int, user: str):
     """
     Suma puntos cuando un usuario publica su respuesta del día por primera vez:
-      +5 pts por responder
+      +10 pts por responder
       +10 pts extra si es la PRIMERA respuesta del día (global)
     Luego revisa medallas.
     IMPORTANTE: esta función se debe llamar SOLO cuando se inserta una respuesta nueva.
     """
     _ensure_gamification_schema()
-    base = 5
+    base = 10
     bonus = 0
 
     conn = get_db_connection()

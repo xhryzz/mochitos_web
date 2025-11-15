@@ -657,78 +657,88 @@ init_db()
 _gami_ready = False
 _gami_lock = threading.Lock()
 
-def _ensure_gamification_schema():
-    """Crea columnas/tablas si faltan (seguro de repetir)."""
-    global _gami_ready
-    if _gami_ready:
-        return
-    with _gami_lock:
-        if _gami_ready:
-            return
-        conn = get_db_connection()
-        try:
-            with conn.cursor() as c:
-                # Columna de puntos en users
-                c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0")
+# def _ensure_gamification_schema():
+#     """Crea columnas/tablas si faltan (seguro de repetir)."""
+#     global _gami_ready
+#     if _gami_ready:
+#         return
+#     with _gami_lock:
+#         if _gami_ready:
+#             return
+#         conn = get_db_connection()
+#         try:
+#             with conn.cursor() as c:
+#                 # Columna de puntos en users
+#                 c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0")
 
-                # Catálogo de medallas
-                c.execute("""
-                CREATE TABLE IF NOT EXISTS achievements (
-                    id SERIAL PRIMARY KEY,
-                    code TEXT UNIQUE NOT NULL,
-                    title TEXT NOT NULL,
-                    description TEXT,
-                    icon TEXT,
-                    goal INTEGER DEFAULT 0
-                )
-                """)
+#                 # Catálogo de medallas
+#                 c.execute("""
+#                 CREATE TABLE IF NOT EXISTS achievements (
+#                     id SERIAL PRIMARY KEY,
+#                     code TEXT UNIQUE NOT NULL,
+#                     title TEXT NOT NULL,
+#                     description TEXT,
+#                     icon TEXT,
+#                     goal INTEGER DEFAULT 0
+#                 )
+#                 """)
 
-                # Medallas obtenidas por usuario
-                c.execute("""
-                CREATE TABLE IF NOT EXISTS user_achievements (
-                    id SERIAL PRIMARY KEY,
-                    user_id INTEGER NOT NULL,
-                    achievement_id INTEGER NOT NULL,
-                    earned_at TEXT,
-                    UNIQUE (user_id, achievement_id)
-                )
-                """)
+#                 # Medallas obtenidas por usuario
+#                 c.execute("""
+#                 CREATE TABLE IF NOT EXISTS user_achievements (
+#                     id SERIAL PRIMARY KEY,
+#                     user_id INTEGER NOT NULL,
+#                     achievement_id INTEGER NOT NULL,
+#                     earned_at TEXT,
+#                     UNIQUE (user_id, achievement_id)
+#                 )
+#                 """)
 
-                # Tienda y compras
-                c.execute("""
-                CREATE TABLE IF NOT EXISTS shop_items (
-                    id SERIAL PRIMARY KEY,
-                    name TEXT UNIQUE NOT NULL,
-                    cost INTEGER NOT NULL,
-                    description TEXT,
-                    icon TEXT
-                )
-                """)
-                c.execute("""
-                CREATE TABLE IF NOT EXISTS purchases (
-                    id SERIAL PRIMARY KEY,
-                    user_id INTEGER NOT NULL,
-                    item_id INTEGER NOT NULL,
-                    quantity INTEGER DEFAULT 1,
-                    note TEXT,
-                    purchased_at TEXT
-                )
-                """)
-                # En init_db(), después de crear la tabla purchases, añade:
-                c.execute('''CREATE TABLE IF NOT EXISTS purchases (
-                    id SERIAL PRIMARY KEY,
-                    user_id INTEGER NOT NULL,
-                    item_id INTEGER NOT NULL,
-                    quantity INTEGER DEFAULT 1,
-                    note TEXT,
-                    purchased_at TEXT,
-                    FOREIGN KEY (item_id) REFERENCES shop_items(id) ON DELETE CASCADE
-                )''')
-            conn.commit()
-        finally:
-            conn.close()
-        _seed_gamification()
-        _gami_ready = True
+#                 # Tienda y compras
+#                 c.execute("""
+#                 CREATE TABLE IF NOT EXISTS shop_items (
+#                     id SERIAL PRIMARY KEY,
+#                     name TEXT UNIQUE NOT NULL,
+#                     cost INTEGER NOT NULL,
+#                     description TEXT,
+#                     icon TEXT
+#                 )
+#                 """)
+#                 c.execute("""
+#                 CREATE TABLE IF NOT EXISTS purchases (
+#                     id SERIAL PRIMARY KEY,
+#                     user_id INTEGER NOT NULL,
+#                     item_id INTEGER NOT NULL,
+#                     quantity INTEGER DEFAULT 1,
+#                     note TEXT,
+#                     purchased_at TEXT
+#                 )
+#                 """)
+#                 c.execute("""
+#                 CREATE TABLE IF NOT EXISTS points_history (
+#                     id        SERIAL PRIMARY KEY,
+#                     user_id   INTEGER NOT NULL REFERENCES users(id),
+#                     delta     INTEGER NOT NULL,   -- +10, -5, etc
+#                     source    TEXT    NOT NULL,   -- 'daily', 'daily_first', 'admin', 'achievement', 'shop', ...
+#                     note      TEXT,
+#                     created_at TEXT   NOT NULL
+#                 )
+#             """)
+#                 # En init_db(), después de crear la tabla purchases, añade:
+#                 c.execute('''CREATE TABLE IF NOT EXISTS purchases (
+#                     id SERIAL PRIMARY KEY,
+#                     user_id INTEGER NOT NULL,
+#                     item_id INTEGER NOT NULL,
+#                     quantity INTEGER DEFAULT 1,
+#                     note TEXT,
+#                     purchased_at TEXT,
+#                     FOREIGN KEY (item_id) REFERENCES shop_items(id) ON DELETE CASCADE
+#                 )''')
+#             conn.commit()
+#         finally:
+#             conn.close()
+#         _seed_gamification()
+#         _gami_ready = True
 
 
 
@@ -777,6 +787,11 @@ def _grant_achievement_to(user: str, achievement_id: int, points_on_award=None):
                     "UPDATE users SET points = COALESCE(points,0) + %s WHERE id=%s",
                     (pts, uid)
                 )
+                # ✅ Historial de puntos por logro
+                c.execute("""
+                    INSERT INTO points_history (user_id, delta, source, note, created_at)
+                    VALUES (%s,%s,%s,%s,%s)
+                """, (uid, pts, "achievement", ach_title, now_madrid_str()))
 
             # Registrar la medalla
             c.execute("""
@@ -997,11 +1012,27 @@ def award_points_for_answer(question_id: int, user: str):
 
             delta = base + bonus
 
+            # Actualizar puntos
             c.execute("""
                 UPDATE users 
                 SET points = COALESCE(points,0) + %s 
                 WHERE username=%s
             """, (delta, user))
+
+            # ✅ Registrar en historial de puntos
+            c.execute("SELECT id FROM users WHERE username=%s", (user,))
+            row_uid = c.fetchone()
+            if row_uid:
+                uid = row_uid[0]
+                source = "daily_first" if bonus > 0 else "daily"
+                note = "Pregunta del día"
+                if bonus > 0:
+                    note += " (primero en contestar)"
+                c.execute("""
+                    INSERT INTO points_history (user_id, delta, source, note, created_at)
+                    VALUES (%s,%s,%s,%s,%s)
+                """, (uid, delta, source, note, now_madrid_str()))
+
             conn.commit()
 
             # 🔔 NOTIFICACIÓN PUSH POR PUNTOS GANADOS
@@ -1029,6 +1060,7 @@ def award_points_for_answer(question_id: int, user: str):
 
     # Revisa medallas
     _maybe_award_achievements(user)
+
 
 
 def push_answer_edited_notice(editor: str):
@@ -5760,6 +5792,52 @@ def api_medallas_summary():
         ranking = [dict(r) for r in c.fetchall()]
         c.execute("SELECT id, name, cost, description, icon FROM shop_items ORDER BY cost ASC")
         shop = [dict(r) for r in c.fetchall()]
+
+        # --- Logros conseguidos por usuario (solo vosotros dos) ---
+        c.execute("""
+            SELECT u.username,
+                   a.title,
+                   a.icon,
+                   ua.earned_at
+            FROM user_achievements ua
+            JOIN users u ON u.id = ua.user_id
+            JOIN achievements a ON a.id = ua.achievement_id
+            WHERE u.username IN ('mochito','mochita')
+            ORDER BY ua.earned_at DESC, a.id
+        """)
+        earned_by_user = {}
+        for row in c.fetchall():
+            uname = row["username"]
+            earned_by_user.setdefault(uname, []).append({
+                "title": row["title"],
+                "icon": row["icon"],
+                "earned_at": row["earned_at"],
+            })
+
+        # --- Historial de puntos ---
+        c.execute("""
+            SELECT u.username,
+                   ph.delta,
+                   ph.source,
+                   ph.note,
+                   ph.created_at
+            FROM points_history ph
+            JOIN users u ON u.id = ph.user_id
+            WHERE u.username IN ('mochito','mochita')
+            ORDER BY ph.created_at DESC, ph.id DESC
+            LIMIT 80
+        """)
+        points_history = [
+            {
+                "username": row["username"],
+                "delta": int(row["delta"]),
+                "source": row["source"],
+                "note": row["note"],
+                "created_at": row["created_at"],
+            }
+            for row in c.fetchall()
+        ]
+
     return jsonify({
         "user": user,
         "points": points,
@@ -5768,7 +5846,9 @@ def api_medallas_summary():
         "first_count": first_count,
         "achievements": achs,
         "ranking": ranking,
-        "shop": shop
+        "shop": shop,
+        "earned_by_user": earned_by_user,
+        "points_history": points_history,
     })
 
 from flask import request, redirect, flash, render_template, session
@@ -5782,6 +5862,9 @@ try:
     from pymysql.err import IntegrityError as MY_INTEGRITY_ERROR
 except Exception:
     MY_INTEGRITY_ERROR = tuple()
+
+
+
 @app.route('/tienda', methods=['GET', 'POST'])
 def shop():
     if 'username' not in session:
@@ -5812,7 +5895,7 @@ def shop():
                 pass
             return redirect('/tienda')
 
-        # === ADMIN: sumar puntos a un usuario ===
+        # === ADMIN: sumar/restar puntos a un usuario ===
         if op == 'grant_points':
             if not is_admin:
                 flash("Solo el admin puede modificar puntos.", "error")
@@ -5842,22 +5925,51 @@ def shop():
             conn = get_db_connection()
             try:
                 with conn.cursor() as c:
-                    c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE username=%s", (d, to_user))
+                    # ID del usuario destino
+                    c.execute("SELECT id FROM users WHERE username=%s", (to_user,))
+                    row_u = c.fetchone()
+                    if not row_u:
+                        flash("Usuario destino no existe.", "error")
+                        return redirect('/tienda')
+                    uid = row_u[0]
+
+                    # Actualizar puntos
+                    c.execute(
+                        "UPDATE users SET points = COALESCE(points,0) + %s WHERE username=%s",
+                        (d, to_user)
+                    )
+
+                    # ✅ Historial de puntos (admin)
+                    c.execute("""
+                        INSERT INTO points_history (user_id, delta, source, note, created_at)
+                        VALUES (%s,%s,%s,%s,%s)
+                    """, (
+                        uid,
+                        d,
+                        "admin",
+                        (note or "Ajuste manual de puntos"),
+                        now_madrid_str()
+                    ))
+
                     conn.commit()
-                    
+
                 # 🔔 NOTIFICACIÓN PUSH POR MODIFICACIÓN MANUAL DE PUNTOS
                 try:
                     if d > 0:
-                        send_push_to(to_user,
-                                    title="⭐ ¡Puntos añadidos!",
-                                    body=f"Se te han añadido {d} puntos. {note or ''}")
+                        send_push_to(
+                            to_user,
+                            title="⭐ ¡Puntos añadidos!",
+                            body=f"Se te han añadido {d} puntos. {note or ''}"
+                        )
                     else:
-                        send_push_to(to_user,
-                                    title="📉 Puntos restados",
-                                    body=f"Se te han restado {abs(d)} puntos. {note or ''}")
+                        send_push_to(
+                            to_user,
+                            title="📉 Puntos restados",
+                            body=f"Se te han restado {abs(d)} puntos. {note or ''}"
+                        )
                 except Exception as e:
                     print("[push points modification] ", e)
-                    
+
                 action_text = "añadieron" if action == 'add' else "restaron"
                 flash(f"Se {action_text} {abs(d)} pts a {to_user} ✅", "success")
                 try:
@@ -5903,24 +6015,41 @@ def shop():
                         INSERT INTO purchases (user_id, item_id, quantity, note, purchased_at)
                         VALUES (%s,%s,1,%s,%s)
                     """, (uid, it_id, f"Canje de {it_name}", now_madrid_str()))
+
+                    # ✅ Historial de puntos (tienda)
+                    c.execute("""
+                        INSERT INTO points_history (user_id, delta, source, note, created_at)
+                        VALUES (%s,%s,%s,%s,%s)
+                    """, (
+                        uid,
+                        -it_cost,
+                        "shop",
+                        f"Canje de {it_name}",
+                        now_madrid_str()
+                    ))
+
                     conn.commit()
 
                     # 🔔 NOTIFICACIÓN PUSH POR CANJE (AL USUARIO QUE CANJEA)
                     try:
-                        send_push_to(user,
-                                    title="🎁 ¡Premio canjeado!",
-                                    body=f"Has canjeado '{it_name}' por {it_cost} puntos")
+                        send_push_to(
+                            user,
+                            title="🎁 ¡Premio canjeado!",
+                            body=f"Has canjeado '{it_name}' por {it_cost} puntos"
+                        )
                     except Exception as e:
                         print("[push redeem] ", e)
 
                     # 🔔 NOTIFICACIÓN PUSH AL OTRO USUARIO
                     other_user = 'mochita' if user == 'mochito' else 'mochito'
                     try:
-                        send_push_to(other_user,
-                                    title="🎁 ¡Se ha canjeado un premio!",
-                                    body=f"{user} ha canjeado '{it_name}' por {it_cost} puntos",
-                                    url="/tienda",
-                                    tag=f"shop-redeem-{it_id}")
+                        send_push_to(
+                            other_user,
+                            title="🎁 ¡Se ha canjeado un premio!",
+                            body=f"{user} ha canjeado '{it_name}' por {it_cost} puntos",
+                            url="/tienda",
+                            tag=f"shop-redeem-{it_id}"
+                        )
                     except Exception as e:
                         print("[push redeem other] ", e)
 
@@ -6040,8 +6169,10 @@ def shop():
             return redirect('/tienda')
 
         except Exception:
-            try: conn.rollback()
-            except Exception: pass
+            try:
+                conn.rollback()
+            except Exception:
+                pass
             app.logger.exception("[/tienda] error")
             flash("Error en la tienda.", "error")
             return redirect('/tienda')
@@ -6466,11 +6597,7 @@ def historial():
                             username=session['username'],
                             today_iso=today_madrid().isoformat())  # <-- Cambiar a today_iso
 
-
-
 _old_init_db = init_db
 def init_db():
     _old_init_db()
     _ensure_gamification_schema()
-
-

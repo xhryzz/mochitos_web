@@ -974,72 +974,62 @@ def award_points_for_answer(question_id: int, user: str):
       +5 pts por responder
       +10 pts extra si es la PRIMERA respuesta del día (global)
     Luego revisa medallas.
+    IMPORTANTE: esta función se debe llamar SOLO cuando se inserta una respuesta nueva.
     """
     _ensure_gamification_schema()
     base = 5
     bonus = 0
-    
+
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # Verificar si el usuario YA ha recibido puntos por esta pregunta
-            c.execute("""
-                SELECT COUNT(*) FROM answers 
-                WHERE question_id=%s AND username=%s 
-                AND created_at IS NOT NULL
-            """, (question_id, user))
-            existing_answers = int((c.fetchone() or [0])[0] or 0)
-            
-            # ⚠️ Si ya existe UNA respuesta, no otorgar puntos nuevamente
-            if existing_answers >= 1:
-                return
-            
-            # ¿Es la primera respuesta del día? (contamos respuestas no vacías de otros)
+            # ¿Es la primera respuesta del día? (contamos respuestas NO vacías de otros usuarios)
             c.execute("""
                 SELECT COUNT(*) FROM answers
                 WHERE question_id=%s 
-                AND TRIM(COALESCE(answer,'')) <> ''
-                AND username != %s
+                  AND TRIM(COALESCE(answer,'')) <> ''
+                  AND username != %s
             """, (question_id, user))
             other_answers = int((c.fetchone() or [0])[0] or 0)
-            
+
             if other_answers == 0:
-                bonus = 10
-            
+                bonus = 10  # primerx en contestar
+
             delta = base + bonus
-            
+
             c.execute("""
                 UPDATE users 
                 SET points = COALESCE(points,0) + %s 
                 WHERE username=%s
             """, (delta, user))
             conn.commit()
-            
+
             # 🔔 NOTIFICACIÓN PUSH POR PUNTOS GANADOS
             try:
                 if bonus > 0:
                     send_push_to(
-                        user, 
-                        title="¡Puntos ganados! 🎉", 
+                        user,
+                        title="¡Puntos ganados! 🎉",
                         body=f"Has ganado {delta} puntos (+{base} por responder, +{bonus} por ser el primero)"
                     )
                 else:
                     send_push_to(
-                        user, 
-                        title="¡Puntos ganados! 🎉", 
+                        user,
+                        title="¡Puntos ganados! 🎉",
                         body=f"Has ganado {delta} puntos por responder la pregunta"
                     )
             except Exception as e:
                 print("[push points award] ", e)
-                
+
     except Exception as e:
         print(f"[award_points_for_answer] Error: {e}")
         conn.rollback()
     finally:
         conn.close()
-    
+
     # Revisa medallas
     _maybe_award_achievements(user)
+
 
 def push_answer_edited_notice(editor: str):
     other = 'mochita' if editor == 'mochito' else 'mochito'

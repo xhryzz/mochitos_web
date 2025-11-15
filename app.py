@@ -1474,11 +1474,13 @@ def get_intim_stats():
             rows = c.fetchall()
     finally:
         conn.close()
+
     dts = []
     for r in rows:
         dt = _parse_dt(r[0])
         if dt:
             dts.append(dt)
+
     if not dts:
         return {
             'today_count': 0,
@@ -1486,13 +1488,15 @@ def get_intim_stats():
             'year_total': 0,
             'days_since_last': None,
             'last_dt': None,
-            'streak_days': 0
+            'streak_days': 0,
         }
+
     today_count = sum(1 for dt in dts if dt.date() == today)
     month_total = sum(1 for dt in dts if dt.year == today.year and dt.month == today.month)
     year_total = sum(1 for dt in dts if dt.year == today.year)
     last_dt = max(dts)
     days_since_last = (today - last_dt.date()).days
+
     if today_count == 0:
         streak_days = 0
     else:
@@ -1502,14 +1506,16 @@ def get_intim_stats():
         while cur in dates_with:
             streak_days += 1
             cur = cur - timedelta(days=1)
+
     return {
         'today_count': today_count,
         'month_total': month_total,
         'year_total': year_total,
         'days_since_last': days_since_last,
         'last_dt': last_dt,
-        'streak_days': streak_days
+        'streak_days': streak_days,
     }
+
 
 @ttl_cache(seconds=15)
 def get_intim_events(limit: int = 200):
@@ -1524,18 +1530,19 @@ def get_intim_events(limit: int = 200):
                 LIMIT %s
             """, (limit,))
             rows = c.fetchall()
-            return [
-                {
-                    'id': r[0],
-                    'username': r[1],
-                    'ts': r[2],
-                    'place': r[3] or '',
-                    'notes': r[4] or ''
-                }
-                for r in rows
-            ]
     finally:
         conn.close()
+
+    return [
+        {
+            'id': r[0],
+            'username': r[1],
+            'ts': r[2],
+            'place': r[3] or '',
+            'notes': r[4] or '',
+        }
+        for r in rows
+    ]
 
 
 def get_intim_events(limit: int = 200):
@@ -2917,17 +2924,20 @@ def index():
 
 
             # Viajes + fotos
+            # Máx 400 fotos más recientes para no petar el home
             c.execute("""
-                SELECT id, destination, description, travel_date, is_visited, created_by
-                FROM travels
-                ORDER BY is_visited, travel_date DESC
+                SELECT travel_id, id, image_url, uploaded_by
+                FROM travel_photos
+                ORDER BY id DESC
+                LIMIT 400
             """)
-            travels = c.fetchall()
+            all_ph = c.fetchall()
 
             c.execute("SELECT travel_id, id, image_url, uploaded_by FROM travel_photos ORDER BY id DESC")
             all_ph = c.fetchall()
 
             # Wishlist (blindaje regalos)
+                        # Wishlist (blindaje regalos)
                         # Wishlist (blindaje regalos)
             c.execute("""
                 SELECT
@@ -2957,10 +2967,10 @@ def index():
                     END,
                     created_at DESC
             """)
-            wl_rows = c.fetchall()  # <-- IMPORTANTE: justo después del SELECT de wishlist
+            wl_rows = c.fetchall()
 
             # --- Media: POR VER ---
-            # Solo mostramos las 300 más recientes / prioritarias en el home
+            # Solo mostramos las 200 más recientes/prioritarias en el home
             c.execute("""
                 SELECT
                     id, title, cover_url, link_url, on_netflix, on_prime,
@@ -2974,12 +2984,12 @@ def index():
                     CASE priority WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,
                     COALESCE(created_at, '1970-01-01') DESC,
                     id DESC
-                LIMIT 300
+                LIMIT 200
             """)
             media_to_watch = c.fetchall()
 
             # --- Media: VISTAS ---
-            # Igual: solo las 300 últimas vistas (para que el home no explote)
+            # Solo las 200 últimas vistas para que el inicio no vaya a trompicones
             c.execute("""
                 SELECT
                     id, title, cover_url, link_url,
@@ -2990,9 +3000,10 @@ def index():
                 FROM media_items
                 WHERE is_watched = TRUE
                 ORDER BY COALESCE(watched_at, '1970-01-01') DESC, id DESC
-                LIMIT 300
+                LIMIT 200
             """)
             media_watched = c.fetchall()
+
 
 
 

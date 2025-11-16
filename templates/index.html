@@ -2649,11 +2649,12 @@ body.loaded #main-content {
   top: 50%;
   left: 50%;
   transform-origin: center center;
-  font-size: 0.8rem;
+  font-size: 0;        /* así ocultas cualquier texto por si acaso */
   font-weight: 700;
   color: #111827;
   text-shadow: 0 1px 3px rgba(255,255,255,0.8);
 }
+
 
 /* Centros de cada sector: 270, 330, 30, 90, 150, 210 grados */
 .dw-seg-0{ /* idx 0 → +0 */
@@ -7811,20 +7812,21 @@ function flyOnce(){
     </div>
 
     <!-- Ruleta -->
-    <div class="dw-wheel-wrap">
-      <div class="dw-pointer"></div>
+<div class="dw-wheel-wrap">
+  <div class="dw-pointer"></div>
 
-      <div class="dw-wheel" id="dailyWheel">
-        <!-- Orden de segmentos (idx 0..5) = [0, 5, 10, 20, 50, 100] -->
-        <div class="dw-seg-label dw-seg-0">+0</div>
-        <div class="dw-seg-label dw-seg-1">+5</div>
-        <div class="dw-seg-label dw-seg-2">+10</div>
-        <div class="dw-seg-label dw-seg-3">+20</div>
-        <div class="dw-seg-label dw-seg-4">+50</div>
-        <div class="dw-seg-label dw-seg-5">+100</div>
+  <div class="dw-wheel" id="dailyWheel">
+    <!-- Orden de segmentos (idx 0..5) = [0, 5, 10, 20, 50, 100] -->
+    <div class="dw-seg-label dw-seg-0"></div>
+    <div class="dw-seg-label dw-seg-1"></div>
+    <div class="dw-seg-label dw-seg-2"></div>
+    <div class="dw-seg-label dw-seg-3"></div>
+    <div class="dw-seg-label dw-seg-4"></div>
+    <div class="dw-seg-label dw-seg-5"></div>
 
-        <div class="dw-center">
-          <span>🎁</span>
+    <div class="dw-center">
+      <span>🎁</span>
+
         </div>
       </div>
     </div>

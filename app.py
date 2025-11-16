@@ -417,14 +417,15 @@ INTIM_PIN = os.environ.get('INTIM_PIN', '6969')
 
 
 # ========= Ruleta diaria (config) =========
-# Cada segmento: etiqueta que se verá, puntos que da y peso (probabilidad relativa)
+# Index 0..5, mismo orden que en el HTML de la ruleta:
+# +0, +5, +10, +20, +50, +100
 DAILY_WHEEL_SEGMENTS = [
-    {"label": "+0",   "delta": 0,   "weight": 30},   # ~30%
-    {"label": "+5",   "delta": 5,   "weight": 25},   # ~25%
-    {"label": "+10",  "delta": 10,  "weight": 20},   # ~20%
-    {"label": "+20",  "delta": 20,  "weight": 15},   # ~15%
-    {"label": "+50",  "delta": 50,  "weight": 6},    # ~6%
-    {"label": "+100", "delta": 100, "weight": 4},    # ~4%
+    {"label": "+0",   "delta": 0,   "weight": 8},   # ~8%
+    {"label": "+5",   "delta": 5,   "weight": 24},  # ~24%
+    {"label": "+10",  "delta": 10,  "weight": 30},  # ~30%
+    {"label": "+20",  "delta": 20,  "weight": 20},  # ~20%
+    {"label": "+50",  "delta": 50,  "weight": 12},  # ~12%
+    {"label": "+100", "delta": 100, "weight": 6},   # ~6%
 ]
 
 
@@ -6817,7 +6818,7 @@ def api_daily_wheel_spin():
         info.setdefault("date", today)
         return jsonify(ok=True, other=other_info, **info)
 
-    # 2) Elegir premio de la ruleta
+    # 2) Elegir premio de la ruleta (IDX y DELTA SIEMPRE COHERENTES)
     idx, seg = choose_daily_wheel_segment()
     delta = int(seg.get("delta", 0))
     label = seg.get("label", f"+{delta}")

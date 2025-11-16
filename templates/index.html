@@ -2714,6 +2714,7 @@ body.loaded #main-content {
 }
 
 /* Etiquetas de los segmentos de la ruleta */
+/* Etiquetas de los segmentos de la ruleta */
 .dw-seg-label{
   position: absolute;
   top: 50%;
@@ -2725,9 +2726,7 @@ body.loaded #main-content {
   text-shadow: 0 1px 3px rgba(255,255,255,0.8);
 }
 
-/* Colocación de cada número (6 segmentos = cada 60º)
-   Usamos el ángulo central de cada color:
-   30º, 90º, 150º, 210º, 270º, 330º */
+/* Ángulo central de cada sector: 30, 90, 150, 210, 270, 330 */
 .dw-seg-0{
   transform: translate(-50%, -50%) rotate(30deg) translate(0, -78px) rotate(-30deg);
 }
@@ -2746,6 +2745,7 @@ body.loaded #main-content {
 .dw-seg-5{
   transform: translate(-50%, -50%) rotate(330deg) translate(0, -78px) rotate(-330deg);
 }
+
     </style>
 </head>
 
@@ -7813,18 +7813,17 @@ function flyOnce(){
       <div class="dw-pointer"></div>
 
       <div class="dw-wheel" id="dailyWheel">
-        <!-- Etiquetas de los 6 segmentos (en el orden de la ruleta) -->
-        <div class="dw-seg-label dw-seg-0">+0</div>
-        <div class="dw-seg-label dw-seg-1">+5</div>
-        <div class="dw-seg-label dw-seg-2">+10</div>
-        <div class="dw-seg-label dw-seg-3">+20</div>
-        <div class="dw-seg-label dw-seg-4">+50</div>
-        <div class="dw-seg-label dw-seg-5">+100</div>
+  <div class="dw-seg-label dw-seg-0">+0</div>
+  <div class="dw-seg-label dw-seg-1">+5</div>
+  <div class="dw-seg-label dw-seg-2">+10</div>
+  <div class="dw-seg-label dw-seg-3">+20</div>
+  <div class="dw-seg-label dw-seg-4">+50</div>
+  <div class="dw-seg-label dw-seg-5">+100</div>
 
-        <div class="dw-center">
-          <span>🎁</span>
-        </div>
-      </div>
+  <div class="dw-center">
+    <span>🎁</span>
+  </div>
+</div>
     </div>
 
     <div class="dw-actions">
@@ -7856,8 +7855,8 @@ function flyOnce(){
 
   if (!modal || !openBtn || !closeBtn || !wheel || !spinBtn) return;
 
-  const N_SEGMENTS = 6;
-  const SEG_ANGLE  = 360 / N_SEGMENTS;
+const N_SEGMENTS = 6;
+const SEG_ANGLE  = 360 / N_SEGMENTS;
   let currentRotation = 0;
 
   function openModal(){

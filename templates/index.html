@@ -7911,13 +7911,21 @@ function flyOnce(){
   // quede JUSTO bajo el puntero cuando se aplica rotate(angleForIndex(idx)).
   const ANGLES_FOR_IDX = [0, -60, 240, 180, 120, 60];
 
+    // Mapeo corregido: el backend manda idx (0..5), pero la ruleta
+  // se estaba quedando siempre en el siguiente sector.
+  // Usamos idx_visual = idx - 1 para que el puntero caiga en el correcto.
   function angleForIndex(idx){
-    if (typeof idx !== "number" || !isFinite(idx)) return 0;
+    if (typeof idx !== "number" || !isFinite(idx)) idx = 0;
     idx = Math.round(idx);
-    const n = ANGLES_FOR_IDX.length;
-    idx = ((idx % n) + n) % n;  // normaliza a 0..5
-    return ANGLES_FOR_IDX[idx];
+
+    const n = N_SEGMENTS;
+    // desplazamos un sector hacia atrás
+    let idxVisual = idx - 1;
+    idxVisual = ((idxVisual % n) + n) % n; // normaliza a 0..5
+
+    return -SEG_ANGLE * idxVisual; // 0, -60, -120, -180, -240, -300
   }
+
 
   function openModal(){
     modal.classList.add('open');

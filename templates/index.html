@@ -7909,6 +7909,7 @@ function flyOnce(){
 {% endif %}
 
 
+{% if username is defined and username %}
 <script>
 // === Ruleta diaria (JS) ===
 (function(){
@@ -7932,7 +7933,7 @@ function flyOnce(){
   const SELF_AVATAR_HTML = `{% if profile_pictures.get(username) %}
     <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
   {% else %}
-    {{ username[0] | upper }}
+    {{ (username or '?')[0] | upper }}
   {% endif %}`;
 
   {% if username == 'mochito' %}
@@ -8187,6 +8188,8 @@ function flyOnce(){
   spinBtn.addEventListener('click', spin);
 })();
 </script>
+{% endif %}
+
 
 </body>
 </html>

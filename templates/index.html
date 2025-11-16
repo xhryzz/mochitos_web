@@ -7980,20 +7980,33 @@ const SEG_ANGLE  = 360 / N_SEGMENTS;
         return;
       }
 
-      // Giro "nuevo" de hoy → guardamos datos pero NO los mostramos aún
-      const idx    = (typeof data.idx === 'number') ? data.idx : 0;
+      const idxServer = (typeof data.idx === 'number') ? data.idx : 0;
       const delta  = data.delta ?? 0;
       const label  = data.label ?? (delta >= 0 ? `+${delta}` : String(delta));
       const total  = (typeof data.new_total === 'number') ? data.new_total : null;
 
-      // Animación de giro
+      // Mapeo fijo de valor de puntos -> posición visual en la ruleta
+      // Debe coincidir con el orden de los textos en el HTML:
+      // +0, +5, +10, +20, +50, +100
+      const VALUES = [0, 5, 10, 20, 50, 100];
+      let visualIdx = VALUES.indexOf(delta);
+      if (visualIdx === -1) {
+        // Si por lo que sea no está, usamos el idx que viene del servidor
+        visualIdx = idxServer;
+      }
+
+      // La ruleta actual está desfasada un sector en el gráfico,
+      // así que corregimos el índice restando 1 para que la flecha
+      // caiga justo en el centro del color correcto.
+      const effectiveIdx = (visualIdx - 1 + N_SEGMENTS) % N_SEGMENTS;
+
       const rounds = 4 + Math.floor(Math.random() * 2); // 4 o 5 vueltas completas
-      const target = 360 * rounds + SEG_ANGLE * idx + SEG_ANGLE / 2;
+      const target = 360 * rounds + SEG_ANGLE * effectiveIdx + SEG_ANGLE / 2;
       currentRotation = target;
 
-      // Reseteamos transición por si venía de antes
+      // Reset de transición y aplicación del giro
       wheel.style.transition = 'none';
-      // Forzamos reflow para que la siguiente transición se aplique
+      // Forzamos reflow
       // eslint-disable-next-line no-unused-expressions
       wheel.offsetHeight;
       wheel.style.transition = 'transform 4s cubic-bezier(0.17, 0.89, 0.32, 1.28)';

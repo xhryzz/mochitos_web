@@ -2484,7 +2484,7 @@ body.loaded #main-content {
 .floating-wheel-btn{
   position: fixed;
   right: 18px;
-  bottom: 96px; /* por encima de la navbar inferior */
+  bottom: 96px;
   z-index: 1100;
   width: 54px;
   height: 54px;
@@ -2624,22 +2624,21 @@ body.loaded #main-content {
   filter: drop-shadow(0 3px 6px rgba(0,0,0,.45));
 }
 
+/* MUY IMPORTANTE: from 270deg, nada de -30deg ni 0deg */
 .dw-wheel{
   position: relative;
   width: 100%;
   height: 100%;
   border-radius: 999px;
-  /* from 270deg → sector 0 empieza arriba-derecha.
-     Luego el JS compensa -30º y clava el puntero. */
   background:
     conic-gradient(
       from 270deg,
-      #f9a8d4 0deg 60deg,   /* idx 0 → 0 puntos   */
-      #a5b4fc 60deg 120deg, /* idx 1 → +5 puntos */
-      #fef3c7 120deg 180deg,/* idx 2 → +10 pts   */
-      #bbf7d0 180deg 240deg,/* idx 3 → +20 pts   */
-      #fed7aa 240deg 300deg,/* idx 4 → +50 pts   */
-      #e5e7eb 300deg 360deg /* idx 5 → +100 pts  */
+      #f9a8d4 0deg 60deg,   /* idx 0 → 0 pts   */
+      #a5b4fc 60deg 120deg, /* idx 1 → 5 pts   */
+      #fef3c7 120deg 180deg,/* idx 2 → 10 pts  */
+      #bbf7d0 180deg 240deg,/* idx 3 → 20 pts  */
+      #fed7aa 240deg 300deg,/* idx 4 → 50 pts  */
+      #e5e7eb 300deg 360deg /* idx 5 → 100 pts */
     );
   box-shadow: 0 14px 30px rgba(15,23,42,.35);
   display: flex;
@@ -2648,7 +2647,6 @@ body.loaded #main-content {
   transition: transform 4s cubic-bezier(0.17, 0.89, 0.32, 1.28);
 }
 
-/* glow exterior */
 .dw-wheel::before{
   content: "";
   position: absolute;
@@ -2676,7 +2674,7 @@ body.loaded #main-content {
     0 6px 14px rgba(15,23,42,.70);
 }
 
-/* Etiquetas de los segmentos (chips alrededor) */
+/* Etiquetas alrededor (centro exacto de cada sector) */
 
 .dw-seg-label{
   position: absolute;
@@ -2686,7 +2684,7 @@ body.loaded #main-content {
   font-size: .80rem;
   font-weight: 700;
   color: #111827;
-  text-shadow: 0 1px 3px rgba(255,255,255,0.8);
+  text-shadow: 0 1px 3px rgba(255,255,255,.8);
   padding: 4px 10px;
   border-radius: 999px;
   background: rgba(255,255,255,.9);
@@ -2694,26 +2692,27 @@ body.loaded #main-content {
   white-space: nowrap;
 }
 
-/* Centros de cada sector con from 270deg: 300, 0, 60, 120, 180, 240 */
-.dw-seg-0{ /* idx 0 → +0 pts */
+/* Centros físicos con from 270deg:
+   idx0: 300°, idx1: 0°, idx2: 60°, idx3: 120°, idx4: 180°, idx5: 240° */
+
+.dw-seg-0{ /* 0 pts */
   transform: translate(-50%, -50%) rotate(300deg) translate(0, -78px) rotate(-300deg);
 }
-.dw-seg-1{ /* idx 1 → +5 pts */
+.dw-seg-1{ /* +5 */
   transform: translate(-50%, -50%) rotate(0deg) translate(0, -78px) rotate(0deg);
 }
-.dw-seg-2{ /* idx 2 → +10 pts */
+.dw-seg-2{ /* +10 */
   transform: translate(-50%, -50%) rotate(60deg) translate(0, -78px) rotate(-60deg);
 }
-.dw-seg-3{ /* idx 3 → +20 pts */
+.dw-seg-3{ /* +20 */
   transform: translate(-50%, -50%) rotate(120deg) translate(0, -78px) rotate(-120deg);
 }
-.dw-seg-4{ /* idx 4 → +50 pts */
+.dw-seg-4{ /* +50 */
   transform: translate(-50%, -50%) rotate(180deg) translate(0, -78px) rotate(-180deg);
 }
-.dw-seg-5{ /* idx 5 → +100 pts */
+.dw-seg-5{ /* +100 */
   transform: translate(-50%, -50%) rotate(240deg) translate(0, -78px) rotate(-240deg);
 }
-
 
 /* Texto y botón */
 
@@ -7830,12 +7829,10 @@ function flyOnce(){
 {% endif %}
 
 {% if username %}
-  <!-- Botón flotante para abrir la ruleta -->
   <button id="openWheelBtn" class="floating-wheel-btn" type="button" aria-label="Ruleta diaria">
     🎡
   </button>
 
-  <!-- Modal de la ruleta -->
   <div id="dailyWheelModal" class="daily-wheel-modal" aria-hidden="true">
     <div class="daily-wheel-card">
       <button id="closeWheelBtn" class="dw-close-btn" type="button" aria-label="Cerrar">
@@ -7856,7 +7853,6 @@ function flyOnce(){
       <div class="dw-wheel-wrap">
         <div class="dw-pointer"></div>
         <div id="dailyWheel" class="dw-wheel">
-          <!-- Chips de texto en cada sector -->
           <div class="dw-seg-label dw-seg-0">😴 0</div>
           <div class="dw-seg-label dw-seg-1">✨ +5</div>
           <div class="dw-seg-label dw-seg-2">💖 +10</div>
@@ -7885,7 +7881,6 @@ function flyOnce(){
     </div>
   </div>
 {% endif %}
-
 <script>
 // === Ruleta diaria (JS) ===
 (function(){
@@ -7900,15 +7895,15 @@ function flyOnce(){
 
   if (!modal || !openBtn || !closeBtn || !wheel || !spinBtn) return;
 
-const N_SEGMENTS = 6;
-const SEG_ANGLE  = 360 / N_SEGMENTS; // 60º
-const OFFSET_DEG = -30;              // pequeño desfase para clavar el puntero
-let currentRotation = 0;
+  const N_SEGMENTS = 6;
+  const SEG_ANGLE  = 360 / N_SEGMENTS; // 60º
+  const OFFSET_DEG = -30;              // DESFASE FIJO para centrar el puntero
+  let currentRotation = 0;
 
-function angleForIndex(idx){
-  return OFFSET_DEG - SEG_ANGLE * idx;  // -30 - 60*idx
-}
-
+  // Ángulo que debe tener la ruleta para que el sector idx quede bajo el puntero
+  function angleForIndex(idx){
+    return OFFSET_DEG - SEG_ANGLE * idx; // -30 - 60*idx
+  }
 
   function openModal(){
     modal.classList.add('open');
@@ -7974,10 +7969,9 @@ function angleForIndex(idx){
         const label = me.label ?? (delta >= 0 ? `+${delta}` : String(delta));
 
         const base = angleForIndex(idx);
-currentRotation = base;
-wheel.style.transition = 'none';
-wheel.style.transform  = `rotate(${currentRotation}deg)`;
-
+        currentRotation = base;
+        wheel.style.transition = 'none';
+        wheel.style.transform  = `rotate(${currentRotation}deg)`;
 
         spinBtn.disabled = true;
         spinBtn.classList.add('used');
@@ -8026,7 +8020,6 @@ wheel.style.transform  = `rotate(${currentRotation}deg)`;
 
       renderOther(data.other || null);
 
-      // Ya girada hoy → solo mostramos lo guardado, sin animar otra vez
       if (data.already){
         const idx   = (typeof data.idx === 'number') ? data.idx : 0;
         const delta = data.delta ?? 0;
@@ -8044,34 +8037,22 @@ wheel.style.transform  = `rotate(${currentRotation}deg)`;
         return;
       }
 
-      // Giro nuevo de hoy
-      const idx    = (typeof data.idx === 'number') ? data.idx : 0; // 0..5
+      const idx    = (typeof data.idx === 'number') ? data.idx : 0;
       const delta  = data.delta ?? 0;
       const label  = data.label ?? (delta >= 0 ? `+${delta}` : String(delta));
       const total  = (typeof data.new_total === 'number') ? data.new_total : null;
 
-      // Ángulo coherente con el CSS:
-      //   idx 0 → arriba
-      //   idx 1 → arriba-derecha
-      //   idx 2 → derecha-abajo
-      //   idx 3 → abajo
-      //   idx 4 → abajo-izquierda
-      //   idx 5 → arriba-izquierda
-      const rounds = 4 + Math.floor(Math.random() * 2); // 4 ó 5 vueltas completas
-      const base   = angleForIndex(idx);                // ya incluye el -30º
+      const rounds = 4 + Math.floor(Math.random() * 2); // 4 ó 5 vueltas
+      const base   = angleForIndex(idx);
       const target = 360 * rounds + base;
-
 
       currentRotation = target;
 
       wheel.style.transition = 'none';
-      // forzar reflow
-      // eslint-disable-next-line no-unused-expressions
-      wheel.offsetHeight;
+      wheel.offsetHeight; // reflow
       wheel.style.transition = 'transform 4s cubic-bezier(0.17, 0.89, 0.32, 1.28)';
       wheel.style.transform  = `rotate(${currentRotation}deg)`;
 
-      // Mostrar resultado al terminar el giro + notificación para ti
       setTimeout(() => {
         spinBtn.classList.add('used');
         spinBtn.innerHTML = 'Mañana más ❤️';
@@ -8087,7 +8068,6 @@ wheel.style.transform  = `rotate(${currentRotation}deg)`;
 
         showToast('success', 'Resultado de la ruleta guardado');
 
-        // Notificación push para ti (después de ver el resultado)
         fetch('/api/daily-wheel-push-self', {
           method: 'POST',
           headers: { 'Accept': 'application/json' }
@@ -8107,7 +8087,6 @@ wheel.style.transform  = `rotate(${currentRotation}deg)`;
 })();
 </script>
 
-    
 </body>
 </html>
 

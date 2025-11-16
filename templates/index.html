@@ -2787,6 +2787,33 @@ body.loaded #main-content {
   }
 }
 
+/* Líneas de puntos con avatar dentro del modal */
+.dw-user-line{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:4px;
+}
+
+.dw-user-avatar{
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  overflow:hidden;
+  flex-shrink:0;
+}
+
+.dw-user-avatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.dw-line-text{
+  font-size:.9rem;
+  color:#111827;
+}
+
     </style>
 </head>
 
@@ -7881,6 +7908,7 @@ function flyOnce(){
   </div>
 {% endif %}
 
+
 <script>
 // === Ruleta diaria (JS) ===
 (function(){
@@ -7896,36 +7924,96 @@ function flyOnce(){
   if (!modal || !openBtn || !closeBtn || !wheel || !spinBtn) return;
 
   const N_SEGMENTS = 6;
-  const SEG_ANGLE  = 360 / N_SEGMENTS; // 60º (ya no lo usamos para el ángulo final, pero lo dejamos por si acaso)
+  const SEG_ANGLE  = 360 / N_SEGMENTS; // 60º
   let currentRotation = 0;
 
-  // ÁNGULOS FIJOS POR ÍNDICE, AJUSTADOS A TU CSS ACTUAL
-  // idx 0 → +0   (sector arriba)
-  // idx 1 → +5   (arriba-derecha)
-  // idx 2 → +10  (derecha-abajo)
-  // idx 3 → +20  (abajo)
-  // idx 4 → +50  (abajo-izquierda)
-  // idx 5 → +100 (arriba-izquierda)
-  //
-  // Estos valores están calculados para que el chip de cada premio
-  // quede JUSTO bajo el puntero cuando se aplica rotate(angleForIndex(idx)).
-  const ANGLES_FOR_IDX = [0, -60, 240, 180, 120, 60];
+  // === Avatares y nombres (inyectados desde Jinja) ===
+  const SELF_NAME = "{{ username }}";
+  const SELF_AVATAR_HTML = `{% if profile_pictures.get(username) %}
+    <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+  {% else %}
+    {{ username[0] | upper }}
+  {% endif %}`;
 
-    // Mapeo corregido: el backend manda idx (0..5), pero la ruleta
-  // se estaba quedando siempre en el siguiente sector.
-  // Usamos idx_visual = idx - 1 para que el puntero caiga en el correcto.
+  {% if username == 'mochito' %}
+    const PARTNER_NAME = "mochita";
+    const PARTNER_AVATAR_HTML = `{% if profile_pictures.get('mochita') %}
+      <img src="{{ profile_pictures.get('mochita') }}" alt="mochita">
+    {% else %}
+      M
+    {% endif %}`;
+  {% elif username == 'mochita' %}
+    const PARTNER_NAME = "mochito";
+    const PARTNER_AVATAR_HTML = `{% if profile_pictures.get('mochito') %}
+      <img src="{{ profile_pictures.get('mochito') }}" alt="mochito">
+    {% else %}
+      M
+    {% endif %}`;
+  {% else %}
+    const PARTNER_NAME = "";
+    const PARTNER_AVATAR_HTML = "";
+  {% endif %}
+
+  // === Ángulo correcto (ya probado) ===
+  // El backend manda idx (0..5), pero vimos que la ruleta se quedaba
+  // un sector por delante → usamos idxVisual = idx - 1.
   function angleForIndex(idx){
     if (typeof idx !== "number" || !isFinite(idx)) idx = 0;
     idx = Math.round(idx);
-
     const n = N_SEGMENTS;
-    // desplazamos un sector hacia atrás
     let idxVisual = idx - 1;
-    idxVisual = ((idxVisual % n) + n) % n; // normaliza a 0..5
-
-    return -SEG_ANGLE * idxVisual; // 0, -60, -120, -180, -240, -300
+    idxVisual = ((idxVisual % n) + n) % n; // 0..5
+    return -SEG_ANGLE * idxVisual;         // 0, -60, -120, ...
   }
 
+  // === Helpers para pintar líneas con avatar ===
+  function renderSelfLine(text){
+    if (!resultEl) return;
+    resultEl.innerHTML = `
+      <div class="dw-user-line">
+        <div class="user-avatar dw-user-avatar">
+          ${SELF_AVATAR_HTML}
+        </div>
+        <div class="dw-line-text">${text}</div>
+      </div>
+    `;
+  }
+
+  function renderPartnerLine(other){
+    if (!partnerEl || !PARTNER_NAME) return;
+
+    // Si no hay datos de la pareja todavía
+    if (!other){
+      partnerEl.textContent = "";
+      return;
+    }
+
+    if (!other.has_spun){
+      partnerEl.innerHTML = `
+        <div class="dw-user-line">
+          <div class="user-avatar dw-user-avatar">
+            ${PARTNER_AVATAR_HTML}
+          </div>
+          <div class="dw-line-text">
+            ${PARTNER_NAME} aún no ha girado la ruleta hoy.
+          </div>
+        </div>
+      `;
+    } else {
+      const delta = other.delta ?? 0;
+      const label = other.label ?? (delta >= 0 ? `+${delta}` : String(delta));
+      partnerEl.innerHTML = `
+        <div class="dw-user-line">
+          <div class="user-avatar dw-user-avatar">
+            ${PARTNER_AVATAR_HTML}
+          </div>
+          <div class="dw-line-text">
+            ${PARTNER_NAME} hoy ha conseguido ${label} puntos.
+          </div>
+        </div>
+      `;
+    }
+  }
 
   function openModal(){
     modal.classList.add('open');
@@ -7951,22 +8039,7 @@ function flyOnce(){
     }
   }
 
-  function renderOther(other){
-    if (!partnerEl) return;
-    if (!other){
-      partnerEl.textContent = '';
-      return;
-    }
-    const name = other.username || 'Tu pareja';
-    if (!other.has_spun){
-      partnerEl.textContent = `${name} aún no ha girado la ruleta hoy.`;
-    } else {
-      const delta = other.delta ?? 0;
-      const label = other.label ?? (delta >= 0 ? `+${delta}` : String(delta));
-      partnerEl.textContent = `${name} hoy ha conseguido ${label} puntos.`;
-    }
-  }
-
+  // === Cargar estado al abrir ===
   async function loadStatus(){
     statusEl.textContent = '';
     resultEl.textContent = '';
@@ -7983,7 +8056,7 @@ function flyOnce(){
       const me    = data.me    || {};
       const other = data.other || null;
 
-      renderOther(other);
+      renderPartnerLine(other);
 
       if (me.has_spun){
         const idx   = (typeof me.idx === 'number') ? me.idx : 0;
@@ -7999,7 +8072,8 @@ function flyOnce(){
         spinBtn.classList.add('used');
         spinBtn.innerHTML = 'Ya la has usado hoy';
         statusEl.textContent = 'Hoy ya has girado la ruleta 💖';
-        resultEl.textContent = `Resultado de hoy: ${label} puntos`;
+
+        renderSelfLine(`Resultado de hoy: ${label} puntos`);
       } else {
         spinBtn.disabled = false;
         spinBtn.classList.remove('used');
@@ -8011,6 +8085,7 @@ function flyOnce(){
     }
   }
 
+  // === Girar ===
   async function spin(){
     if (spinBtn.disabled) return;
 
@@ -8040,9 +8115,9 @@ function flyOnce(){
         return;
       }
 
-      renderOther(data.other || null);
+      renderPartnerLine(data.other || null);
 
-      // Ya había girado hoy (sin volver a animar)
+      // Ya había girado hoy (sin animar otra vez)
       if (data.already){
         const idx   = (typeof data.idx === 'number') ? data.idx : 0;
         const delta = data.delta ?? 0;
@@ -8056,12 +8131,13 @@ function flyOnce(){
         spinBtn.innerHTML = 'Ya la has usado hoy';
         spinBtn.classList.add('used');
         statusEl.textContent = 'Hoy ya has girado la ruleta 💖';
-        resultEl.textContent = `Resultado de hoy: ${label} puntos`;
+
+        renderSelfLine(`Resultado de hoy: ${label} puntos`);
         return;
       }
 
-      // Giro nuevo de hoy
-      const idx    = (typeof data.idx === 'number') ? data.idx : 0; // 0..5
+      // Giro nuevo
+      const idx    = (typeof data.idx === 'number') ? data.idx : 0;
       const delta  = data.delta ?? 0;
       const label  = data.label ?? (delta >= 0 ? `+${delta}` : String(delta));
       const total  = (typeof data.new_total === 'number') ? data.new_total : null;
@@ -8083,11 +8159,12 @@ function flyOnce(){
         statusEl.textContent = 'Ruleta usada por hoy';
 
         if (delta === 0){
-          resultEl.textContent = 'Hoy no han caído puntos… ¡mañana más suerte!';
+          renderSelfLine('Hoy no han caído puntos… ¡mañana más suerte!');
         } else {
-          resultEl.textContent =
-            `¡Has ganado ${delta} puntos!` +
-            (total !== null ? ` (Total: ${total} pts)` : '');
+          const txt = total !== null
+            ? `¡Has ganado ${delta} puntos! (Total: ${total} pts)`
+            : `¡Has ganado ${delta} puntos!`;
+          renderSelfLine(txt);
         }
 
         showToast('success', 'Resultado de la ruleta guardado');

@@ -7922,14 +7922,23 @@ function flyOnce(){
       renderOther(other);
 
       if (me.has_spun){
-        const delta = me.delta ?? 0;
-        const label = me.label ?? (delta >= 0 ? `+${delta}` : String(delta));
-        spinBtn.disabled = true;
-        spinBtn.classList.add('used');
-        spinBtn.innerHTML = 'Ya la has usado hoy';
-        statusEl.textContent = 'Hoy ya has girado la ruleta 💖';
-        resultEl.textContent = `Resultado de hoy: ${label} puntos`;
-      } else {
+  const idx   = (typeof me.idx === 'number') ? me.idx : 0;
+  const delta = me.delta ?? 0;
+  const label = me.label ?? (delta >= 0 ? `+${delta}` : String(delta));
+
+  // Colocamos la ruleta en el resultado de hoy (sin animación)
+  const base = -SEG_ANGLE * idx;
+  currentRotation = base;
+  wheel.style.transition = 'none';
+  wheel.style.transform  = `rotate(${currentRotation}deg)`;
+
+  spinBtn.disabled = true;
+  spinBtn.classList.add('used');
+  spinBtn.innerHTML = 'Ya la has usado hoy';
+  statusEl.textContent = 'Hoy ya has girado la ruleta 💖';
+  resultEl.textContent = `Resultado de hoy: ${label} puntos`;
+} else {
+
         spinBtn.disabled = false;
         spinBtn.classList.remove('used');
         spinBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Girar ahora';
@@ -7972,15 +7981,25 @@ function flyOnce(){
       renderOther(data.other || null);
 
       // Si ya se había usado hoy, solo mostramos lo guardado
-      if (data.already){
-        const delta = data.delta ?? 0;
-        const label = data.label ?? (delta >= 0 ? `+${delta}` : String(delta));
-        spinBtn.innerHTML = 'Ya la has usado hoy';
-        spinBtn.classList.add('used');
-        statusEl.textContent = 'Hoy ya has girado la ruleta 💖';
-        resultEl.textContent = `Resultado de hoy: ${label} puntos`;
-        return;
-      }
+      // Si ya se había usado hoy, solo mostramos lo guardado
+if (data.already){
+  const idx   = (typeof data.idx === 'number') ? data.idx : 0;
+  const delta = data.delta ?? 0;
+  const label = data.label ?? (delta >= 0 ? `+${delta}` : String(delta));
+
+  // Colocamos la ruleta en el resultado guardado
+  const base = -SEG_ANGLE * idx;
+  currentRotation = base;
+  wheel.style.transition = 'none';
+  wheel.style.transform  = `rotate(${currentRotation}deg)`;
+
+  spinBtn.innerHTML = 'Ya la has usado hoy';
+  spinBtn.classList.add('used');
+  statusEl.textContent = 'Hoy ya has girado la ruleta 💖';
+  resultEl.textContent = `Resultado de hoy: ${label} puntos`;
+  return;
+}
+
 
       // Giro nuevo de hoy
       const idx    = (typeof data.idx === 'number') ? data.idx : 0; // 0..5
@@ -8016,22 +8035,30 @@ function flyOnce(){
       wheel.style.transform  = `rotate(${currentRotation}deg)`;
 
       // Mostrar resultado al terminar el giro
-      setTimeout(() => {
-        spinBtn.classList.add('used');
-        spinBtn.innerHTML = 'Mañana más ❤️';
+      // Mostrar resultado al terminar el giro
+setTimeout(() => {
+  spinBtn.classList.add('used');
+  spinBtn.innerHTML = 'Mañana más ❤️';
 
-        statusEl.textContent = 'Ruleta usada por hoy';
+  statusEl.textContent = 'Ruleta usada por hoy';
 
-        if (delta === 0){
-          resultEl.textContent = 'Hoy no han caído puntos… ¡mañana más suerte!';
-        } else {
-          resultEl.textContent =
-            `¡Has ganado ${delta} puntos!` +
-            (total !== null ? ` (Total: ${total} pts)` : '');
-        }
+  if (delta === 0){
+    resultEl.textContent = 'Hoy no han caído puntos… ¡mañana más suerte!';
+  } else {
+    resultEl.textContent =
+      `¡Has ganado ${delta} puntos!` +
+      (total !== null ? ` (Total: ${total} pts)` : '');
+  }
 
-        showToast('success', 'Resultado de la ruleta guardado');
-      }, 4100);
+  showToast('success', 'Resultado de la ruleta guardado');
+
+  // Notificación push para ti (después de ver el resultado)
+  fetch('/api/daily-wheel-push-self', {
+    method: 'POST',
+    headers: { 'Accept': 'application/json' }
+  }).catch(() => {});
+}, 4100);
+
 
     } catch (e){
       console.error(e);

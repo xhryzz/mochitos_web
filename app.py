@@ -6973,6 +6973,7 @@ def api_daily_wheel_status():
             info = {}
         return {
             "has_spun": True,
+            "idx": int(info.get("idx", 0)),       # <-- añadimos el índice del segmento
             "delta": int(info.get("delta", 0)),
             "label": info.get("label"),
             "date": info.get("date", default_date),

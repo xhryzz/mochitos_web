@@ -361,15 +361,16 @@
           const hist = d.points_history || [];
   
           function labelSource(src){
-            switch(src){
-              case 'daily':        return 'Pregunta del día';
-              case 'daily_first':  return 'Pregunta del día (primero)';
-              case 'admin':        return 'Admin';
-              case 'achievement':  return 'Logro';
-              case 'shop':         return 'Tienda';
-              default:             return src || '';
-            }
+          switch(src){
+            case 'daily':        return 'Pregunta del día';
+            case 'daily_first':  return 'Pregunta del día (primero)';
+            case 'admin':        return 'Admin';
+            case 'achievement':  return 'Logro';
+            case 'shop':         return 'Tienda';
+            case 'wheel':        return 'Ruleta diaria';  // ⬅️ NUEVO
+            default:             return src || '';
           }
+        }
   
           if (!hist.length) {
             histWrap.innerHTML =

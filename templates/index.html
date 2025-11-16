@@ -2479,6 +2479,239 @@ body.loaded #main-content {
         }
 
 
+        /* === Ruleta diaria (botón flotante + modal) === */
+
+.floating-wheel-btn{
+  position: fixed;
+  right: 18px;
+  bottom: 96px; /* por encima de la navbar inferior */
+  z-index: 1100;
+  width: 54px;
+  height: 54px;
+  border-radius: 999px;
+  border: none;
+  background: radial-gradient(circle at 30% 0%, #f9a8d4, #e84393);
+  color: #fff;
+  font-size: 26px;
+  box-shadow: 0 16px 30px rgba(0,0,0,.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform .16s ease, box-shadow .16s ease, opacity .2s ease;
+}
+.floating-wheel-btn:hover{
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 20px 40px rgba(0,0,0,.32);
+}
+.floating-wheel-btn:active{
+  transform: translateY(1px) scale(.97);
+  box-shadow: 0 10px 24px rgba(0,0,0,.24);
+}
+
+/* Modal */
+
+.daily-wheel-modal{
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top, rgba(15,23,42,.65), rgba(15,23,42,.88));
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1200;
+}
+.daily-wheel-modal.open{
+  display: flex;
+}
+
+.daily-wheel-card{
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  border-radius: 24px;
+  padding: 20px 18px 18px;
+  background:
+    radial-gradient(140% 120% at 0% 0%, rgba(236,72,153,.20), transparent 55%),
+    radial-gradient(150% 140% at 110% 0%, rgba(129,140,248,.30), transparent 55%),
+    #ffffff;
+  box-shadow: 0 24px 60px rgba(15,23,42,.55);
+  color: #111827;
+  overflow: hidden;
+}
+
+.dw-close-btn{
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: none;
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15,23,42,.06);
+  color: #374151;
+  cursor: pointer;
+}
+.dw-close-btn:hover{
+  background: rgba(15,23,42,.12);
+}
+
+.dw-header h2{
+  margin: 8px 0 2px;
+  font-size: 1.25rem;
+}
+.dw-header .dw-sub{
+  margin: 0;
+  font-size: .85rem;
+  opacity: .8;
+}
+.dw-chip{
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  background: rgba(59,130,246,.08);
+  color: #1d4ed8;
+}
+
+/* Ruleta */
+
+.dw-wheel-wrap{
+  position: relative;
+  margin: 18px auto 10px;
+  width: 230px;
+  height: 230px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dw-pointer{
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-bottom: 18px solid #111827;
+  z-index: 2;
+}
+
+.dw-wheel{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background:
+    conic-gradient(
+      #f9a8d4 0deg 60deg,
+      #a5b4fc 60deg 120deg,
+      #fef3c7 120deg 180deg,
+      #bbf7d0 180deg 240deg,
+      #fed7aa 240deg 300deg,
+      #e5e7eb 300deg 360deg
+    );
+  box-shadow: 0 14px 30px rgba(15,23,42,.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 4s cubic-bezier(0.17, 0.89, 0.32, 1.28);
+}
+
+.dw-center{
+  width: 80px;
+  height: 80px;
+  border-radius: 999px;
+  background: #111827;
+  color: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  box-shadow: inset 0 0 0 4px rgba(255,255,255,.3);
+}
+
+/* Texto y botón */
+
+.dw-actions{
+  text-align: center;
+  margin-top: 10px;
+}
+
+.dw-spin-btn{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, #e84393, #8b5cf6);
+  color: #fff;
+  font-weight: 600;
+  font-size: .95rem;
+  box-shadow: 0 10px 24px rgba(109,40,217,.45);
+}
+.dw-spin-btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(109,40,217,.55);
+}
+.dw-spin-btn:disabled{
+  opacity: .6;
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+.dw-spin-btn.used{
+  background: #e5e7eb;
+  color: #4b5563;
+  box-shadow: none;
+}
+
+.dw-status{
+  margin-top: 6px;
+  font-size: .85rem;
+  color: #4b5563;
+}
+.dw-result{
+  margin-top: 4px;
+  font-size: .95rem;
+  font-weight: 600;
+  color: #111827;
+}
+.dw-footer{
+  margin-top: 10px;
+  font-size: .75rem;
+  opacity: .75;
+}
+
+/* Responsive pequeño */
+@media (max-width: 480px){
+  .floating-wheel-btn{
+    bottom: 88px;
+    right: 14px;
+  }
+  .dw-wheel-wrap{
+    width: 210px;
+    height: 210px;
+  }
+}
+
+.dw-partner{
+  margin-top: 6px;
+  font-size: .85rem;
+  color: #6b7280;
+}
+
     </style>
 </head>
 
@@ -7521,7 +7754,230 @@ function flyOnce(){
 {% endif %}
 
 
-  
+  {% if session.username %}
+<!-- Botón flotante ruleta diaria -->
+<button class="floating-wheel-btn" id="openWheelBtn" type="button" aria-label="Ruleta diaria de puntos">
+  🎡
+</button>
+
+<!-- Modal ruleta diaria -->
+<div class="daily-wheel-modal" id="dailyWheelModal" aria-hidden="true">
+  <div class="daily-wheel-card">
+    <button class="dw-close-btn" id="closeWheelBtn" type="button" aria-label="Cerrar ruleta">
+      <i class="fas fa-times"></i>
+    </button>
+    <div class="dw-header">
+      <span class="dw-chip">Ruleta diaria</span>
+      <h2>Gira y gana puntos</h2>
+      <p class="dw-sub">
+        1 giro al día por persona · los puntos se suman a tu marcador de <b>Gamificación</b>.
+      </p>
+    </div>
+
+    <div class="dw-wheel-wrap">
+      <div class="dw-pointer"></div>
+      <div class="dw-wheel" id="dailyWheel">
+        <div class="dw-center">
+          <span>🎁</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="dw-actions">
+      <button id="dailyWheelSpinBtn" type="button" class="dw-spin-btn">
+        <i class="fas fa-sync-alt"></i> Girar ahora
+      </button>
+      <div class="dw-status" id="dailyWheelStatus"></div>
+      <div class="dw-result" id="dailyWheelResult"></div>
+      <div class="dw-partner" id="dailyWheelPartner"></div>
+    </div>
+
+    <p class="dw-footer">
+      Se resetea con el día (horario España). Si ya has girado hoy, verás tu resultado.
+    </p>
+  </div>
+</div>
+{% endif %}
+
+<script>
+(function(){
+  const modal    = document.getElementById('dailyWheelModal');
+  const openBtn  = document.getElementById('openWheelBtn');
+  const closeBtn = document.getElementById('closeWheelBtn');
+  const wheel    = document.getElementById('dailyWheel');
+  const spinBtn  = document.getElementById('dailyWheelSpinBtn');
+  const statusEl = document.getElementById('dailyWheelStatus');
+  const resultEl = document.getElementById('dailyWheelResult');
+  const partnerEl= document.getElementById('dailyWheelPartner');
+
+  if (!modal || !openBtn || !closeBtn || !wheel || !spinBtn) return;
+
+  const N_SEGMENTS = 6;
+  const SEG_ANGLE  = 360 / N_SEGMENTS;
+  let currentRotation = 0;
+
+  function openModal(){
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    loadStatus();
+  }
+  function closeModal(){
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  openBtn.addEventListener('click', openModal);
+  closeBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  function showToast(type, msg){
+    if (window.showToast) {
+      window.showToast(type, msg);
+    } else {
+      alert(msg);
+    }
+  }
+
+  function renderOther(other){
+    if (!partnerEl) return;
+    if (!other){
+      partnerEl.textContent = '';
+      return;
+    }
+    const name = other.username || 'Tu pareja';
+    if (!other.has_spun){
+      partnerEl.textContent = `${name} aún no ha girado la ruleta hoy.`;
+    } else {
+      const delta = other.delta ?? 0;
+      const label = other.label ?? (delta >= 0 ? `+${delta}` : String(delta));
+      partnerEl.textContent = `${name} hoy ha conseguido ${label} puntos.`;
+    }
+  }
+
+  async function loadStatus(){
+    statusEl.textContent = '';
+    resultEl.textContent = '';
+    if (partnerEl) partnerEl.textContent = '';
+
+    try {
+      const resp = await fetch('/api/daily-wheel-status', {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!resp.ok) return;
+      const data = await resp.json().catch(() => ({}));
+      if (!data.ok) return;
+
+      const me    = data.me    || {};
+      const other = data.other || null;
+
+      renderOther(other);
+
+      if (me.has_spun){
+        const delta = me.delta ?? 0;
+        const label = me.label ?? (delta >= 0 ? `+${delta}` : String(delta));
+        spinBtn.disabled = true;
+        spinBtn.classList.add('used');
+        spinBtn.innerHTML = 'Ya la has usado hoy';
+        statusEl.textContent = 'Hoy ya has girado la ruleta 💖';
+        resultEl.textContent = `Resultado de hoy: ${label} puntos`;
+      } else {
+        spinBtn.disabled = false;
+        spinBtn.classList.remove('used');
+        spinBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Girar ahora';
+      }
+    } catch (e){
+      console.error(e);
+    }
+  }
+
+  async function spin(){
+    if (spinBtn.disabled) return;
+
+    spinBtn.disabled = true;
+    spinBtn.classList.remove('used');
+    spinBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Girando…';
+    statusEl.textContent = 'Girando la ruleta…';
+    resultEl.textContent = '';
+
+    try {
+      const resp = await fetch('/api/daily-wheel-spin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      const data = await resp.json().catch(() => ({}));
+
+      if (!resp.ok || !data.ok){
+        const msg = data.error || 'No se ha podido girar la ruleta.';
+        showToast('error', msg);
+        spinBtn.disabled = false;
+        spinBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Girar ahora';
+        statusEl.textContent = '';
+        return;
+      }
+
+      // Mostrar siempre el estado de la otra persona si viene en la respuesta
+      renderOther(data.other || null);
+
+      // Si ya se había usado hoy, simplemente mostramos el resultado guardado
+      if (data.already){
+        const delta = data.delta ?? 0;
+        const label = data.label ?? (delta >= 0 ? `+${delta}` : String(delta));
+        spinBtn.innerHTML = 'Ya la has usado hoy';
+        spinBtn.classList.add('used');
+        statusEl.textContent = 'Hoy ya has girado la ruleta 💖';
+        resultEl.textContent = `Resultado de hoy: ${label} puntos`;
+        return;
+      }
+
+      // Giro "nuevo" de hoy
+      const idx    = (typeof data.idx === 'number') ? data.idx : 0;
+      const delta  = data.delta ?? 0;
+      const label  = data.label ?? (delta >= 0 ? `+${delta}` : String(delta));
+      const total  = (typeof data.new_total === 'number') ? data.new_total : null;
+
+      // Animación de giro
+      const rounds = 4 + Math.floor(Math.random() * 2); // 4 o 5 vueltas completas
+      const target = 360 * rounds + SEG_ANGLE * idx + SEG_ANGLE / 2;
+      currentRotation = target;
+
+      wheel.style.transition = 'transform 4s cubic-bezier(0.17, 0.89, 0.32, 1.28)';
+      wheel.style.transform  = `rotate(${currentRotation}deg)`;
+
+      setTimeout(() => {
+        spinBtn.classList.add('used');
+        spinBtn.innerHTML = 'Mañana más ❤️';
+
+        statusEl.textContent = 'Ruleta usada por hoy';
+        if (delta === 0){
+          resultEl.textContent = 'Hoy no han caído puntos… ¡mañana más suerte!';
+        } else {
+          resultEl.textContent = `¡Has ganado ${delta} puntos!` + (total !== null ? ` (Total: ${total} pts)` : '');
+        }
+
+        showToast('success', 'Resultado de la ruleta guardado');
+        // Si quieres forzar recarga para ver puntos actualizados en la cabecera:
+        // setTimeout(() => location.reload(), 1200);
+      }, 4100);
+
+    } catch (e){
+      console.error(e);
+      showToast('error', 'Error de conexión al girar la ruleta.');
+      spinBtn.disabled = false;
+      spinBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Girar ahora';
+      statusEl.textContent = '';
+    }
+  }
+
+  spinBtn.addEventListener('click', spin);
+})();
+</script>
+
     
 </body>
 </html>

@@ -415,6 +415,40 @@ QUESTIONS = [
 RELATION_START = date(2025, 8, 2)
 INTIM_PIN = os.environ.get('INTIM_PIN', '6969')
 
+
+# ========= Ruleta diaria (config) =========
+# Cada segmento: etiqueta que se verá, puntos que da y peso (probabilidad relativa)
+DAILY_WHEEL_SEGMENTS = [
+    {"label": "+0",   "delta": 0,   "weight": 30},   # ~30%
+    {"label": "+5",   "delta": 5,   "weight": 25},   # ~25%
+    {"label": "+10",  "delta": 10,  "weight": 20},   # ~20%
+    {"label": "+20",  "delta": 20,  "weight": 15},   # ~15%
+    {"label": "+50",  "delta": 50,  "weight": 6},    # ~6%
+    {"label": "+100", "delta": 100, "weight": 4},    # ~4%
+]
+
+
+def choose_daily_wheel_segment():
+    """
+    Elige un segmento de DAILY_WHEEL_SEGMENTS según el campo 'weight'.
+    Devuelve (index, segment_dict).
+    """
+    segments = DAILY_WHEEL_SEGMENTS
+    weights = [s.get("weight", 1) for s in segments]
+    total = sum(weights) or 1
+    r = random.uniform(0, total)
+    acc = 0.0
+    chosen_idx = 0
+    chosen_seg = segments[0]
+    for idx, (w, seg) in enumerate(zip(weights, segments)):
+        acc += w
+        if r <= acc:
+            chosen_idx = idx
+            chosen_seg = seg
+            break
+    return chosen_idx, chosen_seg
+
+
 # ========= Mini-cache =========
 import time as _time
 _cache_store = {}
@@ -6730,6 +6764,194 @@ def api_set_couple_mode():
         pass
 
     return jsonify(ok=True, mode=mode)
+
+
+@app.post("/api/daily-wheel-spin")
+def api_daily_wheel_spin():
+    if "username" not in session:
+        return jsonify(ok=False, error="unauthorized"), 401
+
+    user = session["username"]
+
+    # Por si acaso, asegurar esquema de gamificación
+    try:
+        _ensure_gamification_schema()
+    except Exception:
+        pass
+
+    today = today_madrid().isoformat()
+    other_user = 'mochita' if user == 'mochito' else 'mochito'
+
+    state_key = f"wheel_spin::{user}::{today}"
+    other_key = f"wheel_spin::{other_user}::{today}"
+
+    # Cargar info de la otra persona (si ya ha girado hoy)
+    raw_other = state_get(other_key, "")
+    if raw_other:
+        try:
+            raw_dict = json.loads(raw_other)
+        except Exception:
+            raw_dict = {}
+        other_info = {
+            "username": other_user,
+            "has_spun": True,
+            "delta": int(raw_dict.get("delta", 0)),
+            "label": raw_dict.get("label"),
+            "date": raw_dict.get("date", today),
+            "ts": raw_dict.get("ts"),
+        }
+    else:
+        other_info = {
+            "username": other_user,
+            "has_spun": False,
+        }
+
+    # 1) ¿Ya ha girado hoy? => devolver mismo resultado + estado de la otra persona
+    raw = state_get(state_key, "")
+    if raw:
+        try:
+            info = json.loads(raw)
+        except Exception:
+            info = {}
+        info.setdefault("already", True)
+        info.setdefault("date", today)
+        return jsonify(ok=True, other=other_info, **info)
+
+    # 2) Elegir premio de la ruleta
+    idx, seg = choose_daily_wheel_segment()
+    delta = int(seg.get("delta", 0))
+    label = seg.get("label", f"+{delta}")
+
+    conn = get_db_connection()
+    new_points = None
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT id, COALESCE(points,0) FROM users WHERE username=%s", (user,))
+            row = c.fetchone()
+            if not row:
+                return jsonify(ok=False, error="no_user"), 400
+
+            uid = int(row[0])
+            current_points = int(row[1])
+
+            new_points = current_points + delta
+            # Actualizar puntos + historial solo si delta != 0
+            if delta != 0:
+                c.execute(
+                    "UPDATE users SET points=%s WHERE id=%s",
+                    (new_points, uid)
+                )
+                c.execute(
+                    """
+                    INSERT INTO points_history (user_id, delta, source, note, created_at)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (uid, delta, "wheel", "Ruleta diaria", now_madrid_str())
+                )
+            conn.commit()
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        app.logger.exception("[/api/daily-wheel-spin] error")
+        return jsonify(ok=False, error="server_error"), 500
+    finally:
+        conn.close()
+
+    info = {
+        "already": False,
+        "idx": idx,
+        "delta": delta,
+        "label": label,
+        "date": today,
+        "new_total": new_points,
+        "ts": now_madrid_str(),
+    }
+
+    # 3) Guardar en app_state para bloquear más giros hoy
+    try:
+        state_set(state_key, json.dumps(info))
+    except Exception:
+        pass
+
+    # 4) Notificación push para quien ha girado
+    try:
+        if delta > 0:
+            send_push_to(
+                user,
+                title="🎡 Ruleta diaria",
+                body=f"Has ganado {delta} puntos en la ruleta 🎁",
+                url="/"
+            )
+        else:
+            send_push_to(
+                user,
+                title="🎡 Ruleta diaria",
+                body="Hoy la ruleta no ha dado puntos… ¡mañana más suerte!",
+                url="/"
+            )
+    except Exception:
+        pass
+
+    # 5) Notificación push para la otra persona con lo que ha sacado
+    try:
+        msg_user = "Mochito" if user == "mochito" else "Mochita"
+        if delta > 0:
+            send_push_to(
+                other_user,
+                title="🎡 Ruleta diaria de " + msg_user,
+                body=f"{msg_user} ha girado la ruleta y ha ganado {delta} puntos",
+                url="/"
+            )
+        else:
+            send_push_to(
+                other_user,
+                title="🎡 Ruleta diaria de " + msg_user,
+                body=f"{msg_user} ha girado la ruleta, pero hoy no han caído puntos 😢",
+                url="/"
+            )
+    except Exception:
+        pass
+
+    # 6) Devolver también lo que ha hecho la otra persona hoy
+    return jsonify(ok=True, other=other_info, **info)
+
+
+
+@app.get("/api/daily-wheel-status")
+def api_daily_wheel_status():
+    if "username" not in session:
+        return jsonify(ok=False, error="unauthorized"), 401
+
+    user = session["username"]
+    today = today_madrid().isoformat()
+
+    other_user = 'mochita' if user == 'mochito' else 'mochito'
+    me_key = f"wheel_spin::{user}::{today}"
+    other_key = f"wheel_spin::{other_user}::{today}"
+
+    def load_state(key: str, default_date: str):
+        raw = state_get(key, "")
+        if not raw:
+            return {"has_spun": False}
+        try:
+            info = json.loads(raw)
+        except Exception:
+            info = {}
+        return {
+            "has_spun": True,
+            "delta": int(info.get("delta", 0)),
+            "label": info.get("label"),
+            "date": info.get("date", default_date),
+            "ts": info.get("ts"),
+        }
+
+    me_info = load_state(me_key, today)
+    other_info = load_state(other_key, today)
+    other_info["username"] = other_user
+
+    return jsonify(ok=True, me=me_info, other=other_info)
 
 
 _old_init_db = init_db

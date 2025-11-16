@@ -2490,7 +2490,8 @@ body.loaded #main-content {
   height: 54px;
   border-radius: 999px;
   border: none;
-  background: radial-gradient(circle at 30% 0%, #f9a8d4, #e84393);
+  background:
+    radial-gradient(circle at 30% 0%, #f9a8d4, #e84393);
   color: #fff;
   font-size: 26px;
   box-shadow: 0 16px 30px rgba(0,0,0,.28);
@@ -2559,6 +2560,22 @@ body.loaded #main-content {
   background: rgba(15,23,42,.12);
 }
 
+.dw-header{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.dw-header-icon{
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 30% 0%, #f9a8d4, #8b5cf6);
+  box-shadow: 0 8px 18px rgba(109,40,217,.45);
+  font-size: 22px;
+}
 .dw-header h2{
   margin: 8px 0 2px;
   font-size: 1.25rem;
@@ -2604,6 +2621,7 @@ body.loaded #main-content {
   border-right: 12px solid transparent;
   border-bottom: 18px solid #111827;
   z-index: 2;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,.45));
 }
 
 .dw-wheel{
@@ -2629,32 +2647,51 @@ body.loaded #main-content {
   transition: transform 4s cubic-bezier(0.17, 0.89, 0.32, 1.28);
 }
 
+/* glow exterior */
+.dw-wheel::before{
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: inherit;
+  border: 4px solid rgba(255,255,255,.7);
+  box-shadow:
+    0 0 0 3px rgba(255,255,255,.6),
+    0 0 18px rgba(236,72,153,.35);
+  pointer-events: none;
+}
+
 .dw-center{
   width: 80px;
   height: 80px;
   border-radius: 999px;
-  background: #111827;
+  background: radial-gradient(circle at 30% 0%, #fef3c7, #111827);
   color: #f9fafb;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 30px;
-  box-shadow: inset 0 0 0 4px rgba(255,255,255,.3);
+  box-shadow:
+    inset 0 0 0 4px rgba(255,255,255,.3),
+    0 6px 14px rgba(15,23,42,.70);
 }
 
-/* Etiquetas de los segmentos */
+/* Etiquetas de los segmentos (chips alrededor) */
 
 .dw-seg-label{
   position: absolute;
   top: 50%;
   left: 50%;
   transform-origin: center center;
-  font-size: 0;        /* así ocultas cualquier texto por si acaso */
+  font-size: .80rem;
   font-weight: 700;
   color: #111827;
-  text-shadow: 0 1px 3px rgba(255,255,255,0.8);
+  text-shadow: 0 1px 3px rgba(255,255,255,.8);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.88);
+  box-shadow: 0 6px 14px rgba(15,23,42,.18);
+  white-space: nowrap;
 }
-
 
 /* Centros de cada sector: 270, 330, 30, 90, 150, 210 grados */
 .dw-seg-0{ /* idx 0 → +0 */
@@ -7790,79 +7827,79 @@ function flyOnce(){
 <style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:rgba(232,67,147,.4);color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>
 {% endif %}
 
-{% if session.username %}
-<!-- Botón flotante ruleta diaria -->
-<button class="floating-wheel-btn" id="openWheelBtn" type="button" aria-label="Ruleta diaria de puntos">
-  🎡
-</button>
+{% if username %}
+  <!-- Botón flotante para abrir la ruleta -->
+  <button id="openWheelBtn" class="floating-wheel-btn" type="button" aria-label="Ruleta diaria">
+    🎡
+  </button>
 
-<!-- Modal ruleta diaria -->
-<div class="daily-wheel-modal" id="dailyWheelModal" aria-hidden="true">
-  <div class="daily-wheel-card">
-    <button class="dw-close-btn" id="closeWheelBtn" type="button" aria-label="Cerrar ruleta">
-      <i class="fas fa-times"></i>
-    </button>
+  <!-- Modal de la ruleta -->
+  <div id="dailyWheelModal" class="daily-wheel-modal" aria-hidden="true">
+    <div class="daily-wheel-card">
+      <button id="closeWheelBtn" class="dw-close-btn" type="button" aria-label="Cerrar">
+        <i class="fas fa-times"></i>
+      </button>
 
-    <div class="dw-header">
-      <span class="dw-chip">Ruleta diaria</span>
-      <h2>Gira y gana puntos</h2>
-      <p class="dw-sub">
-        1 giro al día por persona · los puntos se suman a tu marcador de <b>Gamificación</b>.
-      </p>
-    </div>
-
-    <!-- Ruleta -->
-<div class="dw-wheel-wrap">
-  <div class="dw-pointer"></div>
-
-  <div class="dw-wheel" id="dailyWheel">
-    <!-- Orden de segmentos (idx 0..5) = [0, 5, 10, 20, 50, 100] -->
-    <div class="dw-seg-label dw-seg-0"></div>
-    <div class="dw-seg-label dw-seg-1"></div>
-    <div class="dw-seg-label dw-seg-2"></div>
-    <div class="dw-seg-label dw-seg-3"></div>
-    <div class="dw-seg-label dw-seg-4"></div>
-    <div class="dw-seg-label dw-seg-5"></div>
-
-    <div class="dw-center">
-      <span>🎁</span>
-
+      <div class="dw-header">
+        <div class="dw-header-icon">🎁</div>
+        <div>
+          <h2>Ruleta diaria de puntos</h2>
+          <p class="dw-sub">
+            Cada día un giro por persona. A ver qué cae hoy. 💖
+          </p>
+          <span class="dw-chip">Gamificación</span>
         </div>
       </div>
-    </div>
 
-    <div class="dw-actions">
-      <button id="dailyWheelSpinBtn" type="button" class="dw-spin-btn">
-        <i class="fas fa-sync-alt"></i> Girar ahora
-      </button>
-      <div class="dw-status" id="dailyWheelStatus"></div>
-      <div class="dw-result" id="dailyWheelResult"></div>
-      <div class="dw-partner" id="dailyWheelPartner"></div>
-    </div>
+      <div class="dw-wheel-wrap">
+        <div class="dw-pointer"></div>
+        <div id="dailyWheel" class="dw-wheel">
+          <!-- Chips de texto en cada sector -->
+          <div class="dw-seg-label dw-seg-0">😴 0</div>
+          <div class="dw-seg-label dw-seg-1">✨ +5</div>
+          <div class="dw-seg-label dw-seg-2">💖 +10</div>
+          <div class="dw-seg-label dw-seg-3">🌈 +20</div>
+          <div class="dw-seg-label dw-seg-4">💎 +50</div>
+          <div class="dw-seg-label dw-seg-5">👑 +100</div>
 
-    <p class="dw-footer">
-      Se resetea con el día (horario España). Si ya has girado hoy, verás tu resultado.
-    </p>
+          <div class="dw-center">
+            <span>🎡</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dw-actions">
+        <button id="dailyWheelSpinBtn" type="button" class="dw-spin-btn">
+          <i class="fas fa-sync-alt"></i> Girar ahora
+        </button>
+        <div class="dw-status" id="dailyWheelStatus"></div>
+        <div class="dw-result" id="dailyWheelResult"></div>
+        <div class="dw-partner" id="dailyWheelPartner"></div>
+      </div>
+
+      <p class="dw-footer">
+        Se resetea cada día a medianoche (horario España). Si ya has girado hoy, verás tu resultado guardado.
+      </p>
+    </div>
   </div>
-</div>
 {% endif %}
 
-
 <script>
+// === Ruleta diaria (JS) ===
 (function(){
-  const modal    = document.getElementById('dailyWheelModal');
-  const openBtn  = document.getElementById('openWheelBtn');
-  const closeBtn = document.getElementById('closeWheelBtn');
-  const wheel    = document.getElementById('dailyWheel');
-  const spinBtn  = document.getElementById('dailyWheelSpinBtn');
-  const statusEl = document.getElementById('dailyWheelStatus');
-  const resultEl = document.getElementById('dailyWheelResult');
-  const partnerEl= document.getElementById('dailyWheelPartner');
+  const modal     = document.getElementById('dailyWheelModal');
+  const openBtn   = document.getElementById('openWheelBtn');
+  const closeBtn  = document.getElementById('closeWheelBtn');
+  const wheel     = document.getElementById('dailyWheel');
+  const spinBtn   = document.getElementById('dailyWheelSpinBtn');
+  const statusEl  = document.getElementById('dailyWheelStatus');
+  const resultEl  = document.getElementById('dailyWheelResult');
+  const partnerEl = document.getElementById('dailyWheelPartner');
 
   if (!modal || !openBtn || !closeBtn || !wheel || !spinBtn) return;
 
   const N_SEGMENTS = 6;
-  const SEG_ANGLE  = 360 / N_SEGMENTS; // 60º
+  const SEG_ANGLE  = 360 / N_SEGMENTS;
   let currentRotation = 0;
 
   function openModal(){
@@ -7924,23 +7961,21 @@ function flyOnce(){
       renderOther(other);
 
       if (me.has_spun){
-  const idx   = (typeof me.idx === 'number') ? me.idx : 0;
-  const delta = me.delta ?? 0;
-  const label = me.label ?? (delta >= 0 ? `+${delta}` : String(delta));
+        const idx   = (typeof me.idx === 'number') ? me.idx : 0;
+        const delta = me.delta ?? 0;
+        const label = me.label ?? (delta >= 0 ? `+${delta}` : String(delta));
 
-  // Colocamos la ruleta en el resultado de hoy (sin animación)
-  const base = -SEG_ANGLE * idx;
-  currentRotation = base;
-  wheel.style.transition = 'none';
-  wheel.style.transform  = `rotate(${currentRotation}deg)`;
+        const base = -SEG_ANGLE * idx;
+        currentRotation = base;
+        wheel.style.transition = 'none';
+        wheel.style.transform  = `rotate(${currentRotation}deg)`;
 
-  spinBtn.disabled = true;
-  spinBtn.classList.add('used');
-  spinBtn.innerHTML = 'Ya la has usado hoy';
-  statusEl.textContent = 'Hoy ya has girado la ruleta 💖';
-  resultEl.textContent = `Resultado de hoy: ${label} puntos`;
-} else {
-
+        spinBtn.disabled = true;
+        spinBtn.classList.add('used');
+        spinBtn.innerHTML = 'Ya la has usado hoy';
+        statusEl.textContent = 'Hoy ya has girado la ruleta 💖';
+        resultEl.textContent = `Resultado de hoy: ${label} puntos`;
+      } else {
         spinBtn.disabled = false;
         spinBtn.classList.remove('used');
         spinBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Girar ahora';
@@ -7982,26 +8017,23 @@ function flyOnce(){
 
       renderOther(data.other || null);
 
-      // Si ya se había usado hoy, solo mostramos lo guardado
-      // Si ya se había usado hoy, solo mostramos lo guardado
-if (data.already){
-  const idx   = (typeof data.idx === 'number') ? data.idx : 0;
-  const delta = data.delta ?? 0;
-  const label = data.label ?? (delta >= 0 ? `+${delta}` : String(delta));
+      // Ya girada hoy → solo mostramos lo guardado, sin animar otra vez
+      if (data.already){
+        const idx   = (typeof data.idx === 'number') ? data.idx : 0;
+        const delta = data.delta ?? 0;
+        const label = data.label ?? (delta >= 0 ? `+${delta}` : String(delta));
 
-  // Colocamos la ruleta en el resultado guardado
-  const base = -SEG_ANGLE * idx;
-  currentRotation = base;
-  wheel.style.transition = 'none';
-  wheel.style.transform  = `rotate(${currentRotation}deg)`;
+        const base = -SEG_ANGLE * idx;
+        currentRotation = base;
+        wheel.style.transition = 'none';
+        wheel.style.transform  = `rotate(${currentRotation}deg)`;
 
-  spinBtn.innerHTML = 'Ya la has usado hoy';
-  spinBtn.classList.add('used');
-  statusEl.textContent = 'Hoy ya has girado la ruleta 💖';
-  resultEl.textContent = `Resultado de hoy: ${label} puntos`;
-  return;
-}
-
+        spinBtn.innerHTML = 'Ya la has usado hoy';
+        spinBtn.classList.add('used');
+        statusEl.textContent = 'Hoy ya has girado la ruleta 💖';
+        resultEl.textContent = `Resultado de hoy: ${label} puntos`;
+        return;
+      }
 
       // Giro nuevo de hoy
       const idx    = (typeof data.idx === 'number') ? data.idx : 0; // 0..5
@@ -8009,22 +8041,15 @@ if (data.already){
       const label  = data.label ?? (delta >= 0 ? `+${delta}` : String(delta));
       const total  = (typeof data.new_total === 'number') ? data.new_total : null;
 
-      // =========================
-      // ÁNGULO CORRECTO
-      // =========================
-      // Con el CSS actual:
-      //   idx 0 (+0)   → sector arriba
-      //   idx 1 (+5)   → arriba-derecha
-      //   idx 2 (+10)  → derecha-abajo
-      //   idx 3 (+20)  → abajo
-      //   idx 4 (+50)  → abajo-izquierda
-      //   idx 5 (+100) → arriba-izquierda
-      //
-      // En reposo (rotate(0)), el sector idx 0 está arriba.
-      // Para que el sector idx quede arriba, rotamos la rueda -idx*60º.
-      //
+      // Ángulo coherente con el CSS:
+      //   idx 0 → arriba
+      //   idx 1 → arriba-derecha
+      //   idx 2 → derecha-abajo
+      //   idx 3 → abajo
+      //   idx 4 → abajo-izquierda
+      //   idx 5 → arriba-izquierda
       const rounds = 4 + Math.floor(Math.random() * 2); // 4 ó 5 vueltas completas
-      const base   = -SEG_ANGLE * idx;                  // -60 * idx
+      const base   = -SEG_ANGLE * idx;
       const target = 360 * rounds + base;
 
       currentRotation = target;
@@ -8036,31 +8061,28 @@ if (data.already){
       wheel.style.transition = 'transform 4s cubic-bezier(0.17, 0.89, 0.32, 1.28)';
       wheel.style.transform  = `rotate(${currentRotation}deg)`;
 
-      // Mostrar resultado al terminar el giro
-      // Mostrar resultado al terminar el giro
-setTimeout(() => {
-  spinBtn.classList.add('used');
-  spinBtn.innerHTML = 'Mañana más ❤️';
+      // Mostrar resultado al terminar el giro + notificación para ti
+      setTimeout(() => {
+        spinBtn.classList.add('used');
+        spinBtn.innerHTML = 'Mañana más ❤️';
+        statusEl.textContent = 'Ruleta usada por hoy';
 
-  statusEl.textContent = 'Ruleta usada por hoy';
+        if (delta === 0){
+          resultEl.textContent = 'Hoy no han caído puntos… ¡mañana más suerte!';
+        } else {
+          resultEl.textContent =
+            `¡Has ganado ${delta} puntos!` +
+            (total !== null ? ` (Total: ${total} pts)` : '');
+        }
 
-  if (delta === 0){
-    resultEl.textContent = 'Hoy no han caído puntos… ¡mañana más suerte!';
-  } else {
-    resultEl.textContent =
-      `¡Has ganado ${delta} puntos!` +
-      (total !== null ? ` (Total: ${total} pts)` : '');
-  }
+        showToast('success', 'Resultado de la ruleta guardado');
 
-  showToast('success', 'Resultado de la ruleta guardado');
-
-  // Notificación push para ti (después de ver el resultado)
-  fetch('/api/daily-wheel-push-self', {
-    method: 'POST',
-    headers: { 'Accept': 'application/json' }
-  }).catch(() => {});
-}, 4100);
-
+        // Notificación push para ti (después de ver el resultado)
+        fetch('/api/daily-wheel-push-self', {
+          method: 'POST',
+          headers: { 'Accept': 'application/json' }
+        }).catch(() => {});
+      }, 4100);
 
     } catch (e){
       console.error(e);
@@ -8074,7 +8096,6 @@ setTimeout(() => {
   spinBtn.addEventListener('click', spin);
 })();
 </script>
-
 
     
 </body>

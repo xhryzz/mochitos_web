@@ -1002,7 +1002,6 @@ def award_points_for_answer(question_id: int, user: str):
     Luego revisa medallas.
     IMPORTANTE: esta función se debe llamar SOLO cuando se inserta una respuesta nueva.
     """
-    _ensure_gamification_schema()
     base = 10
     bonus = 0
 
@@ -1537,19 +1536,6 @@ def get_intim_events(limit: int = 200):
     finally:
         conn.close()
 
-
-def get_intim_events(limit: int = 200):
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""SELECT id, username, ts, place, notes
-                         FROM intimacy_events
-                         WHERE username IN ('mochito','mochita')
-                         ORDER BY ts DESC LIMIT %s""", (limit,))
-            rows = c.fetchall()
-            return [{'id': r[0], 'username': r[1], 'ts': r[2], 'place': r[3] or '', 'notes': r[4] or ''} for r in rows]
-    finally:
-        conn.close()
 
 def require_admin():
     if 'username' not in session or session['username'] != 'mochito':
@@ -5458,63 +5444,118 @@ if __name__ == '__main__':
 
 # ========= Gamificación: puntos, medallas y tienda =========
 
+_gami_ready = False
+_gami_lock = threading.Lock()
+
 def _ensure_gamification_schema():
-    with closing(get_db_connection()) as conn, conn.cursor() as c:
-        c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0")
-        c.execute('''CREATE TABLE IF NOT EXISTS achievements (
-            id SERIAL PRIMARY KEY,
-            code TEXT UNIQUE NOT NULL,
-            title TEXT NOT NULL,
-            description TEXT,
-            icon TEXT,
-            goal INTEGER DEFAULT 0
-        )''')
-        c.execute('''CREATE TABLE IF NOT EXISTS user_achievements (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER NOT NULL,
-            achievement_id INTEGER NOT NULL,
-            earned_at TEXT,
-            UNIQUE (user_id, achievement_id)
-        )''')
-        c.execute('''CREATE TABLE IF NOT EXISTS shop_items (
-            id SERIAL PRIMARY KEY,
-            name TEXT UNIQUE NOT NULL,
-            cost INTEGER NOT NULL,
-            description TEXT,
-            icon TEXT
-        )''')
-        c.execute('''CREATE TABLE IF NOT EXISTS purchases (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER NOT NULL,
-            item_id INTEGER NOT NULL,
-            quantity INTEGER DEFAULT 1,
-            note TEXT,
-            purchased_at TEXT
-        )''')
-        # Extiende achievements para triggers y puntos (idempotente)
-        c.execute("""ALTER TABLE achievements
-        ADD COLUMN IF NOT EXISTS trigger_kind TEXT
-            CHECK (trigger_kind IN ('rel_days','manual','none')) DEFAULT 'none'""")
+    """
+    Crea/migra todo lo de gamificación SOLO UNA VEZ por proceso.
+    El resto de llamadas salen inmediatamente.
+    """
+    global _gami_ready
+    if _gami_ready:
+        return
 
-        c.execute("""ALTER TABLE achievements
-        ADD COLUMN IF NOT EXISTS trigger_value INTEGER""")
+    with _gami_lock:
+        if _gami_ready:
+            return
 
-        c.execute("""ALTER TABLE achievements
-        ADD COLUMN IF NOT EXISTS points_on_award INTEGER DEFAULT 0""")
+        with closing(get_db_connection()) as conn, conn.cursor() as c:
+            # Columna de puntos en users
+            c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0")
 
-        c.execute("""ALTER TABLE achievements
-        ADD COLUMN IF NOT EXISTS grant_both BOOLEAN DEFAULT TRUE""")
+            # Catálogo de medallas
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS achievements (
+                    id SERIAL PRIMARY KEY,
+                    code TEXT UNIQUE NOT NULL,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    icon TEXT,
+                    goal INTEGER DEFAULT 0
+                )
+            """)
 
-        c.execute("""ALTER TABLE achievements
-        ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE""")
+            # Medallas obtenidas por usuario
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS user_achievements (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    achievement_id INTEGER NOT NULL,
+                    earned_at TEXT,
+                    UNIQUE (user_id, achievement_id)
+                )
+            """)
 
-        c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS trigger_kind TEXT DEFAULT 'none'")
-        c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS trigger_value INTEGER")
-        c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS points_on_award INTEGER DEFAULT 0")
-        c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS grant_both BOOLEAN DEFAULT TRUE")
-        c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE")
+            # Tienda
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS shop_items (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT UNIQUE NOT NULL,
+                    cost INTEGER NOT NULL,
+                    description TEXT,
+                    icon TEXT
+                )
+            """)
 
-        conn.commit()
+            # Compras (una sola definición, con FK)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS purchases (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    item_id INTEGER NOT NULL,
+                    quantity INTEGER DEFAULT 1,
+                    note TEXT,
+                    purchased_at TEXT,
+                    FOREIGN KEY (item_id) REFERENCES shop_items(id) ON DELETE CASCADE
+                )
+            """)
+
+            # Historial de puntos
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS points_history (
+                    id        SERIAL PRIMARY KEY,
+                    user_id   INTEGER NOT NULL REFERENCES users(id),
+                    delta     INTEGER NOT NULL,
+                    source    TEXT    NOT NULL,
+                    note      TEXT,
+                    created_at TEXT   NOT NULL
+                )
+            """)
+
+            # Extiende achievements para triggers y puntos (idempotente)
+            c.execute("""
+                ALTER TABLE achievements
+                ADD COLUMN IF NOT EXISTS trigger_kind TEXT
+                    CHECK (trigger_kind IN ('rel_days','manual','none')) DEFAULT 'none'
+            """)
+            c.execute("""
+                ALTER TABLE achievements
+                ADD COLUMN IF NOT EXISTS trigger_value INTEGER
+            """)
+            c.execute("""
+                ALTER TABLE achievements
+                ADD COLUMN IF NOT EXISTS points_on_award INTEGER DEFAULT 0
+            """)
+            c.execute("""
+                ALTER TABLE achievements
+                ADD COLUMN IF NOT EXISTS grant_both BOOLEAN DEFAULT TRUE
+            """)
+            c.execute("""
+                ALTER TABLE achievements
+                ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE
+            """)
+
+            # (Estos últimos 5 son redundantes, pero inofensivos; si quieres puedes quitarlos)
+            c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS trigger_kind TEXT DEFAULT 'none'")
+            c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS trigger_value INTEGER")
+            c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS points_on_award INTEGER DEFAULT 0")
+            c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS grant_both BOOLEAN DEFAULT TRUE")
+            c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE")
+
+            conn.commit()
+
+        _gami_ready = True
 
 
 
@@ -5756,12 +5797,7 @@ try:
 except Exception as e:
     app.logger.warning("gamification bootstrap: %s", e)
 
-@app.before_request
-def _gami_bfr():
-    try:
-        _ensure_gamification_schema()
-    except Exception as e:
-        app.logger.warning("gamification before_request: %s", e)
+
 
 def _get_user_id(conn, username):
     with conn.cursor() as c:
@@ -5807,7 +5843,6 @@ def _calc_streak(conn, username):
 
 
 
-_ensure_gamification_schema()
 
 @app.route("/api/medallas/summary")
 def api_medallas_summary():

@@ -7929,20 +7929,24 @@ function flyOnce(){
 
   // === Avatares y nombres (inyectados desde Jinja) ===
   const SELF_NAME = "{{ username }}";
-  const SELF_AVATAR_HTML = `{% if profile_pictures.get(username) %}
-    <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
-  {% else %}
-    {{ username[0] | upper }}
-  {% endif %}`;
+const SELF_AVATAR_HTML = `{% if username %}
+    {% if profile_pictures.get(username) %}
+        <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+    {% else %}
+        {{ username[0] | upper }}
+    {% endif %}
+{% else %}
+    ?
+{% endif %}`;
 
-  {% if username == 'mochito' %}
+{% if username and username == 'mochito' %}
     const PARTNER_NAME = "mochita";
     const PARTNER_AVATAR_HTML = `{% if profile_pictures.get('mochita') %}
       <img src="{{ profile_pictures.get('mochita') }}" alt="mochita">
     {% else %}
       M
     {% endif %}`;
-  {% elif username == 'mochita' %}
+{% if username and username == 'mochita' %}
     const PARTNER_NAME = "mochito";
     const PARTNER_AVATAR_HTML = `{% if profile_pictures.get('mochito') %}
       <img src="{{ profile_pictures.get('mochito') }}" alt="mochito">

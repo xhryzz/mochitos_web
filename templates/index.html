@@ -8000,6 +8000,7 @@ const SEG_ANGLE  = 360 / N_SEGMENTS;
       wheel.style.transform  = `rotate(${currentRotation}deg)`;
 
       // 🔔 SOLO CUANDO TERMINA el giro mostramos lo que ha tocado
+       // 🔔 SOLO CUANDO TERMINA el giro mostramos lo que ha tocado
       setTimeout(() => {
         spinBtn.classList.add('used');
         spinBtn.innerHTML = 'Mañana más ❤️';
@@ -8013,6 +8014,21 @@ const SEG_ANGLE  = 360 / N_SEGMENTS;
         }
 
         showToast('success', 'Resultado de la ruleta guardado');
+
+        // 🔔 Después del giro, lanzamos la notificación PUSH al propio usuario
+        try {
+          fetch('/api/daily-wheel-push-self', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({})
+          }).catch(() => {});
+        } catch (_) {
+          // ignoramos errores
+        }
+
         // Si quieres refrescar puntos de la cabecera automáticamente:
         // setTimeout(() => location.reload(), 1200);
       }, 4100);

@@ -6766,7 +6766,6 @@ def api_set_couple_mode():
 
     return jsonify(ok=True, mode=mode)
 
-
 @app.post("/api/daily-wheel-spin")
 def api_daily_wheel_spin():
     if "username" not in session:
@@ -6786,7 +6785,7 @@ def api_daily_wheel_spin():
     state_key = f"wheel_spin::{user}::{today}"
     other_key = f"wheel_spin::{other_user}::{today}"
 
-    # Cargar info de la otra persona (si ya ha girado hoy)
+    # --- Info de la otra persona (si ya ha girado hoy) ---
     raw_other = state_get(other_key, "")
     if raw_other:
         try:
@@ -6807,7 +6806,7 @@ def api_daily_wheel_spin():
             "has_spun": False,
         }
 
-    # 1) ¿Ya ha girado hoy? => devolver mismo resultado + estado de la otra persona
+    # --- 1) ¿Ya ha girado hoy? -> devolver lo guardado ---
     raw = state_get(state_key, "")
     if raw:
         try:
@@ -6818,7 +6817,7 @@ def api_daily_wheel_spin():
         info.setdefault("date", today)
         return jsonify(ok=True, other=other_info, **info)
 
-    # 2) Elegir premio de la ruleta (IDX y DELTA SIEMPRE COHERENTES)
+    # --- 2) Elegir premio de la ruleta (idx y delta coherentes) ---
     idx, seg = choose_daily_wheel_segment()
     delta = int(seg.get("delta", 0))
     label = seg.get("label", f"+{delta}")
@@ -6826,9 +6825,13 @@ def api_daily_wheel_spin():
     conn = get_db_connection()
     new_points = None
     now_str = now_madrid_str()
+
     try:
         with conn.cursor() as c:
-            c.execute("SELECT id, COALESCE(points,0) FROM users WHERE username=%s", (user,))
+            c.execute(
+                "SELECT id, COALESCE(points,0) FROM users WHERE username=%s",
+                (user,)
+            )
             row = c.fetchone()
             if not row:
                 return jsonify(ok=False, error="no_user"), 400
@@ -6861,7 +6864,7 @@ def api_daily_wheel_spin():
     finally:
         conn.close()
 
-    # Paquete con la info del giro de hoy
+    # Paquete con la info del giro de hoy (lo que ve el frontend)
     info = {
         "already": False,
         "idx": idx,
@@ -6878,7 +6881,7 @@ def api_daily_wheel_spin():
     except Exception:
         pass
 
-    # 4) NOTI PUSH SOLO PARA LA OTRA PERSONA (no para quien gira)
+    # 4) Notificación push SOLO para la otra persona (inmediata)
     try:
         msg_user = "Mochito" if user == "mochito" else "Mochita"
         if delta > 0:
@@ -6900,6 +6903,52 @@ def api_daily_wheel_spin():
 
     # 5) Devolver también lo que ha hecho la otra persona hoy
     return jsonify(ok=True, other=other_info, **info)
+
+
+@app.post("/api/daily-wheel-push-self")
+def api_daily_wheel_push_self():
+    """
+    Endpoint para lanzar la notificación al propio usuario DESPUÉS de la animación.
+    El frontend lo llama cuando termina el giro.
+    """
+    if "username" not in session:
+        return jsonify(ok=False, error="unauthorized"), 401
+
+    user = session["username"]
+    today = today_madrid().isoformat()
+    state_key = f"wheel_spin::{user}::{today}"
+
+    raw = state_get(state_key, "")
+    if not raw:
+        return jsonify(ok=False, error="no_spin_today"), 400
+
+    try:
+        info = json.loads(raw)
+    except Exception:
+        return jsonify(ok=False, error="bad_state"), 500
+
+    delta = int(info.get("delta", 0))
+
+    try:
+        if delta > 0:
+            send_push_to(
+                user,
+                title="🎡 Ruleta diaria",
+                body=f"Has ganado {delta} puntos en la ruleta 🎁",
+                url="/"
+            )
+        else:
+            send_push_to(
+                user,
+                title="🎡 Ruleta diaria",
+                body="Hoy la ruleta no ha dado puntos… ¡mañana más suerte!",
+                url="/"
+            )
+    except Exception:
+        # Si falla la push, no rompemos la web
+        pass
+
+    return jsonify(ok=True)
 
 
 @app.get("/api/daily-wheel-status")

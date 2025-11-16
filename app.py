@@ -449,6 +449,120 @@ def choose_daily_wheel_segment():
     return chosen_idx, chosen_seg
 
 
+# ========= Ruleta diaria: horario aleatorio 09:00–22:00 =========
+
+def _wheel_reset_time_key(day: date) -> str:
+    return f"wheel_reset_time::{day.isoformat()}"
+
+
+def ensure_wheel_reset_time(day: date, now_madrid: datetime | None = None) -> str | None:
+    """
+    Devuelve la hora HH:MM (Europe/Madrid) a la que se desbloquea la ruleta ese día.
+    - Una vez elegida, se guarda en app_state.
+    - Entre las 09:00 y las 22:00.
+    - Si el server arranca tarde, elige entre 'ahora' y las 22:00.
+    - Si ya es demasiado tarde, devuelve None y guarda '-'.
+    """
+    now_madrid = now_madrid or europe_madrid_now()
+    key = _wheel_reset_time_key(day)
+    raw = (state_get(key, "") or "").strip()
+
+    if raw == "-":
+        return None
+    if re.fullmatch(r"\d{2}:\d{2}", raw):
+        return raw
+
+    start_min = 9 * 60   # 09:00
+    end_min   = 22 * 60  # 22:00
+
+    if now_madrid.date() == day:
+        now_min = now_madrid.hour * 60 + now_madrid.minute
+        low = max(start_min, now_min)
+    else:
+        low = start_min
+
+    if low > end_min:
+        state_set(key, "-")
+        return None
+
+    m = random.randint(low, end_min)
+    hh = m // 60
+    mm = m % 60
+    hhmm = f"{hh:02d}:{mm:02d}"
+    state_set(key, hhmm)
+    return hhmm
+
+
+def build_wheel_time_payload(now_madrid: datetime | None = None) -> dict:
+    """
+    Devuelve info de tiempos para la ruleta:
+      - today: fecha 'YYYY-MM-DD' usada en las claves de estado
+      - reset_time: HH:MM en la que se desbloquea ese día
+      - can_spin_now: bool (por hora)
+      - seconds_to_unlock: segundos hasta que se desbloquee hoy (o 0 si ya se desbloqueó)
+      - next_reset_iso: ISO de la próxima hora de reset (hoy o mañana)
+      - seconds_to_next_reset: segundos hasta ese próximo reset
+    """
+    now_madrid = now_madrid or europe_madrid_now()
+    today = now_madrid.date()
+    today_iso = today.isoformat()
+
+    reset_hhmm = ensure_wheel_reset_time(today, now_madrid)
+    reset_dt_today: datetime | None = None
+    if reset_hhmm:
+        try:
+            hh, mm = map(int, reset_hhmm.split(":"))
+            reset_dt_today = now_madrid.replace(hour=hh, minute=mm, second=0, microsecond=0)
+        except Exception:
+            reset_dt_today = None
+
+    can_spin_now = False
+    seconds_to_unlock: int | None = None
+    next_reset_dt: datetime | None = None
+
+    if reset_dt_today:
+        if now_madrid < reset_dt_today:
+            can_spin_now = False
+            seconds_to_unlock = max(0, int((reset_dt_today - now_madrid).total_seconds()))
+            next_reset_dt = reset_dt_today
+        else:
+            can_spin_now = True
+            seconds_to_unlock = 0
+            tomorrow = today + timedelta(days=1)
+            next_reset_hhmm = ensure_wheel_reset_time(tomorrow, now_madrid + timedelta(days=1))
+            if next_reset_hhmm:
+                try:
+                    hh2, mm2 = map(int, next_reset_hhmm.split(":"))
+                    next_reset_dt = reset_dt_today.replace(
+                        year=tomorrow.year,
+                        month=tomorrow.month,
+                        day=tomorrow.day,
+                        hour=hh2,
+                        minute=mm2,
+                        second=0,
+                        microsecond=0,
+                    )
+                except Exception:
+                    next_reset_dt = None
+
+    seconds_to_next_reset: int | None = None
+    next_reset_iso: str | None = None
+    if next_reset_dt:
+        seconds_to_next_reset = max(0, int((next_reset_dt - now_madrid).total_seconds()))
+        next_reset_iso = next_reset_dt.isoformat()
+
+    return {
+        "today": today_iso,
+        "reset_time": reset_hhmm,
+        "can_spin_now": can_spin_now,
+        "seconds_to_unlock": seconds_to_unlock,
+        "next_reset_iso": next_reset_iso,
+        "seconds_to_next_reset": seconds_to_next_reset,
+    }
+
+
+
+
 # ========= Mini-cache =========
 import time as _time
 _cache_store = {}
@@ -1961,6 +2075,28 @@ def push_meeting_countdown(dleft: int):
 
 
 
+def push_wheel_available():
+    """Se llama cuando se desbloquea la ruleta del día."""
+    send_push_both(
+        title="🎡 Ruleta diaria disponible",
+        body="Ya podéis girar la ruleta de hoy y ganar puntos.",
+        url="/",
+        tag="wheel-open"
+    )
+
+
+def push_wheel_last_hours(user: str):
+    """Recordatorio si todavía no ha girado y se acaba el día."""
+    send_push_to(
+        user,
+        title="⏰ Últimas horas para la ruleta",
+        body="Aún no has girado la ruleta de hoy. ¡No lo dejes pasar! 💖",
+        url="/",
+        tag="wheel-last-hours"
+    )
+
+
+
 # --- Nuevas notificaciones románticas ---
 def push_relationship_day(day_count: int):
     """💖 Notifica días especiales de relación"""
@@ -2541,20 +2677,34 @@ def run_scheduled_jobs(now=None):
                         push_last_hours(u)
                         state_set(key, "1")
 
-    # 7) Barrido de precios cada ~3 horas
+        # 7) Ruleta diaria:
+    #    - Aviso cuando se desbloquea (según hora aleatoria 09:00–22:00).
+    #    - Recordatorio en las últimas 2h del día si alguien no ha girado todavía.
     try:
-        last_sweep = state_get("last_price_sweep", "")
-        do = True
-        if last_sweep:
-            dt = _parse_dt(last_sweep)
-            if dt:
-                from datetime import timedelta as _td
-                do = (europe_madrid_now() - dt) >= _td(hours=3)
-        if do:
-            sweep_price_checks(max_items=6, min_age_minutes=180)
-            state_set("last_price_sweep", now_madrid_str())
+        reset_hhmm = ensure_wheel_reset_time(today, now)
+        if reset_hhmm:
+            sent_key = f"wheel_open::{today.isoformat()}::{reset_hhmm}"
+            if not state_get(sent_key, "") and is_due_or_overdue(now, reset_hhmm, grace_minutes=5):
+                push_wheel_available()
+                state_set(sent_key, "1")
+
+        secs_left_day = seconds_until_next_midnight_madrid()
+        if secs_left_day <= 2 * 3600:  # últimas 2 horas del día
+            for u in ("mochito", "mochita"):
+                spin_key = f"wheel_spin::{u}::{today.isoformat()}"
+                if state_get(spin_key, ""):
+                    continue  # ya ha girado hoy
+                last_key = f"wheel_last_reminder::{today.isoformat()}::{u}"
+                if not state_get(last_key, ""):
+                    push_wheel_last_hours(u)
+                    state_set(last_key, "1")
     except Exception as e:
-        print("[tick price sweep]", e)
+        print("[tick wheel]", e)
+
+
+
+
+    
 
 
 def background_loop():
@@ -6778,7 +6928,10 @@ def api_daily_wheel_spin():
     except Exception:
         pass
 
-    today = today_madrid().isoformat()
+    now_md = europe_madrid_now()
+    wheel_times = build_wheel_time_payload(now_md)
+    today = wheel_times["today"]
+
     other_user = 'mochita' if user == 'mochito' else 'mochito'
 
     state_key = f"wheel_spin::{user}::{today}"
@@ -6814,7 +6967,12 @@ def api_daily_wheel_spin():
             info = {}
         info.setdefault("already", True)
         info.setdefault("date", today)
-        return jsonify(ok=True, other=other_info, **info)
+        return jsonify(ok=True, other=other_info, **info, **wheel_times)
+
+    # --- 1-bis) ¿Aún no es la hora de desbloqueo? ---
+    if not wheel_times.get("can_spin_now"):
+        msg = "Aún no puedes girar la ruleta, espera un poquito 💫"
+        return jsonify(ok=False, error=msg, **wheel_times), 400
 
     # --- 2) Elegir premio de la ruleta (idx y delta coherentes) ---
     idx, seg = choose_daily_wheel_segment()
@@ -6900,8 +7058,8 @@ def api_daily_wheel_spin():
     except Exception:
         pass
 
-    # 5) Devolver también lo que ha hecho la otra persona hoy
-    return jsonify(ok=True, other=other_info, **info)
+    # 5) Devolver también lo que ha hecho la otra persona hoy + tiempos
+    return jsonify(ok=True, other=other_info, **info, **wheel_times)
 
 
 @app.post("/api/daily-wheel-push-self")
@@ -6956,7 +7114,10 @@ def api_daily_wheel_status():
         return jsonify(ok=False, error="unauthorized"), 401
 
     user = session["username"]
-    today = today_madrid().isoformat()
+
+    now_md = europe_madrid_now()
+    wheel_times = build_wheel_time_payload(now_md)
+    today = wheel_times["today"]
 
     other_user = 'mochita' if user == 'mochito' else 'mochito'
     me_key = f"wheel_spin::{user}::{today}"
@@ -6972,7 +7133,7 @@ def api_daily_wheel_status():
             info = {}
         return {
             "has_spun": True,
-            "idx": int(info.get("idx", 0)),       # <-- añadimos el índice del segmento
+            "idx": int(info.get("idx", 0)),
             "delta": int(info.get("delta", 0)),
             "label": info.get("label"),
             "date": info.get("date", default_date),
@@ -6983,7 +7144,7 @@ def api_daily_wheel_status():
     other_info = load_state(other_key, today)
     other_info["username"] = other_user
 
-    return jsonify(ok=True, me=me_info, other=other_info)
+    return jsonify(ok=True, me=me_info, other=other_info, **wheel_times)
 
 
 _old_init_db = init_db

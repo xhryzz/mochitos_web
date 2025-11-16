@@ -2756,6 +2756,11 @@ body.loaded #main-content {
   font-size: .85rem;
   color: #4b5563;
 }
+.dw-timer{
+  margin-top: 4px;
+  font-size: .8rem;
+  color: #6b7280;
+}
 .dw-result{
   margin-top: 4px;
   font-size: .95rem;
@@ -2767,6 +2772,7 @@ body.loaded #main-content {
   font-size: .75rem;
   opacity: .75;
 }
+
 
 /* Texto de la pareja */
 .dw-partner{
@@ -7892,18 +7898,21 @@ function flyOnce(){
         </div>
       </div>
 
-      <div class="dw-actions">
+            <div class="dw-actions">
         <button id="dailyWheelSpinBtn" type="button" class="dw-spin-btn">
           <i class="fas fa-sync-alt"></i> Girar ahora
         </button>
         <div class="dw-status" id="dailyWheelStatus"></div>
+        <div class="dw-timer" id="dailyWheelTimer"></div>
         <div class="dw-result" id="dailyWheelResult"></div>
         <div class="dw-partner" id="dailyWheelPartner"></div>
       </div>
 
       <p class="dw-footer">
-        Se resetea cada día a medianoche (horario España). Si ya has girado hoy, verás tu resultado guardado.
+        Se desbloquea cada día a una hora aleatoria entre las 09:00 y las 22:00 (hora España).
+        Si ya has girado hoy, verás tu resultado guardado.
       </p>
+
     </div>
   </div>
 {% endif %}
@@ -7919,6 +7928,7 @@ function flyOnce(){
   const wheel     = document.getElementById('dailyWheel');
   const spinBtn   = document.getElementById('dailyWheelSpinBtn');
   const statusEl  = document.getElementById('dailyWheelStatus');
+  const timerEl   = document.getElementById('dailyWheelTimer');
   const resultEl  = document.getElementById('dailyWheelResult');
   const partnerEl = document.getElementById('dailyWheelPartner');
 
@@ -7927,6 +7937,53 @@ function flyOnce(){
   const N_SEGMENTS = 6;
   const SEG_ANGLE  = 360 / N_SEGMENTS; // 60º
   let currentRotation = 0;
+  let countdownId = null;
+
+  function startWheelCountdown(nextResetIso, canSpinNow){
+    if (!timerEl){
+      if (countdownId) clearInterval(countdownId);
+      countdownId = null;
+      return;
+    }
+    if (!nextResetIso){
+      timerEl.textContent = '';
+      if (countdownId) clearInterval(countdownId);
+      countdownId = null;
+      return;
+    }
+    const targetMs = new Date(nextResetIso).getTime();
+    if (!isFinite(targetMs)){
+      return;
+    }
+    if (countdownId) clearInterval(countdownId);
+
+    function tick(){
+      const now = Date.now();
+      let diff = Math.floor((targetMs - now) / 1000);
+      if (diff <= 0){
+        if (canSpinNow){
+          timerEl.textContent = 'La ruleta está a punto de resetearse… ✨';
+          clearInterval(countdownId);
+          countdownId = null;
+        } else {
+          timerEl.textContent = 'La ruleta debería desbloquearse ya… recarga si no la ves.';
+          clearInterval(countdownId);
+          countdownId = null;
+          setTimeout(()=> location.reload(), 800);
+        }
+        return;
+      }
+      const h = String(Math.floor(diff / 3600)).padStart(2,'0');
+      const m = String(Math.floor((diff % 3600) / 60)).padStart(2,'0');
+      const s = String(diff % 60).padStart(2,'0');
+      timerEl.textContent = canSpinNow
+        ? `Próximo reset en ${h}:${m}:${s}`
+        : `Disponible en ${h}:${m}:${s}`;
+    }
+
+    tick();
+    countdownId = setInterval(tick, 1000);
+  }
 
   // === Avatares y nombres (inyectados desde Jinja) ===
   const SELF_NAME = "{{ username }}";
@@ -8040,9 +8097,10 @@ function flyOnce(){
     }
   }
 
-  // === Cargar estado al abrir ===
+   // === Cargar estado al abrir ===
   async function loadStatus(){
     statusEl.textContent = '';
+    if (timerEl) timerEl.textContent = '';
     resultEl.textContent = '';
     if (partnerEl) partnerEl.textContent = '';
 
@@ -8056,6 +8114,8 @@ function flyOnce(){
 
       const me    = data.me    || {};
       const other = data.other || null;
+      const canSpinNow   = !!data.can_spin_now;
+      const nextResetIso = data.next_reset_iso || null;
 
       renderPartnerLine(other);
 
@@ -8076,11 +8136,20 @@ function flyOnce(){
 
         renderSelfLine(`Resultado de hoy: ${label} puntos`);
       } else {
-        spinBtn.disabled = false;
-        spinBtn.classList.remove('used');
-        spinBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Girar ahora';
-        statusEl.textContent = 'Tienes un giro disponible hoy ✨';
+        if (!canSpinNow){
+          spinBtn.disabled = true;
+          spinBtn.classList.remove('used');
+          spinBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Girar ahora';
+          statusEl.textContent = 'La ruleta aún no está disponible 🕒';
+        } else {
+          spinBtn.disabled = false;
+          spinBtn.classList.remove('used');
+          spinBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Girar ahora';
+          statusEl.textContent = 'Tienes un giro disponible hoy ✨';
+        }
       }
+
+      startWheelCountdown(nextResetIso, canSpinNow);
     } catch (e){
       console.error(e);
     }
@@ -8107,14 +8176,21 @@ function flyOnce(){
 
       const data = await resp.json().catch(() => ({}));
 
-      if (!resp.ok || !data.ok){
+            if (!resp.ok || !data.ok){
         const msg = data.error || 'No se ha podido girar la ruleta.';
         showToast('error', msg);
+
+        // Si el backend ya nos manda info de tiempos, actualizamos el contador
+        if (typeof data.can_spin_now !== 'undefined' && data.next_reset_iso){
+          startWheelCountdown(data.next_reset_iso, !!data.can_spin_now);
+        }
+
         spinBtn.disabled = false;
         spinBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Girar ahora';
-        statusEl.textContent = '';
+        // Dejamos statusEl como esté; loadStatus se encarga al abrir.
         return;
       }
+
 
       renderPartnerLine(data.other || null);
 
@@ -8154,7 +8230,7 @@ function flyOnce(){
       wheel.style.transition = 'transform 4s cubic-bezier(0.17, 0.89, 0.32, 1.28)';
       wheel.style.transform  = `rotate(${currentRotation}deg)`;
 
-      setTimeout(() => {
+            setTimeout(() => {
         spinBtn.classList.add('used');
         spinBtn.innerHTML = 'Mañana más ❤️';
         statusEl.textContent = 'Ruleta usada por hoy';
@@ -8163,18 +8239,24 @@ function flyOnce(){
           renderSelfLine('Hoy no han caído puntos… ¡mañana más suerte!');
         } else {
           const txt = total !== null
-            ? `¡Has ganado ${delta} puntos! (Total: ${total} pts)`
+            ? `¡Has ganado ${delta} puntos y ahora tienes ${total} en total!`
             : `¡Has ganado ${delta} puntos!`;
           renderSelfLine(txt);
         }
 
-        showToast('success', 'Resultado de la ruleta guardado');
+        try {
+          fetch('/api/daily-wheel-push-self', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
+          }).catch(()=>{});
+        } catch(_){}
 
-        fetch('/api/daily-wheel-push-self', {
-          method: 'POST',
-          headers: { 'Accept': 'application/json' }
-        }).catch(() => {});
-      }, 4100);
+        // 🔁 actualizamos el contador al siguiente reset
+        if (data.next_reset_iso){
+          startWheelCountdown(data.next_reset_iso, true);
+        }
+      }, 4000);
+
 
     } catch (e){
       console.error(e);

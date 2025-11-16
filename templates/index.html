@@ -2629,16 +2629,17 @@ body.loaded #main-content {
   width: 100%;
   height: 100%;
   border-radius: 999px;
-  /* from -30deg → cada segmento tiene el centro justo bajo el puntero */
+  /* from 270deg → sector 0 empieza arriba-derecha.
+     Luego el JS compensa -30º y clava el puntero. */
   background:
     conic-gradient(
-      from -30deg,
-      #f9a8d4 0deg 60deg,   /* idx 0 (0 pts)   */
-      #a5b4fc 60deg 120deg, /* idx 1 (5 pts)   */
-      #fef3c7 120deg 180deg,/* idx 2 (10 pts)  */
-      #bbf7d0 180deg 240deg,/* idx 3 (20 pts)  */
-      #fed7aa 240deg 300deg,/* idx 4 (50 pts)  */
-      #e5e7eb 300deg 360deg /* idx 5 (100 pts) */
+      from 270deg,
+      #f9a8d4 0deg 60deg,   /* idx 0 → 0 puntos   */
+      #a5b4fc 60deg 120deg, /* idx 1 → +5 puntos */
+      #fef3c7 120deg 180deg,/* idx 2 → +10 pts   */
+      #bbf7d0 180deg 240deg,/* idx 3 → +20 pts   */
+      #fed7aa 240deg 300deg,/* idx 4 → +50 pts   */
+      #e5e7eb 300deg 360deg /* idx 5 → +100 pts  */
     );
   box-shadow: 0 14px 30px rgba(15,23,42,.35);
   display: flex;
@@ -2685,33 +2686,34 @@ body.loaded #main-content {
   font-size: .80rem;
   font-weight: 700;
   color: #111827;
-  text-shadow: 0 1px 3px rgba(255,255,255,.8);
+  text-shadow: 0 1px 3px rgba(255,255,255,0.8);
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(255,255,255,.88);
+  background: rgba(255,255,255,.9);
   box-shadow: 0 6px 14px rgba(15,23,42,.18);
   white-space: nowrap;
 }
 
-/* Centros de cada sector: 270, 330, 30, 90, 150, 210 grados */
-.dw-seg-0{ /* idx 0 → +0 */
-  transform: translate(-50%, -50%) rotate(270deg) translate(0, -78px) rotate(-270deg);
+/* Centros de cada sector con from 270deg: 300, 0, 60, 120, 180, 240 */
+.dw-seg-0{ /* idx 0 → +0 pts */
+  transform: translate(-50%, -50%) rotate(300deg) translate(0, -78px) rotate(-300deg);
 }
-.dw-seg-1{ /* idx 1 → +5 */
-  transform: translate(-50%, -50%) rotate(330deg) translate(0, -78px) rotate(-330deg);
+.dw-seg-1{ /* idx 1 → +5 pts */
+  transform: translate(-50%, -50%) rotate(0deg) translate(0, -78px) rotate(0deg);
 }
-.dw-seg-2{ /* idx 2 → +10 */
-  transform: translate(-50%, -50%) rotate(30deg) translate(0, -78px) rotate(-30deg);
+.dw-seg-2{ /* idx 2 → +10 pts */
+  transform: translate(-50%, -50%) rotate(60deg) translate(0, -78px) rotate(-60deg);
 }
-.dw-seg-3{ /* idx 3 → +20 */
-  transform: translate(-50%, -50%) rotate(90deg) translate(0, -78px) rotate(-90deg);
+.dw-seg-3{ /* idx 3 → +20 pts */
+  transform: translate(-50%, -50%) rotate(120deg) translate(0, -78px) rotate(-120deg);
 }
-.dw-seg-4{ /* idx 4 → +50 */
-  transform: translate(-50%, -50%) rotate(150deg) translate(0, -78px) rotate(-150deg);
+.dw-seg-4{ /* idx 4 → +50 pts */
+  transform: translate(-50%, -50%) rotate(180deg) translate(0, -78px) rotate(-180deg);
 }
-.dw-seg-5{ /* idx 5 → +100 */
-  transform: translate(-50%, -50%) rotate(210deg) translate(0, -78px) rotate(-210deg);
+.dw-seg-5{ /* idx 5 → +100 pts */
+  transform: translate(-50%, -50%) rotate(240deg) translate(0, -78px) rotate(-240deg);
 }
+
 
 /* Texto y botón */
 
@@ -7898,9 +7900,15 @@ function flyOnce(){
 
   if (!modal || !openBtn || !closeBtn || !wheel || !spinBtn) return;
 
-  const N_SEGMENTS = 6;
-  const SEG_ANGLE  = 360 / N_SEGMENTS;
-  let currentRotation = 0;
+const N_SEGMENTS = 6;
+const SEG_ANGLE  = 360 / N_SEGMENTS; // 60º
+const OFFSET_DEG = -30;              // pequeño desfase para clavar el puntero
+let currentRotation = 0;
+
+function angleForIndex(idx){
+  return OFFSET_DEG - SEG_ANGLE * idx;  // -30 - 60*idx
+}
+
 
   function openModal(){
     modal.classList.add('open');
@@ -7965,10 +7973,11 @@ function flyOnce(){
         const delta = me.delta ?? 0;
         const label = me.label ?? (delta >= 0 ? `+${delta}` : String(delta));
 
-        const base = -SEG_ANGLE * idx;
-        currentRotation = base;
-        wheel.style.transition = 'none';
-        wheel.style.transform  = `rotate(${currentRotation}deg)`;
+        const base = angleForIndex(idx);
+currentRotation = base;
+wheel.style.transition = 'none';
+wheel.style.transform  = `rotate(${currentRotation}deg)`;
+
 
         spinBtn.disabled = true;
         spinBtn.classList.add('used');
@@ -8023,7 +8032,7 @@ function flyOnce(){
         const delta = data.delta ?? 0;
         const label = data.label ?? (delta >= 0 ? `+${delta}` : String(delta));
 
-        const base = -SEG_ANGLE * idx;
+        const base = angleForIndex(idx);
         currentRotation = base;
         wheel.style.transition = 'none';
         wheel.style.transform  = `rotate(${currentRotation}deg)`;
@@ -8049,8 +8058,9 @@ function flyOnce(){
       //   idx 4 → abajo-izquierda
       //   idx 5 → arriba-izquierda
       const rounds = 4 + Math.floor(Math.random() * 2); // 4 ó 5 vueltas completas
-      const base   = -SEG_ANGLE * idx;
+      const base   = angleForIndex(idx);                // ya incluye el -30º
       const target = 360 * rounds + base;
+
 
       currentRotation = target;
 

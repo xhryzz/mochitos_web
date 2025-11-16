@@ -6824,6 +6824,7 @@ def api_daily_wheel_spin():
 
     conn = get_db_connection()
     new_points = None
+    now_str = now_madrid_str()
     try:
         with conn.cursor() as c:
             c.execute("SELECT id, COALESCE(points,0) FROM users WHERE username=%s", (user,))
@@ -6833,8 +6834,8 @@ def api_daily_wheel_spin():
 
             uid = int(row[0])
             current_points = int(row[1])
-
             new_points = current_points + delta
+
             # Actualizar puntos + historial solo si delta != 0
             if delta != 0:
                 c.execute(
@@ -6846,7 +6847,7 @@ def api_daily_wheel_spin():
                     INSERT INTO points_history (user_id, delta, source, note, created_at)
                     VALUES (%s, %s, %s, %s, %s)
                     """,
-                    (uid, delta, "wheel", "Ruleta diaria", now_madrid_str())
+                    (uid, delta, "wheel", "Ruleta diaria", now_str)
                 )
             conn.commit()
     except Exception:
@@ -6859,6 +6860,7 @@ def api_daily_wheel_spin():
     finally:
         conn.close()
 
+    # Paquete con la info del giro de hoy
     info = {
         "already": False,
         "idx": idx,
@@ -6866,7 +6868,7 @@ def api_daily_wheel_spin():
         "label": label,
         "date": today,
         "new_total": new_points,
-        "ts": now_madrid_str(),
+        "ts": now_str,
     }
 
     # 3) Guardar en app_state para bloquear más giros hoy
@@ -6875,26 +6877,7 @@ def api_daily_wheel_spin():
     except Exception:
         pass
 
-    # 4) Notificación push para quien ha girado
-    try:
-        if delta > 0:
-            send_push_to(
-                user,
-                title="🎡 Ruleta diaria",
-                body=f"Has ganado {delta} puntos en la ruleta 🎁",
-                url="/"
-            )
-        else:
-            send_push_to(
-                user,
-                title="🎡 Ruleta diaria",
-                body="Hoy la ruleta no ha dado puntos… ¡mañana más suerte!",
-                url="/"
-            )
-    except Exception:
-        pass
-
-    # 5) Notificación push para la otra persona con lo que ha sacado
+    # 4) NOTI PUSH SOLO PARA LA OTRA PERSONA (no para quien gira)
     try:
         msg_user = "Mochito" if user == "mochito" else "Mochita"
         if delta > 0:
@@ -6914,9 +6897,8 @@ def api_daily_wheel_spin():
     except Exception:
         pass
 
-    # 6) Devolver también lo que ha hecho la otra persona hoy
+    # 5) Devolver también lo que ha hecho la otra persona hoy
     return jsonify(ok=True, other=other_info, **info)
-
 
 
 @app.get("/api/daily-wheel-status")

@@ -7855,8 +7855,8 @@ function flyOnce(){
 
   if (!modal || !openBtn || !closeBtn || !wheel || !spinBtn) return;
 
-const N_SEGMENTS = 6;
-const SEG_ANGLE  = 360 / N_SEGMENTS;
+  const N_SEGMENTS = 6;
+  const SEG_ANGLE  = 360 / N_SEGMENTS; // 60º
   let currentRotation = 0;
 
   function openModal(){
@@ -7980,40 +7980,41 @@ const SEG_ANGLE  = 360 / N_SEGMENTS;
         return;
       }
 
-      const idxServer = (typeof data.idx === 'number') ? data.idx : 0;
+      // Giro "nuevo" de hoy → datos del backend
+      const idx    = (typeof data.idx === 'number') ? data.idx : 0;
       const delta  = data.delta ?? 0;
       const label  = data.label ?? (delta >= 0 ? `+${delta}` : String(delta));
       const total  = (typeof data.new_total === 'number') ? data.new_total : null;
 
-      // Mapeo fijo de valor de puntos -> posición visual en la ruleta
-      // Debe coincidir con el orden de los textos en el HTML:
-      // +0, +5, +10, +20, +50, +100
-      const VALUES = [0, 5, 10, 20, 50, 100];
-      let visualIdx = VALUES.indexOf(delta);
-      if (visualIdx === -1) {
-        // Si por lo que sea no está, usamos el idx que viene del servidor
-        visualIdx = idxServer;
-      }
+      // =========================
+      // CÁLCULO CORRECTO DEL ÁNGULO
+      // =========================
+      //
+      // Cada etiqueta está a estos ángulos base (CSS):
+      //   dw-seg-0: 30º, dw-seg-1: 90º, dw-seg-2: 150º,
+      //   dw-seg-3: 210º, dw-seg-4: 270º, dw-seg-5: 330º
+      //
+      // Queremos que, después de girar, la etiqueta del índice idx
+      // quede en 90º (arriba, donde está el puntero).
+      //
+      // Fórmula: A = 90 - θ[idx] (mod 360)
+      // θ[idx] = 30 + 60*idx  →  A = 60 * (1 - idx)
+      //
+      const rounds = 4 + Math.floor(Math.random() * 2); // 4 ó 5 vueltas completas
+      const base   = SEG_ANGLE * (1 - idx);             // 60 * (1 - idx)
+      const target = 360 * rounds + base;
 
-      // La ruleta actual está desfasada un sector en el gráfico,
-      // así que corregimos el índice restando 1 para que la flecha
-      // caiga justo en el centro del color correcto.
-      const effectiveIdx = (visualIdx - 1 + N_SEGMENTS) % N_SEGMENTS;
-
-      const rounds = 4 + Math.floor(Math.random() * 2); // 4 o 5 vueltas completas
-      const target = 360 * rounds + SEG_ANGLE * effectiveIdx + SEG_ANGLE / 2;
       currentRotation = target;
 
-      // Reset de transición y aplicación del giro
+      // Reseteamos transición por si venía de antes
       wheel.style.transition = 'none';
-      // Forzamos reflow
+      // Forzamos reflow para que la siguiente transición se aplique
       // eslint-disable-next-line no-unused-expressions
       wheel.offsetHeight;
       wheel.style.transition = 'transform 4s cubic-bezier(0.17, 0.89, 0.32, 1.28)';
       wheel.style.transform  = `rotate(${currentRotation}deg)`;
 
       // 🔔 SOLO CUANDO TERMINA el giro mostramos lo que ha tocado
-       // 🔔 SOLO CUANDO TERMINA el giro mostramos lo que ha tocado
       setTimeout(() => {
         spinBtn.classList.add('used');
         spinBtn.innerHTML = 'Mañana más ❤️';
@@ -8027,21 +8028,6 @@ const SEG_ANGLE  = 360 / N_SEGMENTS;
         }
 
         showToast('success', 'Resultado de la ruleta guardado');
-
-        // 🔔 Después del giro, lanzamos la notificación PUSH al propio usuario
-        try {
-          fetch('/api/daily-wheel-push-self', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify({})
-          }).catch(() => {});
-        } catch (_) {
-          // ignoramos errores
-        }
-
         // Si quieres refrescar puntos de la cabecera automáticamente:
         // setTimeout(() => location.reload(), 1200);
       }, 4100);
@@ -8058,6 +8044,7 @@ const SEG_ANGLE  = 360 / N_SEGMENTS;
   spinBtn.addEventListener('click', spin);
 })();
 </script>
+
 
     
 </body>

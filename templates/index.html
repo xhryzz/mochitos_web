@@ -8037,27 +8037,40 @@ function flyOnce(){
     `;
   }
 
-  function renderPartnerLine(other){
+
+    function formatDateShort(iso){
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    const dd = String(d.getDate()).padStart(2,"0");
+    const mm = String(d.getMonth()+1).padStart(2,"0");
+    return `${dd}/${mm}`;
+  }
+
+
+    function renderPartnerLine(other, otherLast){
     if (!partnerEl || !PARTNER_NAME) return;
 
-    // Si no hay datos de la pareja todavía
-    if (!other){
-      partnerEl.textContent = "";
-      return;
-    }
+    const hasToday = other && other.has_spun;
+    const hasLast  = otherLast && otherLast.has_spun;
 
-    if (!other.has_spun){
+    // No hay info de nada
+    if (!hasToday && !hasLast){
       partnerEl.innerHTML = `
         <div class="dw-user-line">
           <div class="user-avatar dw-user-avatar">
             ${PARTNER_AVATAR_HTML}
           </div>
           <div class="dw-line-text">
-            ${PARTNER_NAME} aún no ha girado la ruleta hoy.
+            ${PARTNER_NAME} todavía no ha usado la ruleta 😇
           </div>
         </div>
       `;
-    } else {
+      return;
+    }
+
+    // Tiene giro de HOY
+    if (hasToday){
       const delta = other.delta ?? 0;
       const label = other.label ?? (delta >= 0 ? `+${delta}` : String(delta));
       partnerEl.innerHTML = `
@@ -8070,8 +8083,27 @@ function flyOnce(){
           </div>
         </div>
       `;
+      return;
     }
+
+    // No ha girado hoy, pero sí otro día
+    const deltaL = otherLast.delta ?? 0;
+    const labelL = otherLast.label ?? (deltaL >= 0 ? `+${deltaL}` : String(deltaL));
+    const dateTxt = otherLast.date ? formatDateShort(otherLast.date) : "";
+
+    partnerEl.innerHTML = `
+      <div class="dw-user-line">
+        <div class="user-avatar dw-user-avatar">
+          ${PARTNER_AVATAR_HTML}
+        </div>
+        <div class="dw-line-text">
+          ${PARTNER_NAME} aún no ha girado la ruleta hoy.
+          ${dateTxt ? ` Último giro (${dateTxt}): ${labelL} puntos.` : ""}
+        </div>
+      </div>
+    `;
   }
+
 
   function openModal(){
     modal.classList.add('open');
@@ -8112,12 +8144,16 @@ function flyOnce(){
       const data = await resp.json().catch(() => ({}));
       if (!data.ok) return;
 
-      const me    = data.me    || {};
-      const other = data.other || null;
+      const me        = data.me        || {};
+      const other     = data.other     || null;
+      const meLast    = data.me_last   || null;
+      const otherLast = data.other_last|| null;
+
       const canSpinNow   = !!data.can_spin_now;
       const nextResetIso = data.next_reset_iso || null;
 
-      renderPartnerLine(other);
+      renderPartnerLine(other, otherLast);
+
 
       if (me.has_spun){
         const idx   = (typeof me.idx === 'number') ? me.idx : 0;
@@ -8146,6 +8182,17 @@ function flyOnce(){
           spinBtn.classList.remove('used');
           spinBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Girar ahora';
           statusEl.textContent = 'Tienes un giro disponible hoy ✨';
+        }
+
+        // Mostrar último resultado aunque sea de ayer
+        if (meLast && meLast.has_spun){
+          const deltaL = meLast.delta ?? 0;
+          const labelL = meLast.label ?? (deltaL >= 0 ? `+${deltaL}` : String(deltaL));
+          const dateTxt = meLast.date ? formatDateShort(meLast.date) : "";
+          const txt = dateTxt
+            ? `Último resultado (${dateTxt}): ${labelL} puntos`
+            : `Último resultado: ${labelL} puntos`;
+          renderSelfLine(txt);
         }
       }
 
@@ -8192,7 +8239,7 @@ function flyOnce(){
       }
 
 
-      renderPartnerLine(data.other || null);
+      renderPartnerLine(data.other || null, data.other_last || null);
 
       // Ya había girado hoy (sin animar otra vez)
       if (data.already){

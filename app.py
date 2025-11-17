@@ -561,6 +561,27 @@ def build_wheel_time_payload(now_madrid: datetime | None = None) -> dict:
     }
 
 
+def _load_wheel_last(user: str):
+    """
+    Devuelve info del ÚLTIMO giro conocido de ese usuario
+    (aunque sea de ayer u otro día).
+    """
+    key = f"wheel_last::{user}"
+    raw = state_get(key, "")
+    if not raw:
+        return {"has_spun": False}
+    try:
+        info = json.loads(raw)
+    except Exception:
+        info = {}
+    return {
+        "has_spun": bool(info.get("has_spun", True)),
+        "idx": int(info.get("idx", 0)),
+        "delta": int(info.get("delta", 0)),
+        "label": info.get("label"),
+        "date": info.get("date"),
+        "ts": info.get("ts"),
+    }
 
 
 # ========= Mini-cache =========
@@ -6937,7 +6958,7 @@ def api_daily_wheel_spin():
     state_key = f"wheel_spin::{user}::{today}"
     other_key = f"wheel_spin::{other_user}::{today}"
 
-    # --- Info de la otra persona (si ya ha girado hoy) ---
+    # --- Info de la otra persona (si ya ha girado HOY) ---
     raw_other = state_get(other_key, "")
     if raw_other:
         try:
@@ -6958,7 +6979,10 @@ def api_daily_wheel_spin():
             "has_spun": False,
         }
 
-    # --- 1) ¿Ya ha girado hoy? -> devolver lo guardado ---
+    # --- Último giro global de la otra persona (ayer, antes de ayer, etc.) ---
+    other_last = _load_wheel_last(other_user)
+
+    # --- 1) ¿Ya ha girado HOY? -> devolver lo guardado ---
     raw = state_get(state_key, "")
     if raw:
         try:
@@ -6967,7 +6991,16 @@ def api_daily_wheel_spin():
             info = {}
         info.setdefault("already", True)
         info.setdefault("date", today)
-        return jsonify(ok=True, other=other_info, **info, **wheel_times)
+        # me_last = último giro del propio usuario (por si lo quiere usar el front)
+        me_last = _load_wheel_last(user)
+        return jsonify(
+            ok=True,
+            other=other_info,
+            other_last=other_last,
+            me_last=me_last,
+            **info,
+            **wheel_times
+        )
 
     # --- 1-bis) ¿Aún no es la hora de desbloqueo? ---
     if not wheel_times.get("can_spin_now"):
@@ -7032,9 +7065,20 @@ def api_daily_wheel_spin():
         "ts": now_str,
     }
 
-    # 3) Guardar en app_state para bloquear más giros hoy
+    # Versión "ligera" para recordar ÚLTIMO giro global
+    last_info = {
+        "has_spun": True,
+        "idx": idx,
+        "delta": delta,
+        "label": label,
+        "date": today,
+        "ts": now_str,
+    }
+
+    # 3) Guardar en app_state para bloquear más giros HOY + último giro global
     try:
         state_set(state_key, json.dumps(info))
+        state_set(f"wheel_last::{user}", json.dumps(last_info))
     except Exception:
         pass
 
@@ -7058,9 +7102,16 @@ def api_daily_wheel_spin():
     except Exception:
         pass
 
-    # 5) Devolver también lo que ha hecho la otra persona hoy + tiempos
-    return jsonify(ok=True, other=other_info, **info, **wheel_times)
-
+    # 5) Devolver también lo que ha hecho la otra persona hoy + su último giro + tiempos
+    me_last = _load_wheel_last(user)
+    return jsonify(
+        ok=True,
+        other=other_info,
+        other_last=other_last,
+        me_last=me_last,
+        **info,
+        **wheel_times
+    )
 
 @app.post("/api/daily-wheel-push-self")
 def api_daily_wheel_push_self():
@@ -7144,7 +7195,19 @@ def api_daily_wheel_status():
     other_info = load_state(other_key, today)
     other_info["username"] = other_user
 
-    return jsonify(ok=True, me=me_info, other=other_info, **wheel_times)
+    me_last = _load_wheel_last(user)
+    other_last = _load_wheel_last(other_user)
+    other_last["username"] = other_user
+
+    return jsonify(
+        ok=True,
+        me=me_info,
+        other=other_info,
+        me_last=me_last,
+        other_last=other_last,
+        **wheel_times
+    )
+
 
 
 _old_init_db = init_db

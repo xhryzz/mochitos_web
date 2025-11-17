@@ -7111,24 +7111,30 @@ def api_daily_wheel_push_self():
 @app.get("/api/daily-wheel-status")
 def api_daily_wheel_status():
     """
-    Devuelve el estado de la ruleta para el usuario logueado y su pareja.
-    1) Intenta leer de app_state (wheel_spin::<user>::YYYY-MM-DD).
-    2) Si no hay nada, mira en points_history si hoy se ha registrado una 'wheel'
-       y reconstruye la info con ese delta.
+    Estado de la ruleta para el usuario logueado y su pareja.
+
+    - Primero mira en app_state (wheel_spin::<user>::YYYY-MM-DD)
+    - Si ahí no hay nada, intenta reconstruirlo desde points_history
+      con source='wheel' y fecha de hoy.
+    - Además devuelve:
+        * can_spin_now  -> True si el usuario AÚN NO ha girado hoy.
+        * next_reset_iso -> fecha/hora (Europe/Madrid) de la próxima medianoche.
     """
     if "username" not in session:
         return jsonify(ok=False, error="unauthorized"), 401
 
     user = session["username"]
 
-    # ✅ hoy ya es un date, no hay que hacer .date()
-    today = today_madrid()            # objeto date
-    today_iso = today.isoformat()     # 'YYYY-MM-DD'
+    # Hoy en horario Madrid (ya devuleve un date)
+    today = today_madrid()                  # date
+    today_iso = today.isoformat()           # 'YYYY-MM-DD'
 
     other_user = 'mochita' if user == 'mochito' else 'mochito'
-    me_key = f"wheel_spin::{user}::{today_iso}"
+
+    me_key    = f"wheel_spin::{user}::{today_iso}"
     other_key = f"wheel_spin::{other_user}::{today_iso}"
 
+    # --- Cargador desde app_state ---
     def load_from_state(key: str, default_date: str):
         raw = state_get(key, "")
         if not raw:
@@ -7137,6 +7143,7 @@ def api_daily_wheel_status():
             info = json.loads(raw)
         except Exception:
             return {"has_spun": False}
+
         return {
             "has_spun": True,
             "idx": int(info.get("idx", 0)),
@@ -7146,9 +7153,12 @@ def api_daily_wheel_status():
             "ts": info.get("ts"),
         }
 
+    # --- Fallback desde points_history (solo si app_state falla) ---
     def load_from_history(username: str, day_iso: str):
         """
-        Fallback: mira en points_history si hoy hay una entrada de la ruleta.
+        Busca en points_history si hoy hay una entrada 'wheel' para ese usuario.
+        OJO: solo habrá si delta != 0, pero esto es solo fallback
+        cuando app_state no tenga nada.
         """
         conn = get_db_connection()
         try:
@@ -7178,6 +7188,7 @@ def api_daily_wheel_status():
             delta = int(delta or 0)
         except Exception:
             delta = 0
+
         label = f"+{delta}" if delta >= 0 else str(delta)
 
         if hasattr(created_at, "isoformat"):
@@ -7187,25 +7198,41 @@ def api_daily_wheel_status():
 
         return {
             "has_spun": True,
-            "idx": 0,               # el índice nos da igual para mostrar el resultado
+            "idx": 0,          # el ángulo de la ruleta nos da igual aquí
             "delta": delta,
             "label": label,
             "date": day_iso,
             "ts": ts,
         }
 
-    # 1) Yo
+    # --- Yo ---
     me_info = load_from_state(me_key, today_iso)
     if not me_info.get("has_spun"):
         me_info = load_from_history(user, today_iso)
 
-    # 2) Mi pareja
+    # --- Mi pareja ---
     other_info = load_from_state(other_key, today_iso)
     if not other_info.get("has_spun"):
         other_info = load_from_history(other_user, today_iso)
     other_info["username"] = other_user
 
-    return jsonify(ok=True, me=me_info, other=other_info)
+    # --- Lógica de si puedo girar / siguiente reset (a medianoche Madrid) ---
+    has_spun_me = bool(me_info.get("has_spun"))
+
+    # En este código: puedes girar si NO has girado hoy
+    can_spin_now = not has_spun_me
+
+    now_md = europe_madrid_now()
+    next_midnight = now_md.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    next_reset_iso = next_midnight.isoformat()
+
+    return jsonify(
+        ok=True,
+        me=me_info,
+        other=other_info,
+        can_spin_now=can_spin_now,
+        next_reset_iso=next_reset_iso,
+    )
 
 
 

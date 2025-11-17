@@ -7120,8 +7120,10 @@ def api_daily_wheel_status():
         return jsonify(ok=False, error="unauthorized"), 401
 
     user = session["username"]
-    today = today_madrid().date()           # objeto date
-    today_iso = today.isoformat()          # 'YYYY-MM-DD'
+
+    # ✅ hoy ya es un date, no hay que hacer .date()
+    today = today_madrid()            # objeto date
+    today_iso = today.isoformat()     # 'YYYY-MM-DD'
 
     other_user = 'mochita' if user == 'mochito' else 'mochito'
     me_key = f"wheel_spin::{user}::{today_iso}"
@@ -7144,7 +7146,7 @@ def api_daily_wheel_status():
             "ts": info.get("ts"),
         }
 
-    def load_from_history(username: str, default_date: str):
+    def load_from_history(username: str, day_iso: str):
         """
         Fallback: mira en points_history si hoy hay una entrada de la ruleta.
         """
@@ -7162,7 +7164,7 @@ def api_daily_wheel_status():
                      ORDER BY h.created_at DESC
                      LIMIT 1
                     """,
-                    (username, default_date),
+                    (username, day_iso),
                 )
                 row = c.fetchone()
         finally:
@@ -7178,7 +7180,6 @@ def api_daily_wheel_status():
             delta = 0
         label = f"+{delta}" if delta >= 0 else str(delta)
 
-        # created_at puede ser datetime o texto, lo normal es datetime
         if hasattr(created_at, "isoformat"):
             ts = created_at.isoformat()
         else:
@@ -7186,10 +7187,10 @@ def api_daily_wheel_status():
 
         return {
             "has_spun": True,
-            "idx": 0,               # no necesitamos realmente el índice para mostrar los puntos
+            "idx": 0,               # el índice nos da igual para mostrar el resultado
             "delta": delta,
             "label": label,
-            "date": default_date,
+            "date": day_iso,
             "ts": ts,
         }
 

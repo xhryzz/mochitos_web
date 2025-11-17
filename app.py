@@ -7110,43 +7110,27 @@ def api_daily_wheel_push_self():
 
 @app.get("/api/daily-wheel-status")
 def api_daily_wheel_status():
-    """
-    Estado de la ruleta para el usuario logueado y su pareja.
-
-    - Lee de app_state con las claves:
-        wheel_spin::<username>::YYYY-MM-DD
-    - Devuelve:
-        me        -> info de mi giro (o has_spun=False)
-        other     -> info del giro de la pareja (o has_spun=False)
-        can_spin_now   -> True solo si YO no he girado hoy
-        next_reset_iso -> medianoche de hoy en horario Madrid
-    """
     if "username" not in session:
         return jsonify(ok=False, error="unauthorized"), 401
 
     user = session["username"]
 
-    # Hoy en horario Madrid (date -> 'YYYY-MM-DD')
-    today = today_madrid().isoformat()
+    now_md = europe_madrid_now()
+    wheel_times = build_wheel_time_payload(now_md)
+    today = wheel_times["today"]
 
-    other_user = "mochita" if user == "mochito" else "mochito"
-
-    me_key    = f"wheel_spin::{user}::{today}"
+    other_user = 'mochita' if user == 'mochito' else 'mochito'
+    me_key = f"wheel_spin::{user}::{today}"
     other_key = f"wheel_spin::{other_user}::{today}"
 
     def load_state(key: str, default_date: str):
-        """
-        Lee una entrada JSON desde app_state y la convierte
-        en el diccionario que usa el frontend.
-        """
         raw = state_get(key, "")
         if not raw:
             return {"has_spun": False}
         try:
             info = json.loads(raw)
         except Exception:
-            return {"has_spun": False}
-
+            info = {}
         return {
             "has_spun": True,
             "idx": int(info.get("idx", 0)),
@@ -7156,33 +7140,11 @@ def api_daily_wheel_status():
             "ts": info.get("ts"),
         }
 
-    # Yo
     me_info = load_state(me_key, today)
-
-    # Mi pareja
     other_info = load_state(other_key, today)
     other_info["username"] = other_user
 
-    # ¿Puedo girar?
-    # -> SOLO si yo NO he girado hoy
-    has_spun_me = bool(me_info.get("has_spun"))
-    can_spin_now = not has_spun_me
-
-    # Próximo reset: medianoche de hoy (horario Madrid)
-    now_md = europe_madrid_now()
-    next_midnight = now_md.replace(
-        hour=0, minute=0, second=0, microsecond=0
-    ) + timedelta(days=1)
-    next_reset_iso = next_midnight.isoformat()
-
-    return jsonify(
-        ok=True,
-        me=me_info,
-        other=other_info,
-        can_spin_now=can_spin_now,
-        next_reset_iso=next_reset_iso,
-    )
-
+    return jsonify(ok=True, me=me_info, other=other_info, **wheel_times)
 
 
 _old_init_db = init_db

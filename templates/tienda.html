@@ -35,12 +35,19 @@
       padding:10px 14px;border-radius:12px;background:var(--primary);
       color:white;text-decoration:none;border:none;cursor:pointer;font-weight:800;letter-spacing:.2px;
       box-shadow:0 10px 22px rgba(232,67,147,.32);transition:transform .15s ease,box-shadow .2s ease,filter .2s ease;
+      font-size:0.9rem;
     }
     .btn:hover{transform:translateY(-2px)}
     .btn[disabled]{opacity:.55;cursor:not-allowed;filter:grayscale(10%)}
     .btn.ghost{background:#fff;color:var(--primary);border:1px solid var(--primary);box-shadow:0 8px 18px rgba(0,0,0,.06)}
     .btn.warn{background:#f39c12}
     .btn.gray{background:#6b7280}
+    .btn.small{
+      padding:6px 9px;
+      font-size:0.76rem;
+      box-shadow:0 6px 14px rgba(0,0,0,.10);
+      border-radius:999px;
+    }
     input[type="text"], input[type="number"], textarea, select{
       width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:12px;font:inherit
     }
@@ -78,6 +85,11 @@
       display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;
       background:#fafafa;border:1px solid #eee;border-radius:12px;padding:10px 12px;
     }
+    .redeem-item.done{
+      background:#f3faf4;
+      border-color:#c4e6cf;
+      opacity:.95;
+    }
     .redeem-icon{font-size:22px}
     .redeem-name{font-weight:800}
     .redeem-meta{font-size:.9rem;color:#8a8fa3}
@@ -90,6 +102,31 @@
       background: #fafafa;
       border: 1px solid #eee;
       border-radius: 12px;
+    }
+    .redeem-actions{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      align-items:flex-end;
+      justify-content:center;
+    }
+    .status-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:3px 8px;
+      border-radius:999px;
+      font-size:0.75rem;
+      font-weight:700;
+      letter-spacing:.02em;
+    }
+    .status-pill.pending{
+      background:#fef3c7;
+      color:#92400e;
+    }
+    .status-pill.done{
+      background:#dcfce7;
+      color:#166534;
     }
   </style>
 </head>
@@ -261,15 +298,16 @@
     <!-- ==================== HISTORIAL DE CANJES ==================== -->
     <div class="history card">
       <h2 style="margin:0 0 6px 0;font-weight:800">🧾 Historial de premios canjeados</h2>
-      <p class="muted" style="margin:2px 0 14px 0">Últimos canjes de ambos (se agrupan por persona).</p>
+      <p class="muted" style="margin:2px 0 14px 0">Últimos canjes de ambos (se agrupan por persona). Puedes marcar los tuyos como hechos ✅.</p>
 
       <div class="history-grid">
+        <!-- Columna Mochito -->
         <div class="history-col">
           <h3 class="history-title">👱‍♂️ Mochito</h3>
           <ul class="redeem-list">
             {% if redemption_history.mochito %}
               {% for r in redemption_history.mochito %}
-                <li class="redeem-item">
+                <li class="redeem-item {{ 'done' if r.is_done else '' }}">
                   <div class="redeem-icon">{{ r.icon or '🎁' }}</div>
                   <div>
                     <div class="redeem-name">{{ r.item_name }}</div>
@@ -278,7 +316,22 @@
                     <div class="redeem-meta" style="font-size:0.8rem; color: #666;">{{ r.note }}</div>
                     {% endif %}
                   </div>
-                  <div class="redeem-pts">-{{ r.cost }} pts</div>
+                  <div class="redeem-actions">
+                    <div class="redeem-pts">-{{ r.cost }} pts</div>
+                    <span class="status-pill {{ 'done' if r.is_done else 'pending' }}">
+                      {{ 'Hecho' if r.is_done else 'Pendiente' }}
+                    </span>
+                    {% if session['username'] == 'mochito' %}
+                    <form method="post" action="{{ url_for('shop') }}">
+                      <input type="hidden" name="_op" value="toggle_purchase_done">
+                      <input type="hidden" name="purchase_id" value="{{ r.id }}">
+                      <input type="hidden" name="set_done" value="{{ 0 if r.is_done else 1 }}">
+                      <button class="btn small" type="submit">
+                        {% if r.is_done %}⏳ Marcar pendiente{% else %}✅ Marcar hecho{% endif %}
+                      </button>
+                    </form>
+                    {% endif %}
+                  </div>
                 </li>
               {% endfor %}
             {% else %}
@@ -287,12 +340,13 @@
           </ul>
         </div>
 
+        <!-- Columna Mochita -->
         <div class="history-col">
           <h3 class="history-title">👩 Mochita</h3>
           <ul class="redeem-list">
             {% if redemption_history.mochita %}
               {% for r in redemption_history.mochita %}
-                <li class="redeem-item">
+                <li class="redeem-item {{ 'done' if r.is_done else '' }}">
                   <div class="redeem-icon">{{ r.icon or '🎁' }}</div>
                   <div>
                     <div class="redeem-name">{{ r.item_name }}</div>
@@ -301,7 +355,22 @@
                     <div class="redeem-meta" style="font-size:0.8rem; color: #666;">{{ r.note }}</div>
                     {% endif %}
                   </div>
-                  <div class="redeem-pts">-{{ r.cost }} pts</div>
+                  <div class="redeem-actions">
+                    <div class="redeem-pts">-{{ r.cost }} pts</div>
+                    <span class="status-pill {{ 'done' if r.is_done else 'pending' }}">
+                      {{ 'Hecho' if r.is_done else 'Pendiente' }}
+                    </span>
+                    {% if session['username'] == 'mochita' %}
+                    <form method="post" action="{{ url_for('shop') }}">
+                      <input type="hidden" name="_op" value="toggle_purchase_done">
+                      <input type="hidden" name="purchase_id" value="{{ r.id }}">
+                      <input type="hidden" name="set_done" value="{{ 0 if r.is_done else 1 }}">
+                      <button class="btn small" type="submit">
+                        {% if r.is_done %}⏳ Marcar pendiente{% else %}✅ Marcar hecho{% endif %}
+                      </button>
+                    </form>
+                    {% endif %}
+                  </div>
                 </li>
               {% endfor %}
             {% else %}

@@ -5716,6 +5716,13 @@ def _ensure_gamification_schema():
                 )
             """)
 
+
+             # ✅ Estado del canje (pendiente / hecho)
+            c.execute("""
+                ALTER TABLE purchases
+                ADD COLUMN IF NOT EXISTS is_done BOOLEAN DEFAULT FALSE
+            """)
+
             # Historial de puntos
             c.execute("""
                 CREATE TABLE IF NOT EXISTS points_history (
@@ -6361,6 +6368,47 @@ def shop():
                 except Exception:
                     pass
                 return redirect('/tienda')
+            
+
+            # ✅ Marcar canje como hecho / pendiente (solo el dueño)
+            if op == 'toggle_purchase_done':
+                purchase_id = request.form.get('purchase_id')
+                set_done = (request.form.get('set_done') or '').strip()
+
+                done = True if set_done == '1' else False
+
+                try:
+                    with conn.cursor() as c:
+                        c.execute("""
+                            UPDATE purchases
+                               SET is_done = %s
+                             WHERE id = %s
+                               AND user_id = (SELECT id FROM users WHERE username=%s)
+                        """, (done, purchase_id, user))
+
+                        if c.rowcount == 0:
+                            conn.rollback()
+                            flash("No se ha podido actualizar el premio (¿seguro que es tuyo?).", "error")
+                            return redirect('/tienda')
+
+                        conn.commit()
+
+                    if done:
+                        flash("Premio marcado como hecho ✅", "success")
+                    else:
+                        flash("Premio vuelto a pendiente ⏳", "success")
+
+                except Exception:
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
+                    app.logger.exception("[/tienda] toggle_purchase_done error")
+                    flash("No se pudo actualizar el estado del premio.", "error")
+
+                return redirect('/tienda')
+
+
 
             # Solo admin: crear/editar/borrar
             if not is_admin:
@@ -6498,9 +6546,17 @@ def shop():
             rows = c.fetchall()
             points_map = {r['username']: int(r['p']) for r in rows}
 
-            # 🔥 NUEVO: Obtener historial de canjes
+            # 🔥 Historial de canjes (incluye estado is_done)
             c.execute("""
-                SELECT u.username, si.name AS item_name, si.cost, si.icon, p.purchased_at, p.note
+                SELECT 
+                    p.id,
+                    u.username,
+                    si.name AS item_name,
+                    si.cost,
+                    si.icon,
+                    p.purchased_at,
+                    p.note,
+                    COALESCE(p.is_done, FALSE) AS is_done
                 FROM purchases p
                 JOIN users u ON p.user_id = u.id
                 JOIN shop_items si ON p.item_id = si.id
@@ -6515,12 +6571,15 @@ def shop():
                 username = p['username']
                 if username in redemption_history:
                     redemption_history[username].append({
+                        'id': p['id'],
                         'item_name': p['item_name'],
                         'cost': p['cost'],
                         'icon': p['icon'],
                         'ts': p['purchased_at'],
-                        'note': p['note']
+                        'note': p['note'],
+                        'is_done': bool(p['is_done']),
                     })
+
 
     finally:
         conn.close()

@@ -7110,27 +7110,31 @@ def api_daily_wheel_push_self():
 
 @app.get("/api/daily-wheel-status")
 def api_daily_wheel_status():
+    """
+    Devuelve el estado de la ruleta para el usuario logueado y su pareja.
+    1) Intenta leer de app_state (wheel_spin::<user>::YYYY-MM-DD).
+    2) Si no hay nada, mira en points_history si hoy se ha registrado una 'wheel'
+       y reconstruye la info con ese delta.
+    """
     if "username" not in session:
         return jsonify(ok=False, error="unauthorized"), 401
 
     user = session["username"]
-
-    now_md = europe_madrid_now()
-    wheel_times = build_wheel_time_payload(now_md)
-    today = wheel_times["today"]
+    today = today_madrid().date()           # objeto date
+    today_iso = today.isoformat()          # 'YYYY-MM-DD'
 
     other_user = 'mochita' if user == 'mochito' else 'mochito'
-    me_key = f"wheel_spin::{user}::{today}"
-    other_key = f"wheel_spin::{other_user}::{today}"
+    me_key = f"wheel_spin::{user}::{today_iso}"
+    other_key = f"wheel_spin::{other_user}::{today_iso}"
 
-    def load_state(key: str, default_date: str):
+    def load_from_state(key: str, default_date: str):
         raw = state_get(key, "")
         if not raw:
             return {"has_spun": False}
         try:
             info = json.loads(raw)
         except Exception:
-            info = {}
+            return {"has_spun": False}
         return {
             "has_spun": True,
             "idx": int(info.get("idx", 0)),
@@ -7140,11 +7144,68 @@ def api_daily_wheel_status():
             "ts": info.get("ts"),
         }
 
-    me_info = load_state(me_key, today)
-    other_info = load_state(other_key, today)
+    def load_from_history(username: str, default_date: str):
+        """
+        Fallback: mira en points_history si hoy hay una entrada de la ruleta.
+        """
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute(
+                    """
+                    SELECT h.delta, h.created_at
+                      FROM points_history h
+                      JOIN users u ON u.id = h.user_id
+                     WHERE u.username = %s
+                       AND h.source   = 'wheel'
+                       AND h.created_at::date = %s::date
+                     ORDER BY h.created_at DESC
+                     LIMIT 1
+                    """,
+                    (username, default_date),
+                )
+                row = c.fetchone()
+        finally:
+            conn.close()
+
+        if not row:
+            return {"has_spun": False}
+
+        delta, created_at = row
+        try:
+            delta = int(delta or 0)
+        except Exception:
+            delta = 0
+        label = f"+{delta}" if delta >= 0 else str(delta)
+
+        # created_at puede ser datetime o texto, lo normal es datetime
+        if hasattr(created_at, "isoformat"):
+            ts = created_at.isoformat()
+        else:
+            ts = str(created_at)
+
+        return {
+            "has_spun": True,
+            "idx": 0,               # no necesitamos realmente el índice para mostrar los puntos
+            "delta": delta,
+            "label": label,
+            "date": default_date,
+            "ts": ts,
+        }
+
+    # 1) Yo
+    me_info = load_from_state(me_key, today_iso)
+    if not me_info.get("has_spun"):
+        me_info = load_from_history(user, today_iso)
+
+    # 2) Mi pareja
+    other_info = load_from_state(other_key, today_iso)
+    if not other_info.get("has_spun"):
+        other_info = load_from_history(other_user, today_iso)
     other_info["username"] = other_user
 
-    return jsonify(ok=True, me=me_info, other=other_info, **wheel_times)
+    return jsonify(ok=True, me=me_info, other=other_info)
+
 
 
 _old_init_db = init_db

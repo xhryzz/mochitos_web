@@ -419,13 +419,14 @@ INTIM_PIN = os.environ.get('INTIM_PIN', '6969')
 # Index 0..5, mismo orden que en el HTML de la ruleta:
 # +0, +5, +10, +20, +50, +100
 DAILY_WHEEL_SEGMENTS = [
-    {"label": "+0",   "delta": 0,   "weight": 28},  # 28% - más frecuente pero sin pasarse
-    {"label": "+5",   "delta": 5,   "weight": 23},  # 23% - muy común
-    {"label": "+10",  "delta": 10,  "weight": 20},  # 20% - común
-    {"label": "+20",  "delta": 20,  "weight": 14},  # 14% - un poco más complicado
+    {"label": "+0",   "delta": 0,   "weight": 29},  # 29% - más frecuente
+    {"label": "+5",   "delta": 5,   "weight": 24},  # 24% - muy común
+    {"label": "+10",  "delta": 10,  "weight": 21},  # 21% - común
+    {"label": "+20",  "delta": 20,  "weight": 15},  # 15% - un poco más complicado
     {"label": "+50",  "delta": 50,  "weight": 9},   # 9%  - difícil
-    {"label": "+100", "delta": 100, "weight": 6},   # 6%  - muy difícil
+    {"label": "+100", "delta": 100, "weight": 2},   # 2%  - MUY difícil
 ]
+
 
 
 def choose_daily_wheel_segment():
@@ -7273,3 +7274,4 @@ _old_init_db = init_db
 def init_db():
     _old_init_db()
     _ensure_gamification_schema()
+

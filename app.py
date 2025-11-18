@@ -7314,26 +7314,6 @@ def api_daily_wheel_spin():
     except Exception:
         pass
 
-    # 4) Notificación push SOLO para la otra persona (inmediata)
-    try:
-        msg_user = "Mochito" if user == "mochito" else "Mochita"
-        if delta > 0:
-            send_push_to(
-                other_user,
-                title="🎡 Ruleta diaria de " + msg_user,
-                body=f"{msg_user} ha girado la ruleta y ha ganado {delta} puntos",
-                url="/"
-            )
-        else:
-            send_push_to(
-                other_user,
-                title="🎡 Ruleta diaria de " + msg_user,
-                body=f"{msg_user} ha girado la ruleta, pero hoy no han caído puntos 😢",
-                url="/"
-            )
-    except Exception:
-        pass
-
     # 5) Devolver también lo que ha hecho la otra persona hoy + su último giro + tiempos
     me_last = _load_wheel_last(user)
     return jsonify(
@@ -7348,13 +7328,16 @@ def api_daily_wheel_spin():
 @app.post("/api/daily-wheel-push-self")
 def api_daily_wheel_push_self():
     """
-    Endpoint para lanzar la notificación al propio usuario DESPUÉS de la animación.
-    El frontend lo llama cuando termina el giro.
+    Endpoint para lanzar la notificación DESPUÉS de la animación.
+    Lo llama el frontend cuando termina el giro.
+    - Envía una push al propio usuario.
+    - Y otra push a la pareja, al mismo tiempo.
     """
     if "username" not in session:
         return jsonify(ok=False, error="unauthorized"), 401
 
     user = session["username"]
+    other_user = other_of(user)  # helper que ya tienes definido
     today = today_madrid().isoformat()
     state_key = f"wheel_spin::{user}::{today}"
 
@@ -7370,6 +7353,10 @@ def api_daily_wheel_push_self():
     delta = int(info.get("delta", 0))
 
     try:
+        # Texto bonito con el nombre visible
+        msg_user = "Mochito" if user == "mochito" else "Mochita"
+
+        # Push para el que ha girado
         if delta > 0:
             send_push_to(
                 user,
@@ -7384,11 +7371,29 @@ def api_daily_wheel_push_self():
                 body="Hoy la ruleta no ha dado puntos… ¡mañana más suerte!",
                 url="/"
             )
+
+        # Push para la pareja, con mensaje en tercera persona
+        if delta > 0:
+            send_push_to(
+                other_user,
+                title=f"🎡 Ruleta diaria de {msg_user}",
+                body=f"{msg_user} ha girado la ruleta y ha ganado {delta} puntos",
+                url="/"
+            )
+        else:
+            send_push_to(
+                other_user,
+                title=f"🎡 Ruleta diaria de {msg_user}",
+                body=f"{msg_user} ha girado la ruleta, pero hoy no han caído puntos 😢",
+                url="/"
+            )
+
     except Exception:
         # Si falla la push, no rompemos la web
         pass
 
     return jsonify(ok=True)
+
 
 
 @app.get("/api/daily-wheel-status")

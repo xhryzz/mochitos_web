@@ -3225,6 +3225,16 @@ def index():
             user_points = int((c.fetchone() or [0])[0] or 0)
 
 
+            # Viajes + fotos
+            c.execute("""
+                SELECT id, destination, description, travel_date, is_visited, created_by
+                FROM travels
+                ORDER BY is_visited, travel_date DESC
+            """)
+            travels = c.fetchall()
+
+            c.execute("SELECT travel_id, id, image_url, uploaded_by FROM travel_photos ORDER BY id DESC")
+            all_ph = c.fetchall()
 
             # Wishlist (blindaje regalos)
                         # Wishlist (blindaje regalos)
@@ -3355,10 +3365,10 @@ def index():
         user_answer, other_answer = dict_ans.get(user), dict_ans.get(other_user)
         show_answers = (user_answer is not None) and (other_answer is not None)
 
-        # # Fotos de viajes agrupadas
-        # travel_photos_dict = {}
-        # for tr_id, pid, url, up in all_ph:
-        #     travel_photos_dict.setdefault(tr_id, []).append({'id': pid, 'url': url, 'uploaded_by': up})
+        # Fotos de viajes agrupadas
+        travel_photos_dict = {}
+        for tr_id, pid, url, up in all_ph:
+            travel_photos_dict.setdefault(tr_id, []).append({'id': pid, 'url': url, 'uploaded_by': up})
 
         # Blindaje wishlist (regalos ocultos al no-creador)
         safe_items = []
@@ -3453,6 +3463,8 @@ def index():
                            other_answer=other_answer,
                            days_together=days_together(),
                            days_until_meeting=days_until_meeting(),
+                           travels=travels,
+                           travel_photos_dict=travel_photos_dict,
                            wishlist_items=wishlist_items,
                            username=user,
                            banner_file=banner_file,
@@ -7422,55 +7434,9 @@ def api_daily_wheel_status():
     )
 
 
-from app import get_profile_pictures  # si no está ya importado en ese archivo
-
-@app.route('/viajes')
-def viajes_page():
-    if 'username' not in session:
-        return redirect('/')
-    user = session['username']
-
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-                SELECT id, destination, description, travel_date, is_visited, created_by
-                FROM travels
-                ORDER BY is_visited, travel_date DESC
-            """)
-            travels = c.fetchall()
-
-            c.execute("""
-                SELECT travel_id, id, image_url, uploaded_by
-                FROM travel_photos
-                ORDER BY id DESC
-            """)
-            photos = c.fetchall()
-    finally:
-        conn.close()
-
-    travel_photos_dict = {}
-    for travel_id, photo_id, url, uploaded_by in photos:
-        travel_photos_dict.setdefault(travel_id, []).append({
-            "id": photo_id,
-            "url": url,
-            "uploaded_by": uploaded_by,
-        })
-
-    profile_pictures = get_profile_pictures()
-
-    return render_template(
-        'viajes.html',
-        travels=travels,
-        travel_photos_dict=travel_photos_dict,
-        profile_pictures=profile_pictures,
-    )
-
-
 
 _old_init_db = init_db
 def init_db():
     _old_init_db()
     _ensure_gamification_schema()
-
 

@@ -7545,6 +7545,84 @@ def api_intimidad():
     )
 
 
+@app.post("/edit_intim_event")
+def edit_intim_event():
+    if "username" not in session:
+        flash("Debes iniciar sesión.", "error")
+        return redirect("/")
+
+    user = session["username"]
+    if user not in ("mochito", "mochita"):
+        abort(403)  # solo vosotros podéis editar
+
+    if not session.get("intim_unlocked"):
+        flash("Debes desbloquear el módulo de intimidad para editar.", "error")
+        return redirect("/")
+
+    event_id = (request.form.get("event_id") or "").strip()
+    place    = (request.form.get("intim_place_edit") or "").strip()
+    notes    = (request.form.get("intim_notes_edit") or "").strip()
+
+    if not event_id.isdigit():
+        flash("Evento no válido.", "error")
+        return redirect("/")
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute(
+                """
+                UPDATE intimacy_events
+                   SET place = %s,
+                       notes = %s
+                 WHERE id = %s
+                """,
+                (place or None, notes or None, int(event_id)),
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+    # invalidar caché de intimidad
+    cache_invalidate("get_intim_stats", "get_intim_events")
+
+    flash("Momento actualizado ✅", "success")
+    return redirect("/")
+
+
+@app.post("/delete_intim_event")
+def delete_intim_event():
+    if "username" not in session:
+        flash("Debes iniciar sesión.", "error")
+        return redirect("/")
+
+    user = session["username"]
+    if user not in ("mochito", "mochita"):
+        abort(403)
+
+    if not session.get("intim_unlocked"):
+        flash("Debes desbloquear el módulo de intimidad para borrar.", "error")
+        return redirect("/")
+
+    event_id = (request.form.get("event_id") or "").strip()
+    if not event_id.isdigit():
+        flash("Evento no válido.", "error")
+        return redirect("/")
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("DELETE FROM intimacy_events WHERE id = %s", (int(event_id),))
+            conn.commit()
+    finally:
+        conn.close()
+
+    cache_invalidate("get_intim_stats", "get_intim_events")
+
+    flash("Momento borrado 🗑️", "info")
+    return redirect("/")
+
+
 _old_init_db = init_db
 def init_db():
     _old_init_db()

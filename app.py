@@ -3422,9 +3422,12 @@ def index():
         conn.close()
 
     current_streak, best_streak = compute_streaks()
+
+    # Intimidad: ahora se carga por fetch en /api/intimidad
     intim_unlocked = bool(session.get('intim_unlocked'))
-    intim_stats = get_intim_stats()
-    intim_events = get_intim_events(200) if intim_unlocked else []
+    intim_stats = None
+    intim_events = []
+
 
 
      # --- Ciclo para interfaz ---
@@ -7493,6 +7496,52 @@ def api_travels():
         ok=True,
         travels=travels,
         photos=photos_by_travel,
+    )
+
+
+@app.get("/api/intimidad")
+def api_intimidad():
+    if "username" not in session:
+        return jsonify(ok=False, error="No autenticado"), 401
+
+    unlocked = bool(session.get("intim_unlocked"))
+    if not unlocked:
+        # El módulo sigue bloqueado, no devolvemos nada sensible
+        return jsonify(ok=True, unlocked=False)
+
+    stats = get_intim_stats() or {}
+    events = get_intim_events(200)  # ya existe esta función
+
+    last_dt = stats.get("last_dt")
+    if last_dt is not None:
+        last_dt_str = last_dt.strftime("%Y-%m-%d %H:%M")
+    else:
+        last_dt_str = None
+
+    stats_json = {
+        "today_count":    stats.get("today_count", 0),
+        "month_total":    stats.get("month_total", 0),
+        "year_total":     stats.get("year_total", 0),
+        "days_since_last": stats.get("days_since_last"),
+        "streak_days":    stats.get("streak_days", 0),
+        "last_dt":        last_dt_str,
+    }
+
+    events_json = []
+    for e in events:
+        events_json.append({
+            "id":       e["id"],
+            "username": e["username"],
+            "ts":       e["ts"],   # ya viene como texto
+            "place":    e["place"],
+            "notes":    e["notes"],
+        })
+
+    return jsonify(
+        ok=True,
+        unlocked=True,
+        stats=stats_json,
+        events=events_json,
     )
 
 

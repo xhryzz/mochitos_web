@@ -3257,10 +3257,12 @@ body.loaded #main-content {
 </div>
 
 
-      <!-- INTIMIDAD (discreto) -->
+            <!-- INTIMIDAD (discreto) -->
       <div class="section animate-in">
         <h3>Intimidad <small style="font-size:.9rem; opacity:.7;">(privado)</small></h3>
+
         {% if not intim_unlocked %}
+
           <p>Este módulo está oculto. Introduce el PIN para verlo.</p>
           <form method="POST" class="intim-pin-wrap">
             <input type="password" name="intim_pin" placeholder="PIN" required>
@@ -3268,133 +3270,46 @@ body.loaded #main-content {
               <i class="fas fa-lock-open"></i> Desbloquear
             </button>
           </form>
+
         {% else %}
+
           <!-- Acciones -->
           <form method="POST" class="intim-actions">
             <button type="submit" name="intim_register" title="Registrar momento (suma 1 a hoy)">
               <i class="fas fa-heart"></i> Registrar momento
             </button>
-            <input type="text" name="intim_place" placeholder="Lugar (opcional)" style="flex:1; min-width:200px;">
-            <textarea name="intim_notes" placeholder="Notas privadas (opcional)" rows="1" style="flex:2; min-width:220px;"></textarea>
-            <button type="submit" name="intim_lock" style="margin-left:auto; background:#fff; color:#e84393;">
-              <i class="fas fa-eye-slash"></i> Ocultar
+
+            <input type="text" name="intim_place" placeholder="Lugar (opcional)">
+            <textarea name="intim_notes" placeholder="Notas privadas (opcional)" rows="1"></textarea>
+
+            <button type="submit" name="intim_lock" style="margin-left:auto;">
+              <i class="fas fa-lock"></i> Bloquear módulo
             </button>
           </form>
 
-          <!-- KPIs rápidos -->
-          <div class="intim-kpis">
-            <div class="kpi">
-              <h4>Hoy</h4>
-              <p>{{ intim_stats.today_count }}</p>
-            </div>
-            <div class="kpi">
-              <h4>Este mes</h4>
-              <p>{{ intim_stats.month_total }}</p>
-            </div>
-            <div class="kpi">
-              <h4>Este año</h4>
-              <p>{{ intim_stats.year_total }}</p>
-            </div>
+          <!-- KPIs (hoy / mes / año) cargados por fetch -->
+          <div class="intim-kpis" id="intim-kpis">
+            <p class="intim-loading-msg" style="color:#888; margin:10px 0;">
+              Pulsa la pestaña de Intimidad para cargar las estadísticas…
+            </p>
           </div>
 
-
-                    <!-- Lista de eventos -->
+          <!-- Historial de momentos: se rellena por JS -->
           <div class="intim-events" style="margin-top: 20px;">
             <h4 style="color: var(--primary-color); margin-bottom: 15px;">Historial de momentos</h4>
-            {% if intim_events %}
-              <div class="events-list" style="display: flex; flex-direction: column; gap: 12px;">
-                {% for event in intim_events %}
-                  <div class="intim-event-card" style="background: #fff; border-radius: 12px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,.08); border-left: 4px solid var(--accent-color);">
-                    <div style="display: flex; justify-content: between; align-items: flex-start; gap: 12px;">
-                      <div style="flex: 1;">
-                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                          <div class="user-avatar" style="width: 32px; height: 32px;">
-                            {% if profile_pictures.get(event.username) %}
-                              <img src="{{ profile_pictures.get(event.username) }}" alt="{{ event.username }}">
-                            {% else %}
-                              {{ event.username[0]|upper }}
-                            {% endif %}
-                          </div>
-                          <strong style="color: var(--primary-color);">{{ event.username }}</strong>
-                          <small style="color: #888; margin-left: auto;">
-                            {{ event.ts[:16] }}
-                          </small>
-                        </div>
-                        
-                        {% if event.place %}
-                        <div style="margin-bottom: 6px;">
-                          <strong>Lugar:</strong> {{ event.place }}
-                        </div>
-                        {% endif %}
-                        
-                        {% if event.notes %}
-                        <div style="background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 8px;">
-                          <strong>Notas:</strong> 
-                          <span style="white-space: pre-wrap;">{{ event.notes }}</span>
-                        </div>
-                        {% endif %}
-                      </div>
-                      
-                      {% if intim_unlocked and username in ['mochito','mochita'] %}
-  <div class="event-actions" style="display: flex; gap: 6px;">
-    <button
-      type="button"
-      class="icon-btn edit-intim-btn"
-      title="Editar evento"
-      onclick='openEditIntimModal(
-        {{ event.id }},
-        {{ (event.place or "")|tojson }},
-        {{ (event.notes or "")|tojson }}
-      )'>
-      <i class="fas fa-edit"></i>
-    </button>
-    <form method="POST" action="/delete_intim_event"
-          onsubmit="return confirm('¿Estás seguro de que quieres eliminar este evento?');"
-          style="display: inline;">
-      <input type="hidden" name="event_id" value="{{ event.id }}">
-      <button type="submit" class="icon-btn" title="Eliminar evento">
-        <i class="fas fa-trash"></i>
-      </button>
-    </form>
-  </div>
-{% endif %}
-
-                    </div>
-                  </div>
-                {% endfor %}
-              </div>
-            {% else %}
-              <p style="text-align: center; color: #888; padding: 20px;">
-                Aún no hay eventos registrados.
-              </p>
-            {% endif %}
-          </div>
-
-          <!-- Detalle: última vez + rachas -->
-          <div class="intim-stats">
-            <div class="intim-card">
-              <b>Última vez</b><br>
-              {% if intim_stats.last_dt %}
-                {{ intim_stats.last_dt.strftime("%Y-%m-%d %H:%M") }} ({{ intim_stats.days_since_last }} día{% if intim_stats.days_since_last != 1 %}s{% endif %})
-              {% else %}
-                Aún no hay registros.
-              {% endif %}
-            </div>
-            <div class="intim-card">
-              <b>Racha actual (días seguidos con intimidad)</b><br>
-              {{ intim_stats.streak_days }} día{% if intim_stats.streak_days != 1 %}s{% endif %}
-            </div>
-            <div class="intim-card">
-              <b>Días sin 👉👌</b><br>
-              {% if intim_stats.days_since_last is not none %}
-                {{ intim_stats.days_since_last }} día{% if intim_stats.days_since_last != 1 %}s{% endif %}
-              {% else %}
-                —
-              {% endif %}
+            <div id="intim-events-list">
+              <!-- Aquí meteremos las tarjetas vía fetch /api/intimidad -->
             </div>
           </div>
+
+          <!-- Detalle: última vez + rachas (también por fetch) -->
+          <div class="intim-stats" id="intim-stats">
+            <!-- Relleno por JS -->
+          </div>
+
         {% endif %}
       </div>
+
 
       <  <!-- Distancia / Estado de ciudades -->
       <div class="section animate-in delay-2">
@@ -5299,6 +5214,261 @@ function clearTravelSearch(which) {
 
 
 
+// ==== Intimidad: lazy load desde /api/intimidad ====
+(function(){
+  let loaded = false;
+  let loading = false;
+
+  function pluralDias(n) {
+    return (n === 1) ? "día" : "días";
+  }
+
+  async function loadIntim(){
+    if (loaded || loading) return;
+    loading = true;
+
+    const kpisEl   = document.getElementById('intim-kpis');
+    const statsEl  = document.getElementById('intim-stats');
+    const eventsEl = document.getElementById('intim-events-list');
+
+    if (!kpisEl || !statsEl || !eventsEl) {
+      loading = false;
+      return;
+    }
+
+    kpisEl.innerHTML  = '<p class="intim-loading-msg" style="color:#888; margin:10px 0;">Cargando estadísticas…</p>';
+    statsEl.innerHTML = '';
+    eventsEl.innerHTML = '';
+
+    try{
+      const resp = await fetch('/api/intimidad', {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!resp.ok){
+        throw new Error('HTTP ' + resp.status);
+      }
+      const data = await resp.json();
+      if (!data.ok){
+        throw new Error(data.error || 'Respuesta no OK');
+      }
+
+      if (!data.unlocked){
+        kpisEl.innerHTML = '<p style="color:#888;">El módulo está bloqueado. Recarga la página si acabas de introducir el PIN.</p>';
+        return;
+      }
+
+      const s  = data.stats  || {};
+      const ev = data.events || [];
+
+      // --- KPIs: Hoy / Mes / Año ---
+      kpisEl.innerHTML = '';
+      const kpiNames = [
+        { key: 'today_count', label: 'Hoy' },
+        { key: 'month_total', label: 'Este mes' },
+        { key: 'year_total',  label: 'Este año' }
+      ];
+      kpiNames.forEach(k => {
+        const div = document.createElement('div');
+        div.className = 'kpi';
+        const h4 = document.createElement('h4');
+        h4.textContent = k.label;
+        const p = document.createElement('p');
+        p.textContent = s[k.key] ?? 0;
+        div.appendChild(h4);
+        div.appendChild(p);
+        kpisEl.appendChild(div);
+      });
+
+      // --- Stats: última vez / racha / días sin ---
+      statsEl.innerHTML = '';
+
+      // Última vez
+      const cardLast = document.createElement('div');
+      cardLast.className = 'intim-card';
+      cardLast.innerHTML = '<b>Última vez</b><br>';
+      if (s.last_dt){
+        const span = document.createElement('span');
+        const days = s.days_since_last;
+        const info = (typeof days === 'number')
+          ? `Hace ${days} ${pluralDias(days)}`
+          : '';
+        span.textContent = s.last_dt + (info ? ` (${info})` : '');
+        cardLast.appendChild(span);
+      } else {
+        cardLast.appendChild(document.createTextNode('Aún no hay registros.'));
+      }
+      statsEl.appendChild(cardLast);
+
+      // Racha actual
+      const cardStreak = document.createElement('div');
+      cardStreak.className = 'intim-card';
+      cardStreak.innerHTML = '<b>Racha actual (días seguidos con intimidad)</b><br>';
+      const streak = s.streak_days ?? 0;
+      cardStreak.appendChild(
+        document.createTextNode(`${streak} ${pluralDias(streak)}`)
+      );
+      statsEl.appendChild(cardStreak);
+
+      // Días sin 👉👌
+      const cardNo = document.createElement('div');
+      cardNo.className = 'intim-card';
+      cardNo.innerHTML = '<b>Días sin 👉👌</b><br>';
+      if (typeof s.days_since_last === 'number'){
+        const d = s.days_since_last;
+        cardNo.appendChild(
+          document.createTextNode(`${d} ${pluralDias(d)}`)
+        );
+      } else {
+        cardNo.appendChild(document.createTextNode('—'));
+      }
+      statsEl.appendChild(cardNo);
+
+      // --- Eventos ---
+      if (!ev.length){
+        eventsEl.innerHTML = '<p style="text-align:center; color:#888; padding:20px;">Aún no hay eventos registrados.</p>';
+      } else {
+        ev.forEach(e => {
+          eventsEl.appendChild(createIntimEventCard(e));
+        });
+      }
+
+      loaded = true;
+    } catch(err){
+      console.error('[intimidad] error', err);
+      kpisEl.innerHTML = '<p style="color:#c00;">No se pudieron cargar las estadísticas de intimidad.</p>';
+      eventsEl.innerHTML = '<p style="text-align:center; color:#888; padding:20px;">Inténtalo de nuevo más tarde.</p>';
+    } finally {
+      loading = false;
+    }
+  }
+
+  function createIntimEventCard(ev){
+    const card = document.createElement('div');
+    card.className = 'intim-event-card';
+    card.style.background = '#fff';
+    card.style.borderRadius = '14px';
+    card.style.padding = '14px';
+    card.style.boxShadow = '0 4px 10px rgba(0,0,0,.08)';
+    card.style.borderLeft = '4px solid var(--accent-color)';
+
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.justifyContent = 'space-between';
+    row.style.alignItems = 'flex-start';
+    row.style.gap = '12px';
+
+    const left = document.createElement('div');
+    left.style.flex = '1';
+
+    // Cabecera usuario + fecha
+    const head = document.createElement('div');
+    head.style.display = 'flex';
+    head.style.alignItems = 'center';
+    head.style.gap = '8px';
+    head.style.marginBottom = '8px';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'user-avatar';
+    avatar.style.width = '32px';
+    avatar.style.height = '32px';
+    avatar.style.display = 'flex';
+    avatar.style.alignItems = 'center';
+    avatar.style.justifyContent = 'center';
+    avatar.textContent = (ev.username || '?').charAt(0).toUpperCase();
+
+    const nameEl = document.createElement('strong');
+    nameEl.style.color = 'var(--primary-color)';
+    nameEl.textContent = ev.username || '—';
+
+    const tsEl = document.createElement('small');
+    tsEl.style.color = '#888';
+    tsEl.style.marginLeft = 'auto';
+    tsEl.textContent = (ev.ts || '').slice(0,16);
+
+    head.appendChild(avatar);
+    head.appendChild(nameEl);
+    head.appendChild(tsEl);
+
+    left.appendChild(head);
+
+    // Lugar
+    if (ev.place){
+      const placeEl = document.createElement('div');
+      placeEl.style.marginBottom = '6px';
+      const b = document.createElement('strong');
+      b.textContent = 'Lugar:';
+      placeEl.appendChild(b);
+      placeEl.appendChild(document.createTextNode(' ' + ev.place));
+      left.appendChild(placeEl);
+    }
+
+    // Notas
+    if (ev.notes){
+      const notesWrap = document.createElement('div');
+      notesWrap.style.background = '#f8f9fa';
+      notesWrap.style.padding = '10px';
+      notesWrap.style.borderRadius = '8px';
+      notesWrap.style.marginTop = '8px';
+
+      const b = document.createElement('strong');
+      b.textContent = 'Notas:';
+      const span = document.createElement('span');
+      span.style.whiteSpace = 'pre-wrap';
+      span.style.marginLeft = '4px';
+      span.textContent = ev.notes;
+
+      notesWrap.appendChild(b);
+      notesWrap.appendChild(span);
+      left.appendChild(notesWrap);
+    }
+
+    row.appendChild(left);
+
+    // Acciones (editar / borrar)
+    const actions = document.createElement('div');
+    actions.className = 'event-actions';
+    actions.style.display = 'flex';
+    actions.style.flexDirection = 'column';
+    actions.style.gap = '6px';
+
+    const btnEdit = document.createElement('button');
+    btnEdit.type = 'button';
+    btnEdit.className = 'icon-btn';
+    btnEdit.title = 'Editar evento';
+    btnEdit.innerHTML = '<i class="fas fa-edit"></i>';
+    btnEdit.addEventListener('click', () => {
+      if (window.openEditIntimModal){
+        window.openEditIntimModal(ev.id, ev.place || '', ev.notes || '');
+      }
+    });
+    actions.appendChild(btnEdit);
+
+    const formDelete = document.createElement('form');
+    formDelete.method = 'POST';
+    formDelete.action = '/delete_intim_event';
+    formDelete.onsubmit = function(){
+      return confirm('¿Estás seguro de que quieres eliminar este evento?');
+    };
+    formDelete.innerHTML = `
+      <input type="hidden" name="event_id" value="${ev.id}">
+      <button type="submit" class="icon-btn" title="Eliminar evento">
+        <i class="fas fa-trash"></i>
+      </button>
+    `;
+    actions.appendChild(formDelete);
+
+    row.appendChild(actions);
+    card.appendChild(row);
+
+    return card;
+  }
+
+  // Exponer para el router
+  window.ensureIntimLoaded = loadIntim;
+})();
+
+
+
 // =====================
 // DOMContentLoaded
 // =====================
@@ -6135,6 +6305,7 @@ function humanizeAgo(seconds){
     });
 
     // Ajustes al entrar en Home: recalcular mapa
+        // Ajustes al entrar en Home: recalcular mapa
     if (name === 'home'){
       setTimeout(() => {
         try {
@@ -6146,16 +6317,21 @@ function humanizeAgo(seconds){
       }, 200);
     }
 
-    // ⚡ Lazy-load: al entrar en Viajes, carga desde /api/travels si aún no se ha hecho
+    // ⚡ Lazy-load Viajes
     if (name === 'travels' && typeof window.ensureTravelsLoaded === 'function') {
       window.ensureTravelsLoaded();
     }
 
+    // ⚡ Lazy-load Intimidad
+    if (name === 'intim' && typeof window.ensureIntimLoaded === 'function') {
+      window.ensureIntimLoaded();
+    }
+
     // Guarda preferencia
     try { localStorage.setItem('cc_screen', name); } catch(_){}
-    // Scroll al top (sin animación para evitar “salto”)
     window.scrollTo(0,0);
   }
+
 
   // 6) Listener del navbar (incluye perfil como modal)
   function hookNavbar(){

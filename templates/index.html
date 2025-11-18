@@ -5367,14 +5367,27 @@ function clearTravelSearch(which) {
     head.style.gap = '8px';
     head.style.marginBottom = '8px';
 
-    const avatar = document.createElement('div');
+        const avatar = document.createElement('div');
     avatar.className = 'user-avatar';
     avatar.style.width = '32px';
     avatar.style.height = '32px';
     avatar.style.display = 'flex';
     avatar.style.alignItems = 'center';
     avatar.style.justifyContent = 'center';
-    avatar.textContent = (ev.username || '?').charAt(0).toUpperCase();
+    avatar.style.overflow = 'hidden';
+
+    if (ev.avatar_url) {
+      const img = document.createElement('img');
+      img.src = ev.avatar_url;
+      img.alt = ev.username || '';
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'cover';
+      avatar.appendChild(img);
+    } else {
+      avatar.textContent = (ev.username || '?').charAt(0).toUpperCase();
+    }
+
 
     const nameEl = document.createElement('strong');
     nameEl.style.color = 'var(--primary-color)';

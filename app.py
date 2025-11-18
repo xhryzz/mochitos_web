@@ -7506,11 +7506,11 @@ def api_intimidad():
 
     unlocked = bool(session.get("intim_unlocked"))
     if not unlocked:
-        # El módulo sigue bloqueado, no devolvemos nada sensible
         return jsonify(ok=True, unlocked=False)
 
-    stats = get_intim_stats() or {}
-    events = get_intim_events(200)  # ya existe esta función
+    stats  = get_intim_stats() or {}
+    events = get_intim_events(200)  # ya existe
+    pics   = get_profile_pictures()  # ⬅️ AÑADIMOS ESTO
 
     last_dt = stats.get("last_dt")
     if last_dt is not None:
@@ -7519,22 +7519,24 @@ def api_intimidad():
         last_dt_str = None
 
     stats_json = {
-        "today_count":    stats.get("today_count", 0),
-        "month_total":    stats.get("month_total", 0),
-        "year_total":     stats.get("year_total", 0),
+        "today_count":     stats.get("today_count", 0),
+        "month_total":     stats.get("month_total", 0),
+        "year_total":      stats.get("year_total", 0),
         "days_since_last": stats.get("days_since_last"),
-        "streak_days":    stats.get("streak_days", 0),
-        "last_dt":        last_dt_str,
+        "streak_days":     stats.get("streak_days", 0),
+        "last_dt":         last_dt_str,
     }
 
     events_json = []
     for e in events:
+        username = e["username"]
         events_json.append({
-            "id":       e["id"],
-            "username": e["username"],
-            "ts":       e["ts"],   # ya viene como texto
-            "place":    e["place"],
-            "notes":    e["notes"],
+            "id":         e["id"],
+            "username":   username,
+            "avatar_url": pics.get(username),  # ⬅️ AÑADIMOS ESTO
+            "ts":         e["ts"],
+            "place":      e["place"],
+            "notes":      e["notes"],
         })
 
     return jsonify(

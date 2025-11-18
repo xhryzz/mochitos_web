@@ -7422,16 +7422,17 @@ def api_daily_wheel_status():
     )
 
 
+from app import get_profile_pictures  # si no está ya importado en ese archivo
+
 @app.route('/viajes')
 def viajes_page():
     if 'username' not in session:
         return redirect('/')
-
     user = session['username']
+
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # Viajes + fotos (solo aquí)
             c.execute("""
                 SELECT id, destination, description, travel_date, is_visited, created_by
                 FROM travels
@@ -7444,30 +7445,32 @@ def viajes_page():
                 FROM travel_photos
                 ORDER BY id DESC
             """)
-            all_ph = c.fetchall()
-
-        # Agrupar fotos por viaje
-        travel_photos_dict = {}
-        for tr_id, pid, url, up in all_ph:
-            travel_photos_dict.setdefault(tr_id, []).append({
-                'id': pid,
-                'url': url,
-                'uploaded_by': up,
-            })
-
+            photos = c.fetchall()
     finally:
         conn.close()
 
+    travel_photos_dict = {}
+    for travel_id, photo_id, url, uploaded_by in photos:
+        travel_photos_dict.setdefault(travel_id, []).append({
+            "id": photo_id,
+            "url": url,
+            "uploaded_by": uploaded_by,
+        })
+
+    profile_pictures = get_profile_pictures()
+
     return render_template(
         'viajes.html',
-        username=user,
         travels=travels,
         travel_photos_dict=travel_photos_dict,
+        profile_pictures=profile_pictures,
     )
+
 
 
 _old_init_db = init_db
 def init_db():
     _old_init_db()
     _ensure_gamification_schema()
+
 

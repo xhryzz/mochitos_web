@@ -4386,7 +4386,7 @@ window.openBasicEditMedia = function(btn){
 </script>
 
 
-      <!-- Viajes -->
+            <!-- Viajes -->
       <div class="section animate-in delay-4">
         <h3>Nuestros Viajes</h3>
         <p>Lugares que hemos visitado y destinos que soñamos conocer juntos.</p>
@@ -4400,82 +4400,13 @@ window.openBasicEditMedia = function(btn){
         <!-- Visitados -->
         <div class="travel-content active" id="visited-tab">
           <div class="travel-tools">
-            <input type="search" id="visited-search" placeholder="Buscar destino/país en visitados...">
+            <input type="search" id="visited-search" placeholder="Buscar destino/país en visitados.">
             <button type="button" class="clear-btn" onclick="clearTravelSearch('visited')">Limpiar</button>
           </div>
 
-          <div class="travels-grid">
-            {% for id, destination, description, travel_date, is_visited, created_by in travels if is_visited %}
-              <div class="travel-card visited">
-                <div class="travel-cover">
-                  {% if travel_photos_dict[id] %}
-                    <div class="travel-photos">
-                      {% for photo in travel_photos_dict[id] %}
-                        <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
-                      {% endfor %}
-                    </div>
-                  {% else %}
-                    <div class="empty-album">
-                      <i class="fas fa-map-marker-alt"></i>
-                    </div>
-                  {% endif %}
-                  <div class="travel-status status-visited">Visitado</div>
-                </div>
-
-                <div class="travel-info">
-                  <h3 class="travel-destination">{{ destination }}</h3>
-                  {% if travel_date %}<p class="travel-date">{{ travel_date }}</p>{% endif %}
-                  {% if description %}<p class="travel-description">{{ description }}</p>{% endif %}
-
-                  <div class="travel-meta">
-                    <span>{{ travel_photos_dict[id]|length }} fotos</span>
-                    <span>
-                      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                        {% if profile_pictures.get(created_by) %}<img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">{% else %}{{ created_by[0]|upper }}{% endif %}
-                      </div>
-                      Creado por {{ created_by }}
-                    </span>
-                  </div>
-
-                  <div class="travel-actions">
-                    <form method="POST" action="/toggle_travel_status">
-                      <input type="hidden" name="travel_id" value="{{ id }}">
-                      <button type="submit" class="icon-btn" title="Mover a deseados">
-                        <i class="fas fa-heart"></i>
-                      </button>
-                    </form>
-
-                    <button type="button" class="icon-btn plus" title="Añadir foto" onclick="togglePhotoMenu('visited-{{ id }}')">
-                      <i class="fas fa-plus"></i>
-                    </button>
-
-                    <div class="photo-popover" id="photo-popover-visited-{{ id }}">
-                      <div class="photo-popover-header">
-                        <div class="photo-popover-title">Añadir foto por enlace</div>
-                        <button type="button" class="close-btn" onclick="togglePhotoMenu('visited-{{ id }}')">
-                          <i class="fas fa-times"></i>
-                        </button>
-                      </div>
-                      <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('visited-{{ id }}')">
-                        <input type="hidden" name="travel_id" value="{{ id }}">
-                        <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
-                        <button type="submit" class="button"><i class="fas fa-check"></i> Guardar</button>
-                      </form>
-                      <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
-                    </div>
-
-                    <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
-                      <input type="hidden" name="travel_id" value="{{ id }}">
-                      <button type="submit" class="icon-btn" title="Eliminar viaje">
-                        <i class="fas fa-trash"></i>
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              </div>
-            {% else %}
-              <p>No hay lugares visitados todavía. ¡Añade el primero!</p>
-            {% endfor %}
+          <div class="travels-grid" id="visited-grid">
+            <!-- Se rellenará por JS con fetch /api/travels -->
+            <p class="travel-loading-msg">Pulsa la pestaña de Viajes para cargar los destinos…</p>
           </div>
           <div class="pager" id="visited-pager"></div>
         </div>
@@ -4483,86 +4414,18 @@ window.openBasicEditMedia = function(btn){
         <!-- Quiero ir -->
         <div class="travel-content" id="wishlist-travel-tab">
           <div class="travel-tools">
-            <input type="search" id="wishlist-search" placeholder="Buscar destino/país en quiero ir...">
+            <input type="search" id="wishlist-search" placeholder="Buscar destino/país en quiero ir.">
             <button type="button" class="clear-btn" onclick="clearTravelSearch('wishlist')">Limpiar</button>
           </div>
 
-          <div class="travels-grid">
-            {% for id, destination, description, travel_date, is_visited, created_by in travels if not is_visited %}
-              <div class="travel-card wishlist">
-                <div class="travel-cover">
-                  {% if travel_photos_dict[id] %}
-                    <div class="travel-photos">
-                      {% for photo in travel_photos_dict[id] %}
-                        <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
-                      {% endfor %}
-                    </div>
-                  {% else %}
-                    <div class="empty-album">
-                      <i class="fas fa-map-marker-alt"></i>
-                    </div>
-                  {% endif %}
-                  <div class="travel-status status-wishlist">Deseado</div>
-                </div>
-
-                <div class="travel-info">
-                  <h3 class="travel-destination">{{ destination }}</h3>
-                  {% if description %}<p class="travel-description">{{ description }}</p>{% endif %}
-
-                  <div class="travel-meta">
-                    <span>{{ travel_photos_dict[id]|length }} fotos</span>
-                    <span>
-                      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                        {% if profile_pictures.get(created_by) %}<img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">{% else %}{{ created_by[0]|upper }}{% endif %}
-                      </div>
-                      Creado por {{ created_by }}
-                    </span>
-                  </div>
-
-                  <div class="travel-actions">
-                    <form method="POST" action="/toggle_travel_status">
-                      <input type="hidden" name="travel_id" value="{{ id }}">
-                      <button type="submit" class="icon-btn" title="Marcar como visitado">
-                        <i class="fas fa-check"></i>
-                      </button>
-                    </form>
-
-                    <button type="button" class="icon-btn plus" title="Añadir foto" onclick="togglePhotoMenu('wish-{{ id }}')">
-                      <i class="fas fa-plus"></i>
-                    </button>
-
-                    <div class="photo-popover" id="photo-popover-wish-{{ id }}">
-                      <div class="photo-popover-header">
-                        <div class="photo-popover-title">Añadir foto por enlace</div>
-                        <button type="button" class="close-btn" onclick="togglePhotoMenu('wish-{{ id }}')">
-                          <i class="fas fa-times"></i>
-                        </button>
-                      </div>
-                      <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('wish-{{ id }}')">
-                        <input type="hidden" name="travel_id" value="{{ id }}">
-                        <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
-                        <button type="submit" class="button"><i class="fas fa-check"></i> Guardar</button>
-                      </form>
-                      <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
-                    </div>
-
-                    <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
-                      <input type="hidden" name="travel_id" value="{{ id }}">
-                      <button type="submit" class="icon-btn" title="Eliminar viaje">
-                        <i class="fas fa-trash"></i>
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              </div>
-            {% else %}
-              <p>No hay destinos en tu lista de deseos. ¡Añade el primero!</p>
-            {% endfor %}
+          <div class="travels-grid" id="wishlist-grid">
+            <!-- Se rellenará por JS con fetch /api/travels -->
           </div>
           <div class="pager" id="wishlist-pager"></div>
         </div>
 
-        <!-- Añadir viaje -->
+        <!-- Añadir Viaje -->
+        <!-- deja aquí EXACTO tu bloque actual de "add-travel-tab" tal cual lo tienes -->
         <div class="travel-content" id="add-travel-tab">
           <div class="travel-form">
             <h4>Añadir nuevo viaje</h4>
@@ -5244,6 +5107,196 @@ function clearTravelSearch(which) {
     if (i) { i.value = ''; setupTravelSearch('wishlist-travel-tab', 'wishlist-search', wishlistPagerAPI); }
   }
 }
+
+
+// ==== Viajes: lazy load con fetch /api/travels ====
+(function(){
+  let loaded  = false;
+  let loading = false;
+
+  async function loadTravels(){
+    if (loaded || loading) return;
+    loading = true;
+
+    const visitedGrid  = document.getElementById('visited-grid');
+    const wishlistGrid = document.getElementById('wishlist-grid');
+    if (!visitedGrid || !wishlistGrid){
+      loading = false;
+      return;
+    }
+
+    visitedGrid.innerHTML = '<p class="travel-loading-msg">Cargando viajes…</p>';
+    wishlistGrid.innerHTML = '';
+
+    try{
+      const resp = await fetch('/api/travels', {
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!resp.ok){
+        throw new Error('HTTP ' + resp.status);
+      }
+
+      const data = await resp.json();
+      if (!data.ok){
+        throw new Error(data.error || 'Respuesta no OK');
+      }
+
+      const travels = data.travels || [];
+      const photosById = data.photos || {};
+
+      // Crea una tarjeta igual de “bonita” que las tuyas, pero en JS
+      function createCard(travel){
+        const id          = travel.id;
+        const destination = travel.destination || '';
+        const description = travel.description || '';
+        const travel_date = travel.travel_date || '';
+        const created_by  = travel.created_by || '';
+        const created_at  = (travel.created_at || '').slice(0,10);
+        const isVisited   = !!travel.is_visited;
+        const photos      = photosById[id] || [];
+
+        const card = document.createElement('div');
+        card.className = 'travel-card ' + (isVisited ? 'visited' : 'wishlist');
+        card.dataset.id = id;
+
+        // COVER
+        const cover = document.createElement('div');
+        cover.className = 'travel-cover';
+
+        if (photos.length){
+          const phWrap = document.createElement('div');
+          phWrap.className = 'travel-photos';
+          photos.forEach(p => {
+            const img = document.createElement('img');
+            img.src = p.image_url;
+            img.alt = destination;
+            img.style.maxWidth = '100%';
+            img.style.borderRadius = '10px';
+            img.style.margin = '5px 0';
+            phWrap.appendChild(img);
+          });
+          cover.appendChild(phWrap);
+        } else {
+          const empty = document.createElement('div');
+          empty.className = 'empty-album';
+          empty.innerHTML = '<i class="fas fa-map-marker-alt"></i>';
+          cover.appendChild(empty);
+        }
+
+        const status = document.createElement('div');
+        status.className = 'travel-status ' + (isVisited ? 'status-visited' : 'status-wishlist');
+        status.textContent = isVisited ? 'Visitado' : 'Deseado';
+        cover.appendChild(status);
+        card.appendChild(cover);
+
+        // INFO
+        const info = document.createElement('div');
+        info.className = 'travel-info';
+
+        const h3 = document.createElement('h3');
+        h3.className = 'travel-destination';
+        h3.textContent = destination;
+        info.appendChild(h3);
+
+        if (travel_date){
+          const p = document.createElement('p');
+          p.className = 'travel-date';
+          p.textContent = travel_date;
+          info.appendChild(p);
+        }
+
+        if (description){
+          const p = document.createElement('p');
+          p.className = 'travel-description';
+          p.textContent = description;
+          info.appendChild(p);
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'travel-meta';
+        const inicial = (created_by || '?').trim().charAt(0).toUpperCase() || '?';
+        meta.innerHTML = `
+          <span>
+            <div class="avatar-circle small">${inicial}</div>
+            Creado por ${created_by || '—'}
+          </span>
+          <span>${created_at}</span>
+        `;
+        info.appendChild(meta);
+
+        // ACCIONES (usar tus endpoints actuales)
+        const actions = document.createElement('div');
+        actions.className = 'travel-actions';
+
+        // Cambiar visitado / quiero ir
+        const formToggle = document.createElement('form');
+        formToggle.method = 'POST';
+        formToggle.action = '/toggle_travel_status';
+        formToggle.innerHTML = `
+          <input type="hidden" name="travel_id" value="${id}">
+          <button type="submit" class="icon-btn" title="Cambiar estado">
+            <i class="fas fa-exchange-alt"></i>
+          </button>
+        `;
+        actions.appendChild(formToggle);
+
+        // Eliminar viaje
+        const formDelete = document.createElement('form');
+        formDelete.method = 'POST';
+        formDelete.action = '/delete_travel';
+        formDelete.onsubmit = function(){
+          return confirm('¿Estás seguro de que quieres eliminar este viaje?');
+        };
+        formDelete.innerHTML = `
+          <input type="hidden" name="travel_id" value="${id}">
+          <button type="submit" class="icon-btn" title="Eliminar viaje">
+            <i class="fas fa-trash"></i>
+          </button>
+        `;
+        actions.appendChild(formDelete);
+
+        info.appendChild(actions);
+        card.appendChild(info);
+
+        return card;
+      }
+
+      // Rellenar grids
+      visitedGrid.innerHTML = '';
+      wishlistGrid.innerHTML = '';
+
+      travels.forEach(t => {
+        const card = createCard(t);
+        if (t.is_visited){
+          visitedGrid.appendChild(card);
+        } else {
+          wishlistGrid.appendChild(card);
+        }
+      });
+
+      // Re-crear paginación y buscador con tu código actual
+      if (typeof setupTravelPagination === 'function') {
+        setupTravelPagination();
+      }
+      if (typeof setupTravelSearch === 'function') {
+        setupTravelSearch('visited-tab', 'visited-search', window.visitedPagerAPI);
+        setupTravelSearch('wishlist-travel-tab', 'wishlist-search', window.wishlistPagerAPI);
+      }
+
+      loaded = true;
+    } catch(e){
+      console.error('[travels] error cargando viajes', e);
+      visitedGrid.innerHTML = '<p class="travel-loading-msg">No se pudieron cargar los viajes. Inténtalo de nuevo más tarde.</p>';
+    } finally {
+      loading = false;
+    }
+  }
+
+  // Exponer para el router
+  window.ensureTravelsLoaded = loadTravels;
+})();
+
 
 
 // =====================
@@ -6065,7 +6118,7 @@ function humanizeAgo(seconds){
   }
 
   // 5) Cambiar de pantalla
-  function setScreen(name){
+   function setScreen(name){
     const valid = ['home','question','wishlist','travels','schedules','intim'];
     if (!valid.includes(name)) name = 'home';
     document.body.dataset.screen = name;
@@ -6093,12 +6146,16 @@ function humanizeAgo(seconds){
       }, 200);
     }
 
+    // ⚡ Lazy-load: al entrar en Viajes, carga desde /api/travels si aún no se ha hecho
+    if (name === 'travels' && typeof window.ensureTravelsLoaded === 'function') {
+      window.ensureTravelsLoaded();
+    }
+
     // Guarda preferencia
     try { localStorage.setItem('cc_screen', name); } catch(_){}
     // Scroll al top (sin animación para evitar “salto”)
     window.scrollTo(0,0);
   }
-  window.__setScreen = setScreen; // por si lo quieres llamar desde otro sitio
 
   // 6) Listener del navbar (incluye perfil como modal)
   function hookNavbar(){

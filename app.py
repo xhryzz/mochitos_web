@@ -3225,16 +3225,10 @@ def index():
             user_points = int((c.fetchone() or [0])[0] or 0)
 
 
-            # Viajes + fotos
-            c.execute("""
-                SELECT id, destination, description, travel_date, is_visited, created_by
-                FROM travels
-                ORDER BY is_visited, travel_date DESC
-            """)
-            travels = c.fetchall()
+            # Viajes + fotos -> ahora se cargan vía /api/travels cuando entras en la pestaña
+            travels = []
+            travel_photos_dict = {}
 
-            c.execute("SELECT travel_id, id, image_url, uploaded_by FROM travel_photos ORDER BY id DESC")
-            all_ph = c.fetchall()
 
             # Wishlist (blindaje regalos)
                         # Wishlist (blindaje regalos)
@@ -3365,10 +3359,12 @@ def index():
         user_answer, other_answer = dict_ans.get(user), dict_ans.get(other_user)
         show_answers = (user_answer is not None) and (other_answer is not None)
 
-        # Fotos de viajes agrupadas
+    # Viajes: ahora se cargan por fetch en /api/travels, así que aquí no consultamos nada
+        travels = []
         travel_photos_dict = {}
-        for tr_id, pid, url, up in all_ph:
-            travel_photos_dict.setdefault(tr_id, []).append({'id': pid, 'url': url, 'uploaded_by': up})
+
+    # Blindaje wishlist (regalos ocultos al no-creador)
+
 
         # Blindaje wishlist (regalos ocultos al no-creador)
         safe_items = []
@@ -3451,44 +3447,52 @@ def index():
     moods_for_select = list(ALLOWED_MOODS)
     flows_for_select = list(ALLOWED_FLOWS)
 
-    return render_template('index.html',
-                           question=question_text,
-                           show_answers=show_answers,
-                           answers=answers,
-                           answers_edited=answers_edited,
-                           answers_created_at=answers_created_at,
-                           answers_updated_at=answers_updated_at,
-                           user_answer=user_answer,
-                           other_user=other_user,
-                           other_answer=other_answer,
-                           days_together=days_together(),
-                           days_until_meeting=days_until_meeting(),
-                           travels=travels,
-                           travel_photos_dict=travel_photos_dict,
-                           wishlist_items=wishlist_items,
-                           username=user,
-                           banner_file=banner_file,
-                           profile_pictures=profile_pictures,
-                           error=None,
-                           current_streak=current_streak,
-                           best_streak=best_streak,
-                           intim_unlocked=intim_unlocked,
-                           intim_stats=intim_stats,
-                           intim_events=intim_events,
-                           media_to_watch=media_to_watch,
-                           media_watched=media_watched,
-                           wishlist=wishlist_items,
-                           cycle_user=cycle_user,
-                           cycle_entries=cycle_entries,
-                           cycle_pred=cycle_pred,
-                           moods_for_select=moods_for_select,
-                           flows_for_select=flows_for_select,
-                           question_id=question_id,
-                           dq_reactions=dq_reactions_map,
-                           dq_chat_messages=dq_chat_messages,
-                           user_points=user_points,   # ⬅️ añade esto
-                           other_points=other_points,
-                           )
+    return render_template(
+    'index.html',
+    question=question_text,
+    show_answers=show_answers,
+    answers=answers,
+    answers_edited=answers_edited,
+    answers_created_at=answers_created_at,
+    answers_updated_at=answers_updated_at,
+    user_answer=user_answer,
+    other_user=other_user,
+    other_answer=other_answer,
+    days_together=days_together(),
+    days_until_meeting=days_until_meeting(),
+
+    # Viajes: ahora da igual lo que pase aquí porque el front los carga por fetch;
+    # puedes dejarlo o quitarlo si luego no lo usas en el HTML
+    travels=travels,
+    travel_photos_dict=travel_photos_dict,
+
+    wishlist_items=wishlist_items,
+    username=user,
+    banner_file=banner_file,
+    profile_pictures=profile_pictures,
+    error=None,
+    current_streak=current_streak,
+    best_streak=best_streak,
+    intim_unlocked=intim_unlocked,
+    intim_stats=intim_stats,
+    intim_events=intim_events,
+    media_to_watch=media_to_watch,
+    media_watched=media_watched,
+    wishlist=wishlist_items,
+    cycle_user=cycle_user,
+    cycle_entries=cycle_entries,
+    cycle_pred=cycle_pred,
+    moods_for_select=moods_for_select,
+    flows_for_select=flows_for_select,
+    question_id=question_id,
+    dq_reactions=dq_reactions_map,
+    dq_chat_messages=dq_chat_messages,
+
+    # ESTA es la línea nueva que había que añadir:
+    user_points=user_points,
+    other_points=other_points,
+)
+
 
 # ======= Rutas REST extra (con broadcast) =======
 @app.route('/delete_travel', methods=['POST'])
@@ -7433,6 +7437,63 @@ def api_daily_wheel_status():
         **wheel_times
     )
 
+
+
+
+@app.get("/api/travels")
+def api_travels():
+    # Solo usuarios logueados
+    if "username" not in session:
+        return jsonify(ok=False, error="No autenticado"), 401
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # Viajes
+            c.execute("""
+                SELECT
+                    id,
+                    destination,
+                    description,
+                    travel_date,
+                    is_visited,
+                    created_by,
+                    COALESCE(created_at, '') AS created_at
+                FROM travels
+                ORDER BY is_visited, travel_date DESC, id DESC
+            """)
+            travels = [dict(row) for row in c.fetchall()]
+
+            # Fotos
+            c.execute("""
+                SELECT
+                    id,
+                    travel_id,
+                    image_url,
+                    uploaded_by,
+                    COALESCE(uploaded_at, '') AS uploaded_at
+                FROM travel_photos
+                ORDER BY id DESC
+            """)
+            photos_rows = [dict(row) for row in c.fetchall()]
+    finally:
+        conn.close()
+
+    photos_by_travel = {}
+    for ph in photos_rows:
+        tid = ph["travel_id"]
+        photos_by_travel.setdefault(tid, []).append({
+            "id": ph["id"],
+            "image_url": ph["image_url"],
+            "uploaded_by": ph.get("uploaded_by"),
+            "uploaded_at": ph.get("uploaded_at"),
+        })
+
+    return jsonify(
+        ok=True,
+        travels=travels,
+        photos=photos_by_travel,
+    )
 
 
 _old_init_db = init_db

@@ -2360,6 +2360,90 @@ def _meta_price(soup):
     return None
 
 
+
+# ======== Actividad de usuarios (log sencillo) ========
+_activity_ready = False
+_activity_lock = threading.Lock()
+
+def ensure_activity_table():
+    """Crea la tabla de actividad si no existe."""
+    global _activity_ready
+    if _activity_ready:
+        return
+    with _activity_lock:
+        if _activity_ready:
+            return
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute("""
+                    CREATE TABLE IF NOT EXISTS user_activity (
+                        id         SERIAL PRIMARY KEY,
+                        username   text NOT NULL,
+                        ts         timestamptz NOT NULL,
+                        ip         text,
+                        path       text,
+                        method     text,
+                        action     text,
+                        details    text,
+                        user_agent text
+                    );
+                """)
+                c.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_user_activity_user_ts
+                    ON user_activity (username, ts DESC);
+                """)
+                conn.commit()
+        finally:
+            conn.close()
+
+def _client_ip_from_request() -> str:
+    """Devuelve IP (o primera IP) usando X-Forwarded-For si existe."""
+    h = (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+    if not h:
+        h = (request.remote_addr or "").strip()
+    return h
+
+def log_activity(action: str, details: str | None = None, username: str | None = None):
+    """
+    Guarda un registro ligero de lo que hace un usuario.
+    Pensado para auditar sobre todo a mochita en el panel de admin.
+    """
+    try:
+        ensure_activity_table()
+    except Exception as e:
+        print("[activity] ensure_activity_table failed:", e)
+        return
+
+    u = username or session.get("username")
+    if not u:
+        return
+
+    ip = (_client_ip_from_request() or "")[:100]
+    path = (request.path or "")[:200]
+    method = (request.method or "")[:10]
+    ua = (request.headers.get("User-Agent") or "")[:300]
+    now_txt = now_madrid_str()
+
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute(
+                    """
+                    INSERT INTO user_activity (username, ts, ip, path, method, action, details, user_agent)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                    """,
+                    (u, now_txt, ip, path, method, action, details, ua),
+                )
+                conn.commit()
+        finally:
+            conn.close()
+    except Exception as e:
+        # Nunca debe romper la petición
+        print("[activity] log_activity error:", e)
+
+
 # ======== Presencia (helpers) ========
 _presence_ready = False
 _presence_lock = threading.Lock()
@@ -2765,6 +2849,10 @@ def index():
                         ok = (stored == password); mode = "plaintext"
                     if ok:
                         session['username'] = username
+                        try:
+                            log_activity("login_ok", f"Login correcto como {username}", username=username)
+                        except Exception:
+                            pass
                         send_discord("Login OK", {"username": username, "mode": mode})
                         return redirect('/')
                     else:
@@ -2781,6 +2869,35 @@ def index():
         touch_presence(user, device='page-view')
     except Exception as e:
         app.logger.warning("touch_presence failed: %s", e)
+
+
+
+        # Pequeño log de acciones importantes en la home
+    if request.method == 'POST':
+        try:
+            if 'update_profile' in request.form:
+                log_activity("profile_update", "Sube nueva foto de perfil")
+            elif 'change_password' in request.form:
+                log_activity("change_password", "Intenta cambiar su contraseña")
+            elif 'answer' in request.form:
+                ans_preview = (request.form.get('answer') or '').strip()
+                if len(ans_preview) > 80:
+                    ans_preview = ans_preview[:77] + "..."
+                log_activity("daily_answer", f"Responde a la pregunta diaria: {ans_preview}")
+            elif 'intim_unlock_pin' in request.form:
+                log_activity("intim_unlock", "Entra PIN de intimidad")
+            elif 'intim_lock' in request.form:
+                log_activity("intim_lock", "Vuelve a bloquear el módulo intimidad")
+            elif 'intim_register' in request.form:
+                place = (request.form.get('intim_place') or '').strip()
+                log_activity("intim_register", f"Registra evento intimidad en: {place}")
+            elif 'wishlist_add' in request.form or request.form.get('product_name'):
+                pname = (request.form.get('product_name') or '').strip()
+                log_activity("wishlist_add", f"Añade / edita wishlist: {pname}")
+        except Exception as _e:
+            # Nunca debe romper la app
+            app.logger.warning("log_activity index POST failed: %s", _e)
+
 
     question_id, question_text = get_today_question()  # usa fecha de Madrid por defecto
     conn = get_db_connection()
@@ -4317,8 +4434,17 @@ def presence_debug_dump():
 @app.get("/admin")
 def admin_home():
     require_admin()
-    # Listar próximas programadas (pendientes)
+    # Asegura la tabla de actividad
+    try:
+        ensure_activity_table()
+    except Exception as e:
+        print("[admin] ensure_activity_table failed:", e)
+
+    # Listar próximas programadas (pendientes) + últimas enviadas + actividad de mochita
     conn = get_db_connection()
+    mochita_activity = []
+    mochita_activity_stats = {}
+    mochita_presence = None
     try:
         with conn.cursor() as c:
             c.execute("""
@@ -4337,13 +4463,52 @@ def admin_home():
                 LIMIT 10
             """)
             recent = c.fetchall()
+
+            # Actividad reciente de mochita (últimos 60 movimientos)
+            c.execute("""
+                SELECT ts, ip, path, method, action, details, user_agent
+                FROM user_activity
+                WHERE username = %s
+                ORDER BY ts DESC
+                LIMIT 60
+            """, ("mochita",))
+            mochita_activity = c.fetchall()
+
+            # Pequeño resumen por día (últimos 7 días)
+            c.execute("""
+                SELECT date(ts) AS day, COUNT(*) AS total
+                FROM user_activity
+                WHERE username = %s
+                GROUP BY day
+                ORDER BY day DESC
+                LIMIT 7
+            """, ("mochita",))
+            rows_stats = c.fetchall()
+            mochita_activity_stats = {str(r["day"]): int(r["total"]) for r in rows_stats}
+
+            # Último ping de presencia de mochita (desde qué dispositivo / navegador)
+            try:
+                c.execute("""
+                    SELECT last_seen, device, user_agent
+                    FROM user_presence
+                    WHERE username = %s
+                """, ("mochita",))
+                mochita_presence = c.fetchone()
+            except Exception as e:
+                print("[admin] user_presence fetch failed:", e)
     finally:
         conn.close()
-    return render_template("admin.html",
-                           username=session['username'],
-                           pending=pending,
-                           recent=recent,
-                           vapid_public_key=get_vapid_public_base64url())
+
+    return render_template(
+        "admin.html",
+        username=session['username'],
+        pending=pending,
+        recent=recent,
+        mochita_activity=mochita_activity,
+        mochita_activity_stats=mochita_activity_stats,
+        mochita_presence=mochita_presence,
+        vapid_public_key=get_vapid_public_base64url(),
+    )
 
 @app.post("/admin/reset_pw")
 def admin_reset_pw():

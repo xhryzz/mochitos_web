@@ -7948,7 +7948,6 @@ def mochireal_image(post_id):
         conn.close()
     return "Not found", 404
 
-
 @app.route('/debug/limpiar_mochireal_antiguo')
 def debug_clean_old_photos():
     if 'username' not in session: return redirect('/')

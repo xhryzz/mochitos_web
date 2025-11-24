@@ -7773,29 +7773,93 @@ def mochireal_upload():
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            c.execute("SELECT id FROM mochireal_windows ORDER BY id DESC LIMIT 1")
+            c.execute("SELECT id, triggered_at FROM mochireal_windows ORDER BY id DESC LIMIT 1")
             row = c.fetchone()
             if not row:
                 flash("No hay ningún MochiReal activo hoy.", "error")
                 return redirect('/')
             
             window_id = row[0]
+            triggered_at_str = row[1] # 'YYYY-MM-DD HH:MM:SS'
             
-            # Procesar imagen
+            # 1. Comprobar si ya había subido foto antes (evitar puntos dobles al re-subir)
+            c.execute("SELECT 1 FROM mochireal_posts WHERE window_id=%s AND username=%s", (window_id, user))
+            already_posted = c.fetchone()
+
+            # 2. Procesar imagen
             raw = file.read()
-            # Usamos tu helper existente para optimizar tamaño
             img_bytes, mime = _maybe_shrink_image(raw, max_px=1200, max_kb=600)
             
+            # 3. Guardar/Actualizar Post
             c.execute("""
                 INSERT INTO mochireal_posts (window_id, username, image_data, mime_type, uploaded_at)
                 VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT (window_id, username) DO UPDATE
                 SET image_data=EXCLUDED.image_data, uploaded_at=EXCLUDED.uploaded_at
             """, (window_id, user, img_bytes, mime or file.mimetype, now_madrid_str()))
+            
+            # 4. CÁLCULO DE PUNTOS (Solo si es la primera vez que sube)
+            points_earned = 0
+            time_label = ""
+
+            if not already_posted and triggered_at_str:
+                try:
+                    # Parsear fechas
+                    trigger_dt = datetime.strptime(triggered_at_str, "%Y-%m-%d %H:%M:%S")
+                    now_dt = europe_madrid_now()
+                    
+                    # Asegurar que ambas son "naive" (sin zona horaria) para restar sin error
+                    if trigger_dt.tzinfo: trigger_dt = trigger_dt.replace(tzinfo=None)
+                    if now_dt.tzinfo:     now_dt     = now_dt.replace(tzinfo=None)
+
+                    # Diferencia en minutos
+                    diff_seconds = (now_dt - trigger_dt).total_seconds()
+                    diff_minutes = diff_seconds / 60
+
+                    # Reglas de puntos
+                    if diff_minutes <= 10:
+                        points_earned = 20
+                        time_label = "⚡ ¡Velocidad máxima!"
+                    elif diff_minutes <= 30:
+                        points_earned = 15
+                        time_label = "🔥 ¡Muy bien!"
+                    elif diff_minutes <= 60:
+                        points_earned = 10
+                        time_label = "👍 A tiempo"
+                    else:
+                        points_earned = 0
+                        time_label = "🐢 Un poco tarde..."
+
+                    # Otorgar puntos si corresponde
+                    if points_earned > 0:
+                        # Buscar ID de usuario
+                        c.execute("SELECT id FROM users WHERE username=%s", (user,))
+                        uid_row = c.fetchone()
+                        if uid_row:
+                            uid = uid_row[0]
+                            # Actualizar tabla users
+                            c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE id=%s", (points_earned, uid))
+                            # Añadir al historial
+                            c.execute("""
+                                INSERT INTO points_history (user_id, delta, source, note, created_at)
+                                VALUES (%s, %s, 'mochireal', %s, %s)
+                            """, (uid, points_earned, f"MochiReal: {int(diff_minutes)} min", now_madrid_str()))
+
+                except Exception as e:
+                    print(f"[MochiReal Points Error]: {e}")
+
             conn.commit()
             
             push_mochireal_upload(user)
-            flash("¡MochiReal subido! 📸", "success")
+
+            # Mensaje de feedback personalizado
+            if points_earned > 0:
+                flash(f"📸 Subido: +{points_earned} pts. {time_label}", "success")
+            elif already_posted:
+                flash("📸 Foto actualizada (ya habías recibido tus puntos).", "info")
+            else:
+                flash(f"📸 Subido, pero ha pasado más de 1h (0 pts). {time_label}", "warning")
+
     finally:
         conn.close()
         

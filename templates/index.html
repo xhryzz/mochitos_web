@@ -6423,7 +6423,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           </div>
         </div>
 
-        <div id="page-mochireal" class="page" style="display: none;">
+        <div id="page-mochireal" class="page">
 
           <style>
             #mr-camera-overlay {
@@ -9594,9 +9594,9 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
 
         /* ============================================
-           ROUTER LIGERO: convierte tu página en “pantallas”
-           sin tocar backend ni IDs. Solo mueve nodos.
-           ============================================ */
+            ROUTER LIGERO: convierte tu página en “pantallas”
+            sin tocar backend ni IDs. Solo mueve nodos.
+            ============================================ */
 
         (function () {
           // Mapea pantallas -> título (para encontrar secciones por h3)
@@ -9608,7 +9608,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             intim: ['intimidad']
           };
 
-          // 1) Crea páginas vacías
+          // 1) Crea páginas vacías si no existen
           function ensurePagesContainer() {
             let pages = document.getElementById('pages');
             if (!pages) {
@@ -9633,12 +9633,14 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               travels: make('travels'),
               schedules: make('schedules'),
               intim: make('intim'),
+              // mochireal ya existe en el HTML, no lo creamos
             };
           }
 
           // 2) Helpers para localizar secciones por el título <h3>
           function findSectionByTitleIncludes(words) {
-            const sections = Array.from(document.querySelectorAll('.section'));
+            // Buscamos solo en secciones que NO sean ya páginas
+            const sections = Array.from(document.querySelectorAll('.container > .section'));
             const lower = (s) => (s || '').toLowerCase().trim();
             for (const s of sections) {
               const h = s.querySelector('h3');
@@ -9652,8 +9654,8 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           // 3) Construye Home: banner + “Nosotros” (días) + “Distancia”
           function buildHome(home) {
             const banner = document.querySelector('.section.banner');
-            const nosotros = findSectionByTitleIncludes(['nosotros']);   // días juntos / vernos
-            const distancia = findSectionByTitleIncludes(['distancia']); // mapa
+            const nosotros = findSectionByTitleIncludes(['nosotros']);
+            const distancia = findSectionByTitleIncludes(['distancia']);
             [banner, nosotros, distancia].forEach(el => { if (el) home.appendChild(el); });
           }
 
@@ -9669,60 +9671,76 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
           // 5) Cambiar de pantalla
           function setScreen(name) {
-            const valid = ['home', 'question', 'wishlist', 'travels', 'schedules', 'intim', 'mochireal'];
+            const valid = ['home', 'question', 'wishlist', 'travels', 'schedules', 'intim', 'mochireal', 'profile'];
             if (!valid.includes(name)) name = 'home';
             document.body.dataset.screen = name;
 
-            // Activa la página
-            document.querySelectorAll('#pages .page').forEach(p => p.classList.remove('active'));
-            const page = document.getElementById('page-' + name);
-            if (page) page.classList.add('active');
-
-            // Activa el botón
-            document.querySelectorAll('.app-nav .nav-btn').forEach(b => {
-              b.classList.toggle('active', b.dataset.goto === name);
-              b.setAttribute('aria-pressed', b.dataset.goto === name ? 'true' : 'false');
+            // 1. Ocultar TODAS las páginas (incluso las que están fuera de #pages)
+            document.querySelectorAll('.page').forEach(p => {
+              p.classList.remove('active');
+              p.style.display = 'none'; // Forzamos ocultar
             });
 
-            // Ajustes al entrar en Home: recalcular mapa
-            // Ajustes al entrar en Home: recalcular mapa
+            // 2. Mostrar la solicitada
+            const page = document.getElementById('page-' + name);
+            if (page) {
+              page.style.display = 'block';
+              // Pequeño timeout para permitir que el navegador procese el display block antes de la opacidad (transición)
+              setTimeout(() => page.classList.add('active'), 10);
+            }
+
+            // 3. Gestión especial para la HOME (mostrar sus secciones si no están dentro de .page-home)
+            // En este diseño, hemos movido todo DENTRO de page-home, así que esto es redundante pero seguro:
+            if (name === 'home') {
+              // Si quedó alguna sección suelta fuera de las páginas, la mostramos solo en home
+              document.querySelectorAll('.container > .section').forEach(s => s.style.display = 'block');
+              if (page) page.style.display = 'block';
+            } else {
+              // Ocultamos secciones sueltas si no estamos en home
+              document.querySelectorAll('.container > .section').forEach(s => s.style.display = 'none');
+              document.querySelector('.container > .banner')?.setAttribute('style', 'display: none !important');
+            }
+
+            // 4. Activar botón del navbar
+            document.querySelectorAll('.app-nav .nav-btn').forEach(b => {
+              const isActive = b.dataset.goto === name;
+              b.classList.toggle('active', isActive);
+              b.setAttribute('aria-pressed', isActive);
+
+              // Scroll suave en móvil para centrar el botón activo
+              if (isActive && window.innerWidth < 992) {
+                b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+              }
+            });
+
+            // 5. Cargas Lazy
             if (name === 'home') {
               setTimeout(() => {
-                try {
-                  if (window.map && typeof map.invalidateSize === 'function') {
-                    map.invalidateSize();
-                    if (typeof updateDistanceLine === 'function') updateDistanceLine();
-                  }
-                } catch (_) { }
+                try { if (window.map) { map.invalidateSize(); updateDistanceLine(); } } catch (_) { }
               }, 200);
             }
+            if (name === 'travels' && window.ensureTravelsLoaded) window.ensureTravelsLoaded();
+            if (name === 'intim' && window.ensureIntimLoaded) window.ensureIntimLoaded();
 
-            // ⚡ Lazy-load Viajes
-            if (name === 'travels' && typeof window.ensureTravelsLoaded === 'function') {
-              window.ensureTravelsLoaded();
-            }
-
-            // ⚡ Lazy-load Intimidad
-            if (name === 'intim' && typeof window.ensureIntimLoaded === 'function') {
-              window.ensureIntimLoaded();
-            }
-
-            // Guarda preferencia
+            // 6. Guardar estado
             try { localStorage.setItem('cc_screen', name); } catch (_) { }
             window.scrollTo(0, 0);
           }
 
 
-          // 6) Listener del navbar (incluye perfil como modal)
+          // 6) Listener del navbar
           function hookNavbar() {
             const nav = document.querySelector('.app-nav');
             if (!nav) return;
             nav.addEventListener('click', (e) => {
               const btn = e.target.closest('.nav-btn');
               if (!btn) return;
+
+              // Si es un enlace normal (ej. Regla), dejamos que funcione
+              if (btn.getAttribute('onclick')) return;
+
               const to = btn.dataset.goto;
               if (to === 'profile') {
-                // Abrimos modal perfil sin cambiar de pantalla
                 const modal = document.getElementById('profileModal');
                 if (modal) modal.style.display = 'block';
                 return;
@@ -9731,49 +9749,30 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             });
           }
 
-          // 7) Re-inicializa cosas que dependen de estar en su sitio
-          function reinitAfterMove() {
-            // Reconfigurar paginación y buscadores de viajes si existen
-            try { if (typeof setupTravelPagination === 'function') setupTravelPagination(); } catch (_) { }
-            try {
-              if (typeof setupTravelSearch === 'function') {
-                if (typeof visitedPagerAPI !== 'undefined') setupTravelSearch('visited-tab', 'visited-search', visitedPagerAPI);
-                if (typeof wishlistPagerAPI !== 'undefined') setupTravelSearch('wishlist-travel-tab', 'wishlist-search', wishlistPagerAPI);
-              }
-            } catch (_) { }
-            // Recoloca slider de orden en wishlist si existe
-            try {
-              if (typeof applyWishlistSort === 'function') {
-                const saved = localStorage.getItem('wishlist_sort') || 'recent';
-                applyWishlistSort(saved);
-              }
-            } catch (_) { }
-          }
-
-          // 8) Boot
+          // 7) Boot
           function bootRouter() {
             const pages = ensurePagesContainer();
             buildHome(pages.home);
             buildByTitles(pages);
             hookNavbar();
 
-            // Pantalla inicial (recuerda última, por defecto home)
+            // Pantalla inicial
             let initial = 'home';
             try { initial = localStorage.getItem('cc_screen') || 'home'; } catch (_) { }
-            setScreen(initial);
-
-            // Reinit dependencias
-            reinitAfterMove();
+            // Si venimos de recargar en mochireal, asegurar que carga
+            if (initial === 'mochireal') setScreen('mochireal');
+            else setScreen(initial);
           }
 
-          // Ejecuta después de que tu DOM ya esté listo
           if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', bootRouter);
           } else {
             bootRouter();
           }
-        })();
 
+          // Exponemos setScreen globalmente para llamadas manuales (ej. desde botones internos)
+          window.setScreen = setScreen;
+        })();
 
         /* ========= Media: tabs ========= */
         function setupMediaTabs() {

@@ -2044,11 +2044,1189 @@ body::before{ z-index: -1; }
 }
 
 
+
+
+/* pinta el chip */
+.points-chip{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 9999px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.08);
+}
+
+/* mini filas dentro del chip */
+.points-chip .pp{ display:flex; align-items:center; gap:6px; }
+.avatar-mini{ width:20px; height:20px; border-radius:50%; overflow:hidden;
+  display:inline-flex; align-items:center; justify-content:center; background:#f3f4f6; font-weight:600; font-size:.8rem; }
+.avatar-mini img{ width:100%; height:100%; object-fit:cover; }
+
+
+/* Puntos debajo del botón "Cerrar sesión" */
+.points-float{
+  position: fixed;
+  right: 30px;
+  top: 90px;         /* justo bajo el botón */
+  z-index: 1200;
+}
+@media (max-width: 768px){
+  /* En móvil, el logout deja de ser fijo; los puntos siguen el flujo */
+  .points-float{ position: static; margin: 10px 0 0 auto; }
+}
+
+
+.quick-links{ position: static; z-index: 2100; }
+.quick-icon i{ font-size: 16px; }
+
+/* El menú se posiciona con JS bajo el botón */
+.quick-menu{
+  position: fixed;           /* IMPORTANTE: fijo para anclar al botón */
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.12);
+  padding: 6px;
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+}
+.quick-menu[hidden]{ display: none; }
+
+.quick-menu a{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: #111;
+  text-decoration: none;
+  font-size: 14px;
+}
+.quick-menu a:hover{ background: #f5f5f5; }
+
+@media (max-width:640px){
+  .quick-menu{ min-width: 150px; }
+  .quick-menu a{ padding: 10px 12px; font-size: 14px; }
+}
+
+
+/* Loader Styles Corregidos */
+#loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, #ffe8f3 0%, #dfe6e9 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    transition: opacity 0.8s ease, visibility 0.8s ease;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.loader-content {
+    text-align: center;
+    color: #e84393;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transform: translateY(-10%); /* Ajuste fino para centrado visual */
+}
+
+.loader-heart {
+    font-size: 4rem;
+    margin-bottom: 1.5rem;
+    animation: heartbeat 1.5s ease-in-out infinite;
+}
+
+.loader-text {
+    font-family: 'Dancing Script', cursive;
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: #e84393;
+}
+
+.loader-subtext {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    color: #2d3436;
+    opacity: 0.8;
+    margin-bottom: 1.5rem;
+}
+
+.loader-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(232, 67, 147, 0.2);
+    border-top: 5px solid #e84393;
+    border-radius: 50%;
+    animation: spin 1.5s linear infinite;
+}
+
+@keyframes heartbeat {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+body.loading {
+    overflow: hidden; /* Evita el scroll durante la carga */
+}
+
+body.loading #main-content {
+    opacity: 0;
+    visibility: hidden;
+}
+
+body.loaded #loader {
+    opacity: 0;
+    visibility: hidden;
+}
+
+body.loaded #main-content {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.8s ease;
+}
+
+ /* Estilos específicos para el botón de historial */
+ .btn-historial {
+            background: var(--gradient);
+            color: white;
+            font-weight: 600;
+            border: none;
+            border-radius: 50px;
+            padding: 15px 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 5px 15px rgba(232,67,147,.4);
+            transition: all .3s ease;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+            text-decoration: none;
+            font-family: 'Montserrat', sans-serif;
+        }
+        
+        .btn-historial::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(to right, var(--secondary-color), var(--primary-color));
+            transition: all .5s ease;
+            z-index: -1;
+        }
+        
+        .btn-historial:hover::before {
+            width: 100%;
+        }
+        
+        .btn-historial:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(232,67,147,.5);
+        }
+        
+        .historial-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        /* ===== MINI TARJETA DE PUNTOS (HUD SUPERIOR DERECHA) ===== */
+.points-mini-card{
+  position:fixed;
+  top:90px; 
+  right:20px;
+  z-index:1500;
+
+  background:#ffffffee;
+  backdrop-filter:blur(6px);
+  border:1px solid rgba(148,163,184,0.35);
+  border-radius:18px;
+  box-shadow:0 10px 28px rgba(15,23,42,.14);
+  padding:10px 14px;
+
+  width:220px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.pmc-row{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.pmc-user{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.pmc-avatar{
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  background:#f3f4f6;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  color:#374151;
+  overflow:hidden;
+}
+.pmc-avatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.pmc-info{
+  display:flex;
+  flex-direction:column;
+  line-height:1.1;
+}
+.pmc-name{
+  font-size:13px;
+  font-weight:600;
+}
+.pmc-points{
+  font-size:12px;
+  font-weight:700;
+  color:#374151;
+}
+
+.pmc-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:4px;
+}
+
+.pmc-btn{
+  width:38px;
+  height:38px;
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:17px;
+  text-decoration:none;
+  transition:all .15s ease;
+}
+
+.pmc-btn-ghost{
+  background:#ffffff;
+  border:1px solid rgba(148,163,184,0.50);
+  color:#111827;
+}
+.pmc-btn-ghost:hover{
+  background:#f3f4f6;
+}
+
+.pmc-btn-primary{
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color:#fff;
+  border:1px solid transparent;
+}
+.pmc-btn-primary:hover{
+  filter:brightness(1.08);
+}
+
+
+@media (max-width:768px){
+  .points-mini-card{
+    right:10px;
+    top:85px;
+    width:185px;
+    padding:8px 10px;
+  }
+}
+
+.pmc-btn{
+  width:auto;
+  min-width:70px;
+  padding:0 10px;
+  gap:6px;
+}
+
+.pmc-btn-label{
+  font-size:12px;
+  font-weight:600;
+}
+
+        /* Distancia sencilla (juntos / separados) */
+        .distance-status-card{
+          margin-top: 20px;
+          border-radius: 20px;
+          padding: 18px 18px 16px;
+          background: #fff;
+          box-shadow: 0 10px 26px rgba(0,0,0,.08);
+        }
+        .ds-header{
+          display:flex;
+          flex-direction:column;
+          gap:4px;
+          margin-bottom:14px;
+        }
+        .ds-label{
+          display:inline-flex;
+          align-items:center;
+          gap:6px;
+          padding:4px 10px;
+          border-radius:999px;
+          font-size:.82rem;
+          font-weight:600;
+          background: rgba(232,67,147,.08);
+          color:#c2185b;
+        }
+        .ds-sub{
+          font-size:.9rem;
+          color:#555;
+        }
+        .ds-modes{
+          display:flex;
+          flex-direction:column;
+          gap:8px;
+          margin-bottom:14px;
+        }
+        .ds-mode-btn{
+          border:none;
+          border-radius:14px;
+          padding:10px 12px;
+          display:flex;
+          align-items:flex-start;
+          gap:10px;
+          background:#fafafa;
+          cursor:pointer;
+          transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+        }
+        .ds-mode-btn .ds-icon{
+          flex-shrink:0;
+          width:32px;
+          height:32px;
+          border-radius:999px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          /* Usa tu gradiente rosa principal */
+          background: var(--gradient);
+          color:#fff;
+        }
+        .ds-mode-btn .ds-text{
+          text-align:left;
+        }
+        .ds-mode-title{
+          font-weight:600;
+          font-size:.98rem;
+          display:block;
+        }
+        .ds-mode-sub{
+          font-size:.82rem;
+          color:#666;
+        }
+        .ds-mode-btn:hover{
+          transform:translateY(-1px);
+          box-shadow:0 6px 18px rgba(0,0,0,.08);
+          background:#fff;
+        }
+        .ds-mode-btn.active{
+          box-shadow:0 10px 26px rgba(232,67,147,.25);
+          background:linear-gradient(135deg, rgba(232,67,147,.12), rgba(255,255,255,1));
+          border:1px solid rgba(232,67,147,.3);
+        }
+        .distance-bar{
+          margin-top:6px;
+          width:100%;
+          height:6px;
+          border-radius:999px;
+          background:#f0f0f0;
+          overflow:hidden;
+        }
+        .distance-bar .fill{
+          height:100%;
+          width:22%;
+          border-radius:inherit;
+          background: var(--gradient);
+          transition:width .25s ease-out;
+        }
+        .ds-footnote{
+          margin-top:16px;
+          font-size:.78rem;
+          color:#777;
+        }
+        .distance-status-card #distanceMap{
+          display:none;
+        }
+
+
+/* === Ruleta diaria (botón flotante + modal) === */
+
+.floating-wheel-btn{
+  position: fixed;
+  right: 18px;
+  bottom: 96px;
+  z-index: 1100;
+  width: 54px;
+  height: 54px;
+  border-radius: 999px;
+  border: none;
+  background:
+    radial-gradient(circle at 30% 0%, #f9a8d4, #e84393);
+  color: #fff;
+  font-size: 26px;
+  box-shadow: 0 16px 30px rgba(0,0,0,.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform .16s ease, box-shadow .16s ease, opacity .2s ease;
+}
+.floating-wheel-btn:hover{
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 20px 40px rgba(0,0,0,.32);
+}
+.floating-wheel-btn:active{
+  transform: translateY(1px) scale(.97);
+  box-shadow: 0 10px 24px rgba(0,0,0,.24);
+}
+
+/* Modal */
+
+.daily-wheel-modal{
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top, rgba(15,23,42,.65), rgba(15,23,42,.88));
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1200;
+}
+.daily-wheel-modal.open{
+  display: flex;
+}
+
+.daily-wheel-card{
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  border-radius: 24px;
+  padding: 20px 18px 18px;
+  background:
+    radial-gradient(140% 120% at 0% 0%, rgba(236,72,153,.20), transparent 55%),
+    radial-gradient(150% 140% at 110% 0%, rgba(129,140,248,.30), transparent 55%),
+    #ffffff;
+  box-shadow: 0 24px 60px rgba(15,23,42,.55);
+  color: #111827;
+  overflow: hidden;
+}
+
+.dw-close-btn{
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: none;
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15,23,42,.06);
+  color: #374151;
+  cursor: pointer;
+}
+.dw-close-btn:hover{
+  background: rgba(15,23,42,.12);
+}
+
+.dw-header{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.dw-header-icon{
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 30% 0%, #f9a8d4, #8b5cf6);
+  box-shadow: 0 8px 18px rgba(109,40,217,.45);
+  font-size: 22px;
+}
+.dw-header h2{
+  margin: 8px 0 2px;
+  font-size: 1.25rem;
+}
+.dw-header .dw-sub{
+  margin: 0;
+  font-size: .85rem;
+  opacity: .8;
+}
+.dw-chip{
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  background: rgba(59,130,246,.08);
+  color: #1d4ed8;
+}
+
+/* Ruleta */
+
+.dw-wheel-wrap{
+  position: relative;
+  margin: 18px auto 10px;
+  width: 230px;
+  height: 230px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dw-pointer{
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-bottom: 18px solid #111827;
+  z-index: 2;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,.45));
+}
+
+/* MUY IMPORTANTE: from 270deg, nada de -30deg ni 0deg */
+.dw-wheel{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background:
+    conic-gradient(
+      from 270deg,
+      #f9a8d4 0deg 60deg,   /* idx 0 → 0 pts   */
+      #a5b4fc 60deg 120deg, /* idx 1 → 5 pts   */
+      #fef3c7 120deg 180deg,/* idx 2 → 10 pts  */
+      #bbf7d0 180deg 240deg,/* idx 3 → 20 pts  */
+      #fed7aa 240deg 300deg,/* idx 4 → 50 pts  */
+      #e5e7eb 300deg 360deg /* idx 5 → 100 pts */
+    );
+  box-shadow: 0 14px 30px rgba(15,23,42,.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 4s cubic-bezier(0.17, 0.89, 0.32, 1.28);
+}
+
+.dw-wheel::before{
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: inherit;
+  border: 4px solid rgba(255,255,255,.7);
+  box-shadow:
+    0 0 0 3px rgba(255,255,255,.6),
+    0 0 18px rgba(236,72,153,.35);
+  pointer-events: none;
+}
+
+.dw-center{
+  width: 80px;
+  height: 80px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 0%, #fef3c7, #111827);
+  color: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  box-shadow:
+    inset 0 0 0 4px rgba(255,255,255,.3),
+    0 6px 14px rgba(15,23,42,.70);
+}
+
+/* Etiquetas alrededor (centro exacto de cada sector) */
+
+.dw-seg-label{
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center center;
+  font-size: .80rem;
+  font-weight: 700;
+  color: #111827;
+  text-shadow: 0 1px 3px rgba(255,255,255,.8);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.9);
+  box-shadow: 0 6px 14px rgba(15,23,42,.18);
+  white-space: nowrap;
+}
+
+/* Centros físicos con from 270deg:
+   idx0: 300°, idx1: 0°, idx2: 60°, idx3: 120°, idx4: 180°, idx5: 240° */
+
+.dw-seg-0{ /* 0 pts */
+  transform: translate(-50%, -50%) rotate(300deg) translate(0, -78px) rotate(-300deg);
+}
+.dw-seg-1{ /* +5 */
+  transform: translate(-50%, -50%) rotate(0deg) translate(0, -78px) rotate(0deg);
+}
+.dw-seg-2{ /* +10 */
+  transform: translate(-50%, -50%) rotate(60deg) translate(0, -78px) rotate(-60deg);
+}
+.dw-seg-3{ /* +20 */
+  transform: translate(-50%, -50%) rotate(120deg) translate(0, -78px) rotate(-120deg);
+}
+.dw-seg-4{ /* +50 */
+  transform: translate(-50%, -50%) rotate(180deg) translate(0, -78px) rotate(-180deg);
+}
+.dw-seg-5{ /* +100 */
+  transform: translate(-50%, -50%) rotate(240deg) translate(0, -78px) rotate(-240deg);
+}
+
+/* Texto y botón */
+
+.dw-actions{
+  text-align: center;
+  margin-top: 10px;
+}
+
+.dw-spin-btn{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, #e84393, #8b5cf6);
+  color: #fff;
+  font-weight: 600;
+  font-size: .95rem;
+  box-shadow: 0 10px 24px rgba(109,40,217,.45);
+}
+.dw-spin-btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(109,40,217,.55);
+}
+.dw-spin-btn:disabled{
+  opacity: .6;
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+.dw-spin-btn.used{
+  background: #e5e7eb;
+  color: #4b5563;
+  box-shadow: none;
+}
+
+.dw-status{
+  margin-top: 6px;
+  font-size: .85rem;
+  color: #4b5563;
+}
+.dw-timer{
+  margin-top: 4px;
+  font-size: .8rem;
+  color: #6b7280;
+}
+.dw-result{
+  margin-top: 4px;
+  font-size: .95rem;
+  font-weight: 600;
+  color: #111827;
+}
+.dw-footer{
+  margin-top: 10px;
+  font-size: .75rem;
+  opacity: .75;
+}
+
+
+/* Texto de la pareja */
+.dw-partner{
+  margin-top: 6px;
+  font-size: .85rem;
+  color: #6b7280;
+}
+
+/* Responsive pequeño */
+@media (max-width: 480px){
+  .floating-wheel-btn{
+    bottom: 88px;
+    right: 14px;
+  }
+  .dw-wheel-wrap{
+    width: 210px;
+    height: 210px;
+  }
+}
+
+/* Líneas de puntos con avatar dentro del modal */
+.dw-user-line{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:4px;
+}
+
+.dw-user-avatar{
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  overflow:hidden;
+  flex-shrink:0;
+}
+
+.dw-user-avatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.dw-line-text{
+  font-size:.9rem;
+  color:#111827;
+}
+
+
+/* ===========================================================
+   🎄 ESTILOS NAVIDEÑOS COMPLETOS: LOADER + RULETA 🎄
+   =========================================================== */
+
+/* --- 1. LOADER: AMBIENTE MÁGICO --- */
+
+[data-theme="xmas"] #loader {
+    /* Fondo rojo profundo tipo terciopelo con viñeta oscura */
+    background: radial-gradient(circle at center, #d32f2f 0%, #8e0000 60%, #3f0000 100%);
+}
+
+/* Spinner: Anillo de luces o bastón de caramelo */
+[data-theme="xmas"] .loader-spinner {
+    border: 5px solid rgba(255, 255, 255, 0.1); /* Base sutil */
+    border-top: 5px solid #ff1f1f;    /* Luz Roja */
+    border-bottom: 5px solid #22c55e; /* Luz Verde */
+    /* Resplandor brillante festivo */
+    box-shadow: 
+        0 0 15px rgba(255, 31, 31, 0.6), 
+        0 0 15px rgba(34, 197, 94, 0.6);
+}
+
+/* Corazón: Adorno navideño dorado iluminado */
+[data-theme="xmas"] .loader-heart {
+    color: #ffb300; /* Dorado cálido */
+    /* Doble resplandor para efecto bombilla */
+    filter: 
+        drop-shadow(0 0 10px rgba(255, 215, 0, 0.9)) 
+        drop-shadow(0 0 25px rgba(255, 100, 0, 0.5));
+    transform-origin: center;
+    animation: heartbeat 1.5s ease-in-out infinite, swing 3s ease-in-out infinite;
+}
+
+/* Texto: Efecto nevado */
+[data-theme="xmas"] .loader-text {
+    color: #ffffff;
+    font-family: 'Dancing Script', cursive;
+    text-shadow: 
+        0 -2px 1px rgba(255,255,255,0.9), /* Borde nieve arriba */
+        0 3px 6px rgba(0,0,0,0.5);        /* Sombra profundidad */
+}
+
+[data-theme="xmas"] .loader-subtext {
+    color: #ffecec;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+
+/* --- 2. RULETA NAVIDEÑA (MODAL) --- */
+
+/* Tarjeta del modal: Marco festivo */
+[data-theme="xmas"] .daily-wheel-card {
+    background: #fff;
+    /* Borde rojo grueso como una tarjeta de regalo */
+    border: 4px solid #b91c1c; 
+    border-radius: 24px;
+    box-shadow: 0 0 0 4px #fcd34d inset, 0 20px 50px rgba(0,0,0,0.5); /* Doble borde dorado interior */
+}
+
+/* Icono cabecera: Verde pino */
+[data-theme="xmas"] .dw-header-icon {
+    background: radial-gradient(circle at 30% 0%, #4ade80, #15803d);
+    box-shadow: 0 6px 15px rgba(21, 128, 61, 0.3);
+    color: #fff;
+}
+
+/* Título */
+[data-theme="xmas"] .dw-header h2 {
+    color: #b91c1c; /* Rojo Navidad */
+    font-family: 'Dancing Script', cursive;
+    font-size: 2rem;
+}
+
+/* --- La Rueda: Colores de temporada --- */
+[data-theme="xmas"] .dw-wheel {
+    /* Borde dorado brillante */
+    border: 6px solid #f59e0b; 
+    background: conic-gradient(
+        from 270deg,
+        #ef4444 0deg 60deg,    /* Rojo */
+        #22c55e 60deg 120deg,  /* Verde */
+        #fcd34d 120deg 180deg, /* Dorado */
+        #ef4444 180deg 240deg, /* Rojo */
+        #22c55e 240deg 300deg, /* Verde */
+        #f3f4f6 300deg 360deg  /* Blanco Nieve */
+    );
+    box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+}
+
+/* Centro de la rueda: Bola de árbol roja */
+[data-theme="xmas"] .dw-center {
+    background: radial-gradient(circle at 35% 35%, #ff8a8a, #b91c1c);
+    color: white;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.3), 0 5px 10px rgba(0,0,0,0.3);
+    border: 2px solid #fcd34d;
+}
+
+/* Etiquetas de premios */
+[data-theme="xmas"] .dw-seg-label {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #fecaca; /* Borde rosado suave */
+    color: #991b1b; /* Texto rojo oscuro */
+    font-weight: 800;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Botón de girar: Verde con brillo */
+[data-theme="xmas"] .dw-spin-btn {
+    background: linear-gradient(135deg, #22c55e 0%, #166534 100%);
+    border: 2px solid #bbf7d0;
+    box-shadow: 0 8px 20px rgba(22, 163, 74, 0.4);
+}
+[data-theme="xmas"] .dw-spin-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 25px rgba(22, 163, 74, 0.5);
+}
+[data-theme="xmas"] .dw-spin-btn.used {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+    box-shadow: none;
+}
+
+/* --- 3. BOTÓN FLOTANTE DE INICIO (La bola colgante) --- */
+[data-theme="xmas"] .floating-wheel-btn {
+    /* Parece una bola de navidad roja y brillante */
+    background: radial-gradient(circle at 30% 10%, #ffaaaa, #dc2626);
+    border: 2px solid #fcd34d; /* Anilla dorada */
+    color: #fff;
+    box-shadow: 0 10px 25px rgba(220, 38, 38, 0.5);
+    font-size: 28px;
+}
+/* Efecto de balanceo al pasar el ratón */
+[data-theme="xmas"] .floating-wheel-btn:hover {
+    animation: swing 1s ease-in-out infinite;
+}
+
+/* Animación suave de balanceo */
+@keyframes swing {
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(10deg); }
+    50% { transform: rotate(-10deg); }
+    75% { transform: rotate(5deg); }
+    100% { transform: rotate(0deg); }
+}
+/* === MOCHIREAL (Diseño Mochitos) === */
+.mochireal-section {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 25px;
+    margin-bottom: 30px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(255,255,255,.5);
+    /* Un borde superior bonito para destacar */
+    border-top: 5px solid var(--primary-color);
+}
+
+.mr-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px dashed #eee;
+}
+
+.mr-title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 1.6rem;
+    color: var(--primary-color);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.mr-timer {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    color: var(--accent-color);
+    background: #f0f0ff;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+}
+
+/* Grid de fotos */
+.mr-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.mr-photo-container {
+    aspect-ratio: 3/4;
+    background: #f8f8f8; /* Gris muy clarito */
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+    border: 1px solid #eee;
+}
+
+/* Estado vacío (placeholder) */
+.mr-empty {
+    border: 2px dashed var(--accent-color);
+    background: rgba(162, 155, 254, 0.05);
+    color: var(--accent-color);
+}
+
+.mr-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 16px;
+}
+
+/* Efecto borroso (Blur) */
+.mr-blur {
+    filter: blur(18px) brightness(1.1); /* Brillo más alto para que no se vea gris */
+    transform: scale(1.1);
+}
+
+/* Candado sobre foto borrosa */
+.mr-lock-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    color: var(--primary-color);
+    background: rgba(255,255,255,0.4); /* Capa blanca semitransparente */
+    backdrop-filter: blur(2px);
+    text-shadow: 0 2px 10px rgba(255,255,255,1);
+}
+
+/* Botón de subir (estilo gradiente de tu web) */
+.mr-upload-btn {
+    background: var(--gradient);
+    color: white;
+    font-weight: 700;
+    padding: 12px 30px;
+    border-radius: 50px;
+    border: none;
+    cursor: pointer;
+    margin-top: 20px;
+    font-size: 1rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 5px 15px rgba(232, 67, 147, 0.3);
+}
+.mr-upload-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(232, 67, 147, 0.5);
+}
+
+/* Animación de latido suave (rosa) */
+.pulse-pink { animation: pulse-pink 2s infinite; }
+@keyframes pulse-pink {
+    0% { box-shadow: 0 0 0 0 rgba(232, 67, 147, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(232, 67, 147, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(232, 67, 147, 0); }
+}
+
+/* Etiquetas de nombre sobre la foto */
+.mr-name-tag {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--dark-text);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* === MochiReal Historial === */
+.mr-history-container {
+    padding: 10px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.mr-day-card {
+    background: white;
+    border-radius: 18px;
+    padding: 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+    border: 1px solid #f0f0f0;
+}
+
+.mr-day-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px dashed #f0f0f0;
+}
+
+.mr-date-label {
+    font-weight: 800;
+    color: var(--primary-color);
+    font-size: 1.1rem;
+    text-transform: capitalize;
+}
+
+.mr-time-badge {
+    background: #f0f2f5;
+    color: #666;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.mr-day-grid {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.mr-history-photo {
+    flex: 1;
+    max-width: 200px;
+    aspect-ratio: 3/4;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.mr-history-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.mr-history-photo:hover img {
+    transform: scale(1.05);
+}
+
+.mr-history-user {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    background: rgba(255,255,255,0.9);
+    padding: 3px 8px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #333;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Botón para ver historial en la tarjeta principal */
+.btn-mr-history {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.6);
+    color: var(--primary-color); 
+    font-size: 0.9rem;
+    margin-top: 15px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+.btn-mr-history:hover {
+    background: rgba(255,255,255,0.2);
+    transform: translateY(-2px);
+}
     </style>
 </head>
 
-<body>
-  <!-- NAVIDAD (tema) se puede borrar-->
+<body class="loading">
+  <div id="loader">
+    <div class="loader-content">
+        <div class="loader-heart">❤️</div>
+        <div class="loader-text">Christian & Clara</div>
+        <div class="loader-subtext">Cargando...</div>
+        <div class="loader-spinner"></div>
+    </div>
+</div>
+<div id="main-content">
+
+    <!-- NAVIDAD (tema) se puede borrar-->
   <div id="xmas-stage" aria-hidden="true"></div>
 
   {% set flash_messages = get_flashed_messages(with_categories=true) %}
@@ -2148,6 +3326,54 @@ body::before{ z-index: -1; }
 {% else %}
 
       <a href="/logout" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
+      <!-- Puntos debajo de "Cerrar sesión" -->
+
+    <!-- MINI TARJETA DE PUNTOS ARRIBA DERECHA -->
+<div class="points-mini-card">
+  <div class="pmc-row">
+    <div class="pmc-user">
+      <div class="pmc-avatar">
+        {% if profile_pictures.get(username) %}
+          <img src="{{ profile_pictures.get(username) }}">
+        {% else %}
+          {{ username[0] | upper }}
+        {% endif %}
+      </div>
+      <div class="pmc-info">
+        <span class="pmc-name">{{ username }}</span>
+        <span class="pmc-points">{{ user_points }} pts</span>
+      </div>
+    </div>
+
+    <div class="pmc-user">
+      <div class="pmc-avatar">
+        {% if profile_pictures.get(other_user) %}
+          <img src="{{ profile_pictures.get(other_user) }}">
+        {% else %}
+          {{ other_user[0] | upper }}
+        {% endif %}
+      </div>
+      <div class="pmc-info">
+        <span class="pmc-name">{{ other_user }}</span>
+        <span class="pmc-points">{{ other_points }} pts</span>
+      </div>
+    </div>
+  </div>
+
+    <div class="pmc-actions">
+    <a href="/medallas" class="pmc-btn pmc-btn-ghost">
+      <i class="fas fa-medal"></i>
+      <span class="pmc-btn-label">Medallas</span>
+    </a>
+    <a href="/tienda" class="pmc-btn pmc-btn-primary">
+      <i class="fas fa-gift"></i>
+      <span class="pmc-btn-label">Tienda</span>
+    </a>
+  </div>
+
+</div>
+
+
 <!-- NAVBAR FONT AWESOME -->
 <nav class="app-nav" aria-label="Navegación principal">
   <button class="nav-btn active" data-goto="home" title="Inicio">
@@ -2191,6 +3417,20 @@ body::before{ z-index: -1; }
 <!-- Contenedor de páginas -->
 <div id="pages"></div>
 
+<div id="page-mr-history" class="page" style="display:none;">
+    <div class="section animate-in">
+        <div style="display:flex; align-items:center; margin-bottom:20px;">
+            <button onclick="setScreen('home')" class="icon-btn" style="margin-right:15px;">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <h3>Historial MochiReal 📸</h3>
+        </div>
+        
+        <div id="mr-history-content" class="mr-history-container">
+            <p style="text-align:center; color:#888; padding:20px;">Cargando recuerdos...</p>
+        </div>
+    </div>
+</div>
 
       <!-- BANNER -->
       <div class="section banner animate-in">
@@ -2205,6 +3445,7 @@ body::before{ z-index: -1; }
           <h1>Christian Clara</h1>
           <!-- CHIPS RÁPIDOS EN BANNER -->
 <div class="home-chips" id="homeChips">
+  
   <div class="chip-stat">
     <i class="fa-solid fa-heart"></i>
     <span>{{ days_together }}</span> días juntos
@@ -2214,6 +3455,7 @@ body::before{ z-index: -1; }
     <i class="fa-solid fa-route"></i>
     — km
   </div>
+  
 
   {% if days_until_meeting is number and days_until_meeting >= 0 %}
     <div class="chip-stat {{ 'soon' if days_until_meeting <= 3 else '' }}" id="chipMeeting">
@@ -2238,12 +3480,60 @@ body::before{ z-index: -1; }
           </form>
         </div>
       </div>
+<div class="hud-stack" id="hudStack">
+  {% if username == 'mochito' %}
+    <a target="_blank" href="/admin" class="settings-icon admin-icon" title="Admin" aria-label="Admin">
+      <i class="fa-solid fa-toolbox" aria-hidden="true"></i>
+    </a>
+  {% endif %}
 
-      {% if username == 'mochito' %}
-  <a target="_blank" href="/admin" class="settings-icon admin-icon" title="Admin" aria-label="Admin">
-    <i class="fa-solid fa-toolbox" aria-hidden="fa"></i>
-  </a>
-{% endif %}
+
+<script>
+(function () {
+  const btn  = document.getElementById('quickIcon');
+  const menu = document.getElementById('quickMenu');
+  if (!btn || !menu) return;
+
+  function placeMenu(){
+    const r = btn.getBoundingClientRect();
+    const top  = window.scrollY + r.bottom + 8;  // 8px bajo el botón
+    const left = window.scrollX + r.left;        // alineado al borde izq
+    menu.style.top  = top + 'px';
+    menu.style.left = left + 'px';
+  }
+  function open(){
+    placeMenu();
+    menu.hidden = false;
+    btn.setAttribute('aria-expanded','true');
+  }
+  function close(){
+    menu.hidden = true;
+    btn.setAttribute('aria-expanded','false');
+  }
+
+  btn.addEventListener('click', (e)=>{
+    e.preventDefault();
+    menu.hidden ? open() : close();
+  });
+
+  // Recolocar si se hace scroll o resize mientras está abierto
+  window.addEventListener('scroll', ()=>{ if(!menu.hidden) placeMenu(); }, {passive:true});
+  window.addEventListener('resize', ()=>{ if(!menu.hidden) placeMenu(); });
+
+  // Cerrar al hacer click fuera
+  document.addEventListener('click', (e)=>{
+    if (menu.hidden) return;
+    if (e.target.closest('#quickMenu') || e.target.closest('#quickIcon')) return;
+    close();
+  });
+
+  // Cerrar con ESC
+  document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') close(); });
+})();
+</script>
+
+
+
 
 
       <!-- PRESENCIA (chip junto al icono de perfil) -->
@@ -2373,10 +3663,12 @@ body::before{ z-index: -1; }
 </div>
 
 
-      <!-- INTIMIDAD (discreto) -->
+            <!-- INTIMIDAD (discreto) -->
       <div class="section animate-in">
         <h3>Intimidad <small style="font-size:.9rem; opacity:.7;">(privado)</small></h3>
+
         {% if not intim_unlocked %}
+
           <p>Este módulo está oculto. Introduce el PIN para verlo.</p>
           <form method="POST" class="intim-pin-wrap">
             <input type="password" name="intim_pin" placeholder="PIN" required>
@@ -2384,185 +3676,175 @@ body::before{ z-index: -1; }
               <i class="fas fa-lock-open"></i> Desbloquear
             </button>
           </form>
+
         {% else %}
+
           <!-- Acciones -->
           <form method="POST" class="intim-actions">
             <button type="submit" name="intim_register" title="Registrar momento (suma 1 a hoy)">
               <i class="fas fa-heart"></i> Registrar momento
             </button>
-            <input type="text" name="intim_place" placeholder="Lugar (opcional)" style="flex:1; min-width:200px;">
-            <textarea name="intim_notes" placeholder="Notas privadas (opcional)" rows="1" style="flex:2; min-width:220px;"></textarea>
-            <button type="submit" name="intim_lock" style="margin-left:auto; background:#fff; color:#e84393;">
-              <i class="fas fa-eye-slash"></i> Ocultar
+
+            <input type="text" name="intim_place" placeholder="Lugar (opcional)">
+            <textarea name="intim_notes" placeholder="Notas privadas (opcional)" rows="1"></textarea>
+
+            <button type="submit" name="intim_lock" style="margin-left:auto;">
+              <i class="fas fa-lock"></i> Bloquear módulo
             </button>
           </form>
 
-          <!-- KPIs rápidos -->
-          <div class="intim-kpis">
-            <div class="kpi">
-              <h4>Hoy</h4>
-              <p>{{ intim_stats.today_count }}</p>
-            </div>
-            <div class="kpi">
-              <h4>Este mes</h4>
-              <p>{{ intim_stats.month_total }}</p>
-            </div>
-            <div class="kpi">
-              <h4>Este año</h4>
-              <p>{{ intim_stats.year_total }}</p>
-            </div>
+          <!-- KPIs (hoy / mes / año) cargados por fetch -->
+          <div class="intim-kpis" id="intim-kpis">
+            <p class="intim-loading-msg" style="color:#888; margin:10px 0;">
+              Pulsa la pestaña de Intimidad para cargar las estadísticas…
+            </p>
           </div>
 
-
-                    <!-- Lista de eventos -->
+          <!-- Historial de momentos: se rellena por JS -->
           <div class="intim-events" style="margin-top: 20px;">
             <h4 style="color: var(--primary-color); margin-bottom: 15px;">Historial de momentos</h4>
-            {% if intim_events %}
-              <div class="events-list" style="display: flex; flex-direction: column; gap: 12px;">
-                {% for event in intim_events %}
-                  <div class="intim-event-card" style="background: #fff; border-radius: 12px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,.08); border-left: 4px solid var(--accent-color);">
-                    <div style="display: flex; justify-content: between; align-items: flex-start; gap: 12px;">
-                      <div style="flex: 1;">
-                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                          <div class="user-avatar" style="width: 32px; height: 32px;">
-                            {% if profile_pictures.get(event.username) %}
-                              <img src="{{ profile_pictures.get(event.username) }}" alt="{{ event.username }}">
-                            {% else %}
-                              {{ event.username[0]|upper }}
-                            {% endif %}
-                          </div>
-                          <strong style="color: var(--primary-color);">{{ event.username }}</strong>
-                          <small style="color: #888; margin-left: auto;">
-                            {{ event.ts[:16] }}
-                          </small>
-                        </div>
-                        
-                        {% if event.place %}
-                        <div style="margin-bottom: 6px;">
-                          <strong>Lugar:</strong> {{ event.place }}
-                        </div>
-                        {% endif %}
-                        
-                        {% if event.notes %}
-                        <div style="background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 8px;">
-                          <strong>Notas:</strong> 
-                          <span style="white-space: pre-wrap;">{{ event.notes }}</span>
-                        </div>
-                        {% endif %}
-                      </div>
-                      
-                      {% if intim_unlocked and username in ['mochito','mochita'] %}
-  <div class="event-actions" style="display: flex; gap: 6px;">
-    <button
-      type="button"
-      class="icon-btn edit-intim-btn"
-      title="Editar evento"
-      onclick='openEditIntimModal(
-        {{ event.id }},
-        {{ (event.place or "")|tojson }},
-        {{ (event.notes or "")|tojson }}
-      )'>
-      <i class="fas fa-edit"></i>
-    </button>
-    <form method="POST" action="/delete_intim_event"
-          onsubmit="return confirm('¿Estás seguro de que quieres eliminar este evento?');"
-          style="display: inline;">
-      <input type="hidden" name="event_id" value="{{ event.id }}">
-      <button type="submit" class="icon-btn" title="Eliminar evento">
-        <i class="fas fa-trash"></i>
-      </button>
-    </form>
-  </div>
-{% endif %}
-
-                    </div>
-                  </div>
-                {% endfor %}
-              </div>
-            {% else %}
-              <p style="text-align: center; color: #888; padding: 20px;">
-                Aún no hay eventos registrados.
-              </p>
-            {% endif %}
-          </div>
-
-          <!-- Detalle: última vez + rachas -->
-          <div class="intim-stats">
-            <div class="intim-card">
-              <b>Última vez</b><br>
-              {% if intim_stats.last_dt %}
-                {{ intim_stats.last_dt.strftime("%Y-%m-%d %H:%M") }} ({{ intim_stats.days_since_last }} día{% if intim_stats.days_since_last != 1 %}s{% endif %})
-              {% else %}
-                Aún no hay registros.
-              {% endif %}
-            </div>
-            <div class="intim-card">
-              <b>Racha actual (días seguidos con intimidad)</b><br>
-              {{ intim_stats.streak_days }} día{% if intim_stats.streak_days != 1 %}s{% endif %}
-            </div>
-            <div class="intim-card">
-              <b>Días sin 👉👌</b><br>
-              {% if intim_stats.days_since_last is not none %}
-                {{ intim_stats.days_since_last }} día{% if intim_stats.days_since_last != 1 %}s{% endif %}
-              {% else %}
-                —
-              {% endif %}
+            <div id="intim-events-list">
+              <!-- Aquí meteremos las tarjetas vía fetch /api/intimidad -->
             </div>
           </div>
+
+          <!-- Detalle: última vez + rachas (también por fetch) -->
+          <div class="intim-stats" id="intim-stats">
+            <!-- Relleno por JS -->
+          </div>
+
         {% endif %}
       </div>
 
-      <!-- Mapa de Distancia -->
+
+      <  <!-- Distancia / Estado de ciudades -->
       <div class="section animate-in delay-2">
         <h3>Distancia</h3>
-        <p>Cuánta distancia hay entre nosotros.</p>
+        <p>Nuestro estado ahora mismo 💌</p>
 
-        <div class="distance-map-container">
-          <div id="distanceMap"></div>
-          <!-- Botones utilitarios del mapa -->
-<button type="button" class="map-fab" id="toggleMapSize" title="Pantalla completa">
-  <i class="fa-solid fa-expand"></i>
-</button>
-
-<!-- Botón geolocalizar -->
-<button type="button" class="map-fab" id="useMyLocationBtn" title="Usar mi ubicación" style="right:66px">
-  <i class="fa-solid fa-location-crosshairs"></i>
-</button>
-
-          <div class="distance-info">
-            <h4>Distancia entre nosotros</h4>
-            <div class="distance-value" id="distanceValue">Cargando...</div>
-            <div class="distance-bar" aria-label="Cercanía">
-              <div class="fill" id="distanceFill" style="width:0%"></div>
-            </div>
-            <small class="distance-scale" style="display:block; opacity:.8;">
-              0 km = juntitos • 500+ km = lejos
-            </small>
-            
-            <div id="locationInfo">
-              <div class="location-badge">
-                {% if profile_pictures.get('mochito') %}
-                  <img src="{{ profile_pictures.get('mochito') }}" alt="Christian">
-                {% else %}
-                  <span>C</span>
-                {% endif %}
-                <span id="christianLocation">Algemesí, Valencia</span>
-              </div>
-              <div class="location-badge">
-                {% if profile_pictures.get('mochita') %}
-                  <img src="{{ profile_pictures.get('mochita') }}" alt="Clara">
-                {% else %}
-                  <span>C</span>
-                {% endif %}
-                <span id="claraLocation">Córdoba</span>
-              </div>
-            </div>
-
-            <!-- 🌍 FORM: Actualizar ubicación (manual o automática) -->
-            
+        <div class="distance-status-card">
+          <div class="ds-header">
+            <span class="ds-label" id="distanceStatusLabel">Separados</span>
+            <span class="ds-sub" id="distanceStatusSub">Mochito en Algemesí · Mochita en Córdoba</span>
           </div>
+
+          <div class="ds-modes">
+            <button type="button" class="ds-mode-btn active" data-mode="separated">
+              <span class="ds-icon"><i class="fa-solid fa-route"></i></span>
+              <span class="ds-text">
+                <span class="ds-mode-title">Separados</span>
+                <span class="ds-mode-sub">Mochito en Algemesí · Mochita en Córdoba</span>
+              </span>
+            </button>
+
+            <button type="button" class="ds-mode-btn" data-mode="together_alg">
+              <span class="ds-icon"><i class="fa-solid fa-house-chimney-heart"></i></span>
+              <span class="ds-text">
+                <span class="ds-mode-title">Juntos en Algemesí</span>
+                <span class="ds-mode-sub">Los dos en Algemesí</span>
+              </span>
+            </button>
+
+            <button type="button" class="ds-mode-btn" data-mode="together_cor">
+              <span class="ds-icon"><i class="fa-solid fa-city"></i></span>
+              <span class="ds-text">
+                <span class="ds-mode-title">Juntos en Córdoba</span>
+                <span class="ds-mode-sub">Los dos en Córdoba</span>
+              </span>
+            </button>
+          </div>
+
+          <div class="distance-bar" aria-label="Cercanía">
+            <div class="fill" id="distanceFill" style="width:22%"></div>
+          </div>
+
+          <small class="distance-scale" style="display:block; opacity:.8; margin-top:6px;">
+            <span style="float:left;">Separados</span>
+            <span style="float:right;">Muy juntitos</span>
+          </small>
+
+          <p class="ds-footnote">
+            Cualquiera de los dos puede cambiarlo y se actualizará para los dos en tiempo real ✨
+          </p>
+
+          <!-- Mapa oculto solo para que el JS viejo no reviente (no se ve) -->
+          <div id="distanceMap" style="display:none;"></div>
         </div>
       </div>
+
+
+      {% if mr_data and mr_data.active %}
+<div class="mochireal-section pulse-warning" id="mochireal">
+    <div class="mr-header">
+        <div class="mr-title">⚠️ MochiReal</div>
+        <div style="font-size:0.9rem; opacity:0.8">{{ mr_data.triggered_at[11:16] }}</div>
+    </div>
+
+    {% if not mr_data.my_post %}
+        <p style="margin-bottom:15px;">¡Sube tu foto para ver la de tu pareja!</p>
+        
+        <div class="mr-grid">
+            <div class="mr-photo-container" style="border: 2px dashed #555;">
+                <div style="text-align:center; color:#777;">
+                    <i class="fas fa-camera fa-2x"></i><br>Tu foto
+                </div>
+            </div>
+            
+            <div class="mr-photo-container">
+                {% if mr_data.other_post %}
+                    <img src="{{ url_for('mochireal_image', post_id=mr_data.other_post.id) }}" class="mr-img mr-blur">
+                    <div class="mr-lock-overlay">
+                        <i class="fas fa-lock fa-2x"></i>
+                        <span style="font-weight:bold; margin-top:5px;">BLOQUEADA</span>
+                    </div>
+                {% else %}
+                    <div style="text-align:center; color:#777;">
+                        <i class="fas fa-hourglass-half fa-2x"></i><br>Esperando a {{ other_user }}...
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <form action="/mochireal/upload" method="POST" enctype="multipart/form-data" style="margin-top:15px">
+            <label class="mr-upload-btn">
+                <i class="fas fa-camera"></i> Subir mi MochiReal
+                <input type="file" name="photo" accept="image/*" capture="environment" style="display:none" onchange="this.form.submit()">
+            </label>
+        </form>
+
+    {% else %}
+        <div class="mr-grid">
+            <div class="mr-photo-container">
+                <img src="{{ url_for('mochireal_image', post_id=mr_data.my_post.id) }}" class="mr-img">
+                <div style="position:absolute; bottom:10px; left:10px; font-weight:bold; text-shadow:0 2px 4px rgba(0,0,0,0.8);">
+                    Tú
+                </div>
+            </div>
+
+            <div class="mr-photo-container">
+                {% if mr_data.other_post %}
+                    <img src="{{ url_for('mochireal_image', post_id=mr_data.other_post.id) }}" class="mr-img">
+                    <div style="position:absolute; bottom:10px; left:10px; font-weight:bold; text-shadow:0 2px 4px rgba(0,0,0,0.8);">
+                        {{ other_user }}
+                    </div>
+                {% else %}
+                    <div style="text-align:center; color:#777;">
+                        <i class="fas fa-clock fa-2x"></i><br>{{ other_user }} aún no ha subido
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        <p style="margin-top:15px; font-size:0.9rem; opacity:0.7">
+            <i class="fas fa-check-circle"></i> Has cumplido por hoy
+        </p>
+    {% endif %}
+    <div style="margin-top: 15px; border-top: 1px dashed rgba(0,0,0,0.1); padding-top: 10px;">
+        <button onclick="setScreen('mr-history')" class="btn-mr-history" style="color: inherit; border-color: currentColor;">
+            <i class="fas fa-history"></i> Ver recuerdos anteriores
+        </button>
+    </div>
+</div>
+{% endif %}
 
       <!-- Horarios -->
       <div class="section animate-in delay-2">
@@ -2714,14 +3996,23 @@ body::before{ z-index: -1; }
       </div>
     </div>
 
-  {# === D) Nadie ha respondido aún === #}
+     {# === D) Nadie ha respondido aún === #}
   {% else %}
     <form method="POST" class="inline-form" style="display:flex; gap:8px;">
       <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
       <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
     </form>
   {% endif %}
+
+  <!-- AÑADE ESTO JUSTO AQUÍ - Enlace al historial -->
+   <!-- Ejemplo de implementación del botón en tu web -->
+   <div class="historial-container">
+    <a href="/historial" class="btn-historial">
+        <i class="fas fa-history"></i> Ver historial completo
+    </a>
 </div>
+</div>
+
 
 
 <!-- Lista de deseos -->
@@ -2775,8 +4066,8 @@ body::before{ z-index: -1; }
 
           {% if oculto_para_mi %}
             <div class="gift-mask">
-              🎁 <div>Esto es un regalo para ti!</div>
-              <small>Los detalles están ocultos para mantener la sorpresa, jeje.</small>
+              🎁 <div>¡Esto es un regalo para ti!</div>
+              <small>Los detalles están ocultos para mantener la sorpresa.</small>
             </div>
           {% else %}
             <h3 class="wishlist-product">{{ product_name }}</h3>
@@ -3490,7 +4781,7 @@ window.openBasicEditMedia = function(btn){
 </script>
 
 
-      <!-- Viajes -->
+            <!-- Viajes -->
       <div class="section animate-in delay-4">
         <h3>Nuestros Viajes</h3>
         <p>Lugares que hemos visitado y destinos que soñamos conocer juntos.</p>
@@ -3504,82 +4795,13 @@ window.openBasicEditMedia = function(btn){
         <!-- Visitados -->
         <div class="travel-content active" id="visited-tab">
           <div class="travel-tools">
-            <input type="search" id="visited-search" placeholder="Buscar destino/país en visitados...">
+            <input type="search" id="visited-search" placeholder="Buscar destino/país en visitados.">
             <button type="button" class="clear-btn" onclick="clearTravelSearch('visited')">Limpiar</button>
           </div>
 
-          <div class="travels-grid">
-            {% for id, destination, description, travel_date, is_visited, created_by in travels if is_visited %}
-              <div class="travel-card visited">
-                <div class="travel-cover">
-                  {% if travel_photos_dict[id] %}
-                    <div class="travel-photos">
-                      {% for photo in travel_photos_dict[id] %}
-                        <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
-                      {% endfor %}
-                    </div>
-                  {% else %}
-                    <div class="empty-album">
-                      <i class="fas fa-map-marker-alt"></i>
-                    </div>
-                  {% endif %}
-                  <div class="travel-status status-visited">Visitado</div>
-                </div>
-
-                <div class="travel-info">
-                  <h3 class="travel-destination">{{ destination }}</h3>
-                  {% if travel_date %}<p class="travel-date">{{ travel_date }}</p>{% endif %}
-                  {% if description %}<p class="travel-description">{{ description }}</p>{% endif %}
-
-                  <div class="travel-meta">
-                    <span>{{ travel_photos_dict[id]|length }} fotos</span>
-                    <span>
-                      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                        {% if profile_pictures.get(created_by) %}<img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">{% else %}{{ created_by[0]|upper }}{% endif %}
-                      </div>
-                      Creado por {{ created_by }}
-                    </span>
-                  </div>
-
-                  <div class="travel-actions">
-                    <form method="POST" action="/toggle_travel_status">
-                      <input type="hidden" name="travel_id" value="{{ id }}">
-                      <button type="submit" class="icon-btn" title="Mover a deseados">
-                        <i class="fas fa-heart"></i>
-                      </button>
-                    </form>
-
-                    <button type="button" class="icon-btn plus" title="Añadir foto" onclick="togglePhotoMenu('visited-{{ id }}')">
-                      <i class="fas fa-plus"></i>
-                    </button>
-
-                    <div class="photo-popover" id="photo-popover-visited-{{ id }}">
-                      <div class="photo-popover-header">
-                        <div class="photo-popover-title">Añadir foto por enlace</div>
-                        <button type="button" class="close-btn" onclick="togglePhotoMenu('visited-{{ id }}')">
-                          <i class="fas fa-times"></i>
-                        </button>
-                      </div>
-                      <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('visited-{{ id }}')">
-                        <input type="hidden" name="travel_id" value="{{ id }}">
-                        <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
-                        <button type="submit" class="button"><i class="fas fa-check"></i> Guardar</button>
-                      </form>
-                      <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
-                    </div>
-
-                    <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
-                      <input type="hidden" name="travel_id" value="{{ id }}">
-                      <button type="submit" class="icon-btn" title="Eliminar viaje">
-                        <i class="fas fa-trash"></i>
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              </div>
-            {% else %}
-              <p>No hay lugares visitados todavía. ¡Añade el primero!</p>
-            {% endfor %}
+          <div class="travels-grid" id="visited-grid">
+            <!-- Se rellenará por JS con fetch /api/travels -->
+            <p class="travel-loading-msg">Pulsa la pestaña de Viajes para cargar los destinos…</p>
           </div>
           <div class="pager" id="visited-pager"></div>
         </div>
@@ -3587,86 +4809,18 @@ window.openBasicEditMedia = function(btn){
         <!-- Quiero ir -->
         <div class="travel-content" id="wishlist-travel-tab">
           <div class="travel-tools">
-            <input type="search" id="wishlist-search" placeholder="Buscar destino/país en quiero ir...">
+            <input type="search" id="wishlist-search" placeholder="Buscar destino/país en quiero ir.">
             <button type="button" class="clear-btn" onclick="clearTravelSearch('wishlist')">Limpiar</button>
           </div>
 
-          <div class="travels-grid">
-            {% for id, destination, description, travel_date, is_visited, created_by in travels if not is_visited %}
-              <div class="travel-card wishlist">
-                <div class="travel-cover">
-                  {% if travel_photos_dict[id] %}
-                    <div class="travel-photos">
-                      {% for photo in travel_photos_dict[id] %}
-                        <img src="{{ photo.url }}" alt="{{ destination }}" style="max-width:100%; border-radius:10px; margin:5px 0;">
-                      {% endfor %}
-                    </div>
-                  {% else %}
-                    <div class="empty-album">
-                      <i class="fas fa-map-marker-alt"></i>
-                    </div>
-                  {% endif %}
-                  <div class="travel-status status-wishlist">Deseado</div>
-                </div>
-
-                <div class="travel-info">
-                  <h3 class="travel-destination">{{ destination }}</h3>
-                  {% if description %}<p class="travel-description">{{ description }}</p>{% endif %}
-
-                  <div class="travel-meta">
-                    <span>{{ travel_photos_dict[id]|length }} fotos</span>
-                    <span>
-                      <div class="user-avatar" style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                        {% if profile_pictures.get(created_by) %}<img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">{% else %}{{ created_by[0]|upper }}{% endif %}
-                      </div>
-                      Creado por {{ created_by }}
-                    </span>
-                  </div>
-
-                  <div class="travel-actions">
-                    <form method="POST" action="/toggle_travel_status">
-                      <input type="hidden" name="travel_id" value="{{ id }}">
-                      <button type="submit" class="icon-btn" title="Marcar como visitado">
-                        <i class="fas fa-check"></i>
-                      </button>
-                    </form>
-
-                    <button type="button" class="icon-btn plus" title="Añadir foto" onclick="togglePhotoMenu('wish-{{ id }}')">
-                      <i class="fas fa-plus"></i>
-                    </button>
-
-                    <div class="photo-popover" id="photo-popover-wish-{{ id }}">
-                      <div class="photo-popover-header">
-                        <div class="photo-popover-title">Añadir foto por enlace</div>
-                        <button type="button" class="close-btn" onclick="togglePhotoMenu('wish-{{ id }}')">
-                          <i class="fas fa-times"></i>
-                        </button>
-                      </div>
-                      <form method="POST" class="photo-form-inline" onsubmit="closePhotoMenuAfterSubmit('wish-{{ id }}')">
-                        <input type="hidden" name="travel_id" value="{{ id }}">
-                        <input type="url" name="travel_photo_url" placeholder="Pega enlace (https://...)" required>
-                        <button type="submit" class="button"><i class="fas fa-check"></i> Guardar</button>
-                      </form>
-                      <div class="photo-hint">Valen JPG/PNG/GIF o URLs públicas (Imgur, Google Photos compartido, etc.).</div>
-                    </div>
-
-                    <form method="POST" action="/delete_travel" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este viaje?');">
-                      <input type="hidden" name="travel_id" value="{{ id }}">
-                      <button type="submit" class="icon-btn" title="Eliminar viaje">
-                        <i class="fas fa-trash"></i>
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              </div>
-            {% else %}
-              <p>No hay destinos en tu lista de deseos. ¡Añade el primero!</p>
-            {% endfor %}
+          <div class="travels-grid" id="wishlist-grid">
+            <!-- Se rellenará por JS con fetch /api/travels -->
           </div>
           <div class="pager" id="wishlist-pager"></div>
         </div>
 
-        <!-- Añadir viaje -->
+        <!-- Añadir Viaje -->
+        <!-- deja aquí EXACTO tu bloque actual de "add-travel-tab" tal cual lo tienes -->
         <div class="travel-content" id="add-travel-tab">
           <div class="travel-form">
             <h4>Añadir nuevo viaje</h4>
@@ -3685,6 +4839,8 @@ window.openBasicEditMedia = function(btn){
 
       {% endif %}
   </div>
+    <!-- TODO tu contenido actual aquí -->
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
 
@@ -4348,6 +5504,464 @@ function clearTravelSearch(which) {
 }
 
 
+// ==== Viajes: lazy load con fetch /api/travels ====
+(function(){
+  let loaded  = false;
+  let loading = false;
+
+  async function loadTravels(){
+    if (loaded || loading) return;
+    loading = true;
+
+    const visitedGrid  = document.getElementById('visited-grid');
+    const wishlistGrid = document.getElementById('wishlist-grid');
+    if (!visitedGrid || !wishlistGrid){
+      loading = false;
+      return;
+    }
+
+    visitedGrid.innerHTML = '<p class="travel-loading-msg">Cargando viajes…</p>';
+    wishlistGrid.innerHTML = '';
+
+    try{
+      const resp = await fetch('/api/travels', {
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!resp.ok){
+        throw new Error('HTTP ' + resp.status);
+      }
+
+      const data = await resp.json();
+      if (!data.ok){
+        throw new Error(data.error || 'Respuesta no OK');
+      }
+
+      const travels = data.travels || [];
+      const photosById = data.photos || {};
+
+      // Crea una tarjeta igual de “bonita” que las tuyas, pero en JS
+      function createCard(travel){
+        const id          = travel.id;
+        const destination = travel.destination || '';
+        const description = travel.description || '';
+        const travel_date = travel.travel_date || '';
+        const created_by  = travel.created_by || '';
+        const created_at  = (travel.created_at || '').slice(0,10);
+        const isVisited   = !!travel.is_visited;
+        const photos      = photosById[id] || [];
+
+        const card = document.createElement('div');
+        card.className = 'travel-card ' + (isVisited ? 'visited' : 'wishlist');
+        card.dataset.id = id;
+
+        // COVER
+        const cover = document.createElement('div');
+        cover.className = 'travel-cover';
+
+        if (photos.length){
+          const phWrap = document.createElement('div');
+          phWrap.className = 'travel-photos';
+          photos.forEach(p => {
+            const img = document.createElement('img');
+            img.src = p.image_url;
+            img.alt = destination;
+            img.style.maxWidth = '100%';
+            img.style.borderRadius = '10px';
+            img.style.margin = '5px 0';
+            phWrap.appendChild(img);
+          });
+          cover.appendChild(phWrap);
+        } else {
+          const empty = document.createElement('div');
+          empty.className = 'empty-album';
+          empty.innerHTML = '<i class="fas fa-map-marker-alt"></i>';
+          cover.appendChild(empty);
+        }
+
+        const status = document.createElement('div');
+        status.className = 'travel-status ' + (isVisited ? 'status-visited' : 'status-wishlist');
+        status.textContent = isVisited ? 'Visitado' : 'Deseado';
+        cover.appendChild(status);
+        card.appendChild(cover);
+
+        // INFO
+        const info = document.createElement('div');
+        info.className = 'travel-info';
+
+        const h3 = document.createElement('h3');
+        h3.className = 'travel-destination';
+        h3.textContent = destination;
+        info.appendChild(h3);
+
+        if (travel_date){
+          const p = document.createElement('p');
+          p.className = 'travel-date';
+          p.textContent = travel_date;
+          info.appendChild(p);
+        }
+
+        if (description){
+          const p = document.createElement('p');
+          p.className = 'travel-description';
+          p.textContent = description;
+          info.appendChild(p);
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'travel-meta';
+        const inicial = (created_by || '?').trim().charAt(0).toUpperCase() || '?';
+        meta.innerHTML = `
+          <span>
+            <div class="avatar-circle small">${inicial}</div>
+            Creado por ${created_by || '—'}
+          </span>
+          <span>${created_at}</span>
+        `;
+        info.appendChild(meta);
+
+        // ACCIONES (usar tus endpoints actuales)
+        const actions = document.createElement('div');
+        actions.className = 'travel-actions';
+
+        // Cambiar visitado / quiero ir
+        const formToggle = document.createElement('form');
+        formToggle.method = 'POST';
+        formToggle.action = '/toggle_travel_status';
+        formToggle.innerHTML = `
+          <input type="hidden" name="travel_id" value="${id}">
+          <button type="submit" class="icon-btn" title="Cambiar estado">
+            <i class="fas fa-exchange-alt"></i>
+          </button>
+        `;
+        actions.appendChild(formToggle);
+
+        // Eliminar viaje
+        const formDelete = document.createElement('form');
+        formDelete.method = 'POST';
+        formDelete.action = '/delete_travel';
+        formDelete.onsubmit = function(){
+          return confirm('¿Estás seguro de que quieres eliminar este viaje?');
+        };
+        formDelete.innerHTML = `
+          <input type="hidden" name="travel_id" value="${id}">
+          <button type="submit" class="icon-btn" title="Eliminar viaje">
+            <i class="fas fa-trash"></i>
+          </button>
+        `;
+        actions.appendChild(formDelete);
+
+        info.appendChild(actions);
+        card.appendChild(info);
+
+        return card;
+      }
+
+      // Rellenar grids
+      visitedGrid.innerHTML = '';
+      wishlistGrid.innerHTML = '';
+
+      travels.forEach(t => {
+        const card = createCard(t);
+        if (t.is_visited){
+          visitedGrid.appendChild(card);
+        } else {
+          wishlistGrid.appendChild(card);
+        }
+      });
+
+      // Re-crear paginación y buscador con tu código actual
+      if (typeof setupTravelPagination === 'function') {
+        setupTravelPagination();
+      }
+      if (typeof setupTravelSearch === 'function') {
+        setupTravelSearch('visited-tab', 'visited-search', window.visitedPagerAPI);
+        setupTravelSearch('wishlist-travel-tab', 'wishlist-search', window.wishlistPagerAPI);
+      }
+
+      loaded = true;
+    } catch(e){
+      console.error('[travels] error cargando viajes', e);
+      visitedGrid.innerHTML = '<p class="travel-loading-msg">No se pudieron cargar los viajes. Inténtalo de nuevo más tarde.</p>';
+    } finally {
+      loading = false;
+    }
+  }
+
+  // Exponer para el router
+  window.ensureTravelsLoaded = loadTravels;
+})();
+
+
+
+// ==== Intimidad: lazy load desde /api/intimidad ====
+(function(){
+  let loaded = false;
+  let loading = false;
+
+  function pluralDias(n) {
+    return (n === 1) ? "día" : "días";
+  }
+
+  async function loadIntim(){
+    if (loaded || loading) return;
+    loading = true;
+
+    const kpisEl   = document.getElementById('intim-kpis');
+    const statsEl  = document.getElementById('intim-stats');
+    const eventsEl = document.getElementById('intim-events-list');
+
+    if (!kpisEl || !statsEl || !eventsEl) {
+      loading = false;
+      return;
+    }
+
+    kpisEl.innerHTML  = '<p class="intim-loading-msg" style="color:#888; margin:10px 0;">Cargando estadísticas…</p>';
+    statsEl.innerHTML = '';
+    eventsEl.innerHTML = '';
+
+    try{
+      const resp = await fetch('/api/intimidad', {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!resp.ok){
+        throw new Error('HTTP ' + resp.status);
+      }
+      const data = await resp.json();
+      if (!data.ok){
+        throw new Error(data.error || 'Respuesta no OK');
+      }
+
+      if (!data.unlocked){
+        kpisEl.innerHTML = '<p style="color:#888;">El módulo está bloqueado. Recarga la página si acabas de introducir el PIN.</p>';
+        return;
+      }
+
+      const s  = data.stats  || {};
+      const ev = data.events || [];
+
+      // --- KPIs: Hoy / Mes / Año ---
+      kpisEl.innerHTML = '';
+      const kpiNames = [
+        { key: 'today_count', label: 'Hoy' },
+        { key: 'month_total', label: 'Este mes' },
+        { key: 'year_total',  label: 'Este año' }
+      ];
+      kpiNames.forEach(k => {
+        const div = document.createElement('div');
+        div.className = 'kpi';
+        const h4 = document.createElement('h4');
+        h4.textContent = k.label;
+        const p = document.createElement('p');
+        p.textContent = s[k.key] ?? 0;
+        div.appendChild(h4);
+        div.appendChild(p);
+        kpisEl.appendChild(div);
+      });
+
+      // --- Stats: última vez / racha / días sin ---
+      statsEl.innerHTML = '';
+
+      // Última vez
+      const cardLast = document.createElement('div');
+      cardLast.className = 'intim-card';
+      cardLast.innerHTML = '<b>Última vez</b><br>';
+      if (s.last_dt){
+        const span = document.createElement('span');
+        const days = s.days_since_last;
+        const info = (typeof days === 'number')
+          ? `Hace ${days} ${pluralDias(days)}`
+          : '';
+        span.textContent = s.last_dt + (info ? ` (${info})` : '');
+        cardLast.appendChild(span);
+      } else {
+        cardLast.appendChild(document.createTextNode('Aún no hay registros.'));
+      }
+      statsEl.appendChild(cardLast);
+
+      // Racha actual
+      const cardStreak = document.createElement('div');
+      cardStreak.className = 'intim-card';
+      cardStreak.innerHTML = '<b>Racha actual (días seguidos con intimidad)</b><br>';
+      const streak = s.streak_days ?? 0;
+      cardStreak.appendChild(
+        document.createTextNode(`${streak} ${pluralDias(streak)}`)
+      );
+      statsEl.appendChild(cardStreak);
+
+      // Días sin 👉👌
+      const cardNo = document.createElement('div');
+      cardNo.className = 'intim-card';
+      cardNo.innerHTML = '<b>Días sin 👉👌</b><br>';
+      if (typeof s.days_since_last === 'number'){
+        const d = s.days_since_last;
+        cardNo.appendChild(
+          document.createTextNode(`${d} ${pluralDias(d)}`)
+        );
+      } else {
+        cardNo.appendChild(document.createTextNode('—'));
+      }
+      statsEl.appendChild(cardNo);
+
+      // --- Eventos ---
+      if (!ev.length){
+        eventsEl.innerHTML = '<p style="text-align:center; color:#888; padding:20px;">Aún no hay eventos registrados.</p>';
+      } else {
+        ev.forEach(e => {
+          eventsEl.appendChild(createIntimEventCard(e));
+        });
+      }
+
+      loaded = true;
+    } catch(err){
+      console.error('[intimidad] error', err);
+      kpisEl.innerHTML = '<p style="color:#c00;">No se pudieron cargar las estadísticas de intimidad.</p>';
+      eventsEl.innerHTML = '<p style="text-align:center; color:#888; padding:20px;">Inténtalo de nuevo más tarde.</p>';
+    } finally {
+      loading = false;
+    }
+  }
+
+  function createIntimEventCard(ev){
+    const card = document.createElement('div');
+    card.className = 'intim-event-card';
+    card.style.background = '#fff';
+    card.style.borderRadius = '14px';
+    card.style.padding = '14px';
+    card.style.boxShadow = '0 4px 10px rgba(0,0,0,.08)';
+    card.style.borderLeft = '4px solid var(--accent-color)';
+
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.justifyContent = 'space-between';
+    row.style.alignItems = 'flex-start';
+    row.style.gap = '12px';
+
+    const left = document.createElement('div');
+    left.style.flex = '1';
+
+    // Cabecera usuario + fecha
+    const head = document.createElement('div');
+    head.style.display = 'flex';
+    head.style.alignItems = 'center';
+    head.style.gap = '8px';
+    head.style.marginBottom = '8px';
+
+        const avatar = document.createElement('div');
+    avatar.className = 'user-avatar';
+    avatar.style.width = '32px';
+    avatar.style.height = '32px';
+    avatar.style.display = 'flex';
+    avatar.style.alignItems = 'center';
+    avatar.style.justifyContent = 'center';
+    avatar.style.overflow = 'hidden';
+
+    if (ev.avatar_url) {
+      const img = document.createElement('img');
+      img.src = ev.avatar_url;
+      img.alt = ev.username || '';
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'cover';
+      avatar.appendChild(img);
+    } else {
+      avatar.textContent = (ev.username || '?').charAt(0).toUpperCase();
+    }
+
+
+    const nameEl = document.createElement('strong');
+    nameEl.style.color = 'var(--primary-color)';
+    nameEl.textContent = ev.username || '—';
+
+    const tsEl = document.createElement('small');
+    tsEl.style.color = '#888';
+    tsEl.style.marginLeft = 'auto';
+    tsEl.textContent = (ev.ts || '').slice(0,16);
+
+    head.appendChild(avatar);
+    head.appendChild(nameEl);
+    head.appendChild(tsEl);
+
+    left.appendChild(head);
+
+    // Lugar
+    if (ev.place){
+      const placeEl = document.createElement('div');
+      placeEl.style.marginBottom = '6px';
+      const b = document.createElement('strong');
+      b.textContent = 'Lugar:';
+      placeEl.appendChild(b);
+      placeEl.appendChild(document.createTextNode(' ' + ev.place));
+      left.appendChild(placeEl);
+    }
+
+    // Notas
+    if (ev.notes){
+      const notesWrap = document.createElement('div');
+      notesWrap.style.background = '#f8f9fa';
+      notesWrap.style.padding = '10px';
+      notesWrap.style.borderRadius = '8px';
+      notesWrap.style.marginTop = '8px';
+
+      const b = document.createElement('strong');
+      b.textContent = 'Notas:';
+      const span = document.createElement('span');
+      span.style.whiteSpace = 'pre-wrap';
+      span.style.marginLeft = '4px';
+      span.textContent = ev.notes;
+
+      notesWrap.appendChild(b);
+      notesWrap.appendChild(span);
+      left.appendChild(notesWrap);
+    }
+
+    row.appendChild(left);
+
+    // Acciones (editar / borrar)
+    const actions = document.createElement('div');
+    actions.className = 'event-actions';
+    actions.style.display = 'flex';
+    actions.style.flexDirection = 'column';
+    actions.style.gap = '6px';
+
+    const btnEdit = document.createElement('button');
+    btnEdit.type = 'button';
+    btnEdit.className = 'icon-btn';
+    btnEdit.title = 'Editar evento';
+    btnEdit.innerHTML = '<i class="fas fa-edit"></i>';
+    btnEdit.addEventListener('click', () => {
+      if (window.openEditIntimModal){
+        window.openEditIntimModal(ev.id, ev.place || '', ev.notes || '');
+      }
+    });
+    actions.appendChild(btnEdit);
+
+    const formDelete = document.createElement('form');
+    formDelete.method = 'POST';
+    formDelete.action = '/delete_intim_event';
+    formDelete.onsubmit = function(){
+      return confirm('¿Estás seguro de que quieres eliminar este evento?');
+    };
+    formDelete.innerHTML = `
+      <input type="hidden" name="event_id" value="${ev.id}">
+      <button type="submit" class="icon-btn" title="Eliminar evento">
+        <i class="fas fa-trash"></i>
+      </button>
+    `;
+    actions.appendChild(formDelete);
+
+    row.appendChild(actions);
+    card.appendChild(row);
+
+    return card;
+  }
+
+  // Exponer para el router
+  window.ensureIntimLoaded = loadIntim;
+})();
+
+
+
 // =====================
 // DOMContentLoaded
 // =====================
@@ -4551,7 +6165,7 @@ window.openEditIntimModal = function(eventId, place, notes) {
     try {
       var data = JSON.parse(e.data || '{}');
       // Puedes filtrar si quieres, pero recargar es lo más sólido sin tocar HTML
-      if (['question','answer','wishlist','travel','intim','banner','profile','schedules','locations'].includes(data.kind)) {
+      if (['question','answer','wishlist','travel','intim','banner','profile','schedules','locations','couple_mode'].includes(data.kind)) {
         // Espera un micro-tick por si llegan varios eventos seguidos
         setTimeout(function(){ location.reload(); }, 80);
       }
@@ -5167,7 +6781,7 @@ function humanizeAgo(seconds){
   }
 
   // 5) Cambiar de pantalla
-  function setScreen(name){
+   function setScreen(name){
     const valid = ['home','question','wishlist','travels','schedules','intim'];
     if (!valid.includes(name)) name = 'home';
     document.body.dataset.screen = name;
@@ -5184,6 +6798,7 @@ function humanizeAgo(seconds){
     });
 
     // Ajustes al entrar en Home: recalcular mapa
+        // Ajustes al entrar en Home: recalcular mapa
     if (name === 'home'){
       setTimeout(() => {
         try {
@@ -5195,12 +6810,21 @@ function humanizeAgo(seconds){
       }, 200);
     }
 
+    // ⚡ Lazy-load Viajes
+    if (name === 'travels' && typeof window.ensureTravelsLoaded === 'function') {
+      window.ensureTravelsLoaded();
+    }
+
+    // ⚡ Lazy-load Intimidad
+    if (name === 'intim' && typeof window.ensureIntimLoaded === 'function') {
+      window.ensureIntimLoaded();
+    }
+
     // Guarda preferencia
     try { localStorage.setItem('cc_screen', name); } catch(_){}
-    // Scroll al top (sin animación para evitar “salto”)
     window.scrollTo(0,0);
   }
-  window.__setScreen = setScreen; // por si lo quieres llamar desde otro sitio
+
 
   // 6) Listener del navbar (incluye perfil como modal)
   function hookNavbar(){
@@ -6282,88 +7906,109 @@ document.addEventListener('DOMContentLoaded', function mediaTitleSearchAutoFix()
   // Primera pasada
   applyFilter();
 });
+/* ========= Distancia sencilla (juntos / separados) ========= */
 
-/* ========= Mejoras Inicio/Distancia ========= */
+/*
+  Modos:
+    - separated    -> Mochito en Algemesí, Mochita en Córdoba
+    - together_alg -> Juntos en Algemesí
+    - together_cor -> Juntos en Córdoba
+  Se guarda en /api/couple_mode para que valga para los dos.
+*/
 
-/* 1) Chip de distancia en el banner */
-function setChipDistance(km){
-  try{
-    const el = document.getElementById('chipDistance');
-    if(el) el.innerHTML = `<i class="fa-solid fa-route"></i> ${km.toFixed(1)} km`;
-  }catch(e){}
-}
-
-/* 2) Barra de cercanía (0km => 100% | >=500km => 0%) */
-function setDistanceBar(km){
-  const fill = document.getElementById('distanceFill');
-  if(!fill) return;
-  const pct = Math.max(0, Math.min(1, 1 - (km / 500))) * 100;
-  fill.style.width = pct.toFixed(0) + '%';
-}
-
-/* 3) Extiende updateDistanceInfo() para actualizar chips y barra */
-(function(){
-  const _orig = window.updateDistanceInfo;
-  if(typeof _orig === 'function'){
-    window.updateDistanceInfo = function(){
-      const res = _orig.apply(this, arguments);
-      try{
-        const km = calculateDistance(
-          christianLocation.lat, christianLocation.lng,
-          claraLocation.lat, claraLocation.lng
-        );
-        setChipDistance(km);
-        setDistanceBar(km);
-      }catch(e){}
-      return res;
-    };
-  }else{
-    // Si aún no existe, intenta calcular una vez cuando cargue
-    document.addEventListener('DOMContentLoaded', ()=>{
-      if(typeof calculateDistance === 'function' && window.christianLocation && window.claraLocation){
-        const km = calculateDistance(
-          christianLocation.lat, christianLocation.lng,
-          claraLocation.lat, claraLocation.lng
-        );
-        if(isFinite(km)){ setChipDistance(km); setDistanceBar(km); }
-      }
-    });
+const COUPLE_MODES = {
+  separated: {
+    chip: 'Separados',
+    badge: 'Mochito en Algemesí · Mochita en Córdoba',
+    icon: 'fa-route',
+    bar: 22
+  },
+  together_alg: {
+    chip: 'Juntos en Algemesí',
+    badge: 'Ambos en Algemesí',
+    icon: 'fa-house-chimney-heart',
+    bar: 100
+  },
+  together_cor: {
+    chip: 'Juntos en Córdoba',
+    badge: 'Ambos en Córdoba',
+    icon: 'fa-city',
+    bar: 100
   }
-})();
+};
 
-/* 4) Botón “pantalla completa” del mapa */
-(function(){
-  const btn = document.getElementById('toggleMapSize');
-  const wrap = document.querySelector('.distance-map-container');
-  if(!btn || !wrap) return;
-  btn.addEventListener('click', ()=>{
-    wrap.classList.toggle('full');
-    try{ setTimeout(()=> map?.invalidateSize?.(), 220); }catch(e){}
-    btn.innerHTML = wrap.classList.contains('full')
-      ? '<i class="fa-solid fa-compress"></i>'
-      : '<i class="fa-solid fa-expand"></i>';
+function applyCoupleMode(mode){
+  const cfg = COUPLE_MODES[mode] || COUPLE_MODES.separated;
+
+  // Chip del banner (id="chipDistance")
+  const chip = document.getElementById('chipDistance');
+  if (chip){
+    chip.innerHTML = `<i class="fa-solid ${cfg.icon}"></i> ${cfg.chip}`;
+  }
+
+  // Tarjeta de la sección Distancia
+  const cardLabel = document.getElementById('distanceStatusLabel');
+  const cardSub   = document.getElementById('distanceStatusSub');
+  if (cardLabel) cardLabel.textContent = cfg.chip;
+  if (cardSub)   cardSub.textContent   = cfg.badge;
+
+  // Barra de "cercanía"
+  const bar = document.getElementById('distanceFill');
+  if (bar){
+    bar.style.width = (cfg.bar || 0) + '%';
+  }
+
+  // Resaltar botón activo
+  document.querySelectorAll('.ds-mode-btn').forEach(btn=>{
+    const m = btn.dataset.mode;
+    if (m === mode) btn.classList.add('active');
+    else btn.classList.remove('active');
   });
-})();
+}
 
-/* 5) Botón “intercambiar ubicaciones” (swap) */
-(function(){
-  const btn = document.getElementById('swapLocations');
-  if(!btn) return;
-  btn.addEventListener('click', ()=>{
-    try{
-      const tmp = {...christianLocation};
-      christianLocation = {...claraLocation};
-      claraLocation     = tmp;
+async function fetchCoupleMode(){
+  try{
+    const r = await fetch('/api/couple_mode');
+    if (!r.ok) throw new Error('resp');
+    const j = await r.json();
+    applyCoupleMode(j.mode || 'separated');
+  }catch(e){
+    console.warn('No pude cargar couple_mode', e);
+    applyCoupleMode('separated');
+  }
+}
 
-      christianMarker?.setLatLng([christianLocation.lat, christianLocation.lng]);
-      claraMarker?.setLatLng([claraLocation.lat, claraLocation.lng]);
-
-      window.updateDistanceLine?.();
-      window.updateDistanceInfo?.();
-    }catch(e){
-      console.warn('No se pudo hacer swap de ubicaciones', e);
+async function setCoupleMode(mode){
+  // feedback instantáneo en la UI
+  applyCoupleMode(mode);
+  try{
+    const r = await fetch('/api/couple_mode', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({mode})
+    });
+    const j = await r.json().catch(()=>({}));
+    if (!r.ok || j.ok === false){
+      throw new Error(j.error || 'error');
     }
+    window.showToast?.('success','Estado de distancia actualizado 💌');
+  }catch(e){
+    window.showToast?.('error','No se pudo guardar el estado');
+    console.error('setCoupleMode', e);
+  }
+}
+
+(function initCoupleModeUI(){
+  // listeners en los botones
+  document.querySelectorAll('.ds-mode-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const mode = btn.dataset.mode;
+      if (mode) setCoupleMode(mode);
+    });
   });
+
+  // Cargar estado al iniciar
+  fetchCoupleMode();
 })();
 
 
@@ -6667,14 +8312,11 @@ if ('serviceWorker' in navigator) {
   var nextFlyTimer = null;
 
   // --- Temporada: 1 dic – 8 ene (inclusive)
-  // --- Temporada: Activada Nov 24 – Ene 7
   function inSeason(d){
     d = d || new Date();
     var m = d.getMonth();  // 0..11
     var day = d.getDate();
-    return (m === 10 && day >= 24) || // Desde el 24 de Nov
-           (m === 11) ||                 // Todo Diciembre
-           (m === 0 && day <= 7);      // Hasta el 7 de Ene
+    return (m === 11 && day >= 1) || (m === 0 && day <= 8);
   }
   function msToNextCheck(){
     var now = new Date();
@@ -6909,39 +8551,614 @@ function flyOnce(){
 </script>
 
 
+<script>
+(async function(){
+  async function fetchPoints(user){
+    try{
+      const r = await fetch(`/api/points?user=${encodeURIComponent(user)}`, { credentials:'same-origin' });
+      if(!r.ok) return null;
+      const j = await r.json();
+      return (j && j.ok && typeof j.points === 'number') ? j.points : null;
+    }catch(e){ return null; }
+  }
+
+  // Inicial: ya están los valores del servidor.
+  // Hidratación: refrescamos cada <b data-user="...">
+  const els = document.querySelectorAll('.points-chip b[data-user]');
+  for (const el of els){
+    const u = el.getAttribute('data-user');
+    const pts = await fetchPoints(u);
+    if (pts !== null) el.textContent = pts;
+  }
+})();
+</script>
+
+<script>
+  window.addEventListener('load', function() {
+  setTimeout(function() {
+      document.body.classList.remove('loading');
+      document.body.classList.add('loaded');
+  }, 800);
+});
+
+</script>
 {% if username in ('mochito','mochita') %}
 <button onclick="location.href='/push/debug'" class="debug-fab" aria-label="Debug push">🔧 Notificaciones</button>
 <style>.debug-fab{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 12px;background:rgba(232,67,147,.4);color:#fff;border-radius:999px;text-decoration:none;opacity:.85;font:600 14px system-ui;}</style>
 {% endif %}
+{% if username %}
+  <button id="openWheelBtn" class="floating-wheel-btn" type="button" aria-label="Ruleta diaria">
+    🎡
+  </button>
 
+  <div id="dailyWheelModal" class="daily-wheel-modal" aria-hidden="true">
+    <div class="daily-wheel-card">
+      <button id="closeWheelBtn" class="dw-close-btn" type="button" aria-label="Cerrar">
+        <i class="fas fa-times"></i>
+      </button>
 
-    <!-- === Medallas / Puntos (home) === -->
-    <section id="medallas-home" style="max-width:1100px;margin:30px auto;padding:0 16px;">
-      <div style="background:white;border-radius:18px;box-shadow:0 12px 28px rgba(0,0,0,.08);padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:center;">
+      <div class="dw-header">
+        <div class="dw-header-icon">🎁</div>
         <div>
-          <div style="font-size:14px;color:#888">Tus puntos</div>
-          <div id="home-pts" style="font-size:32px;font-weight:800">—</div>
-        </div>
-        <div>
-          <div style="font-size:14px;color:#888">Racha</div>
-          <div id="home-streak" style="font-size:32px;font-weight:800">—</div>
-        </div>
-        <div style="display:flex;gap:10px;align-items:center;">
-          <a href="/medallas" style="text-decoration:none;display:inline-block;padding:10px 14px;border-radius:12px;background:#e84393;color:white;">Ver medallas</a>
-          <a href="/tienda" style="text-decoration:none;display:inline-block;padding:10px 14px;border-radius:12px;background:#6c5ce7;color:white;">Ir a la tienda</a>
+          <h2>Ruleta diaria de puntos</h2>
+          <p class="dw-sub">
+            Cada día un giro por persona. A ver qué cae hoy. 💖
+          </p>
+          <span class="dw-chip">Gamificación</span>
         </div>
       </div>
-    </section>
-    <script>
-      (function(){
-        fetch('/api/medallas/summary').then(r=>r.json()).then(d=>{
-          document.getElementById('home-pts').textContent = d.points;
-          document.getElementById('home-streak').textContent = d.streak;
-        }).catch(()=>{});
-      })();
-    </script>
+
+      <div class="dw-wheel-wrap">
+        <div class="dw-pointer"></div>
+        <div id="dailyWheel" class="dw-wheel">
+          <div class="dw-seg-label dw-seg-0">😴 0</div>
+          <div class="dw-seg-label dw-seg-1">✨ +5</div>
+          <div class="dw-seg-label dw-seg-2">💖 +10</div>
+          <div class="dw-seg-label dw-seg-3">🌈 +20</div>
+          <div class="dw-seg-label dw-seg-4">💎 +50</div>
+          <div class="dw-seg-label dw-seg-5">👑 +100</div>
+
+          <div class="dw-center">
+            <span>🎡</span>
+          </div>
+        </div>
+      </div>
+
+            <div class="dw-actions">
+        <button id="dailyWheelSpinBtn" type="button" class="dw-spin-btn">
+          <i class="fas fa-sync-alt"></i> Girar ahora
+        </button>
+        <div class="dw-status" id="dailyWheelStatus"></div>
+        <div class="dw-timer" id="dailyWheelTimer"></div>
+        <div class="dw-result" id="dailyWheelResult"></div>
+        <div class="dw-partner" id="dailyWheelPartner"></div>
+      </div>
+
+      <p class="dw-footer">
+        Se desbloquea cada día a una hora aleatoria entre las 09:00 y las 22:00 (hora España).
+        Si ya has girado hoy, verás tu resultado guardado.
+      </p>
+
+    </div>
+  </div>
+{% endif %}
+
+
+{% if username is defined and username %}
+<script>
+// === Ruleta diaria (JS) ===
+(function(){
+  const modal     = document.getElementById('dailyWheelModal');
+  const openBtn   = document.getElementById('openWheelBtn');
+  const closeBtn  = document.getElementById('closeWheelBtn');
+  const wheel     = document.getElementById('dailyWheel');
+  const spinBtn   = document.getElementById('dailyWheelSpinBtn');
+  const statusEl  = document.getElementById('dailyWheelStatus');
+  const timerEl   = document.getElementById('dailyWheelTimer');
+  const resultEl  = document.getElementById('dailyWheelResult');
+  const partnerEl = document.getElementById('dailyWheelPartner');
+
+  if (!modal || !openBtn || !closeBtn || !wheel || !spinBtn) return;
+
+  const N_SEGMENTS = 6;
+  const SEG_ANGLE  = 360 / N_SEGMENTS; // 60º
+  let currentRotation = 0;
+  let countdownId = null;
+
+  function startWheelCountdown(nextResetIso, canSpinNow){
+    if (!timerEl){
+      if (countdownId) clearInterval(countdownId);
+      countdownId = null;
+      return;
+    }
+    if (!nextResetIso){
+      timerEl.textContent = '';
+      if (countdownId) clearInterval(countdownId);
+      countdownId = null;
+      return;
+    }
+    const targetMs = new Date(nextResetIso).getTime();
+    if (!isFinite(targetMs)){
+      return;
+    }
+    if (countdownId) clearInterval(countdownId);
+
+    function tick(){
+      const now = Date.now();
+      let diff = Math.floor((targetMs - now) / 1000);
+      if (diff <= 0){
+        if (canSpinNow){
+          timerEl.textContent = 'La ruleta está a punto de resetearse… ✨';
+          clearInterval(countdownId);
+          countdownId = null;
+        } else {
+          timerEl.textContent = 'La ruleta debería desbloquearse ya… recarga si no la ves.';
+          clearInterval(countdownId);
+          countdownId = null;
+          setTimeout(()=> location.reload(), 800);
+        }
+        return;
+      }
+      const h = String(Math.floor(diff / 3600)).padStart(2,'0');
+      const m = String(Math.floor((diff % 3600) / 60)).padStart(2,'0');
+      const s = String(diff % 60).padStart(2,'0');
+      timerEl.textContent = canSpinNow
+        ? `Próximo reset en ${h}:${m}:${s}`
+        : `Disponible en ${h}:${m}:${s}`;
+    }
+
+    tick();
+    countdownId = setInterval(tick, 1000);
+  }
+
+  // === Avatares y nombres (inyectados desde Jinja) ===
+  const SELF_NAME = "{{ username }}";
+  const SELF_AVATAR_HTML = `{% if profile_pictures.get(username) %}
+    <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+  {% else %}
+    {{ (username or '?')[0] | upper }}
+  {% endif %}`;
+
+  {% if username == 'mochito' %}
+    const PARTNER_NAME = "mochita";
+    const PARTNER_AVATAR_HTML = `{% if profile_pictures.get('mochita') %}
+      <img src="{{ profile_pictures.get('mochita') }}" alt="mochita">
+    {% else %}
+      M
+    {% endif %}`;
+  {% elif username == 'mochita' %}
+    const PARTNER_NAME = "mochito";
+    const PARTNER_AVATAR_HTML = `{% if profile_pictures.get('mochito') %}
+      <img src="{{ profile_pictures.get('mochito') }}" alt="mochito">
+    {% else %}
+      M
+    {% endif %}`;
+  {% else %}
+    const PARTNER_NAME = "";
+    const PARTNER_AVATAR_HTML = "";
+  {% endif %}
+
+  // === Ángulo correcto (ya probado) ===
+  // El backend manda idx (0..5), pero vimos que la ruleta se quedaba
+  // un sector por delante → usamos idxVisual = idx - 1.
+  function angleForIndex(idx){
+    if (typeof idx !== "number" || !isFinite(idx)) idx = 0;
+    idx = Math.round(idx);
+    const n = N_SEGMENTS;
+    let idxVisual = idx - 1;
+    idxVisual = ((idxVisual % n) + n) % n; // 0..5
+    return -SEG_ANGLE * idxVisual;         // 0, -60, -120, ...
+  }
+
+  // === Helpers para pintar líneas con avatar ===
+  function renderSelfLine(text){
+    if (!resultEl) return;
+    resultEl.innerHTML = `
+      <div class="dw-user-line">
+        <div class="user-avatar dw-user-avatar">
+          ${SELF_AVATAR_HTML}
+        </div>
+        <div class="dw-line-text">${text}</div>
+      </div>
+    `;
+  }
+
+
+    function formatDateShort(iso){
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    const dd = String(d.getDate()).padStart(2,"0");
+    const mm = String(d.getMonth()+1).padStart(2,"0");
+    return `${dd}/${mm}`;
+  }
+
+
+    function renderPartnerLine(other, otherLast){
+    if (!partnerEl || !PARTNER_NAME) return;
+
+    const hasToday = other && other.has_spun;
+    const hasLast  = otherLast && otherLast.has_spun;
+
+    // No hay info de nada
+    if (!hasToday && !hasLast){
+      partnerEl.innerHTML = `
+        <div class="dw-user-line">
+          <div class="user-avatar dw-user-avatar">
+            ${PARTNER_AVATAR_HTML}
+          </div>
+          <div class="dw-line-text">
+            ${PARTNER_NAME} todavía no ha usado la ruleta 😇
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // Tiene giro de HOY
+    if (hasToday){
+      const delta = other.delta ?? 0;
+      const label = other.label ?? (delta >= 0 ? `+${delta}` : String(delta));
+      partnerEl.innerHTML = `
+        <div class="dw-user-line">
+          <div class="user-avatar dw-user-avatar">
+            ${PARTNER_AVATAR_HTML}
+          </div>
+          <div class="dw-line-text">
+            ${PARTNER_NAME} hoy ha conseguido ${label} puntos.
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // No ha girado hoy, pero sí otro día
+    const deltaL = otherLast.delta ?? 0;
+    const labelL = otherLast.label ?? (deltaL >= 0 ? `+${deltaL}` : String(deltaL));
+    const dateTxt = otherLast.date ? formatDateShort(otherLast.date) : "";
+
+    partnerEl.innerHTML = `
+      <div class="dw-user-line">
+        <div class="user-avatar dw-user-avatar">
+          ${PARTNER_AVATAR_HTML}
+        </div>
+        <div class="dw-line-text">
+          ${PARTNER_NAME} aún no ha girado la ruleta hoy.
+          ${dateTxt ? ` Último giro (${dateTxt}): ${labelL} puntos.` : ""}
+        </div>
+      </div>
+    `;
+  }
+
+
+  function openModal(){
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    loadStatus();
+  }
+  function closeModal(){
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  openBtn.addEventListener('click', openModal);
+  closeBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  function showToast(type, msg){
+    if (window.showToast) {
+      window.showToast(type, msg);
+    } else {
+      alert(msg);
+    }
+  }
+
+   // === Cargar estado al abrir ===
+  async function loadStatus(){
+    statusEl.textContent = '';
+    if (timerEl) timerEl.textContent = '';
+    resultEl.textContent = '';
+    if (partnerEl) partnerEl.textContent = '';
+
+    try {
+      const resp = await fetch('/api/daily-wheel-status', {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!resp.ok) return;
+      const data = await resp.json().catch(() => ({}));
+      if (!data.ok) return;
+
+      const me        = data.me        || {};
+      const other     = data.other     || null;
+      const meLast    = data.me_last   || null;
+      const otherLast = data.other_last|| null;
+
+      const canSpinNow   = !!data.can_spin_now;
+      const nextResetIso = data.next_reset_iso || null;
+
+      renderPartnerLine(other, otherLast);
+
+
+      if (me.has_spun){
+        const idx   = (typeof me.idx === 'number') ? me.idx : 0;
+        const delta = me.delta ?? 0;
+        const label = me.label ?? (delta >= 0 ? `+${delta}` : String(delta));
+
+        const base = angleForIndex(idx);
+        currentRotation = base;
+        wheel.style.transition = 'none';
+        wheel.style.transform  = `rotate(${currentRotation}deg)`;
+
+        spinBtn.disabled = true;
+        spinBtn.classList.add('used');
+        spinBtn.innerHTML = 'Ya la has usado hoy';
+        statusEl.textContent = 'Hoy ya has girado la ruleta 💖';
+
+        renderSelfLine(`Resultado de hoy: ${label} puntos`);
+      } else {
+        if (!canSpinNow){
+          spinBtn.disabled = true;
+          spinBtn.classList.remove('used');
+          spinBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Girar ahora';
+          statusEl.textContent = 'La ruleta aún no está disponible 🕒';
+        } else {
+          spinBtn.disabled = false;
+          spinBtn.classList.remove('used');
+          spinBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Girar ahora';
+          statusEl.textContent = 'Tienes un giro disponible hoy ✨';
+        }
+
+        // Mostrar último resultado aunque sea de ayer
+        if (meLast && meLast.has_spun){
+          const deltaL = meLast.delta ?? 0;
+          const labelL = meLast.label ?? (deltaL >= 0 ? `+${deltaL}` : String(deltaL));
+          const dateTxt = meLast.date ? formatDateShort(meLast.date) : "";
+          const txt = dateTxt
+            ? `Último resultado (${dateTxt}): ${labelL} puntos`
+            : `Último resultado: ${labelL} puntos`;
+          renderSelfLine(txt);
+        }
+      }
+
+      startWheelCountdown(nextResetIso, canSpinNow);
+    } catch (e){
+      console.error(e);
+    }
+  }
+
+  // === Girar ===
+  async function spin(){
+    if (spinBtn.disabled) return;
+
+    spinBtn.disabled = true;
+    spinBtn.classList.remove('used');
+    spinBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Girando…';
+    statusEl.textContent = 'Girando la ruleta…';
+    resultEl.textContent = '';
+
+    try {
+      const resp = await fetch('/api/daily-wheel-spin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      const data = await resp.json().catch(() => ({}));
+
+            if (!resp.ok || !data.ok){
+        const msg = data.error || 'No se ha podido girar la ruleta.';
+        showToast('error', msg);
+
+        // Si el backend ya nos manda info de tiempos, actualizamos el contador
+        if (typeof data.can_spin_now !== 'undefined' && data.next_reset_iso){
+          startWheelCountdown(data.next_reset_iso, !!data.can_spin_now);
+        }
+
+        spinBtn.disabled = false;
+        spinBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Girar ahora';
+        // Dejamos statusEl como esté; loadStatus se encarga al abrir.
+        return;
+      }
+
+
+      renderPartnerLine(data.other || null, data.other_last || null);
+
+      // Ya había girado hoy (sin animar otra vez)
+      if (data.already){
+        const idx   = (typeof data.idx === 'number') ? data.idx : 0;
+        const delta = data.delta ?? 0;
+        const label = data.label ?? (delta >= 0 ? `+${delta}` : String(delta));
+
+        const base = angleForIndex(idx);
+        currentRotation = base;
+        wheel.style.transition = 'none';
+        wheel.style.transform  = `rotate(${currentRotation}deg)`;
+
+        spinBtn.innerHTML = 'Ya la has usado hoy';
+        spinBtn.classList.add('used');
+        statusEl.textContent = 'Hoy ya has girado la ruleta 💖';
+
+        renderSelfLine(`Resultado de hoy: ${label} puntos`);
+        return;
+      }
+
+      // Giro nuevo
+      const idx    = (typeof data.idx === 'number') ? data.idx : 0;
+      const delta  = data.delta ?? 0;
+      const label  = data.label ?? (delta >= 0 ? `+${delta}` : String(delta));
+      const total  = (typeof data.new_total === 'number') ? data.new_total : null;
+
+      const rounds = 4 + Math.floor(Math.random() * 2); // 4 ó 5 vueltas
+      const base   = angleForIndex(idx);
+      const target = 360 * rounds + base;
+
+      currentRotation = target;
+
+      wheel.style.transition = 'none';
+      wheel.offsetHeight; // reflow
+      wheel.style.transition = 'transform 4s cubic-bezier(0.17, 0.89, 0.32, 1.28)';
+      wheel.style.transform  = `rotate(${currentRotation}deg)`;
+
+            setTimeout(() => {
+        spinBtn.classList.add('used');
+        spinBtn.innerHTML = 'Mañana más ❤️';
+        statusEl.textContent = 'Ruleta usada por hoy';
+
+        if (delta === 0){
+          renderSelfLine('Hoy no han caído puntos… ¡mañana más suerte!');
+        } else {
+          const txt = total !== null
+            ? `¡Has ganado ${delta} puntos y ahora tienes ${total} en total!`
+            : `¡Has ganado ${delta} puntos!`;
+          renderSelfLine(txt);
+        }
+
+        try {
+          fetch('/api/daily-wheel-push-self', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
+          }).catch(()=>{});
+        } catch(_){}
+
+        // 🔁 actualizamos el contador al siguiente reset
+        if (data.next_reset_iso){
+          startWheelCountdown(data.next_reset_iso, true);
+        }
+      }, 4000);
+
+
+    } catch (e){
+      console.error(e);
+      showToast('error', 'Error de conexión al girar la ruleta.');
+      spinBtn.disabled = false;
+      spinBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Girar ahora';
+      statusEl.textContent = '';
+    }
+  }
+
+  spinBtn.addEventListener('click', spin);
+})();
+</script>
+{% endif %}
+
+
+
+
+
+<!-- COMENTAR PARA QUITAR TEMA DE NAVIDAD -->
+
+ <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 1. Forzar el tema rojo (CSS)
+        document.documentElement.setAttribute('data-theme', 'xmas');
+        document.body.setAttribute('data-theme', 'xmas');
+        
+        // 2. Forzar la nieve y el trineo (JS)
+        // Usamos un pequeño timeout para asegurar que window.XMAS existe
+        setTimeout(function() {
+            if (window.XMAS) {
+                window.XMAS.enable(); 
+                // Si quieres otro GIF de trineo, pon la URL dentro de enable('URL')
+            }
+        }, 500);
+    });
+</script>
+
+
+<script>
+// === Lógica Historial MochiReal ===
+(function(){
+    let historyLoaded = false;
+
+    window.loadMochiRealHistory = async function(){
+        const container = document.getElementById('mr-history-content');
+        if(!container) return;
+        
+        container.innerHTML = '<div style="text-align:center; padding:40px;"><i class="fas fa-spinner fa-spin fa-2x" style="color:var(--primary-color)"></i></div>';
+
+        try {
+            const r = await fetch('/api/mochireal/history');
+            const data = await r.json();
+            
+            if(!data.ok || !data.history || data.history.length === 0){
+                container.innerHTML = '<p style="text-align:center; padding:20px;">No hay recuerdos guardados aún.</p>';
+                return;
+            }
+
+            let html = '';
+            data.history.forEach(day => {
+                // Formatear fecha bonita (ej: 2023-11-24 -> 24 Noviembre)
+                const d = new Date(day.date);
+                const dateStr = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+                let postsHtml = '';
+                day.posts.forEach(post => {
+                    postsHtml += `
+                        <div class="mr-history-photo">
+                            <img src="/mochireal/image/${post.post_id}" loading="lazy" onclick="window.open(this.src, '_blank')">
+                            <div class="mr-history-user">${post.username}</div>
+                        </div>
+                    `;
+                });
+
+                html += `
+                    <div class="mr-day-card animate-in">
+                        <div class="mr-day-header">
+                            <div class="mr-date-label"><i class="far fa-calendar-alt"></i> ${dateStr}</div>
+                            <div class="mr-time-badge"><i class="far fa-clock"></i> ${day.time}</div>
+                        </div>
+                        <div class="mr-day-grid">
+                            ${postsHtml}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            historyLoaded = true;
+
+        } catch(e) {
+            console.error(e);
+            container.innerHTML = '<p style="text-align:center; color:red;">Error cargando recuerdos.</p>';
+        }
+    };
+
+    // Hook en tu router existente (setScreen)
+    const originalSetScreen = window.__setScreen || window.setScreen; // Intenta encontrar tu función actual
     
+    // Redefinimos setScreen para detectar cuando vamos al historial
+    window.setScreen = function(name){
+        // Ocultar todas las páginas primero (simple toggle)
+        document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+        document.querySelectorAll('.section:not(.page .section)').forEach(s => s.style.display = 'none'); // Ocultar home sections
+        
+        // Mostrar la solicitada
+        const target = document.getElementById('page-' + name);
+        if(target) {
+            target.style.display = 'block';
+            if(name === 'mr-history') loadMochiRealHistory();
+        } else {
+            // Si no es una "página" nuestra, quizás es el home normal
+            if(name === 'home'){
+                document.querySelectorAll('.section:not(.page .section)').forEach(s => s.style.display = 'block');
+                // Asegurarnos de ocultar las páginas extra
+                document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+            }
+        }
+        
+        // Actualizar nav activo si existe
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        const activeBtn = document.querySelector(`.nav-btn[data-goto="${name}"]`);
+        if(activeBtn) activeBtn.classList.add('active');
+        
+        window.scrollTo(0,0);
+    };
+})();
+</script>
 </body>
 </html>
-
 

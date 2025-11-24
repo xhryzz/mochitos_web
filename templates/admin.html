@@ -40,6 +40,126 @@ th{color:#555}
 .small{color:var(--muted);font-size:.9rem}
 hr.sep{border:0;height:1px;background:#eee;margin:14px 0}
 .tag{font-size:.82rem;background:#f2f2f2;border-radius:999px;padding:2px 8px;display:inline-block}
+
+
+
+  /* === Actividad de Mochita === */
+  .card-activity{margin-top:18px}
+  .activity-header{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .activity-header .pill{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:4px 10px;
+    border-radius:999px;
+    background:rgba(232,67,147,.08);
+    color:var(--brand);
+    font-weight:600;
+    font-size:.78rem;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+  .activity-header .presence{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:6px;
+    font-size:.8rem;
+    color:var(--muted);
+  }
+  .activity-header .presence .chip{
+    padding:3px 8px;
+    border-radius:999px;
+    background:#f3f4ff;
+    color:#4b5563;
+    font-size:.75rem;
+  }
+  .dot{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:#d1d5db;
+    display:inline-block;
+  }
+  .dot-online{background:var(--ok);}
+  .activity-mini-stats{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .activity-mini-stats .stat-chip{
+    padding:6px 10px;
+    border-radius:10px;
+    background:#f9fafb;
+    font-size:.78rem;
+    box-shadow:0 0 0 1px rgba(15,23,42,.04);
+  }
+  .activity-mini-stats .stat-day{
+    font-weight:600;
+    margin-right:6px;
+  }
+  .activity-mini-stats .stat-count{
+    color:var(--muted);
+  }
+  .table-wrapper{
+    max-height:320px;
+    overflow:auto;
+    margin-top:4px;
+    border-radius:12px;
+    border:1px solid #f1f1f1;
+  }
+  .activity-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:.8rem;
+    background:#fff;
+  }
+  .activity-table th,
+  .activity-table td{
+    padding:6px 10px;
+    text-align:left;
+    border-bottom:1px solid #f3f4f6;
+    vertical-align:top;
+  }
+  .activity-table thead th{
+    position:sticky;
+    top:0;
+    background:#f9fafb;
+    z-index:1;
+    font-size:.75rem;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.05em;
+  }
+  .activity-table tbody tr:nth-child(even){
+    background:#fdfdfd;
+  }
+  .activity-table .tag{
+    background:rgba(232,67,147,.08);
+    color:var(--brand);
+    border-radius:999px;
+    padding:2px 8px;
+    font-size:.75rem;
+    font-weight:600;
+  }
+  .mono{
+    font-family:ui-monospace,Menlo,Monaco,"SF Mono",monospace;
+  }
+  .ua{
+    color:var(--muted);
+    font-size:.7rem;
+  }
+
+
+
 </style>
 </head>
 <body>
@@ -226,7 +346,80 @@ hr.sep{border:0;height:1px;background:#eee;margin:14px 0}
         <p class="small">Aún no hay histórico.</p>
       {% endif %}
     </div>
+
+
+      <!-- Actividad detallada de Mochita -->
+  <div class="card card-activity">
+    <h2>Actividad de Mochita</h2>
+    <p class="small">Aquí ves, solo tú, todo lo que va haciendo Mochita en la app 🕵️‍♂️</p>
+
+    <div class="activity-header">
+      <div class="pill">Últimos {{ mochita_activity|length or 0 }} movimientos</div>
+      {% if mochita_presence %}
+      <div class="presence">
+        <span class="dot dot-online"></span>
+        <span>Última vez online:</span>
+        <strong>{{ mochita_presence.last_seen }}</strong>
+        {% if mochita_presence.device %}
+          <span class="chip">{{ mochita_presence.device }}</span>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    {% if mochita_activity_stats %}
+    <div class="activity-mini-stats">
+      {% for day, total in mochita_activity_stats.items() %}
+      <div class="stat-chip">
+        <span class="stat-day">{{ day }}</span>
+        <span class="stat-count">{{ total }} mov.</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if mochita_activity %}
+    <div class="table-wrapper">
+      <table class="activity-table">
+        <thead>
+          <tr>
+            <th>Fecha / hora</th>
+            <th>Acción</th>
+            <th>Detalle</th>
+            <th>Página</th>
+            <th>IP / Navegador</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for r in mochita_activity %}
+          <tr>
+            <td class="small">{{ r.ts }}</td>
+            <td><span class="tag">{{ r.action or '—' }}</span></td>
+            <td class="small">{{ r.details or '—' }}</td>
+            <td class="small">{{ r.method }} {{ r.path }}</td>
+            <td class="small">
+              {% if r.ip %}
+                <span class="mono">{{ r.ip }}</span>
+              {% else %}
+                <span class="mono">—</span>
+              {% endif %}
+              <br>
+              <span class="ua">{{ r.user_agent }}</span>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p class="small">De momento no hay movimientos guardados. En cuanto Mochita haga cosas en la app, se irán listando aquí.</p>
+    {% endif %}
   </div>
+
+
+  </div>
+
+
 </div>
 </body>
 </html>

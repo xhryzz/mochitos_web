@@ -2741,8 +2741,6 @@ def sweep_price_checks(max_items: int = 6, min_age_minutes: int = 180):
     finally:
         conn.close()
 
-
-
 def run_scheduled_jobs(now=None):
     """Ejecuta UNA iteración del scheduler (idéntico a lo que haces dentro del while del background_loop)."""
     now = now or europe_madrid_now()
@@ -2772,12 +2770,11 @@ def run_scheduled_jobs(now=None):
     except Exception as e:
         print("[tick milestone]", e)
 
-        # 3-bis) Hitos de relación configurables → medallas + puntos
+    # 3-bis) Hitos de relación configurables → medallas + puntos
     try:
         check_relationship_milestones()
     except Exception as e:
         print("[tick rel_milestones]", e)
-
 
     # 4) Notificaciones programadas (admin)
     try:
@@ -2799,19 +2796,38 @@ def run_scheduled_jobs(now=None):
                 if when_dt and when_dt <= now_local:
                     target = r['target']
                     if target == 'both':
-                        send_push_both(title=r['title'], body=r['body'] or None,
-                                       url=r['url'], tag=r['tag'], icon=r['icon'], badge=r['badge'])
+                        send_push_both(
+                            title=r['title'],
+                            body=r['body'] or None,
+                            url=r['url'],
+                            tag=r['tag'],
+                            icon=r['icon'],
+                            badge=r['badge'],
+                        )
                     else:
-                        send_push_to(target, title=r['title'], body=r['body'] or None,
-                                     url=r['url'], tag=r['tag'], icon=r['icon'], badge=r['badge'])
+                        send_push_to(
+                            target,
+                            title=r['title'],
+                            body=r['body'] or None,
+                            url=r['url'],
+                            tag=r['tag'],
+                            icon=r['icon'],
+                            badge=r['badge'],
+                        )
                     with conn.cursor() as c2:
-                        c2.execute("""
-                           UPDATE scheduled_notifications
-                           SET status='sent', sent_at=%s
-                           WHERE id=%s
-                        """, (now_madrid_str(), r['id']))
+                        c2.execute(
+                            """
+                            UPDATE scheduled_notifications
+                            SET status='sent', sent_at=%s
+                            WHERE id=%s
+                            """,
+                            (now_madrid_str(), r['id']),
+                        )
                         conn.commit()
-                    send_discord("Admin: push sent (scheduled)", {"id": int(r['id']), "title": r['title']})
+                    send_discord(
+                        "Admin: push sent (scheduled)",
+                        {"id": int(r['id']), "title": r['title']},
+                    )
         finally:
             conn.close()
     except Exception as e:
@@ -2834,6 +2850,7 @@ def run_scheduled_jobs(now=None):
         qid, _ = get_today_question(today)
     except Exception:
         qid = None
+
     if qid:
         conn = get_db_connection()
         try:
@@ -2842,16 +2859,17 @@ def run_scheduled_jobs(now=None):
                 have = {r[0] for r in c.fetchall()}
         finally:
             conn.close()
+
         secs_left = seconds_until_next_midnight_madrid()
         if secs_left <= 3 * 3600:
-            for u in ('mochito', 'mochita'):
+            for u in ("mochito", "mochita"):
                 if u not in have:
                     key = f"late_reminder_{today.isoformat()}_{u}"
                     if not state_get(key, ""):
                         push_last_hours(u)
                         state_set(key, "1")
 
-        # 7) Ruleta diaria:
+    # 7) Ruleta diaria:
     #    - Aviso cuando se desbloquea (según hora aleatoria 09:00–22:00).
     #    - Recordatorio en las últimas 2h del día si alguien no ha girado todavía.
     try:
@@ -2876,66 +2894,69 @@ def run_scheduled_jobs(now=None):
         print("[tick wheel]", e)
 
     # === 8) MOCHIREAL: Lógica Aleatoria ===
-    # Comprobamos si ya se ha disparado hoy consultando la DB
-    conn = get_db_connection()
     try:
-        with conn.cursor() as c:
-            c.execute("SELECT 1 FROM mochireal_windows WHERE date=%s", (today_str,))
-            already_triggered = c.fetchone()
-    finally:
-        conn.close()
+        # Comprobamos si ya se ha disparado hoy consultando la DB
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                c.execute("SELECT 1 FROM mochireal_windows WHERE date=%s", (today_str,))
+                already_triggered = c.fetchone()
+        finally:
+            conn.close()
 
-    if not already_triggered:
-        # Consultamos si ya tenemos una hora planeada en memoria (app_state)
-        plan_key = f"mochireal_plan::{today_str}"
-        planned_time_str = state_get(plan_key)
-        
-        if not planned_time_str:
-            # PLANIFICAR: Elegir hora aleatoria entre 09:00 y 22:00
-            import random
-            start_hour = 9
-            end_hour = 22
-            
-            # Si arrancamos el server y ya son más de las 22:00, mala suerte, mañana será.
-            if now.hour >= end_hour:
-                state_set(plan_key, "skipped") 
-            else:
-                # Si es temprano, empieza a las 9. Si ya son las 14:00, empieza ahora.
-                low_h = max(start_hour, now.hour)
-                
-                # Generar hora y minuto random
-                rand_h = random.randint(low_h, end_hour - 1) # -1 porque randint es inclusivo
-                rand_m = random.randint(0, 59)
-                
-                # Si la hora elegida es la actual, asegurarnos de que el minuto sea futuro
-                if rand_h == now.hour and rand_m <= now.minute:
-                    rand_m = min(59, now.minute + random.randint(1, 30))
-                
-                planned_hhmm = f"{rand_h:02d}:{rand_m:02d}"
-                state_set(plan_key, planned_hhmm)
-                print(f"[MochiReal] Planificado para hoy a las {planned_hhmm}")
+        if not already_triggered:
+            # Consultamos si ya tenemos una hora planeada en memoria (app_state)
+            plan_key = f"mochireal_plan::{today_str}"
+            planned_time_str = state_get(plan_key)
 
-        elif planned_time_str != "skipped":
-            # EJECUTAR: Comprobar si ha llegado la hora
-            # Formato HH:MM
-            ph, pm = map(int, planned_time_str.split(':'))
-            is_time = (now.hour > ph) or (now.hour == ph and now.minute >= pm)
-            
-            if is_time:
-                # ¡DISPARAR EVENTO!
-                conn = get_db_connection()
-                try:
-                    with conn.cursor() as c:
-                        c.execute("INSERT INTO mochireal_windows (date, triggered_at) VALUES (%s, %s)", 
-                                  (today_str, now_madrid_str()))
-                        conn.commit()
-                finally:
-                    conn.close()
-                
-                push_mochireal_alert()
+            if not planned_time_str:
+                # PLANIFICAR: Elegir hora aleatoria entre 09:00 y 22:00
+                import random
 
+                start_hour = 9
+                end_hour = 22
 
-    
+                # Si arrancamos el server y ya son más de las 22:00, mala suerte, mañana será.
+                if now.hour >= end_hour:
+                    state_set(plan_key, "skipped")
+                else:
+                    # Si es temprano, empieza a las 9. Si ya son las 14:00, empieza ahora.
+                    low_h = max(start_hour, now.hour)
+
+                    # Generar hora y minuto random
+                    rand_h = random.randint(low_h, end_hour - 1)  # -1 porque randint es inclusivo
+                    rand_m = random.randint(0, 59)
+
+                    # Si la hora elegida es la actual, asegurarnos de que el minuto sea futuro
+                    if rand_h == now.hour and rand_m <= now.minute:
+                        rand_m = min(59, now.minute + random.randint(1, 30))
+
+                    planned_hhmm = f"{rand_h:02d}:{rand_m:02d}"
+                    state_set(plan_key, planned_hhmm)
+                    print(f"[MochiReal] Planificado para hoy a las {planned_hhmm}")
+
+            elif planned_time_str != "skipped":
+                # EJECUTAR: Comprobar si ha llegado la hora
+                # Formato HH:MM
+                ph, pm = map(int, planned_time_str.split(":"))
+                is_time = (now.hour > ph) or (now.hour == ph and now.minute >= pm)
+
+                if is_time:
+                    # ¡DISPARAR EVENTO!
+                    conn = get_db_connection()
+                    try:
+                        with conn.cursor() as c:
+                            c.execute(
+                                "INSERT INTO mochireal_windows (date, triggered_at) VALUES (%s, %s)",
+                                (today_str, now_madrid_str()),
+                            )
+                            conn.commit()
+                    finally:
+                        conn.close()
+
+                    push_mochireal_alert()
+    except Exception as e:
+        print("[tick mochireal]", e)
 
 
 def background_loop():
@@ -7970,4 +7991,3 @@ _old_init_db = init_db
 def init_db():
     _old_init_db()
     _ensure_gamification_schema()
-

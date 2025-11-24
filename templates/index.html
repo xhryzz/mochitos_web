@@ -6424,7 +6424,6 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         </div>
 
         <div id="page-mochireal" class="page" style="display: none;">
-          {% if mr_data and mr_data.active %}
 
           <style>
             #mr-camera-overlay {
@@ -6455,7 +6454,6 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               object-fit: cover;
             }
 
-            /* Espejo solo visual */
             #mr-video-feed.mirrored {
               transform: scaleX(-1);
             }
@@ -6522,6 +6520,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             }
           </style>
 
+          {% if mr_data and mr_data.active %}
           <div class="mochireal-section pulse-warning" style="margin-top: 20px;">
             <div class="mr-header">
               <div class="mr-title">⚠️ MochiReal</div>
@@ -6597,13 +6596,6 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               <i class="fas fa-check-circle"></i> Has cumplido por hoy
             </p>
             {% endif %}
-
-            <div style="margin-top: 15px; border-top: 1px dashed rgba(0,0,0,0.1); padding-top: 10px;">
-              <button onclick="setScreen('mr-history')" class="btn-mr-history"
-                style="color: inherit; border-color: currentColor;">
-                <i class="fas fa-history"></i> Ver recuerdos anteriores
-              </button>
-            </div>
           </div>
 
           <script>
@@ -6659,7 +6651,6 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
 
-                // Lógica de inversión: Si es frontal, invertimos el canvas para guardar lo que se ve en pantalla
                 if (isFront) {
                   ctx.save();
                   ctx.translate(canvas.width, 0);
@@ -6712,17 +6703,20 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           </script>
 
           {% else %}
-          <div class="mochireal-section" style="margin-top: 20px; opacity: 0.7;">
-            <h3>💤 MochiReal inactivo</h3>
-            <p>Aún no ha saltado la alerta de hoy... ¡estad atentos!</p>
-            <div style="margin-top: 15px; border-top: 1px dashed rgba(0,0,0,0.1); padding-top: 10px;">
-              <button onclick="setScreen('mr-history')" class="btn-mr-history"
-                style="color: inherit; border-color: currentColor;">
-                <i class="fas fa-history"></i> Ver recuerdos anteriores
-              </button>
-            </div>
+          <div class="mochireal-section" style="margin-top: 20px; padding: 40px 20px; opacity: 0.8;">
+            <div style="font-size: 3rem; margin-bottom: 10px;">💤</div>
+            <h3 style="color: var(--dark-text);">MochiReal inactivo</h3>
+            <p style="color: #666;">Aún no ha saltado la alerta de hoy.<br>¡Estad atentos a la notificación!</p>
           </div>
           {% endif %}
+
+          <div class="mochireal-section" style="margin-top: 15px; padding: 20px;">
+            <button onclick="setScreen('mr-history')" class="btn-mr-history"
+              style="color: inherit; border-color: currentColor; width: 100%; justify-content: center;">
+              <i class="fas fa-history"></i> Ver recuerdos anteriores
+            </button>
+          </div>
+
         </div>
         <!-- Horarios -->
         <div class="section animate-in delay-2">

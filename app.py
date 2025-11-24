@@ -1927,47 +1927,76 @@ def get_profile_pictures():
 
 @ttl_cache(seconds=8)
 def compute_streaks():
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-                SELECT dq.id, dq.date, COUNT(DISTINCT a.username) AS cnt
-                FROM daily_questions dq
-                LEFT JOIN answers a 
-                  ON a.question_id = dq.id
-                 AND a.username IN ('mochito','mochita')
-                GROUP BY dq.id, dq.date
-                ORDER BY dq.date ASC
-            """)
-            rows = c.fetchall()
-    finally:
-        conn.close()
-    if not rows:
-        return 0, 0
-    def parse_d(dtxt): return datetime.strptime(dtxt, "%Y-%m-%d").date()
-    compl = [parse_d(r[1]) for r in rows if r[2] and int(r[2]) >= 2]
-    if not compl:
-        return 0, 0
-    compl = sorted(compl)
-    best = run = 1
-    for i in range(1, len(compl)):
-        if compl[i] == compl[i-1] + timedelta(days=1):
-            run += 1
-        else:
-            run = 1
-        best = max(best, run)
-    today = today_madrid()
-    latest = None
-    for d in sorted(set(compl), reverse=True):
-        if d <= today:
-            latest = d; break
-    if latest is None:
-        return 0, best
-    cur = 1; d = latest - timedelta(days=1)
-    sset = set(compl)
-    while d in sset:
-        cur += 1; d -= timedelta(days=1)
-    return cur, best
+    # Intentamos hasta 3 veces en caso de bloqueo
+    for attempt in range(3):
+        conn = None
+        try:
+            conn = get_db_connection()
+            with conn.cursor() as c:
+                c.execute("""
+                    SELECT dq.id, dq.date, COUNT(DISTINCT a.username) AS cnt
+                    FROM daily_questions dq
+                    LEFT JOIN answers a 
+                      ON a.question_id = dq.id
+                     AND a.username IN ('mochito','mochita')
+                    GROUP BY dq.id, dq.date
+                    ORDER BY dq.date ASC
+                """)
+                rows = c.fetchall()
+            conn.close()
+            
+            # --- Lógica de cálculo (fuera del bloqueo de DB) ---
+            if not rows:
+                return 0, 0
+            
+            def parse_d(dtxt): return datetime.strptime(dtxt, "%Y-%m-%d").date()
+            compl = [parse_d(r[1]) for r in rows if r[2] and int(r[2]) >= 2]
+            
+            if not compl:
+                return 0, 0
+                
+            compl = sorted(compl)
+            best = run = 1
+            for i in range(1, len(compl)):
+                if compl[i] == compl[i-1] + timedelta(days=1):
+                    run += 1
+                else:
+                    run = 1
+                best = max(best, run)
+                
+            today = today_madrid()
+            latest = None
+            for d in sorted(set(compl), reverse=True):
+                if d <= today:
+                    latest = d; break
+            
+            if latest is None:
+                return 0, best
+                
+            cur = 1; d = latest - timedelta(days=1)
+            sset = set(compl)
+            while d in sset:
+                cur += 1; d -= timedelta(days=1)
+            return cur, best
+
+        except psycopg2.errors.DeadlockDetected:
+            # Si hay deadlock, cerramos, esperamos un poco y reintentamos
+            if conn:
+                try: conn.rollback()
+                except: pass
+                conn.close()
+            if attempt < 2:
+                time.sleep(0.2) # Espera breve
+                continue
+            else:
+                # Si falla 3 veces, devolvemos 0 para no tumbar la web
+                print("[compute_streaks] Deadlock persistente, devolviendo 0")
+                return 0, 0
+                
+        except Exception as e:
+            if conn: conn.close()
+            print(f"[compute_streaks] Error: {e}")
+            return 0, 0
 
 # ========= Web Push helpers =========
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "").strip()
@@ -2718,6 +2747,7 @@ def run_scheduled_jobs(now=None):
     """Ejecuta UNA iteración del scheduler (idéntico a lo que haces dentro del while del background_loop)."""
     now = now or europe_madrid_now()
     today = now.date()
+    today_str = today.isoformat()
 
     # 1) Pregunta del día + push (una vez al día)
     last_dq_push = state_get("last_dq_push_date", "")

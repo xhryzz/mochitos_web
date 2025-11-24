@@ -74,7 +74,6 @@ except Exception as e:
     app.logger.warning("Jinja bytecode cache desactivado: %s", e)
 
 # ========= Discord logs (asíncrono) =========
-# ========= Discord logs (DESACTIVADO) =========
 DISCORD_WEBHOOK = os.environ.get('DISCORD_WEBHOOK', '')
 
 def client_ip():
@@ -83,10 +82,52 @@ def client_ip():
 def _is_hashed(v: str) -> bool:
     return isinstance(v, str) and (v.startswith('pbkdf2:') or v.startswith('scrypt:'))
 
+_DISCORD_Q = queue.Queue(maxsize=500)
+
+def _discord_worker():
+    while True:
+        url, payload = _DISCORD_Q.get()
+        try:
+            requests.post(url, json=payload, timeout=2)
+        except Exception as e:
+            print(f"[discord] error: {e}")
+        finally:
+            _DISCORD_Q.task_done()
+
+if DISCORD_WEBHOOK:
+    t = threading.Thread(target=_discord_worker, daemon=True)
+    t.start()
+
 def send_discord(event: str, payload: dict | None = None):
-    """Logs a Discord desactivados.
-    Deja la firma igual para no tocar el resto del código."""
-    return
+    if not DISCORD_WEBHOOK:
+        return
+    try:
+        display_user = None
+        if 'username' in session and session['username'] in ('mochito', 'mochita'):
+            display_user = session['username']
+        embed = {
+            "title": event,
+            "color": 0xE84393,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "fields": []
+        }
+        if display_user:
+            embed["fields"].append({"name": "Usuario", "value": display_user, "inline": True})
+        try:
+            ruta = f"{request.method} {request.path}"
+        except Exception:
+            ruta = "(sin request)"
+        embed["fields"] += [
+            {"name": "Ruta", "value": ruta, "inline": True},
+            {"name": "IP", "value": client_ip() or "?", "inline": True}
+        ]
+        if payload:
+            raw = json.dumps(payload, ensure_ascii=False)
+            for i, ch in enumerate([raw[i:i+1000] for i in range(0, len(raw), 1000)][:3]):
+                embed["fields"].append({"name": "Datos" + (f" ({i+1})" if i else ""), "value": f"```json\n{ch}\n```", "inline": False})
+        _DISCORD_Q.put_nowait((DISCORD_WEBHOOK, {"username": "Mochitos Logs", "embeds": [embed]}))
+    except Exception as e:
+        print(f"[discord] prep error: {e}")
 
 # ========= Config Postgres + POOL =========
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
@@ -140,26 +181,22 @@ def _init_pool():
     if not DATABASE_URL:
         raise RuntimeError('Falta DATABASE_URL para PostgreSQL')
 
-    # Aumentar el número máximo de conexiones
-    maxconn_env = int(os.environ.get('DB_MAX_CONN', '10'))  # Aumentado a 10
-    maxconn = max(1, min(maxconn_env, 15))  # Máximo 15
-
+    # Máximo 3 conexiones por defecto (suficiente en 512 MB). Sube con DB_MAX_CONN si lo necesitas.
+    maxconn = max(3, int(os.environ.get('DB_MAX_CONN', '3')))
     PG_POOL = SimpleConnectionPool(
         1, maxconn,
         dsn=DATABASE_URL,
-        keepalives=1,
-        keepalives_idle=30,
-        keepalives_interval=10,
-        keepalives_count=5,
-        connect_timeout=10  # Aumentado timeout
+        keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=5,
+        connect_timeout=8
     )
 
+
 class PooledConn:
+    """Wrapper que inicializa la sesión y se autorecupera si la conexión está rota."""
     def __init__(self, pool, conn):
         self._pool = pool
         self._conn = conn
         self._inited = False
-        self._closed = False
 
     def _reconnect(self):
         try:
@@ -168,17 +205,11 @@ class PooledConn:
             pass
         self._conn = self._pool.getconn()
         self._inited = False
-        self._closed = False
 
     def __getattr__(self, name):
-        if self._closed:
-            raise Exception("Connection is closed")
         return getattr(self._conn, name)
 
     def cursor(self, *a, **k):
-        if self._closed:
-            raise Exception("Connection is closed")
-            
         if "cursor_factory" not in k:
             k["cursor_factory"] = psycopg2.extras.DictCursor
 
@@ -186,15 +217,15 @@ class PooledConn:
             try:
                 with self._conn.cursor() as c:
                     c.execute("SET application_name = 'mochitos';")
-                    c.execute("SET idle_in_transaction_session_timeout = '30s';")  # Aumentado
-                    c.execute("SET statement_timeout = '30s';")  # Aumentado
+                    c.execute("SET idle_in_transaction_session_timeout = '5s';")
+                    c.execute("SET statement_timeout = '5s';")
                 self._inited = True
             except (OperationalError, InterfaceError):
                 self._reconnect()
                 with self._conn.cursor() as c:
                     c.execute("SET application_name = 'mochitos';")
-                    c.execute("SET idle_in_transaction_session_timeout = '30s';")
-                    c.execute("SET statement_timeout = '30s';")
+                    c.execute("SET idle_in_transaction_session_timeout = '5s';")
+                    c.execute("SET statement_timeout = '5s';")
                 self._inited = True
 
         try:
@@ -204,49 +235,26 @@ class PooledConn:
             return self._conn.cursor(*a, **k)
 
     def close(self):
-        if not self._closed:
-            try:
-                self._pool.putconn(self._conn)
-                self._closed = True
-            except Exception:
-                try:
-                    self._pool.putconn(self._conn, close=True)
-                except Exception:
-                    pass
-                self._closed = True
+        try:
+            self._pool.putconn(self._conn)
+        except Exception:
+            pass
 
 def get_db_connection():
     """Saca una conexión del pool y hace ping."""
     _init_pool()
-    conn = None
-    wrapped = None
+    conn = PG_POOL.getconn()
+    wrapped = PooledConn(PG_POOL, conn)
     try:
-        conn = PG_POOL.getconn()
-        wrapped = PooledConn(PG_POOL, conn)
         with wrapped.cursor() as c:
             c.execute("SELECT 1;")
             _ = c.fetchone()
-        return wrapped
     except (OperationalError, InterfaceError, DatabaseError):
-        if wrapped:
-            try:
-                wrapped._reconnect()
-                with wrapped.cursor() as c:
-                    c.execute("SELECT 1;")
-                    _ = c.fetchone()
-                return wrapped
-            except Exception:
-                if conn:
-                    PG_POOL.putconn(conn, close=True)
-                raise
-        else:
-            if conn:
-                PG_POOL.putconn(conn, close=True)
-            raise
-    except Exception:
-        if conn:
-            PG_POOL.putconn(conn, close=True)
-        raise
+        wrapped._reconnect()
+        with wrapped.cursor() as c:
+            c.execute("SELECT 1;")
+            _ = c.fetchone()
+    return wrapped
 
 # ========= Zona horaria Europe/Madrid =========
 def _eu_last_sunday(year: int, month: int) -> date:
@@ -323,9 +331,7 @@ def broadcast(event_name: str, data: dict):
 
 @app.route("/events")
 def sse_events():
-    # Cola pequeña para no acumular demasiados eventos en memoria
-    client_q: queue.Queue = queue.Queue(maxsize=50)
-
+    client_q: queue.Queue = queue.Queue(maxsize=200)
     with _subscribers_lock:
         _subscribers.add(client_q)
 
@@ -414,176 +420,6 @@ QUESTIONS = [
 ]
 RELATION_START = date(2025, 8, 2)
 INTIM_PIN = os.environ.get('INTIM_PIN', '6969')
-
-# ========= Ruleta diaria (config) =========
-# Index 0..5, mismo orden que en el HTML de la ruleta:
-# +0, +5, +10, +20, +50, +100
-DAILY_WHEEL_SEGMENTS = [
-    {"label": "+0",   "delta": 0,   "weight": 29},  # 29% - más frecuente
-    {"label": "+5",   "delta": 5,   "weight": 24},  # 24% - muy común
-    {"label": "+10",  "delta": 10,  "weight": 21},  # 21% - común
-    {"label": "+20",  "delta": 20,  "weight": 15},  # 15% - un poco más complicado
-    {"label": "+50",  "delta": 50,  "weight": 9},   # 9%  - difícil
-    {"label": "+100", "delta": 100, "weight": 2},   # 2%  - MUY difícil
-]
-
-
-
-def choose_daily_wheel_segment():
-    """
-    Elige un segmento de DAILY_WHEEL_SEGMENTS según el campo 'weight'.
-    Devuelve (index, segment_dict).
-    """
-    segments = DAILY_WHEEL_SEGMENTS
-    weights = [s.get("weight", 1) for s in segments]
-    total = sum(weights) or 1
-    r = random.uniform(0, total)
-    acc = 0.0
-    chosen_idx = 0
-    chosen_seg = segments[0]
-    for idx, (w, seg) in enumerate(zip(weights, segments)):
-        acc += w
-        if r <= acc:
-            chosen_idx = idx
-            chosen_seg = seg
-            break
-    return chosen_idx, chosen_seg
-
-
-# ========= Ruleta diaria: horario aleatorio 09:00–22:00 =========
-
-def _wheel_reset_time_key(day: date) -> str:
-    return f"wheel_reset_time::{day.isoformat()}"
-
-
-def ensure_wheel_reset_time(day: date, now_madrid: datetime | None = None) -> str | None:
-    """
-    Devuelve la hora HH:MM (Europe/Madrid) a la que se desbloquea la ruleta ese día.
-    - Una vez elegida, se guarda en app_state.
-    - Entre las 09:00 y las 22:00.
-    - Si el server arranca tarde, elige entre 'ahora' y las 22:00.
-    - Si ya es demasiado tarde, devuelve None y guarda '-'.
-    """
-    now_madrid = now_madrid or europe_madrid_now()
-    key = _wheel_reset_time_key(day)
-    raw = (state_get(key, "") or "").strip()
-
-    if raw == "-":
-        return None
-    if re.fullmatch(r"\d{2}:\d{2}", raw):
-        return raw
-
-    start_min = 9 * 60   # 09:00
-    end_min   = 22 * 60  # 22:00
-
-    if now_madrid.date() == day:
-        now_min = now_madrid.hour * 60 + now_madrid.minute
-        low = max(start_min, now_min)
-    else:
-        low = start_min
-
-    if low > end_min:
-        state_set(key, "-")
-        return None
-
-    m = random.randint(low, end_min)
-    hh = m // 60
-    mm = m % 60
-    hhmm = f"{hh:02d}:{mm:02d}"
-    state_set(key, hhmm)
-    return hhmm
-
-
-def build_wheel_time_payload(now_madrid: datetime | None = None) -> dict:
-    """
-    Devuelve info de tiempos para la ruleta:
-      - today: fecha 'YYYY-MM-DD' usada en las claves de estado
-      - reset_time: HH:MM en la que se desbloquea ese día
-      - can_spin_now: bool (por hora)
-      - seconds_to_unlock: segundos hasta que se desbloquee hoy (o 0 si ya se desbloqueó)
-      - next_reset_iso: ISO de la próxima hora de reset (hoy o mañana)
-      - seconds_to_next_reset: segundos hasta ese próximo reset
-    """
-    now_madrid = now_madrid or europe_madrid_now()
-    today = now_madrid.date()
-    today_iso = today.isoformat()
-
-    reset_hhmm = ensure_wheel_reset_time(today, now_madrid)
-    reset_dt_today: datetime | None = None
-    if reset_hhmm:
-        try:
-            hh, mm = map(int, reset_hhmm.split(":"))
-            reset_dt_today = now_madrid.replace(hour=hh, minute=mm, second=0, microsecond=0)
-        except Exception:
-            reset_dt_today = None
-
-    can_spin_now = False
-    seconds_to_unlock: int | None = None
-    next_reset_dt: datetime | None = None
-
-    if reset_dt_today:
-        if now_madrid < reset_dt_today:
-            can_spin_now = False
-            seconds_to_unlock = max(0, int((reset_dt_today - now_madrid).total_seconds()))
-            next_reset_dt = reset_dt_today
-        else:
-            can_spin_now = True
-            seconds_to_unlock = 0
-            tomorrow = today + timedelta(days=1)
-            next_reset_hhmm = ensure_wheel_reset_time(tomorrow, now_madrid + timedelta(days=1))
-            if next_reset_hhmm:
-                try:
-                    hh2, mm2 = map(int, next_reset_hhmm.split(":"))
-                    next_reset_dt = reset_dt_today.replace(
-                        year=tomorrow.year,
-                        month=tomorrow.month,
-                        day=tomorrow.day,
-                        hour=hh2,
-                        minute=mm2,
-                        second=0,
-                        microsecond=0,
-                    )
-                except Exception:
-                    next_reset_dt = None
-
-    seconds_to_next_reset: int | None = None
-    next_reset_iso: str | None = None
-    if next_reset_dt:
-        seconds_to_next_reset = max(0, int((next_reset_dt - now_madrid).total_seconds()))
-        next_reset_iso = next_reset_dt.isoformat()
-
-    return {
-        "today": today_iso,
-        "reset_time": reset_hhmm,
-        "can_spin_now": can_spin_now,
-        "seconds_to_unlock": seconds_to_unlock,
-        "next_reset_iso": next_reset_iso,
-        "seconds_to_next_reset": seconds_to_next_reset,
-    }
-
-
-def _load_wheel_last(user: str):
-    """
-    Devuelve info del ÚLTIMO giro conocido de ese usuario
-    (aunque sea de ayer u otro día).
-    """
-    key = f"wheel_last::{user}"
-    raw = state_get(key, "")
-    if not raw:
-        return {"has_spun": False}
-    try:
-        info = json.loads(raw)
-    except Exception:
-        info = {}
-    return {
-        "has_spun": bool(info.get("has_spun", True)),
-        "idx": int(info.get("idx", 0)),
-        "delta": int(info.get("delta", 0)),
-        "label": info.get("label"),
-        "date": info.get("date"),
-        "ts": info.get("ts"),
-    }
-
 
 # ========= Mini-cache =========
 import time as _time
@@ -806,17 +642,6 @@ def init_db():
         c.execute("CREATE INDEX IF NOT EXISTS idx_intim_user_ts ON intimacy_events (username, ts DESC)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions (username)")
 
-        # Índices para pelis/series -> aceleran muchísimo el / (home)
-        c.execute("""
-            CREATE INDEX IF NOT EXISTS idx_media_iswatched_prio_created
-            ON media_items (is_watched, priority, created_at DESC, id DESC)
-        """)
-        c.execute("""
-            CREATE INDEX IF NOT EXISTS idx_media_iswatched_watchedat
-            ON media_items (is_watched, watched_at DESC, id DESC)
-        """)
-
-
         # ======= Seguimiento de PRECIO: migraciones =======
         c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS track_price BOOLEAN DEFAULT FALSE""")
         c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS last_price_cents INTEGER""")
@@ -838,168 +663,140 @@ init_db()
 _gami_ready = False
 _gami_lock = threading.Lock()
 
-# def _ensure_gamification_schema():
-#     """Crea columnas/tablas si faltan (seguro de repetir)."""
-#     global _gami_ready
-#     if _gami_ready:
-#         return
-#     with _gami_lock:
-#         if _gami_ready:
-#             return
-#         conn = get_db_connection()
-#         try:
-#             with conn.cursor() as c:
-#                 # Columna de puntos en users
-#                 c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0")
+def _ensure_gamification_schema():
+    """Crea columnas/tablas si faltan (seguro de repetir)."""
+    global _gami_ready
+    if _gami_ready:
+        return
+    with _gami_lock:
+        if _gami_ready:
+            return
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as c:
+                # Columna de puntos en users
+                c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0")
 
-#                 # Catálogo de medallas
-#                 c.execute("""
-#                 CREATE TABLE IF NOT EXISTS achievements (
-#                     id SERIAL PRIMARY KEY,
-#                     code TEXT UNIQUE NOT NULL,
-#                     title TEXT NOT NULL,
-#                     description TEXT,
-#                     icon TEXT,
-#                     goal INTEGER DEFAULT 0
-#                 )
-#                 """)
+                # Catálogo de medallas
+                c.execute("""
+                CREATE TABLE IF NOT EXISTS achievements (
+                    id SERIAL PRIMARY KEY,
+                    code TEXT UNIQUE NOT NULL,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    icon TEXT,
+                    goal INTEGER DEFAULT 0
+                )
+                """)
 
-#                 # Medallas obtenidas por usuario
-#                 c.execute("""
-#                 CREATE TABLE IF NOT EXISTS user_achievements (
-#                     id SERIAL PRIMARY KEY,
-#                     user_id INTEGER NOT NULL,
-#                     achievement_id INTEGER NOT NULL,
-#                     earned_at TEXT,
-#                     UNIQUE (user_id, achievement_id)
-#                 )
-#                 """)
+                # Medallas obtenidas por usuario
+                c.execute("""
+                CREATE TABLE IF NOT EXISTS user_achievements (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    achievement_id INTEGER NOT NULL,
+                    earned_at TEXT,
+                    UNIQUE (user_id, achievement_id)
+                )
+                """)
 
-#                 # Tienda y compras
-#                 c.execute("""
-#                 CREATE TABLE IF NOT EXISTS shop_items (
-#                     id SERIAL PRIMARY KEY,
-#                     name TEXT UNIQUE NOT NULL,
-#                     cost INTEGER NOT NULL,
-#                     description TEXT,
-#                     icon TEXT
-#                 )
-#                 """)
-#                 c.execute("""
-#                 CREATE TABLE IF NOT EXISTS purchases (
-#                     id SERIAL PRIMARY KEY,
-#                     user_id INTEGER NOT NULL,
-#                     item_id INTEGER NOT NULL,
-#                     quantity INTEGER DEFAULT 1,
-#                     note TEXT,
-#                     purchased_at TEXT
-#                 )
-#                 """)
-#                 c.execute("""
-#                 CREATE TABLE IF NOT EXISTS points_history (
-#                     id        SERIAL PRIMARY KEY,
-#                     user_id   INTEGER NOT NULL REFERENCES users(id),
-#                     delta     INTEGER NOT NULL,   -- +10, -5, etc
-#                     source    TEXT    NOT NULL,   -- 'daily', 'daily_first', 'admin', 'achievement', 'shop', ...
-#                     note      TEXT,
-#                     created_at TEXT   NOT NULL
-#                 )
-#             """)
-#                 # En init_db(), después de crear la tabla purchases, añade:
-#                 c.execute('''CREATE TABLE IF NOT EXISTS purchases (
-#                     id SERIAL PRIMARY KEY,
-#                     user_id INTEGER NOT NULL,
-#                     item_id INTEGER NOT NULL,
-#                     quantity INTEGER DEFAULT 1,
-#                     note TEXT,
-#                     purchased_at TEXT,
-#                     FOREIGN KEY (item_id) REFERENCES shop_items(id) ON DELETE CASCADE
-#                 )''')
-#             conn.commit()
-#         finally:
-#             conn.close()
-#         _seed_gamification()
-#         _gami_ready = True
+                # Tienda y compras
+                c.execute("""
+                CREATE TABLE IF NOT EXISTS shop_items (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT UNIQUE NOT NULL,
+                    cost INTEGER NOT NULL,
+                    description TEXT,
+                    icon TEXT
+                )
+                """)
+                c.execute("""
+                CREATE TABLE IF NOT EXISTS purchases (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    item_id INTEGER NOT NULL,
+                    quantity INTEGER DEFAULT 1,
+                    note TEXT,
+                    purchased_at TEXT
+                )
+                """)
+            conn.commit()
+        finally:
+            conn.close()
+        _seed_gamification()
+        _gami_ready = True
 
-
-
-def _grant_achievement_to(user: str, achievement_id: int, points_on_award=None):
-    """
-    Concede (si falta) la medalla a 'user', suma puntos y manda una noti con el logro.
-    - achievement_id: id de la medalla (tabla achievements)
-    - points_on_award:
-        * si es None -> se usa achievements.points_on_award
-        * si viene con número -> se usa ese número
-    """
+def _seed_gamification():
+    """Semillas idempotentes de medallas y tienda."""
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # Info del logro (título + puntos por defecto)
-            c.execute(
-                "SELECT title, points_on_award FROM achievements WHERE id=%s",
-                (achievement_id,)
-            )
-            ach_info = c.fetchone()
-            ach_title = ach_info["title"] if ach_info else "Logro"
-            db_points = ach_info["points_on_award"] if ach_info else 0
+            achs = [
+                ("answers_30",   "Constante 30",  "Has respondido 30 preguntas",                      "🧩", 30),
+                ("answers_100",  "Constante 100", "Has respondido 100 preguntas",                     "🧩", 100),
+                ("first_answer_1","¡Primera del día!", "Has sido la primera en contestar",            "⚡", 1),
+                ("first_answer_10","Velocista ×10",    "Primera en 10 ocasiones",                    "⚡", 10),
+                ("streak_7",     "Racha 7",       "7 días seguidos",                                  "🔥", 7),
+                ("streak_30",    "Racha 30",      "30 días seguidos",                                 "🔥", 30),
+                ("streak_50",    "Racha 50",      "50 días seguidos",                                 "🔥", 50),
+                ("days_100",     "100 días",      "El juego ya tiene 100 preguntas publicadas",       "💯", 100),
+            ]
+            for code, title, desc, icon, goal in achs:
+                c.execute("""
+                    INSERT INTO achievements (code,title,description,icon,goal)
+                    VALUES (%s,%s,%s,%s,%s)
+                    ON CONFLICT (code) DO UPDATE
+                    SET title=EXCLUDED.title, description=EXCLUDED.description,
+                        icon=EXCLUDED.icon, goal=EXCLUDED.goal
+                """, (code,title,desc,icon,goal))
 
-            # Usuario
+            items = [
+                ("Cena gratis",       120, "Vale por una cena pagada por tu pareja", "🍝"),
+                ("Cine juntos",        90, "Entradas para el cine (+ palomitas)",    "🎬"),
+                ("Desayuno a la cama", 60, "Cafecito + croissants servido con amor", "☕"),
+                ("Masaje 30’",         50, "30 minutos de masaje relajante",         "💆‍♀️"),
+                ("Día sin fregar",     40, "Te libras hoy de fregar platos",         "🧽"),
+            ]
+            for name, cost, desc, icon in items:
+                c.execute("""
+                    INSERT INTO shop_items (name,cost,description,icon)
+                    VALUES (%s,%s,%s,%s)
+                    ON CONFLICT (name) DO UPDATE
+                    SET cost=EXCLUDED.cost, description=EXCLUDED.description, icon=EXCLUDED.icon
+                """, (name,cost,desc,icon))
+        conn.commit()
+    finally:
+        conn.close()
+
+def _grant_achievement_to(user: str, achievement_id: int, points_on_award: int = 0):
+    """Concede (si falta) la medalla a 'user' y suma puntos."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
             c.execute("SELECT id FROM users WHERE username=%s", (user,))
             uid = (c.fetchone() or [None])[0]
             if not uid:
                 return
 
-            # ¿Ya tenía la medalla?
             c.execute("""
-                SELECT 1 FROM user_achievements
-                WHERE user_id=%s AND achievement_id=%s
+              SELECT 1 FROM user_achievements
+              WHERE user_id=%s AND achievement_id=%s
             """, (uid, achievement_id))
             if c.fetchone():
                 return  # ya concedida
 
-            # Puntos finales a sumar
-            if points_on_award is None:
-                pts = int(db_points or 0)
-            else:
-                pts = int(points_on_award or 0)
+            if points_on_award and int(points_on_award) != 0:
+                c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE id=%s",
+                          (int(points_on_award), uid))
 
-            if pts != 0:
-                c.execute(
-                    "UPDATE users SET points = COALESCE(points,0) + %s WHERE id=%s",
-                    (pts, uid)
-                )
-                # ✅ Historial de puntos por logro
-                c.execute("""
-                    INSERT INTO points_history (user_id, delta, source, note, created_at)
-                    VALUES (%s,%s,%s,%s,%s)
-                """, (uid, pts, "achievement", ach_title, now_madrid_str()))
-
-            # Registrar la medalla
             c.execute("""
-                INSERT INTO user_achievements (user_id, achievement_id, earned_at)
-                VALUES (%s,%s,%s)
-                ON CONFLICT (user_id, achievement_id) DO NOTHING
+              INSERT INTO user_achievements (user_id, achievement_id, earned_at)
+              VALUES (%s,%s,%s)
+              ON CONFLICT (user_id, achievement_id) DO NOTHING
             """, (uid, achievement_id, now_madrid_str()))
-
-            # 🔔 NOTIFICACIÓN PUSH POR LOGRO Y PUNTOS
-            try:
-                if pts > 0:
-                    body = f"{ach_title} - +{pts} puntos"
-                else:
-                    body = ach_title
-
-                send_push_to(
-                    user,
-                    title="🏆 ¡Nuevo logro desbloqueado!",
-                    body=body
-                )
-            except Exception as e:
-                print("[push achievement]", e)
-
         conn.commit()
     finally:
         conn.close()
-
 
 
 def check_relationship_milestones():
@@ -1163,96 +960,36 @@ def _maybe_award_achievements(u: str):
     except Exception as e:
         app.logger.warning("maybe_award_achievements: %s", e)
 
-# En la función award_points_for_answer, modificar para añadir notificación específica de puntos
-def award_points_for_answer(question_id: int, user: str):
+def award_points_for_answer(question_id: int, user: str, first_publication: bool):
     """
     Suma puntos cuando un usuario publica su respuesta del día por primera vez:
-      +10 pts por responder
+      +5 pts por responder
       +10 pts extra si es la PRIMERA respuesta del día (global)
     Luego revisa medallas.
-    IMPORTANTE: esta función se debe llamar SOLO cuando se inserta una respuesta nueva.
     """
-    base = 10
+    if not first_publication:
+        return
+    _ensure_gamification_schema()
+    base = 5
     bonus = 0
-
+    # ¿fue la primera del día? (contamos tras el INSERT)
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # ¿Es la primera respuesta del día? (contamos respuestas NO vacías de otros usuarios)
             c.execute("""
                 SELECT COUNT(*) FROM answers
-                WHERE question_id=%s 
-                  AND TRIM(COALESCE(answer,'')) <> ''
-                  AND username != %s
-            """, (question_id, user))
-            other_answers = int((c.fetchone() or [0])[0] or 0)
-
-            if other_answers == 0:
-                bonus = 10  # primerx en contestar
-
+                WHERE question_id=%s AND TRIM(COALESCE(answer,'')) <> ''
+            """, (question_id,))
+            total_ans = int((c.fetchone() or [0])[0] or 0)
+            if total_ans == 1:
+                bonus = 10
             delta = base + bonus
-
-            # Actualizar puntos
-            c.execute("""
-                UPDATE users 
-                SET points = COALESCE(points,0) + %s 
-                WHERE username=%s
-            """, (delta, user))
-
-            # ✅ Registrar en historial de puntos
-            c.execute("SELECT id FROM users WHERE username=%s", (user,))
-            row_uid = c.fetchone()
-            if row_uid:
-                uid = row_uid[0]
-                source = "daily_first" if bonus > 0 else "daily"
-                note = "Pregunta del día"
-                if bonus > 0:
-                    note += " (primero en contestar)"
-                c.execute("""
-                    INSERT INTO points_history (user_id, delta, source, note, created_at)
-                    VALUES (%s,%s,%s,%s,%s)
-                """, (uid, delta, source, note, now_madrid_str()))
-
+            c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE username=%s", (delta, user))
             conn.commit()
-
-            # 🔔 NOTIFICACIÓN PUSH POR PUNTOS GANADOS
-            try:
-                if bonus > 0:
-                    send_push_to(
-                        user,
-                        title="¡Puntos ganados! 🎉",
-                        body=f"Has ganado {delta} puntos (+{base} por responder, +{bonus} por ser el primero)"
-                    )
-                else:
-                    send_push_to(
-                        user,
-                        title="¡Puntos ganados! 🎉",
-                        body=f"Has ganado {delta} puntos por responder la pregunta"
-                    )
-            except Exception as e:
-                print("[push points award] ", e)
-
-    except Exception as e:
-        print(f"[award_points_for_answer] Error: {e}")
-        conn.rollback()
     finally:
         conn.close()
-
     # Revisa medallas
     _maybe_award_achievements(user)
-
-
-
-def push_answer_edited_notice(editor: str):
-    other = 'mochita' if editor == 'mochito' else 'mochito'
-    who   = "tu pareja" if editor in ("mochito", "mochita") else editor
-    send_push_to(
-        other,
-        title="Respuesta editada ✏️",
-        body=f"{who} ha editado su respuesta de hoy. 💬",
-        url="/#pregunta",
-        tag="dq-answer-edit"
-    )
 
 
 def _parse_dt(txt: str):
@@ -1632,8 +1369,6 @@ def _enrich_media_row(row, user):
 
 
 # --- Lógica dependiente de fecha en Madrid ---
-# --- Lógica dependiente de fecha en Madrid ---
-@ttl_cache(seconds=15)
 def get_intim_stats():
     today = today_madrid()
     conn = get_db_connection()
@@ -1649,63 +1384,33 @@ def get_intim_stats():
         if dt:
             dts.append(dt)
     if not dts:
-        return {
-            'today_count': 0,
-            'month_total': 0,
-            'year_total': 0,
-            'days_since_last': None,
-            'last_dt': None,
-            'streak_days': 0
-        }
+        return {'today_count': 0, 'month_total': 0, 'year_total': 0, 'days_since_last': None, 'last_dt': None, 'streak_days': 0}
     today_count = sum(1 for dt in dts if dt.date() == today)
     month_total = sum(1 for dt in dts if dt.year == today.year and dt.month == today.month)
     year_total = sum(1 for dt in dts if dt.year == today.year)
-    last_dt = max(dts)
-    days_since_last = (today - last_dt.date()).days
+    last_dt = max(dts); days_since_last = (today - last_dt.date()).days
     if today_count == 0:
         streak_days = 0
     else:
         dates_with = {dt.date() for dt in dts}
-        streak_days = 0
-        cur = today
+        streak_days = 0; cur = today
         while cur in dates_with:
-            streak_days += 1
-            cur = cur - timedelta(days=1)
-    return {
-        'today_count': today_count,
-        'month_total': month_total,
-        'year_total': year_total,
-        'days_since_last': days_since_last,
-        'last_dt': last_dt,
-        'streak_days': streak_days
-    }
+            streak_days += 1; cur = cur - timedelta(days=1)
+    return {'today_count': today_count, 'month_total': month_total, 'year_total': year_total,
+            'days_since_last': days_since_last, 'last_dt': last_dt, 'streak_days': streak_days}
 
-@ttl_cache(seconds=15)
 def get_intim_events(limit: int = 200):
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            c.execute("""
-                SELECT id, username, ts, place, notes
-                FROM intimacy_events
-                WHERE username IN ('mochito','mochita')
-                ORDER BY ts DESC
-                LIMIT %s
-            """, (limit,))
+            c.execute("""SELECT id, username, ts, place, notes
+                         FROM intimacy_events
+                         WHERE username IN ('mochito','mochita')
+                         ORDER BY ts DESC LIMIT %s""", (limit,))
             rows = c.fetchall()
-            return [
-                {
-                    'id': r[0],
-                    'username': r[1],
-                    'ts': r[2],
-                    'place': r[3] or '',
-                    'notes': r[4] or ''
-                }
-                for r in rows
-            ]
+            return [{'id': r[0], 'username': r[1], 'ts': r[2], 'place': r[3] or '', 'notes': r[4] or ''} for r in rows]
     finally:
         conn.close()
-
 
 def require_admin():
     if 'username' not in session or session['username'] != 'mochito':
@@ -1744,21 +1449,13 @@ def parse_datetime_local_to_madrid(dt_local: str) -> str | None:
         return None
 
 
-# Sustituye la función entera por esta
-from datetime import date as _Date, datetime as _DateTime
-
-def get_today_question(today: _Date | _DateTime | None = None):
-    # Normaliza a date (YYYY-MM-DD)
+def get_today_question(today: date | None = None):
     if today is None:
-        today = europe_madrid_now().date()
-    elif isinstance(today, _DateTime):
-        today = today.date()
-    # hoy como 'YYYY-MM-DD'
+        today = today_madrid()
     today_str = today.isoformat()
-
     conn = get_db_connection()
     try:
-        # ¿Ya existe para hoy?
+        # ¿Hay ya pregunta para hoy?
         with conn.cursor() as c:
             c.execute("""
                 SELECT id, question, bank_id
@@ -1771,9 +1468,10 @@ def get_today_question(today: _Date | _DateTime | None = None):
             if row:
                 return row['id'], row['question']
 
-        # No existe → saca una del banco
+        # No existe aún -> elige del banco (SIN usar)
         picked = qbank_pick_random(conn)
         if not picked:
+            # 🚫 Ya no reciclamos. Si no quedan, avisamos.
             return (None, "Ya no quedan preguntas sin usar. Añade más en Admin → Preguntas.")
 
         with conn.cursor() as c:
@@ -1785,7 +1483,9 @@ def get_today_question(today: _Date | _DateTime | None = None):
             qid = c.fetchone()[0]
             conn.commit()
 
+        # Marca esa del banco como usada (desde el momento en que está activa para HOY)
         qbank_mark_used(conn, picked['id'], True)
+
         return qid, picked['text']
     finally:
         conn.close()
@@ -2097,28 +1797,6 @@ def push_meeting_countdown(dleft: int):
 
 
 
-def push_wheel_available():
-    """Se llama cuando se desbloquea la ruleta del día."""
-    send_push_both(
-        title="🎡 Ruleta diaria disponible",
-        body="Ya podéis girar la ruleta de hoy y ganar puntos.",
-        url="/",
-        tag="wheel-open"
-    )
-
-
-def push_wheel_last_hours(user: str):
-    """Recordatorio si todavía no ha girado y se acaba el día."""
-    send_push_to(
-        user,
-        title="⏰ Últimas horas para la ruleta",
-        body="Aún no has girado la ruleta de hoy. ¡No lo dejes pasar! 💖",
-        url="/",
-        tag="wheel-last-hours"
-    )
-
-
-
 # --- Nuevas notificaciones románticas ---
 def push_relationship_day(day_count: int):
     """💖 Notifica días especiales de relación"""
@@ -2358,90 +2036,6 @@ def _meta_price(soup):
                 cents = _to_cents_from_str(str(v))
                 if cents: return cents
     return None
-
-
-
-# ======== Actividad de usuarios (log sencillo) ========
-_activity_ready = False
-_activity_lock = threading.Lock()
-
-def ensure_activity_table():
-    """Crea la tabla de actividad si no existe."""
-    global _activity_ready
-    if _activity_ready:
-        return
-    with _activity_lock:
-        if _activity_ready:
-            return
-        conn = get_db_connection()
-        try:
-            with conn.cursor() as c:
-                c.execute("""
-                    CREATE TABLE IF NOT EXISTS user_activity (
-                        id         SERIAL PRIMARY KEY,
-                        username   text NOT NULL,
-                        ts         timestamptz NOT NULL,
-                        ip         text,
-                        path       text,
-                        method     text,
-                        action     text,
-                        details    text,
-                        user_agent text
-                    );
-                """)
-                c.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_user_activity_user_ts
-                    ON user_activity (username, ts DESC);
-                """)
-                conn.commit()
-        finally:
-            conn.close()
-
-def _client_ip_from_request() -> str:
-    """Devuelve IP (o primera IP) usando X-Forwarded-For si existe."""
-    h = (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
-    if not h:
-        h = (request.remote_addr or "").strip()
-    return h
-
-def log_activity(action: str, details: str | None = None, username: str | None = None):
-    """
-    Guarda un registro ligero de lo que hace un usuario.
-    Pensado para auditar sobre todo a mochita en el panel de admin.
-    """
-    try:
-        ensure_activity_table()
-    except Exception as e:
-        print("[activity] ensure_activity_table failed:", e)
-        return
-
-    u = username or session.get("username")
-    if not u:
-        return
-
-    ip = (_client_ip_from_request() or "")[:100]
-    path = (request.path or "")[:200]
-    method = (request.method or "")[:10]
-    ua = (request.headers.get("User-Agent") or "")[:300]
-    now_txt = now_madrid_str()
-
-    try:
-        conn = get_db_connection()
-        try:
-            with conn.cursor() as c:
-                c.execute(
-                    """
-                    INSERT INTO user_activity (username, ts, ip, path, method, action, details, user_agent)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-                    """,
-                    (u, now_txt, ip, path, method, action, details, ua),
-                )
-                conn.commit()
-        finally:
-            conn.close()
-    except Exception as e:
-        # Nunca debe romper la petición
-        print("[activity] log_activity error:", e)
 
 
 # ======== Presencia (helpers) ========
@@ -2783,34 +2377,20 @@ def run_scheduled_jobs(now=None):
                         push_last_hours(u)
                         state_set(key, "1")
 
-        # 7) Ruleta diaria:
-    #    - Aviso cuando se desbloquea (según hora aleatoria 09:00–22:00).
-    #    - Recordatorio en las últimas 2h del día si alguien no ha girado todavía.
+    # 7) Barrido de precios cada ~3 horas
     try:
-        reset_hhmm = ensure_wheel_reset_time(today, now)
-        if reset_hhmm:
-            sent_key = f"wheel_open::{today.isoformat()}::{reset_hhmm}"
-            if not state_get(sent_key, "") and is_due_or_overdue(now, reset_hhmm, grace_minutes=5):
-                push_wheel_available()
-                state_set(sent_key, "1")
-
-        secs_left_day = seconds_until_next_midnight_madrid()
-        if secs_left_day <= 2 * 3600:  # últimas 2 horas del día
-            for u in ("mochito", "mochita"):
-                spin_key = f"wheel_spin::{u}::{today.isoformat()}"
-                if state_get(spin_key, ""):
-                    continue  # ya ha girado hoy
-                last_key = f"wheel_last_reminder::{today.isoformat()}::{u}"
-                if not state_get(last_key, ""):
-                    push_wheel_last_hours(u)
-                    state_set(last_key, "1")
+        last_sweep = state_get("last_price_sweep", "")
+        do = True
+        if last_sweep:
+            dt = _parse_dt(last_sweep)
+            if dt:
+                from datetime import timedelta as _td
+                do = (europe_madrid_now() - dt) >= _td(hours=3)
+        if do:
+            sweep_price_checks(max_items=6, min_age_minutes=180)
+            state_set("last_price_sweep", now_madrid_str())
     except Exception as e:
-        print("[tick wheel]", e)
-
-
-
-
-    
+        print("[tick price sweep]", e)
 
 
 def background_loop():
@@ -2849,10 +2429,6 @@ def index():
                         ok = (stored == password); mode = "plaintext"
                     if ok:
                         session['username'] = username
-                        try:
-                            log_activity("login_ok", f"Login correcto como {username}", username=username)
-                        except Exception:
-                            pass
                         send_discord("Login OK", {"username": username, "mode": mode})
                         return redirect('/')
                     else:
@@ -2869,35 +2445,6 @@ def index():
         touch_presence(user, device='page-view')
     except Exception as e:
         app.logger.warning("touch_presence failed: %s", e)
-
-
-
-        # Pequeño log de acciones importantes en la home
-    if request.method == 'POST':
-        try:
-            if 'update_profile' in request.form:
-                log_activity("profile_update", "Sube nueva foto de perfil")
-            elif 'change_password' in request.form:
-                log_activity("change_password", "Intenta cambiar su contraseña")
-            elif 'answer' in request.form:
-                ans_preview = (request.form.get('answer') or '').strip()
-                if len(ans_preview) > 80:
-                    ans_preview = ans_preview[:77] + "..."
-                log_activity("daily_answer", f"Responde a la pregunta diaria: {ans_preview}")
-            elif 'intim_unlock_pin' in request.form:
-                log_activity("intim_unlock", "Entra PIN de intimidad")
-            elif 'intim_lock' in request.form:
-                log_activity("intim_lock", "Vuelve a bloquear el módulo intimidad")
-            elif 'intim_register' in request.form:
-                place = (request.form.get('intim_place') or '').strip()
-                log_activity("intim_register", f"Registra evento intimidad en: {place}")
-            elif 'wishlist_add' in request.form or request.form.get('product_name'):
-                pname = (request.form.get('product_name') or '').strip()
-                log_activity("wishlist_add", f"Añade / edita wishlist: {pname}")
-        except Exception as _e:
-            # Nunca debe romper la app
-            app.logger.warning("log_activity index POST failed: %s", _e)
-
 
     question_id, question_text = get_today_question()  # usa fecha de Madrid por defecto
     conn = get_db_connection()
@@ -2954,89 +2501,61 @@ def index():
                 conn.commit(); flash("Contraseña cambiado correctamente 🎉", "success")
                 send_discord("Change password OK", {"user": user}); return redirect('/')
 
-                        # 3) Responder pregunta
+            # 3) Responder pregunta
             if request.method == 'POST' and 'answer' in request.form:
                 answer = (request.form.get('answer') or '').strip()
                 if question_id is not None and answer:
-                    now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+                    now_txt = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"  # UTC
 
-                    is_new = False      # se usará para saber si es primera vez
-                    was_edited = False  # se usará para saber si es edición
+                    c.execute("""
+                        SELECT id, answer, created_at, updated_at
+                        FROM answers
+                        WHERE question_id=%s AND username=%s
+                    """, (question_id, user))
+                    prev = c.fetchone()
+                    just_published = False
 
-                    conn = get_db_connection()
-                    try:
-                        with conn.cursor() as c:
-                            c.execute("""
-                                SELECT id, answer, created_at, updated_at
-                                FROM answers
-                                WHERE question_id=%s AND username=%s
-                            """, (question_id, user))
-                            prev = c.fetchone()
-
-                            if not prev:
-                                # NUEVA respuesta - insertar
+                    if not prev:
+                        c.execute("""
+                            INSERT INTO answers (question_id, username, answer, created_at, updated_at)
+                            VALUES (%s,%s,%s,%s,%s)
+                            ON CONFLICT (question_id, username) DO NOTHING
+                        """, (question_id, user, answer, now_txt, now_txt))
+                        conn.commit()
+                        send_discord("Answer submitted", {"user": user, "question_id": question_id})
+                        just_published = True
+                    else:
+                        prev_id, prev_text, prev_created, prev_updated = prev
+                        if answer != (prev_text or ""):
+                            if prev_created is None:
                                 c.execute("""
-                                    INSERT INTO answers (question_id, username, answer, created_at, updated_at)
-                                    VALUES (%s,%s,%s,%s,%s)
-                                    ON CONFLICT (question_id, username) DO NOTHING
-                                    RETURNING id
-                                """, (question_id, user, answer, now_txt, now_txt))
-                                new_row = c.fetchone()
-                                conn.commit()
-                                
-                                if new_row:
-                                    is_new = True
-                                    send_discord("Answer submitted", {"user": user, "question_id": question_id})
-                                    # ✅ OTORGAR PUNTOS por primera respuesta
-                                    try:
-                                        award_points_for_answer(question_id, user)
-                                    except Exception as _e:
-                                        app.logger.warning("award_points_for_answer failed: %s", _e)
-                                        
+                                    UPDATE answers
+                                    SET answer=%s, updated_at=%s, created_at=%s
+                                    WHERE id=%s
+                                """, (answer, now_txt, prev_updated or now_txt, prev_id))
                             else:
-                                prev_id, prev_text, prev_created, prev_updated = prev
-                                if answer != (prev_text or ""):
-                                    # Respuesta editada - actualizar SIN sumar puntos
-                                    was_edited = True
-                                    if prev_created is None:
-                                        c.execute("""
-                                            UPDATE answers
-                                            SET answer=%s, updated_at=%s, created_at=%s
-                                            WHERE id=%s
-                                        """, (answer, now_txt, prev_updated or now_txt, prev_id))
-                                    else:
-                                        c.execute("""
-                                            UPDATE answers
-                                            SET answer=%s, updated_at=%s
-                                            WHERE id=%s
-                                        """, (answer, now_txt, prev_id))
-                                    conn.commit()
-                                    send_discord("Answer edited", {"user": user, "question_id": question_id})
+                                c.execute("""
+                                    UPDATE answers
+                                    SET answer=%s, updated_at=%s
+                                    WHERE id=%s
+                                """, (answer, now_txt, prev_id))
+                            conn.commit()
+                            send_discord("Answer edited", {"user": user, "question_id": question_id})
+                            if not (prev_text or "").strip():
+                                just_published = True
 
-                        # --- Después de tocar BD, refrescamos cosas y mandamos eventos ---
-                        cache_invalidate('compute_streaks')
+                    if just_published:
+                        try:
+                            award_points_for_answer(question_id, user, first_publication=True)
+                        except Exception as _e:
+                            app.logger.warning("award_points_for_answer failed: %s", _e)
 
-                        # SSE para el front: indicamos si es nueva o editada
-                        if is_new:
-                            broadcast("dq_answer", {"user": user, "kind": "new"})
-                            try:
-                                push_answer_notice(user)
-                            except Exception as e:
-                                print("[push answer new] ", e)
-                        elif was_edited:
-                            broadcast("dq_answer", {"user": user, "kind": "edit"})
-                            try:
-                                push_answer_edited_notice(user)
-                            except Exception as e:
-                                print("[push answer edited] ", e)
-                        # si no cambia el texto, no hacemos nada (ni puntos ni notis)
-
+                    cache_invalidate('compute_streaks')
+                    broadcast("dq_answer", {"user": user})
+                    try:
+                        push_answer_notice(user)
                     except Exception as e:
-                        print(f"[answer submission] Error: {e}")
-                        conn.rollback()
-                    finally:
-                        conn.close()
-                        
+                        print("[push answer] ", e)
                 return redirect('/')
 
 
@@ -3090,10 +2609,7 @@ def index():
                     c.execute("""INSERT INTO travels (destination, description, travel_date, is_visited, created_by, created_at)
                                  VALUES (%s,%s,%s,%s,%s,%s)""",
                               (destination, description, travel_date, is_visited, user, now_madrid_str()))
-                    conn.commit()
-                    check_travel_achievements(user)
-
-                    flash("Viaje añadido ✈️", "success")
+                    conn.commit(); flash("Viaje añadido ✈️", "success")
                     send_discord("Travel added", {"user": user, "dest": destination, "visited": is_visited})
                     broadcast("travel_update", {"type": "add"})
                 return redirect('/')
@@ -3225,13 +2741,18 @@ def index():
             user_points = int((c.fetchone() or [0])[0] or 0)
 
 
-            # Viajes + fotos -> ahora se cargan vía /api/travels cuando entras en la pestaña
-            travels = []
-            travel_photos_dict = {}
+            # Viajes + fotos
+            c.execute("""
+                SELECT id, destination, description, travel_date, is_visited, created_by
+                FROM travels
+                ORDER BY is_visited, travel_date DESC
+            """)
+            travels = c.fetchall()
 
+            c.execute("SELECT travel_id, id, image_url, uploaded_by FROM travel_photos ORDER BY id DESC")
+            all_ph = c.fetchall()
 
             # Wishlist (blindaje regalos)
-                        # Wishlist (blindaje regalos)
             c.execute("""
                 SELECT
                     id,
@@ -3262,41 +2783,36 @@ def index():
             """)
             wl_rows = c.fetchall()  # <-- IMPORTANTE: justo después del SELECT de wishlist
 
-            # --- Media: POR VER ---
-            # Solo mostramos las 300 más recientes / prioritarias en el home
+          # --- Media: POR VER ---
             c.execute("""
                 SELECT
-                    id, title, cover_url, link_url, on_netflix, on_prime,
-                    comment, priority,
-                    created_by, created_at,
-                    reviews,            -- JSONB
-                    avg_rating          -- media
+                id, title, cover_url, link_url, on_netflix, on_prime,
+                comment, priority,
+                created_by, created_at,
+                reviews,            -- NUEVO (JSONB)
+                avg_rating          -- NUEVO (media)
                 FROM media_items
                 WHERE is_watched = FALSE
                 ORDER BY
-                    CASE priority WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,
-                    COALESCE(created_at, '1970-01-01') DESC,
-                    id DESC
-                LIMIT 300
+                CASE priority WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,
+                COALESCE(created_at, '1970-01-01') DESC,
+                id DESC
             """)
             media_to_watch = c.fetchall()
 
             # --- Media: VISTAS ---
-            # Igual: solo las 300 últimas vistas (para que el home no explote)
             c.execute("""
                 SELECT
-                    id, title, cover_url, link_url,
-                    reviews,            -- JSONB
-                    avg_rating,         -- media
-                    watched_at,
-                    created_by
+                id, title, cover_url, link_url,
+                reviews,            -- NUEVO (JSONB)
+                avg_rating,         -- NUEVO (media)
+                watched_at,
+                created_by
                 FROM media_items
                 WHERE is_watched = TRUE
                 ORDER BY COALESCE(watched_at, '1970-01-01') DESC, id DESC
-                LIMIT 300
             """)
             media_watched = c.fetchall()
-
 
 
             # Helpers para leer reviews y exponer campos cómodos a la plantilla
@@ -3359,12 +2875,10 @@ def index():
         user_answer, other_answer = dict_ans.get(user), dict_ans.get(other_user)
         show_answers = (user_answer is not None) and (other_answer is not None)
 
-    # Viajes: ahora se cargan por fetch en /api/travels, así que aquí no consultamos nada
-        travels = []
+        # Fotos de viajes agrupadas
         travel_photos_dict = {}
-
-    # Blindaje wishlist (regalos ocultos al no-creador)
-
+        for tr_id, pid, url, up in all_ph:
+            travel_photos_dict.setdefault(tr_id, []).append({'id': pid, 'url': url, 'uploaded_by': up})
 
         # Blindaje wishlist (regalos ocultos al no-creador)
         safe_items = []
@@ -3406,28 +2920,13 @@ def index():
         banner_file = get_banner()
         profile_pictures = get_profile_pictures()
 
-        # --- Puntos de ambos para el chip ---
-        with conn.cursor() as c2:
-            c2.execute("""
-                SELECT username, COALESCE(points,0)
-                FROM users
-                WHERE username IN (%s, %s)
-            """, (user, other_user))
-            rows = c2.fetchall()
-        pts_map = {r[0]: int(r[1]) for r in rows}
-        user_points   = pts_map.get(user, 0)
-        other_points  = pts_map.get(other_user, 0)
-
     finally:
         conn.close()
 
     current_streak, best_streak = compute_streaks()
-
-    # Intimidad: ahora se carga por fetch en /api/intimidad
     intim_unlocked = bool(session.get('intim_unlocked'))
-    intim_stats = None
-    intim_events = []
-
+    intim_stats = get_intim_stats()
+    intim_events = get_intim_events(200) if intim_unlocked else []
 
 
      # --- Ciclo para interfaz ---
@@ -3450,52 +2949,43 @@ def index():
     moods_for_select = list(ALLOWED_MOODS)
     flows_for_select = list(ALLOWED_FLOWS)
 
-    return render_template(
-    'index.html',
-    question=question_text,
-    show_answers=show_answers,
-    answers=answers,
-    answers_edited=answers_edited,
-    answers_created_at=answers_created_at,
-    answers_updated_at=answers_updated_at,
-    user_answer=user_answer,
-    other_user=other_user,
-    other_answer=other_answer,
-    days_together=days_together(),
-    days_until_meeting=days_until_meeting(),
-
-    # Viajes: ahora da igual lo que pase aquí porque el front los carga por fetch;
-    # puedes dejarlo o quitarlo si luego no lo usas en el HTML
-    travels=travels,
-    travel_photos_dict=travel_photos_dict,
-
-    wishlist_items=wishlist_items,
-    username=user,
-    banner_file=banner_file,
-    profile_pictures=profile_pictures,
-    error=None,
-    current_streak=current_streak,
-    best_streak=best_streak,
-    intim_unlocked=intim_unlocked,
-    intim_stats=intim_stats,
-    intim_events=intim_events,
-    media_to_watch=media_to_watch,
-    media_watched=media_watched,
-    wishlist=wishlist_items,
-    cycle_user=cycle_user,
-    cycle_entries=cycle_entries,
-    cycle_pred=cycle_pred,
-    moods_for_select=moods_for_select,
-    flows_for_select=flows_for_select,
-    question_id=question_id,
-    dq_reactions=dq_reactions_map,
-    dq_chat_messages=dq_chat_messages,
-
-    # ESTA es la línea nueva que había que añadir:
-    user_points=user_points,
-    other_points=other_points,
-)
-
+    return render_template('index.html',
+                           question=question_text,
+                           show_answers=show_answers,
+                           answers=answers,
+                           answers_edited=answers_edited,
+                           answers_created_at=answers_created_at,
+                           answers_updated_at=answers_updated_at,
+                           user_answer=user_answer,
+                           other_user=other_user,
+                           other_answer=other_answer,
+                           days_together=days_together(),
+                           days_until_meeting=days_until_meeting(),
+                           travels=travels,
+                           travel_photos_dict=travel_photos_dict,
+                           wishlist_items=wishlist_items,
+                           username=user,
+                           banner_file=banner_file,
+                           profile_pictures=profile_pictures,
+                           error=None,
+                           current_streak=current_streak,
+                           best_streak=best_streak,
+                           intim_unlocked=intim_unlocked,
+                           intim_stats=intim_stats,
+                           intim_events=intim_events,
+                           media_to_watch=media_to_watch,
+                           media_watched=media_watched,
+                           wishlist=wishlist_items,
+                           cycle_user=cycle_user,
+                           cycle_entries=cycle_entries,
+                           cycle_pred=cycle_pred,
+                           moods_for_select=moods_for_select,
+                           flows_for_select=flows_for_select,
+                           question_id=question_id,
+                           dq_reactions=dq_reactions_map,
+                           dq_chat_messages=dq_chat_messages,
+                           user_points=user_points,   # ⬅️ añade esto
+                           )
 
 # ======= Rutas REST extra (con broadcast) =======
 @app.route('/delete_travel', methods=['POST'])
@@ -4441,17 +3931,8 @@ def presence_debug_dump():
 @app.get("/admin")
 def admin_home():
     require_admin()
-    # Asegura la tabla de actividad
-    try:
-        ensure_activity_table()
-    except Exception as e:
-        print("[admin] ensure_activity_table failed:", e)
-
-    # Listar próximas programadas (pendientes) + últimas enviadas + actividad de mochita
+    # Listar próximas programadas (pendientes)
     conn = get_db_connection()
-    mochita_activity = []
-    mochita_activity_stats = {}
-    mochita_presence = None
     try:
         with conn.cursor() as c:
             c.execute("""
@@ -4470,52 +3951,13 @@ def admin_home():
                 LIMIT 10
             """)
             recent = c.fetchall()
-
-            # Actividad reciente de mochita (últimos 60 movimientos)
-            c.execute("""
-                SELECT ts, ip, path, method, action, details, user_agent
-                FROM user_activity
-                WHERE username = %s
-                ORDER BY ts DESC
-                LIMIT 60
-            """, ("mochita",))
-            mochita_activity = c.fetchall()
-
-            # Pequeño resumen por día (últimos 7 días)
-            c.execute("""
-                SELECT date(ts) AS day, COUNT(*) AS total
-                FROM user_activity
-                WHERE username = %s
-                GROUP BY day
-                ORDER BY day DESC
-                LIMIT 7
-            """, ("mochita",))
-            rows_stats = c.fetchall()
-            mochita_activity_stats = {str(r["day"]): int(r["total"]) for r in rows_stats}
-
-            # Último ping de presencia de mochita (desde qué dispositivo / navegador)
-            try:
-                c.execute("""
-                    SELECT last_seen, device, user_agent
-                    FROM user_presence
-                    WHERE username = %s
-                """, ("mochita",))
-                mochita_presence = c.fetchone()
-            except Exception as e:
-                print("[admin] user_presence fetch failed:", e)
     finally:
         conn.close()
-
-    return render_template(
-        "admin.html",
-        username=session['username'],
-        pending=pending,
-        recent=recent,
-        mochita_activity=mochita_activity,
-        mochita_activity_stats=mochita_activity_stats,
-        mochita_presence=mochita_presence,
-        vapid_public_key=get_vapid_public_base64url(),
-    )
+    return render_template("admin.html",
+                           username=session['username'],
+                           pending=pending,
+                           recent=recent,
+                           vapid_public_key=get_vapid_public_base64url())
 
 @app.post("/admin/reset_pw")
 def admin_reset_pw():
@@ -4855,7 +4297,6 @@ def media_add():
                 user, now_madrid_str()))
             mid = c.fetchone()[0]
             conn.commit()
-            check_media_achievements(user)
 
             # 🔔 Push al otro
             try:
@@ -5822,127 +5263,85 @@ if __name__ == '__main__':
 
 # ========= Gamificación: puntos, medallas y tienda =========
 
-_gami_ready = False
-_gami_lock = threading.Lock()
-
 def _ensure_gamification_schema():
-    """
-    Crea/migra todo lo de gamificación SOLO UNA VEZ por proceso.
-    El resto de llamadas salen inmediatamente.
-    """
-    global _gami_ready
-    if _gami_ready:
-        return
+    with closing(get_db_connection()) as conn, conn.cursor() as c:
+        c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0")
+        c.execute('''CREATE TABLE IF NOT EXISTS achievements (
+            id SERIAL PRIMARY KEY,
+            code TEXT UNIQUE NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            icon TEXT,
+            goal INTEGER DEFAULT 0
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS user_achievements (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            achievement_id INTEGER NOT NULL,
+            earned_at TEXT,
+            UNIQUE (user_id, achievement_id)
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS shop_items (
+            id SERIAL PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL,
+            cost INTEGER NOT NULL,
+            description TEXT,
+            icon TEXT
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS purchases (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            item_id INTEGER NOT NULL,
+            quantity INTEGER DEFAULT 1,
+            note TEXT,
+            purchased_at TEXT
+        )''')
+        # Extiende achievements para triggers y puntos (idempotente)
+        c.execute("""ALTER TABLE achievements
+        ADD COLUMN IF NOT EXISTS trigger_kind TEXT
+            CHECK (trigger_kind IN ('rel_days','manual','none')) DEFAULT 'none'""")
 
-    with _gami_lock:
-        if _gami_ready:
-            return
+        c.execute("""ALTER TABLE achievements
+        ADD COLUMN IF NOT EXISTS trigger_value INTEGER""")
 
-        with closing(get_db_connection()) as conn, conn.cursor() as c:
-            # Columna de puntos en users
-            c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0")
+        c.execute("""ALTER TABLE achievements
+        ADD COLUMN IF NOT EXISTS points_on_award INTEGER DEFAULT 0""")
 
-            # Catálogo de medallas
+        c.execute("""ALTER TABLE achievements
+        ADD COLUMN IF NOT EXISTS grant_both BOOLEAN DEFAULT TRUE""")
+
+        c.execute("""ALTER TABLE achievements
+        ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE""")
+
+        c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS trigger_kind TEXT DEFAULT 'none'")
+        c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS trigger_value INTEGER")
+        c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS points_on_award INTEGER DEFAULT 0")
+        c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS grant_both BOOLEAN DEFAULT TRUE")
+        c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE")
+
+        conn.commit()
+    _seed_gamification()
+
+def _grant_achievement_to(user: str, ach_id: int, pts: int = 0):
+    """Concede (idempotente) una medalla y abona puntos opcionales."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT id FROM users WHERE username=%s", (user,))
+            uid = (c.fetchone() or [None])[0]
+            if not uid:
+                return
+            # Inserción idempotente
             c.execute("""
-                CREATE TABLE IF NOT EXISTS achievements (
-                    id SERIAL PRIMARY KEY,
-                    code TEXT UNIQUE NOT NULL,
-                    title TEXT NOT NULL,
-                    description TEXT,
-                    icon TEXT,
-                    goal INTEGER DEFAULT 0
-                )
-            """)
-
-            # Medallas obtenidas por usuario
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS user_achievements (
-                    id SERIAL PRIMARY KEY,
-                    user_id INTEGER NOT NULL,
-                    achievement_id INTEGER NOT NULL,
-                    earned_at TEXT,
-                    UNIQUE (user_id, achievement_id)
-                )
-            """)
-
-            # Tienda
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS shop_items (
-                    id SERIAL PRIMARY KEY,
-                    name TEXT UNIQUE NOT NULL,
-                    cost INTEGER NOT NULL,
-                    description TEXT,
-                    icon TEXT
-                )
-            """)
-
-            # Compras (una sola definición, con FK)
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS purchases (
-                    id SERIAL PRIMARY KEY,
-                    user_id INTEGER NOT NULL,
-                    item_id INTEGER NOT NULL,
-                    quantity INTEGER DEFAULT 1,
-                    note TEXT,
-                    purchased_at TEXT,
-                    FOREIGN KEY (item_id) REFERENCES shop_items(id) ON DELETE CASCADE
-                )
-            """)
-
-
-             # ✅ Estado del canje (pendiente / hecho)
-            c.execute("""
-                ALTER TABLE purchases
-                ADD COLUMN IF NOT EXISTS is_done BOOLEAN DEFAULT FALSE
-            """)
-
-            # Historial de puntos
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS points_history (
-                    id        SERIAL PRIMARY KEY,
-                    user_id   INTEGER NOT NULL REFERENCES users(id),
-                    delta     INTEGER NOT NULL,
-                    source    TEXT    NOT NULL,
-                    note      TEXT,
-                    created_at TEXT   NOT NULL
-                )
-            """)
-
-            # Extiende achievements para triggers y puntos (idempotente)
-            c.execute("""
-                ALTER TABLE achievements
-                ADD COLUMN IF NOT EXISTS trigger_kind TEXT
-                    CHECK (trigger_kind IN ('rel_days','manual','none')) DEFAULT 'none'
-            """)
-            c.execute("""
-                ALTER TABLE achievements
-                ADD COLUMN IF NOT EXISTS trigger_value INTEGER
-            """)
-            c.execute("""
-                ALTER TABLE achievements
-                ADD COLUMN IF NOT EXISTS points_on_award INTEGER DEFAULT 0
-            """)
-            c.execute("""
-                ALTER TABLE achievements
-                ADD COLUMN IF NOT EXISTS grant_both BOOLEAN DEFAULT TRUE
-            """)
-            c.execute("""
-                ALTER TABLE achievements
-                ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE
-            """)
-
-            # (Estos últimos 5 son redundantes, pero inofensivos; si quieres puedes quitarlos)
-            c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS trigger_kind TEXT DEFAULT 'none'")
-            c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS trigger_value INTEGER")
-            c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS points_on_award INTEGER DEFAULT 0")
-            c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS grant_both BOOLEAN DEFAULT TRUE")
-            c.execute("ALTER TABLE achievements ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE")
-
-            conn.commit()
-
-        _gami_ready = True
-
-
+                INSERT INTO user_achievements (user_id, achievement_id, earned_at)
+                VALUES (%s,%s,%s)
+                ON CONFLICT (user_id, achievement_id) DO NOTHING
+            """, (uid, ach_id, now_madrid_str()))
+            if pts and c.rowcount >= 0:
+                c.execute("UPDATE users SET points = COALESCE(points,0) + %s WHERE id=%s", (pts, uid))
+        conn.commit()
+    finally:
+        conn.close()
 
 def check_relationship_milestones():
     """
@@ -6001,9 +5400,9 @@ def check_relationship_milestones():
         conn.close()
 
 
+
 def _seed_gamification():
     with closing(get_db_connection()) as conn, conn.cursor() as c:
-        # Logros base
         achievements = [
             ("first_answer_1", "¡Primera del día!", "Responder la primera a una pregunta del día", "⚡", 1),
             ("first_answer_10", "Velocista x10", "Ser la primera en 10 preguntas del día", "⚡", 10),
@@ -6014,94 +5413,19 @@ def _seed_gamification():
             ("answers_100", "Constante 100", "Acumular 100 respuestas", "🧩", 100),
             ("days_100", "💯 100 días", "Haber publicado 100 preguntas en total", "💯", 100)
         ]
-        
-        # Logros de días juntos (100-365, cada 5 días)
-        for day in range(100, 366, 5):
-            achievements.append((
-                f"rel_day_{day}",
-                f"❤️ {day} días juntos",
-                f"Lleváis {day} días de relación",
-                "💖",
-                day
-            ))
-        
-        # Logros de contenido multimedia
-        media_achievements = [
-            (1, "🎬 Primera película/serie", "Añadir tu primera película o serie", "📺"),
-            (5, "🎬 Cinéfilo principiante", "Añadir 5 películas o series", "📺"),
-            (10, "🎬 Amante del cine", "Añadir 10 películas o series", "🎭"),
-            (20, "🎬 Crítico cinematográfico", "Añadir 20 películas o series", "🏆"),
-            (50, "🎬 Gurú del entretenimiento", "Añadir 50 películas o series", "👑")
-        ]
-        
-        for count, title, desc, icon in media_achievements:
-            achievements.append((
-                f"media_add_{count}",
-                title,
-                desc,
-                icon,
-                count
-            ))
-        
-        # Logros de viajes
-        travel_achievements = [
-            (1, "✈️ Primer destino", "Añadir vuestro primer viaje", "🧳"),
-            (3, "✈️ Viajeros frecuentes", "Añadir 3 viajes", "🧳"),
-            (5, "✈️ Trotamundos", "Añadir 5 viajes", "🌎"),
-            (10, "✈️ Exploradores", "Añadir 10 viajes", "🗺️"),
-            (15, "✈️ Nómadas digitales", "Añadir 15 viajes", "🌟")
-        ]
-        
-        for count, title, desc, icon in travel_achievements:
-            achievements.append((
-                f"travel_add_{count}",
-                title,
-                desc,
-                icon,
-                count
-            ))
-        
-        # Logros de canjes de premios
-        redeem_achievements = [
-            (1, "🛍️ Primer canje", "Canjear tu primer premio", "🎁"),
-            (3, "🛍️ Comprador habitual", "Canjear 3 premios", "🛒"),
-            (5, "🛍️ Amante de las recompensas", "Canjear 5 premios", "💎"),
-            (10, "🛍️ Coleccionista", "Canjear 10 premios", "🏅"),
-            (15, "🛍️ Rey/Reina de la tienda", "Canjear 15 premios", "👑")
-        ]
-        
-        for count, title, desc, icon in redeem_achievements:
-            achievements.append((
-                f"redeem_{count}",
-                title,
-                desc,
-                icon,
-                count
-            ))
-        
-        # Logros especiales adicionales
-        special_achievements = [
-            ("perfect_week", "🔥 Semana perfecta", "Responder todas las preguntas de una semana", "⭐", 7),
-            ("monthly_champion", "🏆 Campeón del mes", "Ser el primero en responder más veces en un mes", "🏅", 1),
-            ("early_bird", "🐦 Madrugador", "Ser el primero en responder 5 días seguidos antes del mediodía", "🌅", 5),
-            ("night_owl", "🦉 Noctámbulo", "Responder después de las 10 PM 5 veces", "🌙", 5),
-            ("creative_writer", "✍️ Escritor creativo", "Escribir respuestas de más de 100 caracteres 10 veces", "📝", 10),
-            ("quick_thinker", "⚡ Pensador rápido", "Responder en menos de 2 minutos después de publicada la pregunta", "⏱️", 3)
-        ]
-        
-        achievements.extend(special_achievements)
-        
-        # Insertar todos los logros
         for code, title, desc, icon, goal in achievements:
             c.execute(
                 "INSERT INTO achievements (code, title, description, icon, goal) VALUES (%s,%s,%s,%s,%s) "
                 "ON CONFLICT (code) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, icon=EXCLUDED.icon, goal=EXCLUDED.goal",
                 (code, title, desc, icon, goal)
             )
-        
-        # ÍTEMS VACÍOS - Sin premios por defecto
-        items = []
-        
+        items = [
+            ("Cena gratis", 120, "Vale por una cena pagada por tu mochito/mochita", "🍝"),
+            ("Cine juntos", 90, "Entradas para una película (+ palomitas)", "🎬"),
+            ("Desayuno a la cama", 60, "Croissants + café servido con amor", "☕"),
+            ("Masaje 30'", 50, "30 minutos de masaje relajante", "💆‍♀️"),
+            ("Día sin fregar", 40, "Hoy te libras de fregar platos", "🧽")
+        ]
         for name, cost, desc, icon in items:
             c.execute(
                 "INSERT INTO shop_items (name, cost, description, icon) VALUES (%s,%s,%s,%s) "
@@ -6110,79 +5434,18 @@ def _seed_gamification():
             )
         conn.commit()
 
-
-def check_media_achievements(username):
-    """Verifica logros relacionados con añadir películas/series"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT COUNT(*) FROM media_items WHERE created_by=%s", (username,))
-            media_count = c.fetchone()[0] or 0
-            
-            # Verificar cada nivel de logro
-            levels = [1, 5, 10, 20, 50]
-            for level in levels:
-                if media_count >= level:
-                    _grant_achievement_by_code(username, f"media_add_{level}")
-    finally:
-        conn.close()
-
-def check_travel_achievements(username):
-    """Verifica logros relacionados con añadir viajes"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT COUNT(*) FROM travels WHERE created_by=%s", (username,))
-            travel_count = c.fetchone()[0] or 0
-            
-            # Verificar cada nivel de logro
-            levels = [1, 3, 5, 10, 15]
-            for level in levels:
-                if travel_count >= level:
-                    _grant_achievement_by_code(username, f"travel_add_{level}")
-    finally:
-        conn.close()
-
-def check_redeem_achievements(username):
-    """Verifica logros relacionados con canjear premios"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-                SELECT COUNT(*) FROM purchases p 
-                JOIN users u ON u.id = p.user_id 
-                WHERE u.username=%s
-            """, (username,))
-            redeem_count = c.fetchone()[0] or 0
-            
-            # Verificar cada nivel de logro
-            levels = [1, 3, 5, 10, 15]
-            for level in levels:
-                if redeem_count >= level:
-                    _grant_achievement_by_code(username, f"redeem_{level}")
-    finally:
-        conn.close()
-
-def _grant_achievement_by_code(username, achievement_code):
-    """Función helper para conceder logros por código"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT id FROM achievements WHERE code=%s", (achievement_code,))
-            row = c.fetchone()
-            if row:
-                achievement_id = row[0]
-                _grant_achievement_to(username, achievement_id)
-    finally:
-        conn.close()
-
 # --- Gamificación: bootstrap (seguro/idempotente, Flask 3.x) ---
 try:
     _ensure_gamification_schema()
 except Exception as e:
     app.logger.warning("gamification bootstrap: %s", e)
 
-
+@app.before_request
+def _gami_bfr():
+    try:
+        _ensure_gamification_schema()
+    except Exception as e:
+        app.logger.warning("gamification before_request: %s", e)
 
 def _get_user_id(conn, username):
     with conn.cursor() as c:
@@ -6226,8 +5489,67 @@ def _calc_streak(conn, username):
             break
     return streak
 
+def _award_points(conn, username, delta, reason):
+    with conn.cursor() as c:
+        c.execute("UPDATE users SET points = COALESCE(points,0)+%s WHERE username=%s", (delta, username))
+    conn.commit()
+
+def _maybe_award_achievements(conn, username):
+    user_id = _get_user_id(conn, username)
+    if not user_id:
+        return
+    with conn.cursor() as c:
+        c.execute("SELECT COUNT(*) FROM answers WHERE username=%s", (username,))
+        answers_total = c.fetchone()[0] or 0
+        c.execute("""
+            WITH firsts AS (
+                SELECT a.question_id, MIN(a.created_at) AS first_time
+                FROM answers a
+                GROUP BY a.question_id
+            )
+            SELECT COUNT(*) FROM answers a
+            JOIN firsts f ON f.question_id=a.question_id AND a.created_at=f.first_time
+            WHERE a.username=%s
+        """, (username,))
+        first_count = c.fetchone()[0] or 0
+        streak = _calc_streak(conn, username)
+        checks = [
+            ("answers_30", answers_total >= 30),
+            ("answers_100", answers_total >= 100),
+            ("first_answer_1", first_count >= 1),
+            ("first_answer_10", first_count >= 10),
+            ("streak_7", streak >= 7),
+            ("streak_30", streak >= 30),
+            ("streak_50", streak >= 50)
+        ]
+        for code, ok in checks:
+            if not ok:
+                continue
+            c.execute("SELECT id FROM achievements WHERE code=%s", (code,))
+            ach = c.fetchone()
+            if not ach:
+                continue
+            ach_id = ach[0]
+            c.execute(
+                "INSERT INTO user_achievements (user_id, achievement_id, earned_at) VALUES (%s,%s,%s) "
+                "ON CONFLICT (user_id, achievement_id) DO NOTHING",
+                (user_id, ach_id, now_madrid_str())
+            )
+    conn.commit()
+
+def award_points_for_answer(question_id, username, is_new_insert):
+    if not is_new_insert:
+        return
+    with closing(get_db_connection()) as conn, conn.cursor() as c:
+        base = 5
+        c.execute("SELECT COUNT(*) FROM answers WHERE question_id=%s", (question_id,))
+        count_after = c.fetchone()[0] or 0
+        bonus = 10 if count_after == 1 else 0
+        _award_points(conn, username, base + bonus, "answer")
+        _maybe_award_achievements(conn, username)
 
 
+_ensure_gamification_schema()
 
 @app.route("/api/medallas/summary")
 def api_medallas_summary():
@@ -6274,52 +5596,6 @@ def api_medallas_summary():
         ranking = [dict(r) for r in c.fetchall()]
         c.execute("SELECT id, name, cost, description, icon FROM shop_items ORDER BY cost ASC")
         shop = [dict(r) for r in c.fetchall()]
-
-        # --- Logros conseguidos por usuario (solo vosotros dos) ---
-        c.execute("""
-            SELECT u.username,
-                   a.title,
-                   a.icon,
-                   ua.earned_at
-            FROM user_achievements ua
-            JOIN users u ON u.id = ua.user_id
-            JOIN achievements a ON a.id = ua.achievement_id
-            WHERE u.username IN ('mochito','mochita')
-            ORDER BY ua.earned_at DESC, a.id
-        """)
-        earned_by_user = {}
-        for row in c.fetchall():
-            uname = row["username"]
-            earned_by_user.setdefault(uname, []).append({
-                "title": row["title"],
-                "icon": row["icon"],
-                "earned_at": row["earned_at"],
-            })
-
-        # --- Historial de puntos ---
-        c.execute("""
-            SELECT u.username,
-                   ph.delta,
-                   ph.source,
-                   ph.note,
-                   ph.created_at
-            FROM points_history ph
-            JOIN users u ON u.id = ph.user_id
-            WHERE u.username IN ('mochito','mochita')
-            ORDER BY ph.created_at DESC, ph.id DESC
-            LIMIT 80
-        """)
-        points_history = [
-            {
-                "username": row["username"],
-                "delta": int(row["delta"]),
-                "source": row["source"],
-                "note": row["note"],
-                "created_at": row["created_at"],
-            }
-            for row in c.fetchall()
-        ]
-
     return jsonify({
         "user": user,
         "points": points,
@@ -6328,598 +5604,65 @@ def api_medallas_summary():
         "first_count": first_count,
         "achievements": achs,
         "ranking": ranking,
-        "shop": shop,
-        "earned_by_user": earned_by_user,
-        "points_history": points_history,
+        "shop": shop
     })
 
-from flask import request, redirect, flash, render_template, session
-# Si usas psycopg2:
-try:
-    from psycopg2.errors import ForeignKeyViolation as PG_FK_VIOLATION
-except Exception:
-    PG_FK_VIOLATION = tuple()
-# Si usas PyMySQL:
-try:
-    from pymysql.err import IntegrityError as MY_INTEGRITY_ERROR
-except Exception:
-    MY_INTEGRITY_ERROR = tuple()
-
-
-
-@app.route('/tienda', methods=['GET', 'POST'])
-def shop():
-    if 'username' not in session:
-        return redirect('/')
-
-    user = session['username']
-    is_admin = (user == 'mochito')
-
-    try:
-        _ensure_gamification_schema()
-    except Exception as e:
-        app.logger.warning("gamification schema ensure failed: %s", e)
-
-    if request.method == 'POST':
-        op = (request.form.get('_op') or '').strip()
-
-        # === TOGGLE ADMIN VIEW (solo mochito) ===
-        if op == 'toggle_admin':
-            if not is_admin:
-                flash("Solo mochito puede usar la vista admin.", "error")
-                return redirect('/tienda')
-            current = bool(session.get('shop_admin_view', True))
-            session['shop_admin_view'] = not current
-            flash(("Vista admin activada ✅" if not current else "Vista admin desactivada 👀"), "success")
-            try:
-                send_discord("Shop admin view toggled", {"by": user, "enabled": not current})
-            except Exception:
-                pass
-            return redirect('/tienda')
-
-        # === ADMIN: sumar/restar puntos a un usuario ===
-        if op == 'grant_points':
-            if not is_admin:
-                flash("Solo el admin puede modificar puntos.", "error")
-                return redirect('/tienda')
-
-            to_user = (request.form.get('to_user') or '').strip()
-            action = (request.form.get('action') or 'add').strip()
-            delta = (request.form.get('points') or '').strip()
-            note = (request.form.get('note') or '').strip()
-
-            if to_user not in ('mochito', 'mochita'):
-                flash("Usuario destino inválido.", "error")
-                return redirect('/tienda')
-
-            try:
-                d = int(delta)
-                if d <= 0:
-                    raise ValueError()
-            except Exception:
-                flash("Cantidad inválida. Usa un entero positivo.", "error")
-                return redirect('/tienda')
-
-            # Aplicar signo según la acción
-            if action == 'subtract':
-                d = -d
-
-            conn = get_db_connection()
-            try:
-                with conn.cursor() as c:
-                    # ID del usuario destino
-                    c.execute("SELECT id FROM users WHERE username=%s", (to_user,))
-                    row_u = c.fetchone()
-                    if not row_u:
-                        flash("Usuario destino no existe.", "error")
-                        return redirect('/tienda')
-                    uid = row_u[0]
-
-                    # Actualizar puntos
-                    c.execute(
-                        "UPDATE users SET points = COALESCE(points,0) + %s WHERE username=%s",
-                        (d, to_user)
-                    )
-
-                    # ✅ Historial de puntos (admin)
-                    c.execute("""
-                        INSERT INTO points_history (user_id, delta, source, note, created_at)
-                        VALUES (%s,%s,%s,%s,%s)
-                    """, (
-                        uid,
-                        d,
-                        "admin",
-                        (note or "Ajuste manual de puntos"),
-                        now_madrid_str()
-                    ))
-
-                    conn.commit()
-
-                # 🔔 NOTIFICACIÓN PUSH POR MODIFICACIÓN MANUAL DE PUNTOS
-                try:
-                    if d > 0:
-                        send_push_to(
-                            to_user,
-                            title="⭐ ¡Puntos añadidos!",
-                            body=f"Se te han añadido {d} puntos. {note or ''}"
+@app.route("/tienda", methods=["GET", "POST"])
+def tienda():
+    user = session.get("username")
+    if not user:
+        return redirect(url_for("index"))
+    with closing(get_db_connection()) as conn, conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+        if request.method == "POST":
+            item_id = request.form.get("item_id")
+            if item_id:
+                c.execute("SELECT id, name, cost FROM shop_items WHERE id=%s", (item_id,))
+                item = c.fetchone()
+                if item:
+                    c.execute("SELECT COALESCE(points,0) FROM users WHERE username=%s", (user,))
+                    pts = (c.fetchone() or [0])[0]
+                    if pts >= item["cost"]:
+                        c.execute("UPDATE users SET points = COALESCE(points,0)-%s WHERE username=%s", (item["cost"], user))
+                        c.execute(
+                            "INSERT INTO purchases (user_id, item_id, quantity, purchased_at) "
+                            "VALUES ((SELECT id FROM users WHERE username=%s), %s, 1, %s)",
+                            (user, item["id"], now_madrid_str())
                         )
-                    else:
-                        send_push_to(
-                            to_user,
-                            title="📉 Puntos restados",
-                            body=f"Se te han restado {abs(d)} puntos. {note or ''}"
-                        )
-                except Exception as e:
-                    print("[push points modification] ", e)
-
-                action_text = "añadieron" if action == 'add' else "restaron"
-                flash(f"Se {action_text} {abs(d)} pts a {to_user} ✅", "success")
-                try:
-                    send_discord("Points modified", {"by": user, "to": to_user, "points": d, "note": note})
-                except Exception:
-                    pass
-            finally:
-                conn.close()
-            return redirect('/tienda')
-
-        # === Resto de acciones (redeem / CRUD items) ===
-        conn = get_db_connection()
-        try:
-            # También en la función de canje en la tienda, añadir notificación
-            if op == 'redeem':
-                item_id = request.form.get('item_id')
-                if not item_id:
-                    flash("Falta item.", "error")
-                    return redirect('/tienda')
-
-                with conn.cursor() as c:
-                    c.execute("SELECT id, name, cost FROM shop_items WHERE id=%s", (item_id,))
-                    row = c.fetchone()
-                    if not row:
-                        flash("Premio no encontrado.", "error")
-                        return redirect('/tienda')
-
-                    it_id, it_name, it_cost = row['id'], row['name'], int(row['cost'])
-
-                    c.execute("SELECT id, COALESCE(points,0) AS pts FROM users WHERE username=%s FOR UPDATE", (user,))
-                    urow = c.fetchone()
-                    if not urow:
-                        flash("Usuario no encontrado.", "error")
-                        return redirect('/tienda')
-
-                    uid, points = int(urow['id']), int(urow['pts'])
-                    if points < it_cost:
-                        flash("No tienes puntos suficientes 😅", "error")
-                        return redirect('/tienda')
-
-                    c.execute("UPDATE users SET points = points - %s WHERE id=%s", (it_cost, uid))
-                    c.execute("""
-                        INSERT INTO purchases (user_id, item_id, quantity, note, purchased_at)
-                        VALUES (%s,%s,1,%s,%s)
-                    """, (uid, it_id, f"Canje de {it_name}", now_madrid_str()))
-
-                    # ✅ Historial de puntos (tienda)
-                    c.execute("""
-                        INSERT INTO points_history (user_id, delta, source, note, created_at)
-                        VALUES (%s,%s,%s,%s,%s)
-                    """, (
-                        uid,
-                        -it_cost,
-                        "shop",
-                        f"Canje de {it_name}",
-                        now_madrid_str()
-                    ))
-
-                    conn.commit()
-
-                    # 🔔 NOTIFICACIÓN PUSH POR CANJE (AL USUARIO QUE CANJEA)
-                    try:
-                        send_push_to(
-                            user,
-                            title="🎁 ¡Premio canjeado!",
-                            body=f"Has canjeado '{it_name}' por {it_cost} puntos"
-                        )
-                    except Exception as e:
-                        print("[push redeem] ", e)
-
-                    # 🔔 NOTIFICACIÓN PUSH AL OTRO USUARIO
-                    other_user = 'mochita' if user == 'mochito' else 'mochito'
-                    try:
-                        send_push_to(
-                            other_user,
-                            title="🎁 ¡Se ha canjeado un premio!",
-                            body=f"{user} ha canjeado '{it_name}' por {it_cost} puntos",
-                            url="/tienda",
-                            tag=f"shop-redeem-{it_id}"
-                        )
-                    except Exception as e:
-                        print("[push redeem other] ", e)
-
-                flash(f"¡Canjeado! 🎉 Disfruta tu premio: {it_name}", "success")
-                try:
-                    send_discord("Shop redeem", {"by": user, "item_id": int(item_id), "item_name": it_name, "cost": it_cost})
-                except Exception:
-                    pass
-                return redirect('/tienda')
-            
-
-            # ✅ Marcar canje como hecho / pendiente (solo el dueño)
-            if op == 'toggle_purchase_done':
-                purchase_id = request.form.get('purchase_id')
-                set_done = (request.form.get('set_done') or '').strip()
-
-                done = True if set_done == '1' else False
-
-                try:
-                    with conn.cursor() as c:
-                        c.execute("""
-                            UPDATE purchases
-                               SET is_done = %s
-                             WHERE id = %s
-                               AND user_id = (SELECT id FROM users WHERE username=%s)
-                        """, (done, purchase_id, user))
-
-                        if c.rowcount == 0:
-                            conn.rollback()
-                            flash("No se ha podido actualizar el premio (¿seguro que es tuyo?).", "error")
-                            return redirect('/tienda')
-
                         conn.commit()
-
-                    if done:
-                        flash("Premio marcado como hecho ✅", "success")
+                        flash(f"Has canjeado: {item['name']} 🎉", "success")
                     else:
-                        flash("Premio vuelto a pendiente ⏳", "success")
+                        flash("No tienes puntos suficientes :(", "warning")
+                return redirect(url_for("tienda"))
+        c.execute("SELECT id, name, cost, description, icon FROM shop_items ORDER BY cost ASC")
+        items = c.fetchall()
+        c.execute("SELECT COALESCE(points,0) FROM users WHERE username=%s", (user,))
+        pts = (c.fetchone() or [0])[0]
+    return render_template("tienda.html", items=items, points=pts, user=user)
 
-                except Exception:
-                    try:
-                        conn.rollback()
-                    except Exception:
-                        pass
-                    app.logger.exception("[/tienda] toggle_purchase_done error")
-                    flash("No se pudo actualizar el estado del premio.", "error")
-
-                return redirect('/tienda')
+@app.route("/medallas")
+def medallas():
+    user = session.get("username")
+    return render_template("medallas.html", user=user)
 
 
-
-            # Solo admin: crear/editar/borrar
-            if not is_admin:
-                flash("Solo el admin puede modificar la tienda.", "error")
-                return redirect('/tienda')
-
-            if op == 'create_item':
-                name = (request.form.get('name') or '').strip()
-                cost = (request.form.get('cost') or '').strip()
-                desc = (request.form.get('description') or '').strip()
-                icon = (request.form.get('icon') or '').strip() or '🎁'
-                try:
-                    icost = int(cost)
-                    if icost < 1:
-                        raise ValueError()
-                except Exception:
-                    flash("Coste inválido.", "error")
-                    return redirect('/tienda')
-                with conn.cursor() as c:
-                    c.execute("""INSERT INTO shop_items (name, cost, description, icon)
-                                 VALUES (%s,%s,%s,%s)""", (name, icost, desc, icon))
-                    conn.commit()
-                    check_redeem_achievements(user)
-
-                flash("Premio añadido ✅", "success")
-                try:
-                    send_discord("Shop item created", {"by": user, "name": name, "cost": icost})
-                except Exception:
-                    pass
-                return redirect('/tienda')
-
-            if op == 'update_item':
-                item_id = request.form.get('item_id')
-                name = (request.form.get('name') or '').strip()
-                cost = (request.form.get('cost') or '').strip()
-                desc = (request.form.get('description') or '').strip()
-                icon = (request.form.get('icon') or '').strip() or '🎁'
-                try:
-                    icost = int(cost)
-                    iid = int(item_id)
-                    if icost < 1:
-                        raise ValueError()
-                except Exception:
-                    flash("Coste/ID inválido.", "error")
-                    return redirect('/tienda')
-
-                with conn.cursor() as c:
-                    c.execute("""UPDATE shop_items
-                                   SET name=%s, cost=%s, description=%s, icon=%s
-                                 WHERE id=%s""", (name, icost, desc, icon, iid))
-                    if c.rowcount == 0:
-                        conn.rollback()
-                        flash("Premio no encontrado.", "error")
-                        return redirect('/tienda')
-                    conn.commit()
-                flash("Premio actualizado ✏️", "success")
-                try:
-                    send_discord("Shop item updated", {"by": user, "id": int(item_id)})
-                except Exception:
-                    pass
-                return redirect('/tienda')
-
-            if op == 'delete_item':
-                item_id = request.form.get('item_id')
-                try:
-                    iid = int(item_id)
-                except Exception:
-                    flash("ID inválido.", "error")
-                    return redirect('/tienda')
-                
-                conn = get_db_connection()
-                try:
-                    with conn.cursor() as c:
-                        # Primero verificar si hay compras asociadas
-                        c.execute("SELECT COUNT(*) FROM purchases WHERE item_id=%s", (iid,))
-                        purchase_count = c.fetchone()[0] or 0
-                        
-                        if purchase_count > 0:
-                            flash("No se puede borrar: ya existen canjes asociados a este premio. Primero borra los canjes.", "error")
-                            return redirect('/tienda')
-                        
-                        # Si no hay compras, proceder con el borrado
-                        c.execute("DELETE FROM shop_items WHERE id=%s", (iid,))
-                        if c.rowcount == 0:
-                            flash("Premio no encontrado.", "error")
-                            return redirect('/tienda')
-                        
-                        conn.commit()
-                        flash("Premio borrado 🗑️", "info")
-                        try:
-                            send_discord("Shop item deleted", {"by": user, "id": iid})
-                        except Exception:
-                            pass
-                            
-                except Exception as e:
-                    try: 
-                        conn.rollback()
-                    except Exception: 
-                        pass
-                    app.logger.exception("[/tienda] delete_item error")
-                    flash("Error en la tienda.", "error")
-                finally:
-                    conn.close()
-                
-                return redirect('/tienda')
-
-            flash("Acción desconocida.", "error")
-            return redirect('/tienda')
-
-        except Exception:
-            try:
-                conn.rollback()
-            except Exception:
-                pass
-            app.logger.exception("[/tienda] error")
-            flash("Error en la tienda.", "error")
-            return redirect('/tienda')
-        finally:
-            conn.close()
-
-    # === GET === 
+@app.get("/admin/achievements")
+def admin_achievements_list():
+    require_admin()
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # Puntos del usuario actual
-            c.execute("SELECT COALESCE(points,0) FROM users WHERE username=%s", (user,))
-            points = int((c.fetchone() or [0])[0] or 0)
-
-            # Items de la tienda
-            c.execute("SELECT id, name, cost, description, icon FROM shop_items ORDER BY cost ASC, name ASC")
-            items = c.fetchall()
-
-            # Puntos de ambos usuarios
-            c.execute("SELECT username, COALESCE(points,0) AS p FROM users WHERE username IN ('mochito','mochita')")
-            rows = c.fetchall()
-            points_map = {r['username']: int(r['p']) for r in rows}
-
-            # 🔥 Historial de canjes (incluye estado is_done)
             c.execute("""
-                SELECT 
-                    p.id,
-                    u.username,
-                    si.name AS item_name,
-                    si.cost,
-                    si.icon,
-                    p.purchased_at,
-                    p.note,
-                    COALESCE(p.is_done, FALSE) AS is_done
-                FROM purchases p
-                JOIN users u ON p.user_id = u.id
-                JOIN shop_items si ON p.item_id = si.id
-                ORDER BY p.purchased_at DESC
-                LIMIT 50
+              SELECT id, code, title, description, icon,
+                     trigger_kind, trigger_value, points_on_award, grant_both, active
+              FROM achievements
+              ORDER BY active DESC, trigger_kind, trigger_value NULLS LAST, id DESC
             """)
-            purchases = c.fetchall()
-
-            # Organizar historial por usuario
-            redemption_history = {'mochito': [], 'mochita': []}
-            for p in purchases:
-                username = p['username']
-                if username in redemption_history:
-                    redemption_history[username].append({
-                        'id': p['id'],
-                        'item_name': p['item_name'],
-                        'cost': p['cost'],
-                        'icon': p['icon'],
-                        'ts': p['purchased_at'],
-                        'note': p['note'],
-                        'is_done': bool(p['is_done']),
-                    })
-
-
+            rows = c.fetchall()
     finally:
         conn.close()
-
-    show_admin = is_admin and bool(session.get('shop_admin_view', True))
-    return render_template('tienda.html',
-                           points=points,
-                           items=items,
-                           is_admin=is_admin,
-                           show_admin=show_admin,
-                           points_map=points_map,
-                           redemption_history=redemption_history)  # 🔥 Pasar el historial a la plantilla
-
-def other_of(user: str) -> str:
-    """Devuelve el nombre del otro usuario"""
-    if user == 'mochito':
-        return 'mochita'
-    if user == 'mochita':
-        return 'mochito'
-    return 'mochita'  # fallback
-
-
-@app.route("/medallas", methods=["GET", "POST"])
-def medallas():
-    # Solo usuarios logueados
-    if "username" not in session:
-        return redirect("/")
-
-    user = session["username"]
-    is_admin = (user == "mochito")
-
-    # Por si acaso, asegurar esquema de gamificación
-    try:
-        _ensure_gamification_schema()
-    except Exception as e:
-        app.logger.warning("gamification schema ensure failed (medallas): %s", e)
-
-    # --- POST: acciones admin ---
-    if request.method == "POST":
-        op = (request.form.get("_op") or "").strip()
-
-        # 1) Toggle vista admin (igual que en /tienda)
-        if op == "toggle_admin":
-            if not is_admin:
-                flash("Solo mochito puede usar la vista admin.", "error")
-                return redirect("/medallas")
-            current = bool(session.get("medallas_admin_view", False))
-            session["medallas_admin_view"] = not current
-            flash(
-                "Vista admin activada ✅" if not current else "Vista admin desactivada 👀",
-                "success"
-            )
-            return redirect("/medallas")
-
-        # 2) Guardar puntos de cada medalla
-        if op == "update_points":
-            if not is_admin:
-                flash("Solo el admin puede modificar las medallas.", "error")
-                return redirect("/medallas")
-
-            conn = get_db_connection()
-            try:
-                with conn.cursor() as c:
-                    # Coger todos los IDs de achievements
-                    c.execute("SELECT id FROM achievements ORDER BY id")
-                    all_ids = [row[0] for row in c.fetchall()]
-
-                    for ach_id in all_ids:
-                        field_name = f"points_{ach_id}"
-                        raw = (request.form.get(field_name) or "").strip()
-                        if raw == "":
-                            pts = 0
-                        else:
-                            try:
-                                pts = int(raw)
-                            except ValueError:
-                                pts = 0
-                        c.execute(
-                            "UPDATE achievements SET points_on_award=%s WHERE id=%s",
-                            (pts, ach_id),
-                        )
-                    conn.commit()
-                flash("Puntos de medallas actualizados ✅", "success")
-            except Exception as e:
-                app.logger.exception("[/medallas] update_points error: %s", e)
-                try:
-                    conn.rollback()
-                except Exception:
-                    pass
-                flash("No se pudieron guardar los puntos.", "error")
-            finally:
-                conn.close()
-
-            return redirect("/medallas")
-
-        # 3) Otorgar medalla manualmente
-        if op == "grant_manual":
-            if not is_admin:
-                flash("Solo el admin puede otorgar medallas.", "error")
-                return redirect("/medallas")
-
-            to_user = (request.form.get("to_user") or "").strip()
-            ach_raw = (request.form.get("achievement_id") or "").strip()
-
-            if not to_user or not ach_raw:
-                flash("Faltan datos para otorgar la medalla.", "error")
-                return redirect("/medallas")
-
-            try:
-                ach_id = int(ach_raw)
-            except ValueError:
-                flash("ID de medalla inválido.", "error")
-                return redirect("/medallas")
-
-            try:
-                # Usa el helper global que ya tienes definido
-                _grant_achievement_to(to_user, ach_id)
-                flash(f"Medalla #{ach_id} otorgada a {to_user} ✅", "success")
-            except Exception as e:
-                app.logger.exception("[/medallas] grant_manual error: %s", e)
-                flash("No se pudo otorgar la medalla.", "error")
-
-            return redirect("/medallas")
-
-        # Si llega aquí, op desconocida
-        flash("Acción desconocida en medallas.", "error")
-        return redirect("/medallas")
-
-    # --- GET: pintar página ---
-        # --- GET: pintar página ---
-    show_admin = is_admin and bool(session.get("medallas_admin_view", False))
-
-    # Datos para el panel admin (lista de medallas + usuarios)
-    ach_admin = []
-    admin_users = []
-    if is_admin:
-        conn = get_db_connection()
-        try:
-            with conn.cursor() as c:
-                c.execute("""
-                    SELECT id, code, title, description, points_on_award
-                    FROM achievements
-                    ORDER BY id
-                """)
-                ach_admin = c.fetchall()
-
-                # Lista de usuarios para el selector
-                c.execute("""
-                    SELECT username, COALESCE(points,0) AS points
-                    FROM users
-                    ORDER BY username
-                """)
-                admin_users = c.fetchall()
-        finally:
-            conn.close()
-
-    return render_template(
-        "medallas.html",
-        user=user,
-        is_admin=is_admin,
-        show_admin=show_admin,
-        ach_admin=ach_admin,
-        admin_users=admin_users,
-    )
-
-
-
+    return render_template("admin_achievements.html",
+                           username=session['username'],
+                           rows=rows)
 
 
 @app.post("/admin/achievements/add")
@@ -7028,610 +5771,9 @@ def admin_achievements_check_now():
         flash("Error al evaluar.", "error")
     return redirect("/admin/achievements")
 
-@app.get("/api/points")
-def api_points():
-    if 'username' not in session:
-        return jsonify({"ok": False, "error": "unauthenticated"}), 401
-    u = (request.args.get("user") or session['username']).strip()
-    # solo permitimos a mochito/mochita por seguridad
-    if u not in ("mochito", "mochita"):
-        return jsonify({"ok": False, "error": "bad_user"}), 400
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT COALESCE(points,0) FROM users WHERE username=%s", (u,))
-            row = c.fetchone()
-            pts = int((row or [0])[0] or 0)
-    finally:
-        conn.close()
-    return jsonify({"ok": True, "user": u, "points": pts})
-
-@app.route('/debug/points')
-def debug_points():
-    if 'username' not in session:
-        return redirect('/')
-    
-    user = session['username']
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT points FROM users WHERE username=%s", (user,))
-            points = c.fetchone()[0]
-            c.execute("SELECT COUNT(*) FROM answers WHERE username=%s", (user,))
-            answer_count = c.fetchone()[0]
-            
-        return jsonify({
-            'user': user,
-            'points': points,
-            'total_answers': answer_count
-        })
-    finally:
-        conn.close()
-
-@app.route('/historial')
-def historial():
-    if 'username' not in session:
-        return redirect('/')
-    
-    # Obtener parámetros de paginación
-    page = request.args.get('page', 1, type=int)
-    per_page = 20
-    
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            # Obtener total de preguntas para paginación
-            c.execute("SELECT COUNT(*) FROM daily_questions")
-            total_questions = c.fetchone()[0]
-            
-            # Calcular offset
-            offset = (page - 1) * per_page
-            
-            # Obtener preguntas con respuestas (más recientes primero)
-            c.execute("""
-                SELECT dq.id, dq.date, dq.question,
-                       a_mochito.answer as mochito_answer, 
-                       a_mochito.created_at as mochito_created,
-                       a_mochito.updated_at as mochito_updated,
-                       a_mochita.answer as mochita_answer,
-                       a_mochita.created_at as mochita_created,
-                       a_mochita.updated_at as mochita_updated
-                FROM daily_questions dq
-                LEFT JOIN answers a_mochito ON dq.id = a_mochito.question_id AND a_mochito.username = 'mochito'
-                LEFT JOIN answers a_mochita ON dq.id = a_mochita.question_id AND a_mochita.username = 'mochita'
-                ORDER BY dq.date DESC
-                LIMIT %s OFFSET %s
-            """, (per_page, offset))
-            
-            questions = []
-            for row in c.fetchall():
-                questions.append({
-                    'id': row['id'],
-                    'date': row['date'],
-                    'question': row['question'],
-                    'mochito_answer': row['mochito_answer'],
-                    'mochita_answer': row['mochita_answer'],
-                    'mochito_created': row['mochito_created'],
-                    'mochito_updated': row['mochito_updated'],
-                    'mochita_created': row['mochita_created'],
-                    'mochita_updated': row['mochita_updated']
-                })
-            
-            # Calcular páginas
-            total_pages = (total_questions + per_page - 1) // per_page
-            
-    finally:
-        conn.close()
-    
-    # Pasar today_madrid al template
-    return render_template('historial.html',
-                            questions=questions,
-                            current_page=page,
-                            total_pages=total_pages,
-                            username=session['username'],
-                            today_iso=today_madrid().isoformat())  # <-- Cambiar a today_iso
-
-
-@app.get("/api/couple_mode")
-def api_get_couple_mode():
-    if "username" not in session:
-        return jsonify(ok=False, error="unauthorized"), 401
-
-    mode = state_get("couple_mode", "") or "separated"
-    return jsonify(ok=True, mode=mode)
-
-
-@app.post("/api/couple_mode")
-def api_set_couple_mode():
-    if "username" not in session:
-        return jsonify(ok=False, error="unauthorized"), 401
-
-    data = request.get_json(silent=True) or {}
-    mode = (data.get("mode") or "").strip()
-
-    allowed = {"separated", "together_alg", "together_cor"}
-    if mode not in allowed:
-        return jsonify(ok=False, error="bad_mode"), 400
-
-    # Guardamos en app_state (tabla ya creada en init_db)
-    state_set("couple_mode", mode)
-
-    # Aviso por SSE para que el otro lado se refresque
-    try:
-        broadcast("update", {
-            "kind": "couple_mode",
-            "mode": mode,
-            "by": session.get("username") or "unknown"
-        })
-    except Exception:
-        pass
-
-    return jsonify(ok=True, mode=mode)
-
-@app.post("/api/daily-wheel-spin")
-def api_daily_wheel_spin():
-    if "username" not in session:
-        return jsonify(ok=False, error="unauthorized"), 401
-
-    user = session["username"]
-
-    # Por si acaso, asegurar esquema de gamificación
-    try:
-        _ensure_gamification_schema()
-    except Exception:
-        pass
-
-    now_md = europe_madrid_now()
-    wheel_times = build_wheel_time_payload(now_md)
-    today = wheel_times["today"]
-
-    other_user = 'mochita' if user == 'mochito' else 'mochito'
-
-    state_key = f"wheel_spin::{user}::{today}"
-    other_key = f"wheel_spin::{other_user}::{today}"
-
-    # --- Info de la otra persona (si ya ha girado HOY) ---
-    raw_other = state_get(other_key, "")
-    if raw_other:
-        try:
-            raw_dict = json.loads(raw_other)
-        except Exception:
-            raw_dict = {}
-        other_info = {
-            "username": other_user,
-            "has_spun": True,
-            "delta": int(raw_dict.get("delta", 0)),
-            "label": raw_dict.get("label"),
-            "date": raw_dict.get("date", today),
-            "ts": raw_dict.get("ts"),
-        }
-    else:
-        other_info = {
-            "username": other_user,
-            "has_spun": False,
-        }
-
-    # --- Último giro global de la otra persona (ayer, antes de ayer, etc.) ---
-    other_last = _load_wheel_last(other_user)
-
-    # --- 1) ¿Ya ha girado HOY? -> devolver lo guardado ---
-    raw = state_get(state_key, "")
-    if raw:
-        try:
-            info = json.loads(raw)
-        except Exception:
-            info = {}
-        info.setdefault("already", True)
-        info.setdefault("date", today)
-        # me_last = último giro del propio usuario (por si lo quiere usar el front)
-        me_last = _load_wheel_last(user)
-        return jsonify(
-            ok=True,
-            other=other_info,
-            other_last=other_last,
-            me_last=me_last,
-            **info,
-            **wheel_times
-        )
-
-    # --- 1-bis) ¿Aún no es la hora de desbloqueo? ---
-    if not wheel_times.get("can_spin_now"):
-        msg = "Aún no puedes girar la ruleta, espera un poquito 💫"
-        return jsonify(ok=False, error=msg, **wheel_times), 400
-
-    # --- 2) Elegir premio de la ruleta (idx y delta coherentes) ---
-    idx, seg = choose_daily_wheel_segment()
-    delta = int(seg.get("delta", 0))
-    label = seg.get("label", f"+{delta}")
-
-    conn = get_db_connection()
-    new_points = None
-    now_str = now_madrid_str()
-
-    try:
-        with conn.cursor() as c:
-            c.execute(
-                "SELECT id, COALESCE(points,0) FROM users WHERE username=%s",
-                (user,)
-            )
-            row = c.fetchone()
-            if not row:
-                return jsonify(ok=False, error="no_user"), 400
-
-            uid = int(row[0])
-            current_points = int(row[1])
-            new_points = current_points + delta
-
-            # Actualizar puntos + historial solo si delta != 0
-            if delta != 0:
-                c.execute(
-                    "UPDATE users SET points=%s WHERE id=%s",
-                    (new_points, uid)
-                )
-                c.execute(
-                    """
-                    INSERT INTO points_history (user_id, delta, source, note, created_at)
-                    VALUES (%s, %s, %s, %s, %s)
-                    """,
-                    (uid, delta, "wheel", "Ruleta diaria", now_str)
-                )
-            conn.commit()
-    except Exception:
-        try:
-            conn.rollback()
-        except Exception:
-            pass
-        app.logger.exception("[/api/daily-wheel-spin] error")
-        return jsonify(ok=False, error="server_error"), 500
-    finally:
-        conn.close()
-
-    # Paquete con la info del giro de hoy (lo que ve el frontend)
-    info = {
-        "already": False,
-        "idx": idx,
-        "delta": delta,
-        "label": label,
-        "date": today,
-        "new_total": new_points,
-        "ts": now_str,
-    }
-
-    # Versión "ligera" para recordar ÚLTIMO giro global
-    last_info = {
-        "has_spun": True,
-        "idx": idx,
-        "delta": delta,
-        "label": label,
-        "date": today,
-        "ts": now_str,
-    }
-
-    # 3) Guardar en app_state para bloquear más giros HOY + último giro global
-    try:
-        state_set(state_key, json.dumps(info))
-        state_set(f"wheel_last::{user}", json.dumps(last_info))
-    except Exception:
-        pass
-
-    # 5) Devolver también lo que ha hecho la otra persona hoy + su último giro + tiempos
-    me_last = _load_wheel_last(user)
-    return jsonify(
-        ok=True,
-        other=other_info,
-        other_last=other_last,
-        me_last=me_last,
-        **info,
-        **wheel_times
-    )
-
-@app.post("/api/daily-wheel-push-self")
-def api_daily_wheel_push_self():
-    """
-    Endpoint para lanzar la notificación DESPUÉS de la animación.
-    Lo llama el frontend cuando termina el giro.
-    - Envía una push al propio usuario.
-    - Y otra push a la pareja, al mismo tiempo.
-    """
-    if "username" not in session:
-        return jsonify(ok=False, error="unauthorized"), 401
-
-    user = session["username"]
-    other_user = other_of(user)  # helper que ya tienes definido
-    today = today_madrid().isoformat()
-    state_key = f"wheel_spin::{user}::{today}"
-
-    raw = state_get(state_key, "")
-    if not raw:
-        return jsonify(ok=False, error="no_spin_today"), 400
-
-    try:
-        info = json.loads(raw)
-    except Exception:
-        return jsonify(ok=False, error="bad_state"), 500
-
-    delta = int(info.get("delta", 0))
-
-    try:
-        # Texto bonito con el nombre visible
-        msg_user = "Mochito" if user == "mochito" else "Mochita"
-
-        # Push para el que ha girado
-        if delta > 0:
-            send_push_to(
-                user,
-                title="🎡 Ruleta diaria",
-                body=f"Has ganado {delta} puntos en la ruleta 🎁",
-                url="/"
-            )
-        else:
-            send_push_to(
-                user,
-                title="🎡 Ruleta diaria",
-                body="Hoy la ruleta no ha dado puntos… ¡mañana más suerte!",
-                url="/"
-            )
-
-        # Push para la pareja, con mensaje en tercera persona
-        if delta > 0:
-            send_push_to(
-                other_user,
-                title=f"🎡 Ruleta diaria de {msg_user}",
-                body=f"{msg_user} ha girado la ruleta y ha ganado {delta} puntos",
-                url="/"
-            )
-        else:
-            send_push_to(
-                other_user,
-                title=f"🎡 Ruleta diaria de {msg_user}",
-                body=f"{msg_user} ha girado la ruleta, pero hoy no han caído puntos 😢",
-                url="/"
-            )
-
-    except Exception:
-        # Si falla la push, no rompemos la web
-        pass
-
-    return jsonify(ok=True)
-
-
-
-@app.get("/api/daily-wheel-status")
-def api_daily_wheel_status():
-    if "username" not in session:
-        return jsonify(ok=False, error="unauthorized"), 401
-
-    user = session["username"]
-
-    now_md = europe_madrid_now()
-    wheel_times = build_wheel_time_payload(now_md)
-    today = wheel_times["today"]
-
-    other_user = 'mochita' if user == 'mochito' else 'mochito'
-    me_key = f"wheel_spin::{user}::{today}"
-    other_key = f"wheel_spin::{other_user}::{today}"
-
-    def load_state(key: str, default_date: str):
-        raw = state_get(key, "")
-        if not raw:
-            return {"has_spun": False}
-        try:
-            info = json.loads(raw)
-        except Exception:
-            info = {}
-        return {
-            "has_spun": True,
-            "idx": int(info.get("idx", 0)),
-            "delta": int(info.get("delta", 0)),
-            "label": info.get("label"),
-            "date": info.get("date", default_date),
-            "ts": info.get("ts"),
-        }
-
-    me_info = load_state(me_key, today)
-    other_info = load_state(other_key, today)
-    other_info["username"] = other_user
-
-    me_last = _load_wheel_last(user)
-    other_last = _load_wheel_last(other_user)
-    other_last["username"] = other_user
-
-    return jsonify(
-        ok=True,
-        me=me_info,
-        other=other_info,
-        me_last=me_last,
-        other_last=other_last,
-        **wheel_times
-    )
-
-
-
-
-@app.get("/api/travels")
-def api_travels():
-    # Solo usuarios logueados
-    if "username" not in session:
-        return jsonify(ok=False, error="No autenticado"), 401
-
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            # Viajes
-            c.execute("""
-                SELECT
-                    id,
-                    destination,
-                    description,
-                    travel_date,
-                    is_visited,
-                    created_by,
-                    COALESCE(created_at, '') AS created_at
-                FROM travels
-                ORDER BY is_visited, travel_date DESC, id DESC
-            """)
-            travels = [dict(row) for row in c.fetchall()]
-
-            # Fotos
-            c.execute("""
-                SELECT
-                    id,
-                    travel_id,
-                    image_url,
-                    uploaded_by,
-                    COALESCE(uploaded_at, '') AS uploaded_at
-                FROM travel_photos
-                ORDER BY id DESC
-            """)
-            photos_rows = [dict(row) for row in c.fetchall()]
-    finally:
-        conn.close()
-
-    photos_by_travel = {}
-    for ph in photos_rows:
-        tid = ph["travel_id"]
-        photos_by_travel.setdefault(tid, []).append({
-            "id": ph["id"],
-            "image_url": ph["image_url"],
-            "uploaded_by": ph.get("uploaded_by"),
-            "uploaded_at": ph.get("uploaded_at"),
-        })
-
-    return jsonify(
-        ok=True,
-        travels=travels,
-        photos=photos_by_travel,
-    )
-
-
-@app.get("/api/intimidad")
-def api_intimidad():
-    if "username" not in session:
-        return jsonify(ok=False, error="No autenticado"), 401
-
-    unlocked = bool(session.get("intim_unlocked"))
-    if not unlocked:
-        return jsonify(ok=True, unlocked=False)
-
-    stats  = get_intim_stats() or {}
-    events = get_intim_events(200)  # ya existe
-    pics   = get_profile_pictures()  # ⬅️ AÑADIMOS ESTO
-
-    last_dt = stats.get("last_dt")
-    if last_dt is not None:
-        last_dt_str = last_dt.strftime("%Y-%m-%d %H:%M")
-    else:
-        last_dt_str = None
-
-    stats_json = {
-        "today_count":     stats.get("today_count", 0),
-        "month_total":     stats.get("month_total", 0),
-        "year_total":      stats.get("year_total", 0),
-        "days_since_last": stats.get("days_since_last"),
-        "streak_days":     stats.get("streak_days", 0),
-        "last_dt":         last_dt_str,
-    }
-
-    events_json = []
-    for e in events:
-        username = e["username"]
-        events_json.append({
-            "id":         e["id"],
-            "username":   username,
-            "avatar_url": pics.get(username),  # ⬅️ AÑADIMOS ESTO
-            "ts":         e["ts"],
-            "place":      e["place"],
-            "notes":      e["notes"],
-        })
-
-    return jsonify(
-        ok=True,
-        unlocked=True,
-        stats=stats_json,
-        events=events_json,
-    )
-
-
-@app.post("/edit_intim_event")
-def edit_intim_event():
-    if "username" not in session:
-        flash("Debes iniciar sesión.", "error")
-        return redirect("/")
-
-    user = session["username"]
-    if user not in ("mochito", "mochita"):
-        abort(403)  # solo vosotros podéis editar
-
-    if not session.get("intim_unlocked"):
-        flash("Debes desbloquear el módulo de intimidad para editar.", "error")
-        return redirect("/")
-
-    event_id = (request.form.get("event_id") or "").strip()
-    place    = (request.form.get("intim_place_edit") or "").strip()
-    notes    = (request.form.get("intim_notes_edit") or "").strip()
-
-    if not event_id.isdigit():
-        flash("Evento no válido.", "error")
-        return redirect("/")
-
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute(
-                """
-                UPDATE intimacy_events
-                   SET place = %s,
-                       notes = %s
-                 WHERE id = %s
-                """,
-                (place or None, notes or None, int(event_id)),
-            )
-            conn.commit()
-    finally:
-        conn.close()
-
-    # invalidar caché de intimidad
-    cache_invalidate("get_intim_stats", "get_intim_events")
-
-    flash("Momento actualizado ✅", "success")
-    return redirect("/")
-
-
-@app.post("/delete_intim_event")
-def delete_intim_event():
-    if "username" not in session:
-        flash("Debes iniciar sesión.", "error")
-        return redirect("/")
-
-    user = session["username"]
-    if user not in ("mochito", "mochita"):
-        abort(403)
-
-    if not session.get("intim_unlocked"):
-        flash("Debes desbloquear el módulo de intimidad para borrar.", "error")
-        return redirect("/")
-
-    event_id = (request.form.get("event_id") or "").strip()
-    if not event_id.isdigit():
-        flash("Evento no válido.", "error")
-        return redirect("/")
-
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("DELETE FROM intimacy_events WHERE id = %s", (int(event_id),))
-            conn.commit()
-    finally:
-        conn.close()
-
-    cache_invalidate("get_intim_stats", "get_intim_events")
-
-    flash("Momento borrado 🗑️", "info")
-    return redirect("/")
 
 
 _old_init_db = init_db
 def init_db():
     _old_init_db()
     _ensure_gamification_schema()
-

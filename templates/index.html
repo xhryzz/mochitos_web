@@ -6368,626 +6368,632 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         </div>
 
 
-        <!-- Distancia / Estado de ciudades -->
-        <div class="section animate-in delay-2">
-          <h3>Distancia</h3>
-          <p>Nuestro estado ahora mismo 💌</p>
+        < <!-- Distancia / Estado de ciudades -->
+          <div class="section animate-in delay-2">
+            <h3>Distancia</h3>
+            <p>Nuestro estado ahora mismo 💌</p>
 
-          <div class="distance-status-card">
-            <div class="ds-header">
-              <span class="ds-label" id="distanceStatusLabel">Separados</span>
-              <span class="ds-sub" id="distanceStatusSub">Mochito en Algemesí · Mochita en Córdoba</span>
+            <div class="distance-status-card">
+              <div class="ds-header">
+                <span class="ds-label" id="distanceStatusLabel">Separados</span>
+                <span class="ds-sub" id="distanceStatusSub">Mochito en Algemesí · Mochita en Córdoba</span>
+              </div>
+
+              <div class="ds-modes">
+                <button type="button" class="ds-mode-btn active" data-mode="separated">
+                  <span class="ds-icon"><i class="fa-solid fa-route"></i></span>
+                  <span class="ds-text">
+                    <span class="ds-mode-title">Separados</span>
+                    <span class="ds-mode-sub">Mochito en Algemesí · Mochita en Córdoba</span>
+                  </span>
+                </button>
+
+                <button type="button" class="ds-mode-btn" data-mode="together_alg">
+                  <span class="ds-icon"><i class="fa-solid fa-house-chimney-heart"></i></span>
+                  <span class="ds-text">
+                    <span class="ds-mode-title">Juntos en Algemesí</span>
+                    <span class="ds-mode-sub">Los dos en Algemesí</span>
+                  </span>
+                </button>
+
+                <button type="button" class="ds-mode-btn" data-mode="together_cor">
+                  <span class="ds-icon"><i class="fa-solid fa-city"></i></span>
+                  <span class="ds-text">
+                    <span class="ds-mode-title">Juntos en Córdoba</span>
+                    <span class="ds-mode-sub">Los dos en Córdoba</span>
+                  </span>
+                </button>
+              </div>
+
+              <div class="distance-bar" aria-label="Cercanía">
+                <div class="fill" id="distanceFill" style="width:22%"></div>
+              </div>
+
+              <small class="distance-scale" style="display:block; opacity:.8; margin-top:6px;">
+                <span style="float:left;">Separados</span>
+                <span style="float:right;">Muy juntitos</span>
+              </small>
+
+              <p class="ds-footnote">
+                Cualquiera de los dos puede cambiarlo y se actualizará para los dos en tiempo real ✨
+              </p>
+
+              <!-- Mapa oculto solo para que el JS viejo no reviente (no se ve) -->
+              <div id="distanceMap" style="display:none;"></div>
             </div>
-
-            <div class="ds-modes">
-              <button type="button" class="ds-mode-btn active" data-mode="separated">
-                <span class="ds-icon"><i class="fa-solid fa-route"></i></span>
-                <span class="ds-text">
-                  <span class="ds-mode-title">Separados</span>
-                  <span class="ds-mode-sub">Mochito en Algemesí · Mochita en Córdoba</span>
-                </span>
-              </button>
-
-              <button type="button" class="ds-mode-btn" data-mode="together_alg">
-                <span class="ds-icon"><i class="fa-solid fa-house-chimney-heart"></i></span>
-                <span class="ds-text">
-                  <span class="ds-mode-title">Juntos en Algemesí</span>
-                  <span class="ds-mode-sub">Los dos en Algemesí</span>
-                </span>
-              </button>
-
-              <button type="button" class="ds-mode-btn" data-mode="together_cor">
-                <span class="ds-icon"><i class="fa-solid fa-city"></i></span>
-                <span class="ds-text">
-                  <span class="ds-mode-title">Juntos en Córdoba</span>
-                  <span class="ds-mode-sub">Los dos en Córdoba</span>
-                </span>
-              </button>
-            </div>
-
-            <div class="distance-bar" aria-label="Cercanía">
-              <div class="fill" id="distanceFill" style="width:22%"></div>
-            </div>
-
-            <small class="distance-scale" style="display:block; opacity:.8; margin-top:6px;">
-              <span style="float:left;">Separados</span>
-              <span style="float:right;">Muy juntitos</span>
-            </small>
-
-            <p class="ds-footnote">
-              Cualquiera de los dos puede cambiarlo y se actualizará para los dos en tiempo real ✨
-            </p>
-
-            <!-- Mapa oculto solo para que el JS viejo no reviente (no se ve) -->
-            <div id="distanceMap" style="display:none;"></div>
           </div>
-        </div>
 
-        <div id="page-mochireal" class="page">
+          <div id="page-mochireal" class="page" style="display: none;">
+            {% if mr_data and mr_data.active %}
 
-          <style>
-            #mr-camera-overlay {
-              position: fixed;
-              inset: 0;
-              background: #000;
-              z-index: 10000;
-              display: none;
-              flex-direction: column;
-            }
+            <style>
+              #mr-camera-overlay {
+                position: fixed;
+                inset: 0;
+                background: #000;
+                z-index: 10000;
+                display: none;
+                flex-direction: column;
+              }
 
-            #mr-camera-overlay.active {
-              display: flex;
-            }
+              #mr-camera-overlay.active {
+                display: flex;
+              }
 
-            .mr-cam-view {
-              flex: 1;
-              position: relative;
-              overflow: hidden;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-            }
+              .mr-cam-view {
+                flex: 1;
+                position: relative;
+                overflow: hidden;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              }
 
-            #mr-video-feed {
-              width: 100%;
-              height: 100%;
-              object-fit: cover;
-            }
+              #mr-video-feed {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+              }
 
-            #mr-video-feed.mirrored {
-              transform: scaleX(-1);
-            }
+              /* Espejo solo visual */
+              #mr-video-feed.mirrored {
+                transform: scaleX(-1);
+              }
 
-            .mr-cam-ui {
-              position: absolute;
-              inset: 0;
-              pointer-events: none;
-              display: flex;
-              flex-direction: column;
-              justify-content: space-between;
-              padding: 20px;
-            }
+              .mr-cam-ui {
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                padding: 20px;
+              }
 
-            .mr-cam-msg {
-              color: white;
-              text-align: center;
-              font-weight: 800;
-              font-size: 1.4rem;
-              text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
-              margin-top: 40px;
-            }
+              .mr-cam-msg {
+                color: white;
+                text-align: center;
+                font-weight: 800;
+                font-size: 1.4rem;
+                text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+                margin-top: 40px;
+              }
 
-            .mr-cam-controls {
-              pointer-events: auto;
-              height: 120px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              gap: 40px;
-              margin-bottom: 40px;
-            }
+              .mr-cam-controls {
+                pointer-events: auto;
+                height: 120px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 40px;
+                margin-bottom: 40px;
+              }
 
-            #btn-snap {
-              width: 80px;
-              height: 80px;
-              border-radius: 50%;
-              border: 5px solid white;
-              background: transparent;
-              position: relative;
-              cursor: pointer;
-              transition: transform 0.1s;
-            }
+              #btn-snap {
+                width: 80px;
+                height: 80px;
+                border-radius: 50%;
+                border: 5px solid white;
+                background: transparent;
+                position: relative;
+                cursor: pointer;
+                transition: transform 0.1s;
+              }
 
-            #btn-snap::after {
-              content: "";
-              position: absolute;
-              inset: 4px;
-              background: white;
-              border-radius: 50%;
-            }
+              #btn-snap::after {
+                content: "";
+                position: absolute;
+                inset: 4px;
+                background: white;
+                border-radius: 50%;
+              }
 
-            #btn-snap:active {
-              transform: scale(0.9);
-            }
+              #btn-snap:active {
+                transform: scale(0.9);
+              }
 
-            .icon-cam-btn {
-              background: none;
-              border: none;
-              color: white;
-              font-size: 2rem;
-              cursor: pointer;
-              filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
-            }
-          </style>
+              .icon-cam-btn {
+                background: none;
+                border: none;
+                color: white;
+                font-size: 2rem;
+                cursor: pointer;
+                filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+              }
+            </style>
 
-          {% if mr_data and mr_data.active %}
-          <div class="mochireal-section pulse-warning" style="margin-top: 20px;">
-            <div class="mr-header">
-              <div class="mr-title">⚠️ MochiReal</div>
-              <div style="font-size:0.9rem; opacity:0.8">{{ mr_data.triggered_at[11:16] }}</div>
-            </div>
+            <div class="mochireal-section pulse-warning" style="margin-top: 20px;">
+              <div class="mr-header">
+                <div class="mr-title">⚠️ MochiReal</div>
+                <div style="font-size:0.9rem; opacity:0.8">{{ mr_data.triggered_at[11:16] }}</div>
+              </div>
 
-            {% if not mr_data.my_post %}
-            <p style="margin-bottom:15px;">¡Sube tu foto para ver la de tu pareja!</p>
-            <div class="mr-grid">
-              <div class="mr-photo-container" style="border: 2px dashed #555;">
-                <div style="text-align:center; color:#777;">
-                  <i class="fas fa-camera fa-2x"></i><br>Tu foto
+              {% if not mr_data.my_post %}
+              <p style="margin-bottom:15px;">¡Sube tu foto para ver la de tu pareja!</p>
+              <div class="mr-grid">
+                <div class="mr-photo-container" style="border: 2px dashed #555;">
+                  <div style="text-align:center; color:#777;">
+                    <i class="fas fa-camera fa-2x"></i><br>Tu foto
+                  </div>
+                </div>
+                <div class="mr-photo-container">
+                  {% if mr_data.other_post %}
+                  <img src="{{ url_for('mochireal_image', post_id=mr_data.other_post.id) }}" class="mr-img mr-blur">
+                  <div class="mr-lock-overlay">
+                    <i class="fas fa-lock fa-2x"></i>
+                    <span style="font-weight:bold; margin-top:5px;">BLOQUEADA</span>
+                  </div>
+                  {% else %}
+                  <div style="text-align:center; color:#777;">
+                    <i class="fas fa-hourglass-half fa-2x"></i><br>Esperando...
+                  </div>
+                  {% endif %}
                 </div>
               </div>
-              <div class="mr-photo-container">
-                {% if mr_data.other_post %}
-                <img src="{{ url_for('mochireal_image', post_id=mr_data.other_post.id) }}" class="mr-img mr-blur">
-                <div class="mr-lock-overlay">
-                  <i class="fas fa-lock fa-2x"></i>
-                  <span style="font-weight:bold; margin-top:5px;">BLOQUEADA</span>
-                </div>
-                {% else %}
-                <div style="text-align:center; color:#777;">
-                  <i class="fas fa-hourglass-half fa-2x"></i><br>Esperando...
-                </div>
-                {% endif %}
+
+              <div style="margin-top:15px">
+                <button type="button" class="mr-upload-btn" onclick="startMochiCamera()">
+                  <i class="fas fa-camera"></i> Hacer MochiReal (Doble Cámara)
+                </button>
               </div>
-            </div>
 
-            <div style="margin-top:15px">
-              <button type="button" class="mr-upload-btn" onclick="startMochiCamera()">
-                <i class="fas fa-camera"></i> Hacer MochiReal (Doble Cámara)
-              </button>
-            </div>
-
-            <div id="mr-camera-overlay">
-              <div class="mr-cam-view">
-                <video id="mr-video-feed" autoplay playsinline muted></video>
-                <div class="mr-cam-ui">
-                  <div class="mr-cam-msg" id="mr-msg">📸 1. Foto Trasera</div>
-                  <div class="mr-cam-controls">
-                    <button class="icon-cam-btn" onclick="closeMochiCamera()"><i class="fas fa-times"></i></button>
-                    <button id="btn-snap"></button>
-                    <button class="icon-cam-btn" onclick="switchCamMode()"><i class="fas fa-sync-alt"></i></button>
+              <div id="mr-camera-overlay">
+                <div class="mr-cam-view">
+                  <video id="mr-video-feed" autoplay playsinline muted></video>
+                  <div class="mr-cam-ui">
+                    <div class="mr-cam-msg" id="mr-msg">📸 1. Foto Trasera</div>
+                    <div class="mr-cam-controls">
+                      <button class="icon-cam-btn" onclick="closeMochiCamera()"><i class="fas fa-times"></i></button>
+                      <button id="btn-snap"></button>
+                      <button class="icon-cam-btn" onclick="switchCamMode()"><i class="fas fa-sync-alt"></i></button>
+                    </div>
                   </div>
                 </div>
               </div>
+              <canvas id="mr-canvas" style="display:none;"></canvas>
+
+              {% else %}
+              <div class="mr-grid">
+                <div class="mr-photo-container">
+                  <img src="{{ url_for('mochireal_image', post_id=mr_data.my_post.id) }}" class="mr-img">
+                  <div
+                    style="position:absolute; bottom:10px; left:10px; font-weight:bold; text-shadow:0 2px 4px rgba(0,0,0,0.8); color:white;">
+                    Tú</div>
+                </div>
+                <div class="mr-photo-container">
+                  {% if mr_data.other_post %}
+                  <img src="{{ url_for('mochireal_image', post_id=mr_data.other_post.id) }}" class="mr-img">
+                  <div
+                    style="position:absolute; bottom:10px; left:10px; font-weight:bold; text-shadow:0 2px 4px rgba(0,0,0,0.8); color:white;">
+                    {{ other_user }}</div>
+                  {% else %}
+                  <div style="text-align:center; color:#777;">
+                    <i class="fas fa-clock fa-2x"></i><br>Esperando...
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+              <p style="margin-top:15px; font-size:0.9rem; opacity:0.7">
+                <i class="fas fa-check-circle"></i> Has cumplido por hoy
+              </p>
+              {% endif %}
+
+              <div style="margin-top: 15px; border-top: 1px dashed rgba(0,0,0,0.1); padding-top: 10px;">
+                <button onclick="setScreen('mr-history')" class="btn-mr-history"
+                  style="color: inherit; border-color: currentColor;">
+                  <i class="fas fa-history"></i> Ver recuerdos anteriores
+                </button>
+              </div>
             </div>
-            <canvas id="mr-canvas" style="display:none;"></canvas>
+
+            <script>
+              (function () {
+                let stream = null;
+                let backPhoto = null;
+                let frontPhoto = null;
+                let isFront = false;
+
+                const overlay = document.getElementById('mr-camera-overlay');
+                const video = document.getElementById('mr-video-feed');
+                const msg = document.getElementById('mr-msg');
+                const canvas = document.getElementById('mr-canvas');
+                const ctx = canvas ? canvas.getContext('2d') : null;
+
+                if (!overlay) return;
+
+                const constraints = { audio: false, video: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: "environment" } };
+
+                window.startMochiCamera = async function () {
+                  isFront = false; backPhoto = null; frontPhoto = null;
+                  overlay.classList.add('active');
+                  msg.innerText = "📸 1. Foto Trasera";
+                  await initCamera("environment");
+                };
+
+                window.initCamera = async function (mode) {
+                  if (stream) stream.getTracks().forEach(t => t.stop());
+                  constraints.video.facingMode = mode;
+                  try {
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    video.srcObject = stream;
+                    if (mode === 'user') { video.classList.add('mirrored'); isFront = true; }
+                    else { video.classList.remove('mirrored'); isFront = false; }
+                    video.onloadedmetadata = () => video.play();
+                  } catch (err) {
+                    alert("Error cámara: " + err); closeMochiCamera();
+                  }
+                };
+
+                window.closeMochiCamera = function () {
+                  overlay.classList.remove('active');
+                  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+                };
+
+                window.switchCamMode = function () {
+                  isFront = !isFront;
+                  initCamera(isFront ? "user" : "environment");
+                  msg.innerText = isFront ? "🙂 Selfie" : "📸 Trasera";
+                };
+
+                document.getElementById('btn-snap')?.addEventListener('click', async () => {
+                  canvas.width = video.videoWidth;
+                  canvas.height = video.videoHeight;
+
+                  // Lógica de inversión: Si es frontal, invertimos el canvas para guardar lo que se ve en pantalla
+                  if (isFront) {
+                    ctx.save();
+                    ctx.translate(canvas.width, 0);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    ctx.restore();
+                  } else {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                  }
+
+                  const data = canvas.toDataURL('image/jpeg', 0.9);
+
+                  if (!backPhoto) {
+                    backPhoto = await loadImage(data);
+                    video.pause();
+                    msg.innerText = "🙂 2. Ahora tu cara...";
+                    setTimeout(() => { isFront = true; video.play(); initCamera("user"); }, 700);
+                  } else {
+                    frontPhoto = await loadImage(data);
+                    processMochiReal();
+                  }
+                });
+
+                function loadImage(src) { return new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; }); }
+
+                async function processMochiReal() {
+                  msg.innerText = "✨ Procesando...";
+                  canvas.width = backPhoto.width; canvas.height = backPhoto.height;
+                  ctx.drawImage(backPhoto, 0, 0);
+
+                  const w = backPhoto.width * 0.30;
+                  const h = (frontPhoto.height / frontPhoto.width) * w;
+                  const x = 40, y = 40;
+
+                  ctx.lineWidth = 15; ctx.strokeStyle = "black"; ctx.strokeRect(x, y, w, h);
+                  ctx.drawImage(frontPhoto, x, y, w, h);
+                  ctx.lineWidth = 3; ctx.strokeStyle = "white"; ctx.strokeRect(x, y, w, h);
+
+                  canvas.toBlob(async (blob) => {
+                    const fd = new FormData();
+                    fd.append('photo', blob, 'mochireal.jpg');
+                    try {
+                      const res = await fetch('/mochireal/upload', { method: 'POST', body: fd });
+                      if (res.ok || res.redirected) window.location.reload();
+                      else { alert("Error subiendo"); closeMochiCamera(); }
+                    } catch (e) { alert("Error: " + e); closeMochiCamera(); }
+                  }, 'image/jpeg', 0.85);
+                }
+              })();
+            </script>
 
             {% else %}
-            <div class="mr-grid">
-              <div class="mr-photo-container">
-                <img src="{{ url_for('mochireal_image', post_id=mr_data.my_post.id) }}" class="mr-img">
-                <div
-                  style="position:absolute; bottom:10px; left:10px; font-weight:bold; text-shadow:0 2px 4px rgba(0,0,0,0.8); color:white;">
-                  Tú</div>
-              </div>
-              <div class="mr-photo-container">
-                {% if mr_data.other_post %}
-                <img src="{{ url_for('mochireal_image', post_id=mr_data.other_post.id) }}" class="mr-img">
-                <div
-                  style="position:absolute; bottom:10px; left:10px; font-weight:bold; text-shadow:0 2px 4px rgba(0,0,0,0.8); color:white;">
-                  {{ other_user }}</div>
-                {% else %}
-                <div style="text-align:center; color:#777;">
-                  <i class="fas fa-clock fa-2x"></i><br>Esperando...
-                </div>
-                {% endif %}
+            <div class="mochireal-section" style="margin-top: 20px; opacity: 0.7;">
+              <h3>💤 MochiReal inactivo</h3>
+              <p>Aún no ha saltado la alerta de hoy... ¡estad atentos!</p>
+              <div style="margin-top: 15px; border-top: 1px dashed rgba(0,0,0,0.1); padding-top: 10px;">
+                <button onclick="setScreen('mr-history')" class="btn-mr-history"
+                  style="color: inherit; border-color: currentColor;">
+                  <i class="fas fa-history"></i> Ver recuerdos anteriores
+                </button>
               </div>
             </div>
-            <p style="margin-top:15px; font-size:0.9rem; opacity:0.7">
-              <i class="fas fa-check-circle"></i> Has cumplido por hoy
-            </p>
             {% endif %}
           </div>
-
-          <script>
-            (function () {
-              let stream = null;
-              let backPhoto = null;
-              let frontPhoto = null;
-              let isFront = false;
-
-              const overlay = document.getElementById('mr-camera-overlay');
-              const video = document.getElementById('mr-video-feed');
-              const msg = document.getElementById('mr-msg');
-              const canvas = document.getElementById('mr-canvas');
-              const ctx = canvas ? canvas.getContext('2d') : null;
-
-              if (!overlay) return;
-
-              const constraints = { audio: false, video: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: "environment" } };
-
-              window.startMochiCamera = async function () {
-                isFront = false; backPhoto = null; frontPhoto = null;
-                overlay.classList.add('active');
-                msg.innerText = "📸 1. Foto Trasera";
-                await initCamera("environment");
-              };
-
-              window.initCamera = async function (mode) {
-                if (stream) stream.getTracks().forEach(t => t.stop());
-                constraints.video.facingMode = mode;
-                try {
-                  stream = await navigator.mediaDevices.getUserMedia(constraints);
-                  video.srcObject = stream;
-                  if (mode === 'user') { video.classList.add('mirrored'); isFront = true; }
-                  else { video.classList.remove('mirrored'); isFront = false; }
-                  video.onloadedmetadata = () => video.play();
-                } catch (err) {
-                  alert("Error cámara: " + err); closeMochiCamera();
-                }
-              };
-
-              window.closeMochiCamera = function () {
-                overlay.classList.remove('active');
-                if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-              };
-
-              window.switchCamMode = function () {
-                isFront = !isFront;
-                initCamera(isFront ? "user" : "environment");
-                msg.innerText = isFront ? "🙂 Selfie" : "📸 Trasera";
-              };
-
-              document.getElementById('btn-snap')?.addEventListener('click', async () => {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-
-                if (isFront) {
-                  ctx.save();
-                  ctx.translate(canvas.width, 0);
-                  ctx.scale(-1, 1);
-                  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                  ctx.restore();
-                } else {
-                  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                }
-
-                const data = canvas.toDataURL('image/jpeg', 0.9);
-
-                if (!backPhoto) {
-                  backPhoto = await loadImage(data);
-                  video.pause();
-                  msg.innerText = "🙂 2. Ahora tu cara...";
-                  setTimeout(() => { isFront = true; video.play(); initCamera("user"); }, 700);
-                } else {
-                  frontPhoto = await loadImage(data);
-                  processMochiReal();
-                }
-              });
-
-              function loadImage(src) { return new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; }); }
-
-              async function processMochiReal() {
-                msg.innerText = "✨ Procesando...";
-                canvas.width = backPhoto.width; canvas.height = backPhoto.height;
-                ctx.drawImage(backPhoto, 0, 0);
-
-                const w = backPhoto.width * 0.30;
-                const h = (frontPhoto.height / frontPhoto.width) * w;
-                const x = 40, y = 40;
-
-                ctx.lineWidth = 15; ctx.strokeStyle = "black"; ctx.strokeRect(x, y, w, h);
-                ctx.drawImage(frontPhoto, x, y, w, h);
-                ctx.lineWidth = 3; ctx.strokeStyle = "white"; ctx.strokeRect(x, y, w, h);
-
-                canvas.toBlob(async (blob) => {
-                  const fd = new FormData();
-                  fd.append('photo', blob, 'mochireal.jpg');
-                  try {
-                    const res = await fetch('/mochireal/upload', { method: 'POST', body: fd });
-                    if (res.ok || res.redirected) window.location.reload();
-                    else { alert("Error subiendo"); closeMochiCamera(); }
-                  } catch (e) { alert("Error: " + e); closeMochiCamera(); }
-                }, 'image/jpeg', 0.85);
-              }
-            })();
-          </script>
-
-          {% else %}
-          <div class="mochireal-section" style="margin-top: 20px; padding: 40px 20px; opacity: 0.8;">
-            <div style="font-size: 3rem; margin-bottom: 10px;">💤</div>
-            <h3 style="color: var(--dark-text);">MochiReal inactivo</h3>
-            <p style="color: #666;">Aún no ha saltado la alerta de hoy.<br>¡Estad atentos a la notificación!</p>
-          </div>
-          {% endif %}
-
-          <div class="mochireal-section" style="margin-top: 15px; padding: 20px;">
-            <button onclick="setScreen('mr-history')" class="btn-mr-history"
-              style="color: inherit; border-color: currentColor; width: 100%; justify-content: center;">
-              <i class="fas fa-history"></i> Ver recuerdos anteriores
-            </button>
-          </div>
-
-        </div>
-        <!-- Horarios -->
-        <div class="section animate-in delay-2">
-          <h3>Nuestros Horarios</h3>
-          <p>Nuestros horarios y activiades (editables).</p>
-          <a href="{{ url_for('schedule_page') }}">
-            <button style="width: 100%;">
-              <i class="fas fa-calendar-alt"></i> Ver Horarios
-            </button>
-          </a>
-        </div>
-
-        <!-- Pregunta diaria -->
-        <div class="section animate-in delay-2">
-          <h3>Pregunta del día</h3>
-
-          <div class="dq-countdown">
-            <div class="dq-countdown-card">
-              <div class="dq-countdown-title">
-                <i class="fas fa-clock" aria-hidden="true"></i>
-                Próximo cambio de pregunta
-              </div>
-              <div class="dq-countdown-time" id="dqTimer" aria-live="polite">--:--:--</div>
-            </div>
-          </div>
-
-          <p class="question"><b>{{ question }}</b></p>
-
-          <div class="streak-badges">
-            <div class="streak-badge">
-              <i class="fas fa-fire"></i>
-              Racha actual: {{ current_streak }} día{% if current_streak != 1 %}s{% endif %}
-            </div>
-            <div class="streak-badge best">
-              <i class="fas fa-trophy"></i>
-              Mejor racha: {{ best_streak }} día{% if best_streak != 1 %}s{% endif %}
-            </div>
-          </div>
-
-          <!-- {# === A) Ambos respondieron === #} -->
-          {% if show_answers %}
-          <div class="answers" style="gap:12px;">
-            {# Tu bloque (editable) #}
-            <div class="answer-item" style="flex-wrap:wrap;">
-              <div class="user-avatar">
-                {% if profile_pictures.get(username) %}
-                <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
-                {% else %} {{ username[0]|upper }} {% endif %}
-              </div>
-
-              <div class="answer-content" style="flex:1;">
-                <div class="answer-head" style="display:flex; align-items:center; gap:10px;">
-                  <div style="flex:1;">
-                    <b>Tú:</b>
-                    <span id="ans-text-me" class="answer-text">{{ user_answer }}</span>
-                    {% if answers_edited and answers_edited.get(username) %}
-                    <small class="edited-pill">(editado)</small>
-                    {% endif %}
-                  </div>
-                  <a href="#" class="edit-link" onclick="return toggleEdit('me');">Editar</a>
-                </div>
-
-
-                <form method="POST" id="ans-form-me" style="display:none; margin-top:10px;">
-                  <input type="text" name="answer" value="{{ user_answer }}" required>
-                  <button type="submit"><i class="fas fa-save"></i> Guardar</button>
-                  <button type="button" onclick="toggleEdit('me')"
-                    style="background:#fff;color:#e84393;border:1px solid #eee">
-                    Cancelar
-                  </button>
-                </form>
-              </div>
-            </div>
-
-            <!-- {# Bloque de la otra persona (solo lectura) #} -->
-            <div class="answer-item">
-              <div class="user-avatar">
-                {% if profile_pictures.get(other_user) %}
-                <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
-                {% else %} {{ other_user[0]|upper }} {% endif %}
-              </div>
-              <div>
-                <b>{{ other_user }}:</b>
-                <span class="answer-text">{{ other_answer }}</span>
-                {% if answers_edited and answers_edited.get(other_user) %}
-                <small class="edited-pill">(editado)</small>
-                {% endif %}
-              </div>
-
-            </div>
-          </div>
-          <!-- {# === B) Tú respondiste y falta el/la otr@ (puedes editar mientras) === #} -->
-          {% elif user_answer and not other_answer %}
-          <div class="answers" style="gap:12px;">
-            <div class="answer-item" style="flex-wrap:wrap;">
-              <div class="user-avatar">
-                {% if profile_pictures.get(username) %}
-                <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
-                {% else %} {{ username[0]|upper }} {% endif %}
-              </div>
-
-              <div class="answer-content" style="flex:1;">
-                <div class="answer-head" style="display:flex; align-items:center; gap:10px;">
-                  <div style="flex:1;">
-                    <b>Tú:</b>
-                    <span id="ans-text-me" class="answer-text">{{ user_answer }}</span>
-                    {% if answers_edited and answers_edited.get(username) %}
-                    <small class="edited-pill">(editado)</small>
-                    {% endif %}
-                  </div>
-                  <a href="#" class="edit-link" onclick="return toggleEdit('me');">Editar</a>
-                </div>
-
-
-                <form method="POST" id="ans-form-me" style="display:none; margin-top:10px;">
-                  <input type="text" name="answer" value="{{ user_answer }}" required>
-                  <button type="submit"><i class="fas fa-save"></i> Guardar</button>
-                  <button type="button" onclick="toggleEdit('me')"
-                    style="background:#fff;color:#e84393;border:1px solid #eee">
-                    Cancelar
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-
-          <p style="margin-top:8px;opacity:.75;">Aún falta la respuesta de <b>{{ other_user }}</b> 🕒</p>
-
-          <!-- {# === C) El/la otr@ ya respondió y tú no: su bloque borroso + tu caja para responder === #} -->
-          {% elif (not user_answer) and other_answer %}
-          <form method="POST" class="inline-form" style="margin-bottom:15px; display:flex; gap:8px;">
-            <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
-            <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-          </form>
-
-          <div class="answers">
-            <div class="answer-item blurred">
-              <div class="user-avatar">
-                {% if profile_pictures.get(other_user) %}
-                <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
-                {% else %} {{ other_user[0]|upper }} {% endif %}
-              </div>
-              <div>
-                <b>{{ other_user }}:</b>
-                <span class="answer-text">{{ other_answer }}</span>
-                {% if answers_edited and answers_edited.get(other_user) %}
-                <small class="edited-pill">(editado)</small>
-                {% endif %}
-              </div>
-
-            </div>
-          </div>
-
-          {# === D) Nadie ha respondido aún === #}
-          {% else %}
-          <form method="POST" class="inline-form" style="display:flex; gap:8px;">
-            <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
-            <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
-          </form>
-          {% endif %}
-
-          <!-- AÑADE ESTO JUSTO AQUÍ - Enlace al historial -->
-          <!-- Ejemplo de implementación del botón en tu web -->
-          <div class="historial-container">
-            <a href="/historial" class="btn-historial">
-              <i class="fas fa-history"></i> Ver historial completo
+          <!-- Horarios -->
+          <div class="section animate-in delay-2">
+            <h3>Nuestros Horarios</h3>
+            <p>Nuestros horarios y activiades (editables).</p>
+            <a href="{{ url_for('schedule_page') }}">
+              <button style="width: 100%;">
+                <i class="fas fa-calendar-alt"></i> Ver Horarios
+              </button>
             </a>
           </div>
-        </div>
+
+          <!-- Pregunta diaria -->
+          <div class="section animate-in delay-2">
+            <h3>Pregunta del día</h3>
+
+            <div class="dq-countdown">
+              <div class="dq-countdown-card">
+                <div class="dq-countdown-title">
+                  <i class="fas fa-clock" aria-hidden="true"></i>
+                  Próximo cambio de pregunta
+                </div>
+                <div class="dq-countdown-time" id="dqTimer" aria-live="polite">--:--:--</div>
+              </div>
+            </div>
+
+            <p class="question"><b>{{ question }}</b></p>
+
+            <div class="streak-badges">
+              <div class="streak-badge">
+                <i class="fas fa-fire"></i>
+                Racha actual: {{ current_streak }} día{% if current_streak != 1 %}s{% endif %}
+              </div>
+              <div class="streak-badge best">
+                <i class="fas fa-trophy"></i>
+                Mejor racha: {{ best_streak }} día{% if best_streak != 1 %}s{% endif %}
+              </div>
+            </div>
+
+            <!-- {# === A) Ambos respondieron === #} -->
+            {% if show_answers %}
+            <div class="answers" style="gap:12px;">
+              {# Tu bloque (editable) #}
+              <div class="answer-item" style="flex-wrap:wrap;">
+                <div class="user-avatar">
+                  {% if profile_pictures.get(username) %}
+                  <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+                  {% else %} {{ username[0]|upper }} {% endif %}
+                </div>
+
+                <div class="answer-content" style="flex:1;">
+                  <div class="answer-head" style="display:flex; align-items:center; gap:10px;">
+                    <div style="flex:1;">
+                      <b>Tú:</b>
+                      <span id="ans-text-me" class="answer-text">{{ user_answer }}</span>
+                      {% if answers_edited and answers_edited.get(username) %}
+                      <small class="edited-pill">(editado)</small>
+                      {% endif %}
+                    </div>
+                    <a href="#" class="edit-link" onclick="return toggleEdit('me');">Editar</a>
+                  </div>
 
 
+                  <form method="POST" id="ans-form-me" style="display:none; margin-top:10px;">
+                    <input type="text" name="answer" value="{{ user_answer }}" required>
+                    <button type="submit"><i class="fas fa-save"></i> Guardar</button>
+                    <button type="button" onclick="toggleEdit('me')"
+                      style="background:#fff;color:#e84393;border:1px solid #eee">
+                      Cancelar
+                    </button>
+                  </form>
+                </div>
+              </div>
 
-        <!-- Lista de deseos -->
-        <div class="section animate-in delay-3">
-          <h3>Nuestra Lista de Deseos</h3>
-          <p>Cosas que nos gustaría tener o regalarnos mutuamente.</p>
+              <!-- {# Bloque de la otra persona (solo lectura) #} -->
+              <div class="answer-item">
+                <div class="user-avatar">
+                  {% if profile_pictures.get(other_user) %}
+                  <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+                  {% else %} {{ other_user[0]|upper }} {% endif %}
+                </div>
+                <div>
+                  <b>{{ other_user }}:</b>
+                  <span class="answer-text">{{ other_answer }}</span>
+                  {% if answers_edited and answers_edited.get(other_user) %}
+                  <small class="edited-pill">(editado)</small>
+                  {% endif %}
+                </div>
 
-          <div class="wishlist-tools">
-            <div id="wishlist-sort-toggle" class="sort-toggle" role="group" aria-label="Ordenar lista de deseos"
-              tabindex="0">
-              <div class="slider" aria-hidden="true"></div>
-              <button type="button" data-mode="recent" aria-pressed="true">
-                <i class="fas fa-clock"></i> Recientes
-              </button>
-              <button type="button" data-mode="priority" aria-pressed="false">
-                <i class="fas fa-flag"></i> Prioridad
-              </button>
+              </div>
+            </div>
+            <!-- {# === B) Tú respondiste y falta el/la otr@ (puedes editar mientras) === #} -->
+            {% elif user_answer and not other_answer %}
+            <div class="answers" style="gap:12px;">
+              <div class="answer-item" style="flex-wrap:wrap;">
+                <div class="user-avatar">
+                  {% if profile_pictures.get(username) %}
+                  <img src="{{ profile_pictures.get(username) }}" alt="{{ username }}">
+                  {% else %} {{ username[0]|upper }} {% endif %}
+                </div>
+
+                <div class="answer-content" style="flex:1;">
+                  <div class="answer-head" style="display:flex; align-items:center; gap:10px;">
+                    <div style="flex:1;">
+                      <b>Tú:</b>
+                      <span id="ans-text-me" class="answer-text">{{ user_answer }}</span>
+                      {% if answers_edited and answers_edited.get(username) %}
+                      <small class="edited-pill">(editado)</small>
+                      {% endif %}
+                    </div>
+                    <a href="#" class="edit-link" onclick="return toggleEdit('me');">Editar</a>
+                  </div>
+
+
+                  <form method="POST" id="ans-form-me" style="display:none; margin-top:10px;">
+                    <input type="text" name="answer" value="{{ user_answer }}" required>
+                    <button type="submit"><i class="fas fa-save"></i> Guardar</button>
+                    <button type="button" onclick="toggleEdit('me')"
+                      style="background:#fff;color:#e84393;border:1px solid #eee">
+                      Cancelar
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+
+            <p style="margin-top:8px;opacity:.75;">Aún falta la respuesta de <b>{{ other_user }}</b> 🕒</p>
+
+            <!-- {# === C) El/la otr@ ya respondió y tú no: su bloque borroso + tu caja para responder === #} -->
+            {% elif (not user_answer) and other_answer %}
+            <form method="POST" class="inline-form" style="margin-bottom:15px; display:flex; gap:8px;">
+              <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
+              <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+            </form>
+
+            <div class="answers">
+              <div class="answer-item blurred">
+                <div class="user-avatar">
+                  {% if profile_pictures.get(other_user) %}
+                  <img src="{{ profile_pictures.get(other_user) }}" alt="{{ other_user }}">
+                  {% else %} {{ other_user[0]|upper }} {% endif %}
+                </div>
+                <div>
+                  <b>{{ other_user }}:</b>
+                  <span class="answer-text">{{ other_answer }}</span>
+                  {% if answers_edited and answers_edited.get(other_user) %}
+                  <small class="edited-pill">(editado)</small>
+                  {% endif %}
+                </div>
+
+              </div>
+            </div>
+
+            {# === D) Nadie ha respondido aún === #}
+            {% else %}
+            <form method="POST" class="inline-form" style="display:flex; gap:8px;">
+              <input type="text" name="answer" placeholder="Tu respuesta…" required style="flex:1;">
+              <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+            </form>
+            {% endif %}
+
+            <!-- AÑADE ESTO JUSTO AQUÍ - Enlace al historial -->
+            <!-- Ejemplo de implementación del botón en tu web -->
+            <div class="historial-container">
+              <a href="/historial" class="btn-historial">
+                <i class="fas fa-history"></i> Ver historial completo
+              </a>
             </div>
           </div>
 
 
 
-          <div class="wishlist-tabs" id="wishlist-tabs-container">
-            <div class="wishlist-tab active" data-tab="wanted">Deseados</div>
-            <div class="wishlist-tab" data-tab="purchased">Comprados</div>
-            <div class="wishlist-tab" data-tab="add-wishlist">Añadir Deseo</div>
-          </div>
+          <!-- Lista de deseos -->
+          <div class="section animate-in delay-3">
+            <h3>Nuestra Lista de Deseos</h3>
+            <p>Cosas que nos gustaría tener o regalarnos mutuamente.</p>
 
-          <!-- Deseados -->
-          <div class="wishlist-content active" id="wanted-tab">
-            <div class="wishlist-grid">
-              {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift,
-              size, track_price, last_price_cents, currency, last_checked, alert_drop_percent, alert_below_cents in
-              wishlist_items if not is_purchased %}
-              {% set pri = (priority or 'media') %}
-              {% set soy_creador = (created_by == username) %}
-              {% set oculto_para_mi = (is_gift and not soy_creador) %}
+            <div class="wishlist-tools">
+              <div id="wishlist-sort-toggle" class="sort-toggle" role="group" aria-label="Ordenar lista de deseos"
+                tabindex="0">
+                <div class="slider" aria-hidden="true"></div>
+                <button type="button" data-mode="recent" aria-pressed="true">
+                  <i class="fas fa-clock"></i> Recientes
+                </button>
+                <button type="button" data-mode="priority" aria-pressed="false">
+                  <i class="fas fa-flag"></i> Prioridad
+                </button>
+              </div>
+            </div>
 
-              <div class="wishlist-card {% if oculto_para_mi %}locked{% endif %}"
-                data-created="{{ (created_at or '') }}" data-priority="{{ pri }}">
-                <div class="wishlist-status status-wanted">Deseado</div>
 
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                  <div
-                    class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
-                    <i class="fas fa-flag"></i> {{ pri|capitalize }}
-                  </div>
-                  {% if is_gift %}
-                  <div class="gift-chip" title="Marcado como regalo">
-                    <i class="fas fa-gift"></i> Regalo
-                  </div>
-                  {% endif %}
-                </div>
 
-                {% if oculto_para_mi %}
-                <div class="gift-mask">
-                  🎁 <div>¡Esto es un regalo para ti!</div>
-                  <small>Los detalles están ocultos para mantener la sorpresa.</small>
-                </div>
-                {% else %}
-                <h3 class="wishlist-product">{{ product_name }}</h3>
+            <div class="wishlist-tabs" id="wishlist-tabs-container">
+              <div class="wishlist-tab active" data-tab="wanted">Deseados</div>
+              <div class="wishlist-tab" data-tab="purchased">Comprados</div>
+              <div class="wishlist-tab" data-tab="add-wishlist">Añadir Deseo</div>
+            </div>
 
-                {% if product_link %}
-                <a href="{{ product_link }}" target="_blank" rel="noopener noreferrer" class="wishlist-link">
-                  <i class="fas fa-link"></i> Ver producto
-                </a>
-                {% if (size or '')|trim %}
-                <div class="wishlist-size"><strong>Talla:</strong> {{ size }}</div>
-                {% endif %}
-                {% endif %}
+            <!-- Deseados -->
+            <div class="wishlist-content active" id="wanted-tab">
+              <div class="wishlist-grid">
+                {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift,
+                size, track_price, last_price_cents, currency, last_checked, alert_drop_percent, alert_below_cents in
+                wishlist_items if not is_purchased %}
+                {% set pri = (priority or 'media') %}
+                {% set soy_creador = (created_by == username) %}
+                {% set oculto_para_mi = (is_gift and not soy_creador) %}
 
-                {% if notes %}
-                <p class="wishlist-notes">{{ notes }}</p>
-                {% endif %}
-                {% endif %}
+                <div class="wishlist-card {% if oculto_para_mi %}locked{% endif %}"
+                  data-created="{{ (created_at or '') }}" data-priority="{{ pri }}">
+                  <div class="wishlist-status status-wanted">Deseado</div>
 
-                <div class="wishlist-meta">
-                  <span>
-                    <div class="user-avatar"
-                      style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                      {% if profile_pictures.get(created_by) %}
-                      <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
-                      {% else %}
-                      {{ created_by[0]|upper }}
-                      {% endif %}
+                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <div
+                      class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
+                      <i class="fas fa-flag"></i> {{ pri|capitalize }}
                     </div>
-                    Creado por {{ created_by }}
-                  </span>
-                  <span>{{ created_at[:10] }}</span>
-                </div>
+                    {% if is_gift %}
+                    <div class="gift-chip" title="Marcado como regalo">
+                      <i class="fas fa-gift"></i> Regalo
+                    </div>
+                    {% endif %}
+                  </div>
 
-                {% if not oculto_para_mi %}
-                <div class="wishlist-actions">
-                  <form method="POST" action="/toggle_wishlist_item">
-                    <input type="hidden" name="item_id" value="{{ id }}">
-                    <button type="submit" class="icon-btn" title="Marcar como comprado">
-                      <i class="fas fa-check"></i>
-                    </button>
-                  </form>
+                  {% if oculto_para_mi %}
+                  <div class="gift-mask">
+                    🎁 <div>¡Esto es un regalo para ti!</div>
+                    <small>Los detalles están ocultos para mantener la sorpresa.</small>
+                  </div>
+                  {% else %}
+                  <h3 class="wishlist-product">{{ product_name }}</h3>
 
-                  <button class="icon-btn" title="Editar" onclick='openEditModal(
+                  {% if product_link %}
+                  <a href="{{ product_link }}" target="_blank" rel="noopener noreferrer" class="wishlist-link">
+                    <i class="fas fa-link"></i> Ver producto
+                  </a>
+                  {% if (size or '')|trim %}
+                  <div class="wishlist-size"><strong>Talla:</strong> {{ size }}</div>
+                  {% endif %}
+                  {% endif %}
+
+                  {% if notes %}
+                  <p class="wishlist-notes">{{ notes }}</p>
+                  {% endif %}
+                  {% endif %}
+
+                  <div class="wishlist-meta">
+                    <span>
+                      <div class="user-avatar"
+                        style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                        {% if profile_pictures.get(created_by) %}
+                        <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
+                        {% else %}
+                        {{ created_by[0]|upper }}
+                        {% endif %}
+                      </div>
+                      Creado por {{ created_by }}
+                    </span>
+                    <span>{{ created_at[:10] }}</span>
+                  </div>
+
+                  {% if not oculto_para_mi %}
+                  <div class="wishlist-actions">
+                    <form method="POST" action="/toggle_wishlist_item">
+                      <input type="hidden" name="item_id" value="{{ id }}">
+                      <button type="submit" class="icon-btn" title="Marcar como comprado">
+                        <i class="fas fa-check"></i>
+                      </button>
+                    </form>
+
+                    <button class="icon-btn" title="Editar" onclick='openEditModal(
                       {{ id }},
                       {{ product_name|tojson }},
                       {{ product_link|tojson }},
@@ -6996,101 +7002,101 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                       {{ is_gift|tojson }},
                       {{ (size or "")|tojson }}
                     )'>
-                    <i class="fas fa-edit"></i>
-                  </button>
-
-                  {% if created_by == username %}
-                  <form method="POST" action="/delete_wishlist_item"
-                    onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
-
-                    <input type="hidden" name="item_id" value="{{ id }}">
-                    <button type="submit" class="icon-btn" title="Eliminar">
-                      <i class="fas fa-trash"></i>
+                      <i class="fas fa-edit"></i>
                     </button>
-                  </form>
-                  {% endif %}
-                </div>
-                {% endif %}
-              </div>
-              {% else %}
-              <p>No hay productos en tu lista de deseos. ¡Añade el primero!</p>
-              {% endfor %}
-            </div>
-          </div>
 
-          <!-- Comprados -->
-          <div class="wishlist-content" id="purchased-tab">
-            <div class="wishlist-grid">
-              {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift,
-              size, track_price, last_price_cents, currency, last_checked, alert_drop_percent, alert_below_cents in
-              wishlist_items if is_purchased %}
-              {% set pri = (priority or 'media') %}
-              {% set soy_creador = (created_by == username) %}
-              {% set oculto_para_mi = (is_gift and not soy_creador) %}
+                    {% if created_by == username %}
+                    <form method="POST" action="/delete_wishlist_item"
+                      onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
 
-              <div class="wishlist-card purchased {% if oculto_para_mi %}locked{% endif %}"
-                data-created="{{ (created_at or '') }}" data-priority="{{ pri }}">
-                <div class="wishlist-status status-purchased">Comprado</div>
-
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                  <div
-                    class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
-                    <i class="fas fa-flag"></i> {{ pri|capitalize }}
-                  </div>
-                  {% if is_gift %}
-                  <div class="gift-chip" title="Marcado como regalo">
-                    <i class="fas fa-gift"></i> Regalo
+                      <input type="hidden" name="item_id" value="{{ id }}">
+                      <button type="submit" class="icon-btn" title="Eliminar">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </form>
+                    {% endif %}
                   </div>
                   {% endif %}
-                </div>
-
-                {% if oculto_para_mi %}
-                <div class="gift-mask">
-                  🎁 <div>¡Esto es (o era) un regalo para ti!</div>
-                  <small>Detalles ocultos para mantener la sorpresa.</small>
                 </div>
                 {% else %}
-                <h3 class="wishlist-product">{{ product_name }}</h3>
+                <p>No hay productos en tu lista de deseos. ¡Añade el primero!</p>
+                {% endfor %}
+              </div>
+            </div>
 
-                {% if product_link %}
-                <a href="{{ product_link }}" target="_blank" rel="noopener noreferrer" class="wishlist-link">
-                  <i class="fas fa-link"></i> Ver producto
-                </a>
-                {% if (size or '')|trim %}
-                <div class="wishlist-size"><strong>Talla:</strong> {{ size }}</div>
-                {% endif %}
-                {% endif %}
+            <!-- Comprados -->
+            <div class="wishlist-content" id="purchased-tab">
+              <div class="wishlist-grid">
+                {% for id, product_name, product_link, notes, created_by, created_at, is_purchased, priority, is_gift,
+                size, track_price, last_price_cents, currency, last_checked, alert_drop_percent, alert_below_cents in
+                wishlist_items if is_purchased %}
+                {% set pri = (priority or 'media') %}
+                {% set soy_creador = (created_by == username) %}
+                {% set oculto_para_mi = (is_gift and not soy_creador) %}
 
-                {% if notes %}
-                <p class="wishlist-notes">{{ notes }}</p>
-                {% endif %}
-                {% endif %}
+                <div class="wishlist-card purchased {% if oculto_para_mi %}locked{% endif %}"
+                  data-created="{{ (created_at or '') }}" data-priority="{{ pri }}">
+                  <div class="wishlist-status status-purchased">Comprado</div>
 
-                <div class="wishlist-meta">
-                  <span>
-                    <div class="user-avatar"
-                      style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                      {% if profile_pictures.get(created_by) %}
-                      <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
-                      {% else %}
-                      {{ created_by[0]|upper }}
-                      {% endif %}
+                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <div
+                      class="priority-chip {{ 'priority-high' if pri=='alta' else 'priority-low' if pri=='baja' else 'priority-mid' }}">
+                      <i class="fas fa-flag"></i> {{ pri|capitalize }}
                     </div>
-                    Creado por {{ created_by }}
-                  </span>
-                  <span>{{ created_at[:10] }}</span>
-                </div>
+                    {% if is_gift %}
+                    <div class="gift-chip" title="Marcado como regalo">
+                      <i class="fas fa-gift"></i> Regalo
+                    </div>
+                    {% endif %}
+                  </div>
 
-                {% if not oculto_para_mi %}
-                <div class="wishlist-actions">
-                  <form method="POST" action="/toggle_wishlist_item">
-                    <input type="hidden" name="item_id" value="{{ id }}">
-                    <button type="submit" class="icon-btn" title="Marcar como no comprado">
-                      <i class="fas fa-undo"></i>
-                    </button>
-                  </form>
+                  {% if oculto_para_mi %}
+                  <div class="gift-mask">
+                    🎁 <div>¡Esto es (o era) un regalo para ti!</div>
+                    <small>Detalles ocultos para mantener la sorpresa.</small>
+                  </div>
+                  {% else %}
+                  <h3 class="wishlist-product">{{ product_name }}</h3>
 
-                  <button class="icon-btn" title="Editar" onclick='openEditModal(
+                  {% if product_link %}
+                  <a href="{{ product_link }}" target="_blank" rel="noopener noreferrer" class="wishlist-link">
+                    <i class="fas fa-link"></i> Ver producto
+                  </a>
+                  {% if (size or '')|trim %}
+                  <div class="wishlist-size"><strong>Talla:</strong> {{ size }}</div>
+                  {% endif %}
+                  {% endif %}
+
+                  {% if notes %}
+                  <p class="wishlist-notes">{{ notes }}</p>
+                  {% endif %}
+                  {% endif %}
+
+                  <div class="wishlist-meta">
+                    <span>
+                      <div class="user-avatar"
+                        style="width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                        {% if profile_pictures.get(created_by) %}
+                        <img src="{{ profile_pictures.get(created_by) }}" alt="{{ created_by }}">
+                        {% else %}
+                        {{ created_by[0]|upper }}
+                        {% endif %}
+                      </div>
+                      Creado por {{ created_by }}
+                    </span>
+                    <span>{{ created_at[:10] }}</span>
+                  </div>
+
+                  {% if not oculto_para_mi %}
+                  <div class="wishlist-actions">
+                    <form method="POST" action="/toggle_wishlist_item">
+                      <input type="hidden" name="item_id" value="{{ id }}">
+                      <button type="submit" class="icon-btn" title="Marcar como no comprado">
+                        <i class="fas fa-undo"></i>
+                      </button>
+                    </form>
+
+                    <button class="icon-btn" title="Editar" onclick='openEditModal(
                       {{ id }},
                       {{ product_name|tojson }},
                       {{ product_link|tojson }},
@@ -7099,625 +7105,627 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                       {{ is_gift|tojson }},
                       {{ (size or "")|tojson }}
                     )'>
-                    <i class="fas fa-edit"></i>
-                  </button>
-
-                  {% if created_by == username %}
-                  <form method="POST" action="/delete_wishlist_item"
-                    onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
-                    <input type="hidden" name="item_id" value="{{ id }}">
-                    <button type="submit" class="icon-btn" title="Eliminar">
-                      <i class="fas fa-trash"></i>
+                      <i class="fas fa-edit"></i>
                     </button>
-                  </form>
+
+                    {% if created_by == username %}
+                    <form method="POST" action="/delete_wishlist_item"
+                      onsubmit="return confirm('¿Estás seguro de que quieres eliminar este producto?');">
+                      <input type="hidden" name="item_id" value="{{ id }}">
+                      <button type="submit" class="icon-btn" title="Eliminar">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </form>
+                    {% endif %}
+                  </div>
                   {% endif %}
                 </div>
-                {% endif %}
+                {% else %}
+                <p>No hay productos comprados todavía.</p>
+                {% endfor %}
               </div>
-              {% else %}
-              <p>No hay productos comprados todavía.</p>
-              {% endfor %}
+            </div>
+
+            <!-- Añadir deseo -->
+            <div class="wishlist-content" id="add-wishlist-tab">
+              <div class="wishlist-form">
+                <h4>Añadir nuevo producto</h4>
+                <form method="POST">
+                  <input type="text" name="product_name" placeholder="Nombre del producto" required>
+                  <input type="url" name="product_link" placeholder="Enlace (opcional)">
+                  <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
+
+                  <!-- Talla -->
+                  <input type="text" name="size" placeholder="Talla (opcional)" />
+
+                  <select name="priority" required style="margin-bottom:15px;">
+                    <option value="alta">Prioridad: Alta 🔴</option>
+                    <option value="media" selected>Prioridad: Media 🟡</option>
+                    <option value="baja">Prioridad: Baja 🟢</option>
+                  </select>
+
+                  <!-- Regalo (estilizado como botón) -->
+                  <div class="gift-toggle-row">
+                    <input type="checkbox" id="is_gift" name="is_gift">
+                    <label for="is_gift">¿Es un regalo (ocultar a la otra persona)?</label>
+                  </div>
+
+                  <!-- Precio: eliminado por petición -->
+
+                  <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
+                </form>
+              </div>
             </div>
           </div>
-
-          <!-- Añadir deseo -->
-          <div class="wishlist-content" id="add-wishlist-tab">
-            <div class="wishlist-form">
-              <h4>Añadir nuevo producto</h4>
-              <form method="POST">
-                <input type="text" name="product_name" placeholder="Nombre del producto" required>
-                <input type="url" name="product_link" placeholder="Enlace (opcional)">
-                <textarea name="wishlist_notes" placeholder="Notas (opcional)" rows="3"></textarea>
-
-                <!-- Talla -->
-                <input type="text" name="size" placeholder="Talla (opcional)" />
-
-                <select name="priority" required style="margin-bottom:15px;">
-                  <option value="alta">Prioridad: Alta 🔴</option>
-                  <option value="media" selected>Prioridad: Media 🟡</option>
-                  <option value="baja">Prioridad: Baja 🟢</option>
-                </select>
-
-                <!-- Regalo (estilizado como botón) -->
-                <div class="gift-toggle-row">
-                  <input type="checkbox" id="is_gift" name="is_gift">
-                  <label for="is_gift">¿Es un regalo (ocultar a la otra persona)?</label>
-                </div>
-
-                <!-- Precio: eliminado por petición -->
-
-                <button type="submit"><i class="fas fa-plus"></i> Añadir a la lista</button>
-              </form>
-            </div>
-          </div>
-        </div>
-        <!-- =========================
+          <!-- =========================
      PELÍCULAS & SERIES
      ========================= -->
-        <div class="section animate-in" data-section="media">
-          <h3>Películas & Series</h3>
-          <p>Lo que queremos ver y lo que ya vimos 💫</p>
+          <div class="section animate-in" data-section="media">
+            <h3>Películas & Series</h3>
+            <p>Lo que queremos ver y lo que ya vimos 💫</p>
 
-          <div class="media-tools">
-            <input type="search" id="media-search" placeholder="Buscar título/plataforma…">
-            <div id="media-sort-toggle" class="sort-toggle" role="group" aria-label="Ordenar" tabindex="0">
-              <div class="slider" aria-hidden="true"></div>
-              <button type="button" data-mode="recent" aria-pressed="true"><i class="fas fa-clock"></i>
-                Recientes</button>
-              <button type="button" data-mode="rating" aria-pressed="false"><i class="fas fa-star"></i>
-                Rating</button>
-              <button type="button" data-mode="platform" aria-pressed="false"><i class="fas fa-tv"></i>
-                Plataforma</button>
-            </div>
-          </div>
-
-          <div class="media-tabs">
-            <div class="media-tab active" data-tab="towatch">Por ver</div>
-            <div class="media-tab" data-tab="watched">Vistas</div>
-            <div class="media-tab" data-tab="add-media">Añadir</div>
-          </div>
-
-          <!-- Por ver -->
-          <div class="media-content active" id="towatch-tab">
-            <div class="media-grid">
-              {% for m in media_to_watch %}
-              <div class="media-card" data-id="{{ m.get('id') }}" data-title="{{ (m.get('title') or '')|e }}"
-                data-kind="{{ (m.get('kind') or 'movie')|e }}"
-                data-platform="{% if m.get('on_netflix') and m.get('on_prime') %}both{% elif m.get('on_netflix') %}netflix{% elif m.get('on_prime') %}prime{% else %}zzz{% endif %}"
-                data-link="{{ (m.get('link_url') or '')|e }}" data-notes="{{ (m.get('comment') or '')|e }}"
-                data-priority="{{ (m.get('priority') or 'media') }}" data-cover="{{ (m.get('cover_url') or '')|e }}"
-                data-created="{{ (m.get('created_at') or '') }}"
-                data-rating-me="{{ (m.get('reviews', {}).get(username, {}).get('rating') or m.get('rating_me') or 0) }}"
-                data-rating-other="{{ (m.get('reviews', {}).get(other_user, {}).get('rating') or m.get('rating_other') or 0) }}"
-                data-comment-me="{{ (m.get('reviews', {}).get(username, {}).get('comment') or m.get('comment_me') or '')|e }}"
-                data-comment-other="{{ (m.get('reviews', {}).get(other_user, {}).get('comment') or m.get('comment_other') or '')|e }}"
-                data-avg="{{ (m.get('avg_rating') or m.get('rating') or 0) }}" data-watched="0">
-                <div class="media-status badge-wanted">Por ver</div>
-
-                <div class="media-head">
-                  <span class="media-kind movie">Título</span>
-                  {% if m.get('on_netflix') %}
-                  <span class="platform-chip" aria-label="Netflix">
-                    <img src="{{ url_for('static', filename='icons/netflix.png') }}" alt="Netflix" loading="lazy">
-                  </span>
-                  {% endif %}
-                  {% if m.get('on_prime') %}
-                  <span class="platform-chip" aria-label="Prime Video">
-                    <img src="{{ url_for('static', filename='icons/prime-video.png') }}" alt="Prime Video"
-                      loading="lazy">
-                  </span>
-                  {% endif %}
-
-
-                </div>
-
-                {% if m.get('cover_url') %}
-                <div class="media-cover">
-                  <img src="{{ m.get('cover_url') }}" alt="Portada de {{ m.get('title')|e }}">
-                </div>
-                {% endif %}
-
-                <h3 class="media-title">{{ m.get('title') }}</h3>
-
-                {% if m.get('link_url') %}
-                <a class="media-link" href="{{ m.get('link_url') }}" target="_blank" rel="noopener">
-                  <i class="fas fa-link"></i> Abrir enlace
-                </a>
-                {% endif %}
-
-                {% if m.get('comment') %}<p class="media-notes">{{ m.get('comment') }}</p>{% endif %}
-
-                <div class="media-meta">
-                  {% set who = m.get('created_by') or '' %}
-                  <span>
-                    <div class="user-avatar"
-                      style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:5px;">
-                      {% if profile_pictures.get(who) %}
-                      <img src="{{ profile_pictures.get(who) }}" alt="{{ who }}">
-                      {% else %}
-                      {{ (who[:1] or '?')|upper }}
-                      {% endif %}
-                    </div>
-                    {{ who or '—' }}
-                  </span>
-                  <span>{{ (m.get('created_at') or '')[:10] }}</span>
-                </div>
-
-                <div class="media-actions">
-                  <!-- Valorar/comentar (modal B) -->
-                  <button type="button" class="icon-btn" title="Marcar como vista y valorar"
-                    onclick="openRateMedia(this)">
-                    <i class="fas fa-check"></i>
-                  </button>
-
-                  <!-- Editar ficha (modal A) -->
-                  <button type="button" class="icon-btn" title="Editar ficha" onclick="openBasicEditMedia(this)">
-                    <i class="fas fa-pen-to-square"></i>
-                  </button>
-
-                  {% if m.get('created_by') == username %}
-                  <form method="POST" action="/media/delete" onsubmit="return confirm('¿Eliminar este título?');">
-                    <input type="hidden" name="id" value="{{ m.get('id') }}">
-                    <button class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button>
-                  </form>
-                  {% endif %}
-                </div>
+            <div class="media-tools">
+              <input type="search" id="media-search" placeholder="Buscar título/plataforma…">
+              <div id="media-sort-toggle" class="sort-toggle" role="group" aria-label="Ordenar" tabindex="0">
+                <div class="slider" aria-hidden="true"></div>
+                <button type="button" data-mode="recent" aria-pressed="true"><i class="fas fa-clock"></i>
+                  Recientes</button>
+                <button type="button" data-mode="rating" aria-pressed="false"><i class="fas fa-star"></i>
+                  Rating</button>
+                <button type="button" data-mode="platform" aria-pressed="false"><i class="fas fa-tv"></i>
+                  Plataforma</button>
               </div>
-              {% else %}
-              <p>No hay títulos por ver. ¡Añade alguno!</p>
-              {% endfor %}
             </div>
-            <div class="pager" id="media-pager-towatch"></div>
-          </div>
 
-          <!-- Vistas -->
-          <div class="media-content" id="watched-tab">
-            <div class="media-grid">
-              {% for m in media_watched %}
-              {% set reviews = m.get('reviews') or {} %}
-              {% set avg = m.get('avg_rating') or m.get('rating') or 0 %}
-              {% set my_rating = reviews.get(username, {}).get('rating') or m.get('rating_me') or 0 %}
-              {% set other_rating = reviews.get(other_user, {}).get('rating') or m.get('rating_other') or 0 %}
-              {% set my_comment = reviews.get(username, {}).get('comment') or m.get('comment_me') or
-              (m.get('watched_comment') if m.get('created_by') == username else '') %}
-              {% set other_comment = reviews.get(other_user, {}).get('comment') or m.get('comment_other') %}
-              <div class="media-card watched" data-id="{{ m.get('id') }}" data-title="{{ (m.get('title') or '')|e }}"
-                data-kind="{{ (m.get('kind') or 'movie')|e }}"
-                data-platform="{% if m.get('on_netflix') and m.get('on_prime') %}both{% elif m.get('on_netflix') %}netflix{% elif m.get('on_prime') %}prime{% else %}zzz{% endif %}"
-                data-link="{{ (m.get('link_url') or '')|e }}" data-notes="{{ (m.get('comment') or '')|e }}"
-                data-priority="{{ (m.get('priority') or 'media') }}" data-cover="{{ (m.get('cover_url') or '')|e }}"
-                data-created="{{ (m.get('watched_at') or m.get('created_at') or '') }}" data-rating-me="{{ my_rating }}"
-                data-rating-other="{{ other_rating }}" data-comment-me="{{ (my_comment or '')|e }}"
-                data-comment-other="{{ (other_comment or '')|e }}" data-avg="{{ avg }}" data-watched="1">
-                <div class="media-status badge-watched">Vista</div>
+            <div class="media-tabs">
+              <div class="media-tab active" data-tab="towatch">Por ver</div>
+              <div class="media-tab" data-tab="watched">Vistas</div>
+              <div class="media-tab" data-tab="add-media">Añadir</div>
+            </div>
 
-                <div class="media-head">
-                  <span class="media-kind movie">Título</span>
-                  {% if m.get('on_netflix') %}
-                  <span class="platform-chip" aria-label="Netflix">
-                    <img src="{{ url_for('static', filename='icons/netflix.png') }}" alt="Netflix" loading="lazy">
-                  </span>
-                  {% endif %}
-                  {% if m.get('on_prime') %}
-                  <span class="platform-chip" aria-label="Prime Video">
-                    <img src="{{ url_for('static', filename='icons/prime-video.png') }}" alt="Prime Video"
-                      loading="lazy">
-                  </span>
-                  {% endif %}
+            <!-- Por ver -->
+            <div class="media-content active" id="towatch-tab">
+              <div class="media-grid">
+                {% for m in media_to_watch %}
+                <div class="media-card" data-id="{{ m.get('id') }}" data-title="{{ (m.get('title') or '')|e }}"
+                  data-kind="{{ (m.get('kind') or 'movie')|e }}"
+                  data-platform="{% if m.get('on_netflix') and m.get('on_prime') %}both{% elif m.get('on_netflix') %}netflix{% elif m.get('on_prime') %}prime{% else %}zzz{% endif %}"
+                  data-link="{{ (m.get('link_url') or '')|e }}" data-notes="{{ (m.get('comment') or '')|e }}"
+                  data-priority="{{ (m.get('priority') or 'media') }}" data-cover="{{ (m.get('cover_url') or '')|e }}"
+                  data-created="{{ (m.get('created_at') or '') }}"
+                  data-rating-me="{{ (m.get('reviews', {}).get(username, {}).get('rating') or m.get('rating_me') or 0) }}"
+                  data-rating-other="{{ (m.get('reviews', {}).get(other_user, {}).get('rating') or m.get('rating_other') or 0) }}"
+                  data-comment-me="{{ (m.get('reviews', {}).get(username, {}).get('comment') or m.get('comment_me') or '')|e }}"
+                  data-comment-other="{{ (m.get('reviews', {}).get(other_user, {}).get('comment') or m.get('comment_other') or '')|e }}"
+                  data-avg="{{ (m.get('avg_rating') or m.get('rating') or 0) }}" data-watched="0">
+                  <div class="media-status badge-wanted">Por ver</div>
 
-                </div>
+                  <div class="media-head">
+                    <span class="media-kind movie">Título</span>
+                    {% if m.get('on_netflix') %}
+                    <span class="platform-chip" aria-label="Netflix">
+                      <img src="{{ url_for('static', filename='icons/netflix.png') }}" alt="Netflix" loading="lazy">
+                    </span>
+                    {% endif %}
+                    {% if m.get('on_prime') %}
+                    <span class="platform-chip" aria-label="Prime Video">
+                      <img src="{{ url_for('static', filename='icons/prime-video.png') }}" alt="Prime Video"
+                        loading="lazy">
+                    </span>
+                    {% endif %}
 
-                {% if m.get('cover_url') %}
-                <div class="media-cover">
-                  <img src="{{ m.get('cover_url') }}" alt="Portada de {{ m.get('title')|e }}">
-                </div>
-                {% endif %}
 
-                <h3 class="media-title">{{ m.get('title') }}</h3>
+                  </div>
 
-                {% if m.get('link_url') %}
-                <a class="media-link" href="{{ m.get('link_url') }}" target="_blank" rel="noopener">
-                  <i class="fas fa-link"></i> Abrir enlace
-                </a>
-                {% endif %}
-
-                <!-- Media de ambos (con medias) -->
-                <div class="rating readonly" aria-label="Valoración media">
-                  {% set av = (avg or 0)|float %}
-                  {% for i in range(1, 6) %}
-                  {% set diff = av - (i - 1) %}
-                  {% if diff >= 1 %}
-                  <i class="fas fa-star"></i>
-                  {% elif diff >= 0.5 %}
-                  <i class="fas fa-star-half-stroke"></i>
-                  {% else %}
-                  <i class="far fa-star"></i>
-                  {% endif %}
-                  {% endfor %}
-                </div>
-
-                <!-- Chips por usuario -->
-                <div style="display:flex; gap:8px; flex-wrap:wrap; margin:6px 0;">
-                  {% if my_rating %}
-                  <span class="chip">⭐ {{ my_rating }}/5 Tú</span>
-                  {% endif %}
-                  {% if other_rating %}
-                  <span class="chip">⭐ {{ other_rating }}/5 {{ other_user }}</span>
-                  {% endif %}
-                </div>
-
-                <!-- Comentarios separados -->
-                <div class="review-duo" style="display:grid; gap:10px;">
-                  {% if my_comment %}
-                  <div class="answer-item">
-                    <div class="user-avatar">
-                      {% if profile_pictures.get(username) %}<img src="{{ profile_pictures.get(username) }}"
-                        alt="{{ username }}">{% else %}{{ username[0]|upper }}{% endif %}
-                    </div>
-                    <div><b>Tú:</b> <span class="answer-text">{{ my_comment }}</span></div>
+                  {% if m.get('cover_url') %}
+                  <div class="media-cover">
+                    <img src="{{ m.get('cover_url') }}" alt="Portada de {{ m.get('title')|e }}">
                   </div>
                   {% endif %}
 
-                  {% if other_comment %}
-                  <div class="answer-item">
-                    <div class="user-avatar">
-                      {% if profile_pictures.get(other_user) %}<img src="{{ profile_pictures.get(other_user) }}"
-                        alt="{{ other_user }}">{% else %}{{ other_user[0]|upper }}{% endif %}
-                    </div>
-                    <div><b>{{ other_user }}:</b> <span class="answer-text">{{ other_comment }}</span></div>
+                  <h3 class="media-title">{{ m.get('title') }}</h3>
+
+                  {% if m.get('link_url') %}
+                  <a class="media-link" href="{{ m.get('link_url') }}" target="_blank" rel="noopener">
+                    <i class="fas fa-link"></i> Abrir enlace
+                  </a>
+                  {% endif %}
+
+                  {% if m.get('comment') %}<p class="media-notes">{{ m.get('comment') }}</p>{% endif %}
+
+                  <div class="media-meta">
+                    {% set who = m.get('created_by') or '' %}
+                    <span>
+                      <div class="user-avatar"
+                        style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:5px;">
+                        {% if profile_pictures.get(who) %}
+                        <img src="{{ profile_pictures.get(who) }}" alt="{{ who }}">
+                        {% else %}
+                        {{ (who[:1] or '?')|upper }}
+                        {% endif %}
+                      </div>
+                      {{ who or '—' }}
+                    </span>
+                    <span>{{ (m.get('created_at') or '')[:10] }}</span>
+                  </div>
+
+                  <div class="media-actions">
+                    <!-- Valorar/comentar (modal B) -->
+                    <button type="button" class="icon-btn" title="Marcar como vista y valorar"
+                      onclick="openRateMedia(this)">
+                      <i class="fas fa-check"></i>
+                    </button>
+
+                    <!-- Editar ficha (modal A) -->
+                    <button type="button" class="icon-btn" title="Editar ficha" onclick="openBasicEditMedia(this)">
+                      <i class="fas fa-pen-to-square"></i>
+                    </button>
+
+                    {% if m.get('created_by') == username %}
+                    <form method="POST" action="/media/delete" onsubmit="return confirm('¿Eliminar este título?');">
+                      <input type="hidden" name="id" value="{{ m.get('id') }}">
+                      <button class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button>
+                    </form>
+                    {% endif %}
+                  </div>
+                </div>
+                {% else %}
+                <p>No hay títulos por ver. ¡Añade alguno!</p>
+                {% endfor %}
+              </div>
+              <div class="pager" id="media-pager-towatch"></div>
+            </div>
+
+            <!-- Vistas -->
+            <div class="media-content" id="watched-tab">
+              <div class="media-grid">
+                {% for m in media_watched %}
+                {% set reviews = m.get('reviews') or {} %}
+                {% set avg = m.get('avg_rating') or m.get('rating') or 0 %}
+                {% set my_rating = reviews.get(username, {}).get('rating') or m.get('rating_me') or 0 %}
+                {% set other_rating = reviews.get(other_user, {}).get('rating') or m.get('rating_other') or 0 %}
+                {% set my_comment = reviews.get(username, {}).get('comment') or m.get('comment_me') or
+                (m.get('watched_comment') if m.get('created_by') == username else '') %}
+                {% set other_comment = reviews.get(other_user, {}).get('comment') or m.get('comment_other') %}
+                <div class="media-card watched" data-id="{{ m.get('id') }}" data-title="{{ (m.get('title') or '')|e }}"
+                  data-kind="{{ (m.get('kind') or 'movie')|e }}"
+                  data-platform="{% if m.get('on_netflix') and m.get('on_prime') %}both{% elif m.get('on_netflix') %}netflix{% elif m.get('on_prime') %}prime{% else %}zzz{% endif %}"
+                  data-link="{{ (m.get('link_url') or '')|e }}" data-notes="{{ (m.get('comment') or '')|e }}"
+                  data-priority="{{ (m.get('priority') or 'media') }}" data-cover="{{ (m.get('cover_url') or '')|e }}"
+                  data-created="{{ (m.get('watched_at') or m.get('created_at') or '') }}"
+                  data-rating-me="{{ my_rating }}" data-rating-other="{{ other_rating }}"
+                  data-comment-me="{{ (my_comment or '')|e }}" data-comment-other="{{ (other_comment or '')|e }}"
+                  data-avg="{{ avg }}" data-watched="1">
+                  <div class="media-status badge-watched">Vista</div>
+
+                  <div class="media-head">
+                    <span class="media-kind movie">Título</span>
+                    {% if m.get('on_netflix') %}
+                    <span class="platform-chip" aria-label="Netflix">
+                      <img src="{{ url_for('static', filename='icons/netflix.png') }}" alt="Netflix" loading="lazy">
+                    </span>
+                    {% endif %}
+                    {% if m.get('on_prime') %}
+                    <span class="platform-chip" aria-label="Prime Video">
+                      <img src="{{ url_for('static', filename='icons/prime-video.png') }}" alt="Prime Video"
+                        loading="lazy">
+                    </span>
+                    {% endif %}
+
+                  </div>
+
+                  {% if m.get('cover_url') %}
+                  <div class="media-cover">
+                    <img src="{{ m.get('cover_url') }}" alt="Portada de {{ m.get('title')|e }}">
                   </div>
                   {% endif %}
-                </div>
 
-                <div class="media-meta">
-                  <span>Vista: {{ ((m.get('watched_at') or '')|string)[:10] }}</span>
-                  <span>⭐ {{ avg }}/5</span>
-                </div>
+                  <h3 class="media-title">{{ m.get('title') }}</h3>
 
-                <div class="media-actions">
-                  <form method="POST" action="/media/unwatch">
-                    <input type="hidden" name="id" value="{{ m.get('id') }}">
-                    <button class="icon-btn" title="Marcar como no vista"><i class="fas fa-undo"></i></button>
-                  </form>
+                  {% if m.get('link_url') %}
+                  <a class="media-link" href="{{ m.get('link_url') }}" target="_blank" rel="noopener">
+                    <i class="fas fa-link"></i> Abrir enlace
+                  </a>
+                  {% endif %}
 
-                  <!-- Valorar/comentar (modal B) -->
-                  <button type="button" class="icon-btn" title="Editar valoración/comentario"
-                    onclick="openRateMedia(this)">
+                  <!-- Media de ambos (con medias) -->
+                  <div class="rating readonly" aria-label="Valoración media">
+                    {% set av = (avg or 0)|float %}
+                    {% for i in range(1, 6) %}
+                    {% set diff = av - (i - 1) %}
+                    {% if diff >= 1 %}
                     <i class="fas fa-star"></i>
-                  </button>
+                    {% elif diff >= 0.5 %}
+                    <i class="fas fa-star-half-stroke"></i>
+                    {% else %}
+                    <i class="far fa-star"></i>
+                    {% endif %}
+                    {% endfor %}
+                  </div>
 
-                  <!-- Editar ficha (modal A) -->
-                  <button type="button" class="icon-btn" title="Editar ficha" onclick="openBasicEditMedia(this)">
-                    <i class="fas fa-pen-to-square"></i>
-                  </button>
+                  <!-- Chips por usuario -->
+                  <div style="display:flex; gap:8px; flex-wrap:wrap; margin:6px 0;">
+                    {% if my_rating %}
+                    <span class="chip">⭐ {{ my_rating }}/5 Tú</span>
+                    {% endif %}
+                    {% if other_rating %}
+                    <span class="chip">⭐ {{ other_rating }}/5 {{ other_user }}</span>
+                    {% endif %}
+                  </div>
 
-                  {% if m.get('created_by') == username %}
-                  <form method="POST" action="/media/delete" onsubmit="return confirm('¿Eliminar este título?');">
-                    <input type="hidden" name="id" value="{{ m.get('id') }}">
-                    <button class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button>
-                  </form>
-                  {% endif %}
+                  <!-- Comentarios separados -->
+                  <div class="review-duo" style="display:grid; gap:10px;">
+                    {% if my_comment %}
+                    <div class="answer-item">
+                      <div class="user-avatar">
+                        {% if profile_pictures.get(username) %}<img src="{{ profile_pictures.get(username) }}"
+                          alt="{{ username }}">{% else %}{{ username[0]|upper }}{% endif %}
+                      </div>
+                      <div><b>Tú:</b> <span class="answer-text">{{ my_comment }}</span></div>
+                    </div>
+                    {% endif %}
+
+                    {% if other_comment %}
+                    <div class="answer-item">
+                      <div class="user-avatar">
+                        {% if profile_pictures.get(other_user) %}<img src="{{ profile_pictures.get(other_user) }}"
+                          alt="{{ other_user }}">{% else %}{{ other_user[0]|upper }}{% endif %}
+                      </div>
+                      <div><b>{{ other_user }}:</b> <span class="answer-text">{{ other_comment }}</span></div>
+                    </div>
+                    {% endif %}
+                  </div>
+
+                  <div class="media-meta">
+                    <span>Vista: {{ ((m.get('watched_at') or '')|string)[:10] }}</span>
+                    <span>⭐ {{ avg }}/5</span>
+                  </div>
+
+                  <div class="media-actions">
+                    <form method="POST" action="/media/unwatch">
+                      <input type="hidden" name="id" value="{{ m.get('id') }}">
+                      <button class="icon-btn" title="Marcar como no vista"><i class="fas fa-undo"></i></button>
+                    </form>
+
+                    <!-- Valorar/comentar (modal B) -->
+                    <button type="button" class="icon-btn" title="Editar valoración/comentario"
+                      onclick="openRateMedia(this)">
+                      <i class="fas fa-star"></i>
+                    </button>
+
+                    <!-- Editar ficha (modal A) -->
+                    <button type="button" class="icon-btn" title="Editar ficha" onclick="openBasicEditMedia(this)">
+                      <i class="fas fa-pen-to-square"></i>
+                    </button>
+
+                    {% if m.get('created_by') == username %}
+                    <form method="POST" action="/media/delete" onsubmit="return confirm('¿Eliminar este título?');">
+                      <input type="hidden" name="id" value="{{ m.get('id') }}">
+                      <button class="icon-btn" title="Eliminar"><i class="fas fa-trash"></i></button>
+                    </form>
+                    {% endif %}
+                  </div>
                 </div>
+                {% else %}
+                <p>No hay títulos vistos aún.</p>
+                {% endfor %}
               </div>
-              {% else %}
-              <p>No hay títulos vistos aún.</p>
-              {% endfor %}
+              <div class="pager" id="media-pager-watched"></div>
             </div>
-            <div class="pager" id="media-pager-watched"></div>
+
+            <!-- Añadir -->
+            <div class="media-content" id="add-media-tab">
+              <div class="media-form">
+                <h4>Añadir título</h4>
+                <form method="POST" action="/media/add" id="addMediaForm">
+                  <div class="grid2">
+                    <div class="input-wrap">
+                      <label>Título</label>
+                      <input type="text" name="title" required>
+                    </div>
+                    <div class="input-wrap">
+                      <label>Portada (URL, opcional)</label>
+                      <input type="url" name="cover_url" placeholder="https://…">
+                    </div>
+                  </div>
+
+                  <div class="grid2">
+                    <div class="input-wrap">
+                      <label>Enlace (opcional)</label>
+                      <input type="url" name="link_url" placeholder="https://…">
+                    </div>
+                    <div class="input-wrap">
+                      <label>Prioridad</label>
+                      <select name="priority">
+                        <option value="alta">Alta</option>
+                        <option value="media" selected>Media</option>
+                        <option value="baja">Baja</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="input-wrap">
+                    <label style="font-weight:800;">Disponible en</label>
+                    <div class="brand-toggles-min" role="group" aria-label="Disponible en plataformas">
+                      <!-- Netflix -->
+                      <div class="brand-icon-toggle">
+                        <input type="checkbox" id="on_netflix" name="on_netflix">
+                        <label for="on_netflix" class="netflix" title="Está en Netflix">
+                          <img src="{{ url_for('static', filename='icons/Netflix_N.png') }}" alt="Netflix">
+                          <span class="brand-caption">Netflix</span>
+                          <span class="sr-only">Está en Netflix</span>
+                        </label>
+                      </div>
+
+                      <!-- Prime Video -->
+                      <div class="brand-icon-toggle">
+                        <input type="checkbox" id="on_prime" name="on_prime">
+                        <label for="on_prime" class="prime" title="Está en Prime Video">
+                          <img src="{{ url_for('static', filename='icons/prime_logo.png') }}" alt="Prime Video">
+                          <span class="brand-caption">Prime</span>
+                          <span class="sr-only">Está en Prime</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+
+
+
+                  <div class="input-wrap">
+                    <label>Notas (opcional)</label>
+                    <textarea name="comment" rows="3" placeholder="Por qué queremos verla, recordatorios…"></textarea>
+                  </div>
+
+                  <button type="submit"><i class="fas fa-plus"></i> Añadir</button>
+                </form>
+              </div>
+            </div>
           </div>
 
-          <!-- Añadir -->
-          <div class="media-content" id="add-media-tab">
-            <div class="media-form">
-              <h4>Añadir título</h4>
-              <form method="POST" action="/media/add" id="addMediaForm">
-                <div class="grid2">
+
+          <!-- MODAL B: Valorar / comentar -->
+          <div id="editMediaModal" class="modal">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h2 id="editMediaHeading">Valorar / comentar</h2>
+                <span class="close-modal">&times;</span>
+              </div>
+              <div class="modal-body">
+                <form method="POST" action="/media/watch" id="editMediaForm">
+                  <input type="hidden" name="id" id="mediaId">
+
+                  <div class="rating editable" aria-label="Valoración" id="ratingStars">
+                    <i class="fa-star far" data-val="1"></i>
+                    <i class="fa-star far" data-val="2"></i>
+                    <i class="fa-star far" data-val="3"></i>
+                    <i class="fa-star far" data-val="4"></i>
+                    <i class="fa-star far" data-val="5"></i>
+                    <span class="rating-help">Haz clic para valorar</span>
+                  </div>
+                  <!-- vacío = sin nota (mejor que poner 0) -->
+                  <input type="hidden" name="rating" id="ratingInput" value="">
+
+                  <div class="input-wrap">
+                    <label>Tu comentario</label>
+                    <textarea name="watched_comment" id="mediaComment" rows="3"
+                      placeholder="¿Qué tal estuvo?"></textarea>
+                  </div>
+
+                  <!-- Esta casilla es opcional; el backend /media/watch SIEMPRE marca como vista -->
+                  <label class="checkbox" style="display:inline-flex;gap:8px;align-items:center;margin:8px 0 16px">
+                    <input type="checkbox" id="markWatched" name="mark_watched" checked> Marcar como vista
+                  </label>
+
+                  <button type="submit"><i class="fas fa-save"></i> Guardar</button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- MODAL A: Editar ficha (título/link/portada/plataformas/prioridad) -->
+          <div id="basicEditMediaModal" class="modal">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h2>Editar ficha</h2>
+                <span class="close-modal">&times;</span>
+              </div>
+              <div class="modal-body">
+                <form method="POST" action="/media/update" id="basicEditMediaForm">
+                  <input type="hidden" name="id" id="basicMediaId">
+
                   <div class="input-wrap">
                     <label>Título</label>
-                    <input type="text" name="title" required>
+                    <input type="text" name="title" id="basicTitle" required>
                   </div>
-                  <div class="input-wrap">
-                    <label>Portada (URL, opcional)</label>
-                    <input type="url" name="cover_url" placeholder="https://…">
-                  </div>
-                </div>
 
-                <div class="grid2">
                   <div class="input-wrap">
-                    <label>Enlace (opcional)</label>
-                    <input type="url" name="link_url" placeholder="https://…">
+                    <label>Portada (URL)</label>
+                    <input type="url" name="cover_url" id="basicCover" placeholder="https://…">
                   </div>
+
+                  <div class="input-wrap">
+                    <label>Enlace</label>
+                    <input type="url" name="link_url" id="basicLink" placeholder="https://…">
+                  </div>
+
+                  <div class="grid2" style="margin:10px 0;">
+                    <label class="checkbox"><input type="checkbox" name="on_netflix" id="basicNetflix"> Está en
+                      Netflix</label>
+                    <label class="checkbox"><input type="checkbox" name="on_prime" id="basicPrime"> Está en
+                      Prime</label>
+                  </div>
+
                   <div class="input-wrap">
                     <label>Prioridad</label>
-                    <select name="priority">
+                    <select name="priority" id="basicPriority">
                       <option value="alta">Alta</option>
-                      <option value="media" selected>Media</option>
+                      <option value="media">Media</option>
                       <option value="baja">Baja</option>
                     </select>
                   </div>
-                </div>
 
-                <div class="input-wrap">
-                  <label style="font-weight:800;">Disponible en</label>
-                  <div class="brand-toggles-min" role="group" aria-label="Disponible en plataformas">
-                    <!-- Netflix -->
-                    <div class="brand-icon-toggle">
-                      <input type="checkbox" id="on_netflix" name="on_netflix">
-                      <label for="on_netflix" class="netflix" title="Está en Netflix">
-                        <img src="{{ url_for('static', filename='icons/Netflix_N.png') }}" alt="Netflix">
-                        <span class="brand-caption">Netflix</span>
-                        <span class="sr-only">Está en Netflix</span>
-                      </label>
-                    </div>
-
-                    <!-- Prime Video -->
-                    <div class="brand-icon-toggle">
-                      <input type="checkbox" id="on_prime" name="on_prime">
-                      <label for="on_prime" class="prime" title="Está en Prime Video">
-                        <img src="{{ url_for('static', filename='icons/prime_logo.png') }}" alt="Prime Video">
-                        <span class="brand-caption">Prime</span>
-                        <span class="sr-only">Está en Prime</span>
-                      </label>
-                    </div>
+                  <div class="input-wrap">
+                    <label>Notas (lista)</label>
+                    <textarea name="comment" id="basicNotes" rows="3"
+                      placeholder="Notas generales (no es la reseña)"></textarea>
                   </div>
-                </div>
 
-
-
-
-                <div class="input-wrap">
-                  <label>Notas (opcional)</label>
-                  <textarea name="comment" rows="3" placeholder="Por qué queremos verla, recordatorios…"></textarea>
-                </div>
-
-                <button type="submit"><i class="fas fa-plus"></i> Añadir</button>
-              </form>
-            </div>
-          </div>
-        </div>
-
-
-        <!-- MODAL B: Valorar / comentar -->
-        <div id="editMediaModal" class="modal">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h2 id="editMediaHeading">Valorar / comentar</h2>
-              <span class="close-modal">&times;</span>
-            </div>
-            <div class="modal-body">
-              <form method="POST" action="/media/watch" id="editMediaForm">
-                <input type="hidden" name="id" id="mediaId">
-
-                <div class="rating editable" aria-label="Valoración" id="ratingStars">
-                  <i class="fa-star far" data-val="1"></i>
-                  <i class="fa-star far" data-val="2"></i>
-                  <i class="fa-star far" data-val="3"></i>
-                  <i class="fa-star far" data-val="4"></i>
-                  <i class="fa-star far" data-val="5"></i>
-                  <span class="rating-help">Haz clic para valorar</span>
-                </div>
-                <!-- vacío = sin nota (mejor que poner 0) -->
-                <input type="hidden" name="rating" id="ratingInput" value="">
-
-                <div class="input-wrap">
-                  <label>Tu comentario</label>
-                  <textarea name="watched_comment" id="mediaComment" rows="3" placeholder="¿Qué tal estuvo?"></textarea>
-                </div>
-
-                <!-- Esta casilla es opcional; el backend /media/watch SIEMPRE marca como vista -->
-                <label class="checkbox" style="display:inline-flex;gap:8px;align-items:center;margin:8px 0 16px">
-                  <input type="checkbox" id="markWatched" name="mark_watched" checked> Marcar como vista
-                </label>
-
-                <button type="submit"><i class="fas fa-save"></i> Guardar</button>
-              </form>
-            </div>
-          </div>
-        </div>
-
-        <!-- MODAL A: Editar ficha (título/link/portada/plataformas/prioridad) -->
-        <div id="basicEditMediaModal" class="modal">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h2>Editar ficha</h2>
-              <span class="close-modal">&times;</span>
-            </div>
-            <div class="modal-body">
-              <form method="POST" action="/media/update" id="basicEditMediaForm">
-                <input type="hidden" name="id" id="basicMediaId">
-
-                <div class="input-wrap">
-                  <label>Título</label>
-                  <input type="text" name="title" id="basicTitle" required>
-                </div>
-
-                <div class="input-wrap">
-                  <label>Portada (URL)</label>
-                  <input type="url" name="cover_url" id="basicCover" placeholder="https://…">
-                </div>
-
-                <div class="input-wrap">
-                  <label>Enlace</label>
-                  <input type="url" name="link_url" id="basicLink" placeholder="https://…">
-                </div>
-
-                <div class="grid2" style="margin:10px 0;">
-                  <label class="checkbox"><input type="checkbox" name="on_netflix" id="basicNetflix"> Está en
-                    Netflix</label>
-                  <label class="checkbox"><input type="checkbox" name="on_prime" id="basicPrime"> Está en
-                    Prime</label>
-                </div>
-
-                <div class="input-wrap">
-                  <label>Prioridad</label>
-                  <select name="priority" id="basicPriority">
-                    <option value="alta">Alta</option>
-                    <option value="media">Media</option>
-                    <option value="baja">Baja</option>
-                  </select>
-                </div>
-
-                <div class="input-wrap">
-                  <label>Notas (lista)</label>
-                  <textarea name="comment" id="basicNotes" rows="3"
-                    placeholder="Notas generales (no es la reseña)"></textarea>
-                </div>
-
-                <button type="submit"><i class="fas fa-save"></i> Guardar ficha</button>
-              </form>
-            </div>
-          </div>
-        </div>
-
-        <!-- ===== JS para los dos modales ===== -->
-        <script>
-          function getCardFromBtn(btn) { return btn.closest('.media-card'); }
-          /* Pinta estrellas (fas/far) dentro del contenedor dado */
-          function paintStars(container, val) {
-            if (!container) return;
-            const n = Number(val || 0);
-            container.querySelectorAll('.fa-star').forEach((i, idx) => {
-              i.classList.toggle('fas', idx < n);
-              i.classList.toggle('far', idx >= n);
-            });
-          }
-
-          /* Bind click de estrellas (con toggle para quitar) */
-          (function bindStarsOnce() {
-            const starsEl = document.getElementById('ratingStars');
-            if (!starsEl) return;
-            const inputEl = document.getElementById('ratingInput');
-
-            starsEl.addEventListener('click', (e) => {
-              const i = e.target.closest('.fa-star');
-              if (!i) return;
-              const val = Number(i.dataset.val || 0);
-              // si clicas la misma, quita la nota (vacío)
-              if (Number(inputEl.value || 0) === val) {
-                inputEl.value = '';
-                paintStars(starsEl, 0);
-              } else {
-                inputEl.value = String(val);
-                paintStars(starsEl, val);
-              }
-            });
-          })();
-
-          /* Modal B: Valorar/Comentar (por usuario) */
-          window.openRateMedia = function (btn) {
-            const card = getCardFromBtn(btn);
-            if (!card) return;
-
-            const modal = document.getElementById('editMediaModal');
-            const idEl = document.getElementById('mediaId');
-            const starsEl = document.getElementById('ratingStars');
-            const inputEl = document.getElementById('ratingInput');
-            const textEl = document.getElementById('mediaComment');
-            const checkEl = document.getElementById('markWatched');
-            const formEl = document.getElementById('editMediaForm');
-
-            const id = card.dataset.id;
-            const rawRating = card.dataset.ratingMe;                 // <- puede venir vacío
-            const myRating = rawRating ? Number(rawRating) : 0;     // número para pintar estrellas
-            const myCom = card.dataset.commentMe || '';
-            const watched = card.dataset.watched === '1';
-
-            idEl.value = id || '';
-            inputEl.value = rawRating ? String(myRating) : '';     // <- VACÍO si no hay nota
-            textEl.value = myCom;
-            checkEl.checked = watched;
-
-            // usa el endpoint existente (no 404)
-            formEl.action = "/media/watch";
-
-            paintStars(starsEl, myRating);
-            modal.style.display = 'block';
-          };
-
-
-          /* Modal A: Editar ficha (título, portada, enlace, plataformas, prioridad, notas) */
-          window.openBasicEditMedia = function (btn) {
-            const card = getCardFromBtn(btn);
-            if (!card) return;
-
-            const modal = document.getElementById('basicEditMediaModal');
-
-            document.getElementById('basicMediaId').value = card.dataset.id || '';
-            document.getElementById('basicTitle').value = card.dataset.title || '';
-            document.getElementById('basicCover').value = card.dataset.cover || '';
-            document.getElementById('basicLink').value = card.dataset.link || '';
-            document.getElementById('basicNotes').value = card.dataset.notes || '';
-            document.getElementById('basicPriority').value = card.dataset.priority || 'media';
-
-            const plat = (card.dataset.platform || '').toLowerCase();
-            document.getElementById('basicNetflix').checked = plat.includes('netflix') || plat.includes('both');
-            document.getElementById('basicPrime').checked = plat.includes('prime') || plat.includes('both');
-
-            modal.style.display = 'block';
-          };
-        </script>
-
-
-        <!-- Viajes -->
-        <div class="section animate-in delay-4">
-          <h3>Nuestros Viajes</h3>
-          <p>Lugares que hemos visitado y destinos que soñamos conocer juntos.</p>
-
-          <div class="travel-tabs" id="travel-tabs-container">
-            <div class="travel-tab active" data-tab="visited">Lugares Visitados</div>
-            <div class="travel-tab" data-tab="wishlist-travel">Quiero Ir</div>
-            <div class="travel-tab" data-tab="add-travel">Añadir Viaje</div>
-          </div>
-
-          <!-- Visitados -->
-          <div class="travel-content active" id="visited-tab">
-            <div class="travel-tools">
-              <input type="search" id="visited-search" placeholder="Buscar destino/país en visitados.">
-              <button type="button" class="clear-btn" onclick="clearTravelSearch('visited')">Limpiar</button>
-            </div>
-
-            <div class="travels-grid" id="visited-grid">
-              <!-- Se rellenará por JS con fetch /api/travels -->
-              <p class="travel-loading-msg">Pulsa la pestaña de Viajes para cargar los destinos…</p>
-            </div>
-            <div class="pager" id="visited-pager"></div>
-          </div>
-
-          <!-- Quiero ir -->
-          <div class="travel-content" id="wishlist-travel-tab">
-            <div class="travel-tools">
-              <input type="search" id="wishlist-search" placeholder="Buscar destino/país en quiero ir.">
-              <button type="button" class="clear-btn" onclick="clearTravelSearch('wishlist')">Limpiar</button>
-            </div>
-
-            <div class="travels-grid" id="wishlist-grid">
-              <!-- Se rellenará por JS con fetch /api/travels -->
-            </div>
-            <div class="pager" id="wishlist-pager"></div>
-          </div>
-
-          <!-- Añadir Viaje -->
-          <!-- deja aquí EXACTO tu bloque actual de "add-travel-tab" tal cual lo tienes -->
-          <div class="travel-content" id="add-travel-tab">
-            <div class="travel-form">
-              <h4>Añadir nuevo viaje</h4>
-              <form method="POST">
-                <input type="text" name="travel_destination" placeholder="Destino" required>
-                <textarea name="travel_description" placeholder="Descripción (opcional)" rows="3"></textarea>
-                <input type="date" name="travel_date">
-                <div style="display: flex; align-items: center; margin-bottom: 15px;">
-                  <input type="checkbox" id="travel_visited" name="travel_visited"
-                    style="width: auto; margin-right: 10px;">
-                  <label for="travel_visited">¿Ya lo hemos visitado?</label>
-                </div>
-                <button type="submit"><i class="fas fa-plus"></i> Añadir viaje</button>
-              </form>
+                  <button type="submit"><i class="fas fa-save"></i> Guardar ficha</button>
+                </form>
+              </div>
             </div>
           </div>
 
-          {% endif %}
-        </div>
-        <!-- TODO tu contenido actual aquí -->
+          <!-- ===== JS para los dos modales ===== -->
+          <script>
+            function getCardFromBtn(btn) { return btn.closest('.media-card'); }
+            /* Pinta estrellas (fas/far) dentro del contenedor dado */
+            function paintStars(container, val) {
+              if (!container) return;
+              const n = Number(val || 0);
+              container.querySelectorAll('.fa-star').forEach((i, idx) => {
+                i.classList.toggle('fas', idx < n);
+                i.classList.toggle('far', idx >= n);
+              });
+            }
+
+            /* Bind click de estrellas (con toggle para quitar) */
+            (function bindStarsOnce() {
+              const starsEl = document.getElementById('ratingStars');
+              if (!starsEl) return;
+              const inputEl = document.getElementById('ratingInput');
+
+              starsEl.addEventListener('click', (e) => {
+                const i = e.target.closest('.fa-star');
+                if (!i) return;
+                const val = Number(i.dataset.val || 0);
+                // si clicas la misma, quita la nota (vacío)
+                if (Number(inputEl.value || 0) === val) {
+                  inputEl.value = '';
+                  paintStars(starsEl, 0);
+                } else {
+                  inputEl.value = String(val);
+                  paintStars(starsEl, val);
+                }
+              });
+            })();
+
+            /* Modal B: Valorar/Comentar (por usuario) */
+            window.openRateMedia = function (btn) {
+              const card = getCardFromBtn(btn);
+              if (!card) return;
+
+              const modal = document.getElementById('editMediaModal');
+              const idEl = document.getElementById('mediaId');
+              const starsEl = document.getElementById('ratingStars');
+              const inputEl = document.getElementById('ratingInput');
+              const textEl = document.getElementById('mediaComment');
+              const checkEl = document.getElementById('markWatched');
+              const formEl = document.getElementById('editMediaForm');
+
+              const id = card.dataset.id;
+              const rawRating = card.dataset.ratingMe;                 // <- puede venir vacío
+              const myRating = rawRating ? Number(rawRating) : 0;     // número para pintar estrellas
+              const myCom = card.dataset.commentMe || '';
+              const watched = card.dataset.watched === '1';
+
+              idEl.value = id || '';
+              inputEl.value = rawRating ? String(myRating) : '';     // <- VACÍO si no hay nota
+              textEl.value = myCom;
+              checkEl.checked = watched;
+
+              // usa el endpoint existente (no 404)
+              formEl.action = "/media/watch";
+
+              paintStars(starsEl, myRating);
+              modal.style.display = 'block';
+            };
+
+
+            /* Modal A: Editar ficha (título, portada, enlace, plataformas, prioridad, notas) */
+            window.openBasicEditMedia = function (btn) {
+              const card = getCardFromBtn(btn);
+              if (!card) return;
+
+              const modal = document.getElementById('basicEditMediaModal');
+
+              document.getElementById('basicMediaId').value = card.dataset.id || '';
+              document.getElementById('basicTitle').value = card.dataset.title || '';
+              document.getElementById('basicCover').value = card.dataset.cover || '';
+              document.getElementById('basicLink').value = card.dataset.link || '';
+              document.getElementById('basicNotes').value = card.dataset.notes || '';
+              document.getElementById('basicPriority').value = card.dataset.priority || 'media';
+
+              const plat = (card.dataset.platform || '').toLowerCase();
+              document.getElementById('basicNetflix').checked = plat.includes('netflix') || plat.includes('both');
+              document.getElementById('basicPrime').checked = plat.includes('prime') || plat.includes('both');
+
+              modal.style.display = 'block';
+            };
+          </script>
+
+
+          <!-- Viajes -->
+          <div class="section animate-in delay-4">
+            <h3>Nuestros Viajes</h3>
+            <p>Lugares que hemos visitado y destinos que soñamos conocer juntos.</p>
+
+            <div class="travel-tabs" id="travel-tabs-container">
+              <div class="travel-tab active" data-tab="visited">Lugares Visitados</div>
+              <div class="travel-tab" data-tab="wishlist-travel">Quiero Ir</div>
+              <div class="travel-tab" data-tab="add-travel">Añadir Viaje</div>
+            </div>
+
+            <!-- Visitados -->
+            <div class="travel-content active" id="visited-tab">
+              <div class="travel-tools">
+                <input type="search" id="visited-search" placeholder="Buscar destino/país en visitados.">
+                <button type="button" class="clear-btn" onclick="clearTravelSearch('visited')">Limpiar</button>
+              </div>
+
+              <div class="travels-grid" id="visited-grid">
+                <!-- Se rellenará por JS con fetch /api/travels -->
+                <p class="travel-loading-msg">Pulsa la pestaña de Viajes para cargar los destinos…</p>
+              </div>
+              <div class="pager" id="visited-pager"></div>
+            </div>
+
+            <!-- Quiero ir -->
+            <div class="travel-content" id="wishlist-travel-tab">
+              <div class="travel-tools">
+                <input type="search" id="wishlist-search" placeholder="Buscar destino/país en quiero ir.">
+                <button type="button" class="clear-btn" onclick="clearTravelSearch('wishlist')">Limpiar</button>
+              </div>
+
+              <div class="travels-grid" id="wishlist-grid">
+                <!-- Se rellenará por JS con fetch /api/travels -->
+              </div>
+              <div class="pager" id="wishlist-pager"></div>
+            </div>
+
+            <!-- Añadir Viaje -->
+            <!-- deja aquí EXACTO tu bloque actual de "add-travel-tab" tal cual lo tienes -->
+            <div class="travel-content" id="add-travel-tab">
+              <div class="travel-form">
+                <h4>Añadir nuevo viaje</h4>
+                <form method="POST">
+                  <input type="text" name="travel_destination" placeholder="Destino" required>
+                  <textarea name="travel_description" placeholder="Descripción (opcional)" rows="3"></textarea>
+                  <input type="date" name="travel_date">
+                  <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                    <input type="checkbox" id="travel_visited" name="travel_visited"
+                      style="width: auto; margin-right: 10px;">
+                    <label for="travel_visited">¿Ya lo hemos visitado?</label>
+                  </div>
+                  <button type="submit"><i class="fas fa-plus"></i> Añadir viaje</button>
+                </form>
+              </div>
+            </div>
+
+            {% endif %}
+          </div>
+          <!-- TODO tu contenido actual aquí -->
       </div>
 
       <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
@@ -9593,6 +9601,186 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         }
 
 
+        /* ============================================
+           ROUTER LIGERO: convierte tu página en “pantallas”
+           sin tocar backend ni IDs. Solo mueve nodos.
+           ============================================ */
+
+        (function () {
+          // Mapea pantallas -> título (para encontrar secciones por h3)
+          const TITLE_KEYS = {
+            question: ['pregunta del día', 'pregunta diaria', 'pregunta'],
+            wishlist: ['nuestra lista de deseos', 'lista de deseos', 'wishlist'],
+            travels: ['nuestros viajes', 'viajes'],
+            schedules: ['nuestros horarios', 'horarios'],
+            intim: ['intimidad']
+          };
+
+          // 1) Crea páginas vacías
+          function ensurePagesContainer() {
+            let pages = document.getElementById('pages');
+            if (!pages) {
+              pages = document.createElement('div');
+              pages.id = 'pages';
+              document.querySelector('.container')?.appendChild(pages);
+            }
+            const make = (id) => {
+              let el = document.getElementById('page-' + id);
+              if (!el) {
+                el = document.createElement('section');
+                el.id = 'page-' + id;
+                el.className = 'page';
+                pages.appendChild(el);
+              }
+              return el;
+            };
+            return {
+              home: make('home'),
+              question: make('question'),
+              wishlist: make('wishlist'),
+              travels: make('travels'),
+              schedules: make('schedules'),
+              intim: make('intim'),
+            };
+          }
+
+          // 2) Helpers para localizar secciones por el título <h3>
+          function findSectionByTitleIncludes(words) {
+            const sections = Array.from(document.querySelectorAll('.section'));
+            const lower = (s) => (s || '').toLowerCase().trim();
+            for (const s of sections) {
+              const h = s.querySelector('h3');
+              if (!h) continue;
+              const txt = lower(h.textContent);
+              if (words.some(w => txt.includes(w))) return s;
+            }
+            return null;
+          }
+
+          // 3) Construye Home: banner + “Nosotros” (días) + “Distancia”
+          function buildHome(home) {
+            const banner = document.querySelector('.section.banner');
+            const nosotros = findSectionByTitleIncludes(['nosotros']);   // días juntos / vernos
+            const distancia = findSectionByTitleIncludes(['distancia']); // mapa
+            [banner, nosotros, distancia].forEach(el => { if (el) home.appendChild(el); });
+          }
+
+          // 4) Resto de pantallas por título
+          function buildByTitles(pages) {
+            const pick = (key) => findSectionByTitleIncludes(TITLE_KEYS[key]);
+            const q = pick('question'); if (q) pages.question.appendChild(q);
+            const wl = pick('wishlist'); if (wl) pages.wishlist.appendChild(wl);
+            const tr = pick('travels'); if (tr) pages.travels.appendChild(tr);
+            const sc = pick('schedules'); if (sc) pages.schedules.appendChild(sc);
+            const inx = pick('intim'); if (inx) pages.intim.appendChild(inx);
+          }
+
+          // 5) Cambiar de pantalla
+          function setScreen(name) {
+            const valid = ['home', 'question', 'wishlist', 'travels', 'schedules', 'intim', 'mochireal'];
+            if (!valid.includes(name)) name = 'home';
+            document.body.dataset.screen = name;
+
+            // Activa la página
+            document.querySelectorAll('#pages .page').forEach(p => p.classList.remove('active'));
+            const page = document.getElementById('page-' + name);
+            if (page) page.classList.add('active');
+
+            // Activa el botón
+            document.querySelectorAll('.app-nav .nav-btn').forEach(b => {
+              b.classList.toggle('active', b.dataset.goto === name);
+              b.setAttribute('aria-pressed', b.dataset.goto === name ? 'true' : 'false');
+            });
+
+            // Ajustes al entrar en Home: recalcular mapa
+            // Ajustes al entrar en Home: recalcular mapa
+            if (name === 'home') {
+              setTimeout(() => {
+                try {
+                  if (window.map && typeof map.invalidateSize === 'function') {
+                    map.invalidateSize();
+                    if (typeof updateDistanceLine === 'function') updateDistanceLine();
+                  }
+                } catch (_) { }
+              }, 200);
+            }
+
+            // ⚡ Lazy-load Viajes
+            if (name === 'travels' && typeof window.ensureTravelsLoaded === 'function') {
+              window.ensureTravelsLoaded();
+            }
+
+            // ⚡ Lazy-load Intimidad
+            if (name === 'intim' && typeof window.ensureIntimLoaded === 'function') {
+              window.ensureIntimLoaded();
+            }
+
+            // Guarda preferencia
+            try { localStorage.setItem('cc_screen', name); } catch (_) { }
+            window.scrollTo(0, 0);
+          }
+
+
+          // 6) Listener del navbar (incluye perfil como modal)
+          function hookNavbar() {
+            const nav = document.querySelector('.app-nav');
+            if (!nav) return;
+            nav.addEventListener('click', (e) => {
+              const btn = e.target.closest('.nav-btn');
+              if (!btn) return;
+              const to = btn.dataset.goto;
+              if (to === 'profile') {
+                // Abrimos modal perfil sin cambiar de pantalla
+                const modal = document.getElementById('profileModal');
+                if (modal) modal.style.display = 'block';
+                return;
+              }
+              setScreen(to);
+            });
+          }
+
+          // 7) Re-inicializa cosas que dependen de estar en su sitio
+          function reinitAfterMove() {
+            // Reconfigurar paginación y buscadores de viajes si existen
+            try { if (typeof setupTravelPagination === 'function') setupTravelPagination(); } catch (_) { }
+            try {
+              if (typeof setupTravelSearch === 'function') {
+                if (typeof visitedPagerAPI !== 'undefined') setupTravelSearch('visited-tab', 'visited-search', visitedPagerAPI);
+                if (typeof wishlistPagerAPI !== 'undefined') setupTravelSearch('wishlist-travel-tab', 'wishlist-search', wishlistPagerAPI);
+              }
+            } catch (_) { }
+            // Recoloca slider de orden en wishlist si existe
+            try {
+              if (typeof applyWishlistSort === 'function') {
+                const saved = localStorage.getItem('wishlist_sort') || 'recent';
+                applyWishlistSort(saved);
+              }
+            } catch (_) { }
+          }
+
+          // 8) Boot
+          function bootRouter() {
+            const pages = ensurePagesContainer();
+            buildHome(pages.home);
+            buildByTitles(pages);
+            hookNavbar();
+
+            // Pantalla inicial (recuerda última, por defecto home)
+            let initial = 'home';
+            try { initial = localStorage.getItem('cc_screen') || 'home'; } catch (_) { }
+            setScreen(initial);
+
+            // Reinit dependencias
+            reinitAfterMove();
+          }
+
+          // Ejecuta después de que tu DOM ya esté listo
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bootRouter);
+          } else {
+            bootRouter();
+          }
+        })();
 
 
         /* ========= Media: tabs ========= */
@@ -11790,219 +11978,97 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         });
       </script>
 
+
       <script>
-        /* ====================================================
-           1. LÓGICA HISTORIAL MOCHIREAL
-           ==================================================== */
+        // === Lógica Historial MochiReal ===
         (function () {
           let historyLoaded = false;
+
           window.loadMochiRealHistory = async function () {
             const container = document.getElementById('mr-history-content');
             if (!container) return;
+
             container.innerHTML = '<div style="text-align:center; padding:40px;"><i class="fas fa-spinner fa-spin fa-2x" style="color:var(--primary-color)"></i></div>';
+
             try {
               const r = await fetch('/api/mochireal/history');
               const data = await r.json();
+
               if (!data.ok || !data.history || data.history.length === 0) {
                 container.innerHTML = '<p style="text-align:center; padding:20px;">No hay recuerdos guardados aún.</p>';
                 return;
               }
+
               let html = '';
               data.history.forEach(day => {
+                // Formatear fecha bonita (ej: 2023-11-24 -> 24 Noviembre)
                 const d = new Date(day.date);
                 const dateStr = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
                 let postsHtml = '';
                 day.posts.forEach(post => {
                   postsHtml += `
                         <div class="mr-history-photo">
                             <img src="/mochireal/image/${post.post_id}" loading="lazy" onclick="window.open(this.src, '_blank')">
                             <div class="mr-history-user">${post.username}</div>
-                        </div>`;
+                        </div>
+                    `;
                 });
+
                 html += `
                     <div class="mr-day-card animate-in">
                         <div class="mr-day-header">
                             <div class="mr-date-label"><i class="far fa-calendar-alt"></i> ${dateStr}</div>
                             <div class="mr-time-badge"><i class="far fa-clock"></i> ${day.time}</div>
                         </div>
-                        <div class="mr-day-grid">${postsHtml}</div>
-                    </div>`;
+                        <div class="mr-day-grid">
+                            ${postsHtml}
+                        </div>
+                    </div>
+                `;
               });
+
               container.innerHTML = html;
               historyLoaded = true;
+
             } catch (e) {
               console.error(e);
               container.innerHTML = '<p style="text-align:center; color:red;">Error cargando recuerdos.</p>';
             }
           };
-        })();
 
-        /* ============================================
-           2. ROUTER UNIFICADO Y DEFINITIVO
-           ============================================ */
-        (function () {
-          const TITLE_KEYS = {
-            question: ['pregunta del día', 'pregunta diaria', 'pregunta'],
-            wishlist: ['nuestra lista de deseos', 'lista de deseos', 'wishlist'],
-            travels: ['nuestros viajes', 'viajes'],
-            schedules: ['nuestros horarios', 'horarios'],
-            intim: ['intimidad'],
-            media: ['películas', 'series', 'películas & series'] // <--- ¡ESTO ARREGLA QUE SE VEA TODO!
-          };
+          // Hook en tu router existente (setScreen)
+          const originalSetScreen = window.__setScreen || window.setScreen; // Intenta encontrar tu función actual
 
-          // A. Crear estructura de páginas
-          function ensurePagesContainer() {
-            let pagesContainer = document.getElementById('pages');
-            if (!pagesContainer) {
-              pagesContainer = document.createElement('div');
-              pagesContainer.id = 'pages';
-              document.querySelector('.container')?.appendChild(pagesContainer);
-            }
-            const makePage = (id) => {
-              let el = document.getElementById('page-' + id);
-              if (!el) {
-                el = document.createElement('section');
-                el.id = 'page-' + id;
-                el.className = 'page';
-                pagesContainer.appendChild(el);
-              }
-              return el;
-            };
-            return {
-              home: makePage('home'),
-              question: makePage('question'),
-              wishlist: makePage('wishlist'),
-              media: makePage('media'),
-              travels: makePage('travels'),
-              schedules: makePage('schedules'),
-              intim: makePage('intim'),
-              mochireal: document.getElementById('page-mochireal'),
-              history: document.getElementById('page-mr-history')
-            };
-          }
-
-          // B. Mover las "tarjetas" sueltas a sus páginas
-          function organizeSections(pages) {
-            const sections = Array.from(document.querySelectorAll('.container > .section'));
-            sections.forEach(section => {
-              const h3 = section.querySelector('h3');
-              if (!h3) return;
-              const title = h3.textContent.toLowerCase().trim();
-
-              let moved = false;
-              for (const [pageName, keywords] of Object.entries(TITLE_KEYS)) {
-                if (keywords.some(k => title.includes(k))) {
-                  if (pages[pageName]) {
-                    pages[pageName].appendChild(section);
-                    moved = true;
-                  }
-                  break;
-                }
-              }
-              // Si no es de una página específica, va a la HOME
-              if (!moved) {
-                if (title.includes('nosotros') || title.includes('distancia') || title.includes('horarios')) {
-                  pages.home.appendChild(section);
-                  moved = true;
-                }
-              }
-            });
-
-            // Mover banner a home
-            const banner = document.querySelector('.container > .section.banner');
-            if (banner) pages.home.prepend(banner);
-          }
-
-          // C. Función para cambiar de pantalla
+          // Redefinimos setScreen para detectar cuando vamos al historial
           window.setScreen = function (name) {
-            const validPages = ['home', 'question', 'wishlist', 'media', 'travels', 'schedules', 'intim', 'mochireal', 'mr-history', 'profile'];
+            // Ocultar todas las páginas primero (simple toggle)
+            document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+            document.querySelectorAll('.section:not(.page .section)').forEach(s => s.style.display = 'none'); // Ocultar home sections
 
-            if (name === 'profile') {
-              const modal = document.getElementById('profileModal');
-              if (modal) modal.style.display = 'block';
-              return;
-            }
-
-            if (!validPages.includes(name)) name = 'home';
-
-            try { localStorage.setItem('cc_screen', name); } catch (_) { }
-            document.body.dataset.screen = name;
-
-            document.querySelectorAll('.page').forEach(p => {
-              p.classList.remove('active');
-              p.style.display = 'none';
-            });
-            // Asegurar que se ocultan secciones sueltas si quedara alguna
-            document.querySelectorAll('.container > .section').forEach(s => s.style.display = 'none');
-
-            const targetPage = document.getElementById('page-' + name);
-            if (targetPage) {
-              targetPage.style.display = 'block';
-              setTimeout(() => targetPage.classList.add('active'), 10);
-              if (name === 'mr-history' && window.loadMochiRealHistory) {
-                window.loadMochiRealHistory();
+            // Mostrar la solicitada
+            const target = document.getElementById('page-' + name);
+            if (target) {
+              target.style.display = 'block';
+              if (name === 'mr-history') loadMochiRealHistory();
+            } else {
+              // Si no es una "página" nuestra, quizás es el home normal
+              if (name === 'home') {
+                document.querySelectorAll('.section:not(.page .section)').forEach(s => s.style.display = 'block');
+                // Asegurarnos de ocultar las páginas extra
+                document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
               }
             }
 
-            // Gestión especial HOME
-            if (name === 'home') {
-              const homePage = document.getElementById('page-home');
-              if (homePage) {
-                homePage.querySelectorAll('.section').forEach(s => s.style.display = 'block');
-              }
-              setTimeout(() => { try { window.map?.invalidateSize(); window.updateDistanceLine?.(); } catch (_) { } }, 200);
-            }
-
-            // Menú activo
-            document.querySelectorAll('.nav-btn').forEach(b => {
-              const isActive = b.dataset.goto === name;
-              b.classList.toggle('active', isActive);
-              if (isActive && window.innerWidth < 992 && b.scrollIntoView) {
-                b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-              }
-            });
-
-            if (name === 'travels' && window.ensureTravelsLoaded) window.ensureTravelsLoaded();
-            if (name === 'intim' && window.ensureIntimLoaded) window.ensureIntimLoaded();
+            // Actualizar nav activo si existe
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            const activeBtn = document.querySelector(`.nav-btn[data-goto="${name}"]`);
+            if (activeBtn) activeBtn.classList.add('active');
 
             window.scrollTo(0, 0);
           };
-
-          // D. Helper para repaginar pelis
-          window.rePageMedia = function (key) {
-            if (key === 'towatch' && window.mediaTowatchPager) window.mediaTowatchPager.refresh();
-            if (key === 'watched' && window.mediaWatchedPager) window.mediaWatchedPager.refresh();
-          };
-
-          // E. Arrancar
-          function init() {
-            const pages = ensurePagesContainer();
-            organizeSections(pages);
-
-            const nav = document.querySelector('.app-nav');
-            if (nav) {
-              nav.addEventListener('click', (e) => {
-                const btn = e.target.closest('.nav-btn');
-                if (!btn || btn.getAttribute('onclick')) return;
-                const to = btn.dataset.goto;
-                if (to) setScreen(to);
-              });
-            }
-
-            let initial = 'home';
-            try { initial = localStorage.getItem('cc_screen') || 'home'; } catch (_) { }
-            if (initial === 'mochireal' || initial === 'mr-history') setScreen(initial);
-            else setScreen('home');
-          }
-
-          if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', init);
-          } else {
-            init();
-          }
         })();
       </script>
-
 </body>
 
 </html>

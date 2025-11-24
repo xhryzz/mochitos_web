@@ -9593,186 +9593,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         }
 
 
-        /* ============================================
-            ROUTER LIGERO: convierte tu página en “pantallas”
-            sin tocar backend ni IDs. Solo mueve nodos.
-            ============================================ */
 
-        (function () {
-          // Mapea pantallas -> título (para encontrar secciones por h3)
-          const TITLE_KEYS = {
-            question: ['pregunta del día', 'pregunta diaria', 'pregunta'],
-            wishlist: ['nuestra lista de deseos', 'lista de deseos', 'wishlist'],
-            travels: ['nuestros viajes', 'viajes'],
-            schedules: ['nuestros horarios', 'horarios'],
-            intim: ['intimidad']
-          };
-
-          // 1) Crea páginas vacías si no existen
-          function ensurePagesContainer() {
-            let pages = document.getElementById('pages');
-            if (!pages) {
-              pages = document.createElement('div');
-              pages.id = 'pages';
-              document.querySelector('.container')?.appendChild(pages);
-            }
-            const make = (id) => {
-              let el = document.getElementById('page-' + id);
-              if (!el) {
-                el = document.createElement('section');
-                el.id = 'page-' + id;
-                el.className = 'page';
-                pages.appendChild(el);
-              }
-              return el;
-            };
-            return {
-              home: make('home'),
-              question: make('question'),
-              wishlist: make('wishlist'),
-              travels: make('travels'),
-              schedules: make('schedules'),
-              intim: make('intim'),
-              // mochireal ya existe en el HTML, no lo creamos
-            };
-          }
-
-          // 2) Helpers para localizar secciones por el título <h3>
-          function findSectionByTitleIncludes(words) {
-            // Buscamos solo en secciones que NO sean ya páginas
-            const sections = Array.from(document.querySelectorAll('.container > .section'));
-            const lower = (s) => (s || '').toLowerCase().trim();
-            for (const s of sections) {
-              const h = s.querySelector('h3');
-              if (!h) continue;
-              const txt = lower(h.textContent);
-              if (words.some(w => txt.includes(w))) return s;
-            }
-            return null;
-          }
-
-          // 3) Construye Home: banner + “Nosotros” (días) + “Distancia”
-          function buildHome(home) {
-            const banner = document.querySelector('.section.banner');
-            const nosotros = findSectionByTitleIncludes(['nosotros']);
-            const distancia = findSectionByTitleIncludes(['distancia']);
-            [banner, nosotros, distancia].forEach(el => { if (el) home.appendChild(el); });
-          }
-
-          // 4) Resto de pantallas por título
-          function buildByTitles(pages) {
-            const pick = (key) => findSectionByTitleIncludes(TITLE_KEYS[key]);
-            const q = pick('question'); if (q) pages.question.appendChild(q);
-            const wl = pick('wishlist'); if (wl) pages.wishlist.appendChild(wl);
-            const tr = pick('travels'); if (tr) pages.travels.appendChild(tr);
-            const sc = pick('schedules'); if (sc) pages.schedules.appendChild(sc);
-            const inx = pick('intim'); if (inx) pages.intim.appendChild(inx);
-          }
-
-          // 5) Cambiar de pantalla
-          function setScreen(name) {
-            const valid = ['home', 'question', 'wishlist', 'travels', 'schedules', 'intim', 'mochireal', 'profile'];
-            if (!valid.includes(name)) name = 'home';
-            document.body.dataset.screen = name;
-
-            // 1. Ocultar TODAS las páginas (incluso las que están fuera de #pages)
-            document.querySelectorAll('.page').forEach(p => {
-              p.classList.remove('active');
-              p.style.display = 'none'; // Forzamos ocultar
-            });
-
-            // 2. Mostrar la solicitada
-            const page = document.getElementById('page-' + name);
-            if (page) {
-              page.style.display = 'block';
-              // Pequeño timeout para permitir que el navegador procese el display block antes de la opacidad (transición)
-              setTimeout(() => page.classList.add('active'), 10);
-            }
-
-            // 3. Gestión especial para la HOME (mostrar sus secciones si no están dentro de .page-home)
-            // En este diseño, hemos movido todo DENTRO de page-home, así que esto es redundante pero seguro:
-            if (name === 'home') {
-              // Si quedó alguna sección suelta fuera de las páginas, la mostramos solo en home
-              document.querySelectorAll('.container > .section').forEach(s => s.style.display = 'block');
-              if (page) page.style.display = 'block';
-            } else {
-              // Ocultamos secciones sueltas si no estamos en home
-              document.querySelectorAll('.container > .section').forEach(s => s.style.display = 'none');
-              document.querySelector('.container > .banner')?.setAttribute('style', 'display: none !important');
-            }
-
-            // 4. Activar botón del navbar
-            document.querySelectorAll('.app-nav .nav-btn').forEach(b => {
-              const isActive = b.dataset.goto === name;
-              b.classList.toggle('active', isActive);
-              b.setAttribute('aria-pressed', isActive);
-
-              // Scroll suave en móvil para centrar el botón activo
-              if (isActive && window.innerWidth < 992) {
-                b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-              }
-            });
-
-            // 5. Cargas Lazy
-            if (name === 'home') {
-              setTimeout(() => {
-                try { if (window.map) { map.invalidateSize(); updateDistanceLine(); } } catch (_) { }
-              }, 200);
-            }
-            if (name === 'travels' && window.ensureTravelsLoaded) window.ensureTravelsLoaded();
-            if (name === 'intim' && window.ensureIntimLoaded) window.ensureIntimLoaded();
-
-            // 6. Guardar estado
-            try { localStorage.setItem('cc_screen', name); } catch (_) { }
-            window.scrollTo(0, 0);
-          }
-
-
-          // 6) Listener del navbar
-          function hookNavbar() {
-            const nav = document.querySelector('.app-nav');
-            if (!nav) return;
-            nav.addEventListener('click', (e) => {
-              const btn = e.target.closest('.nav-btn');
-              if (!btn) return;
-
-              // Si es un enlace normal (ej. Regla), dejamos que funcione
-              if (btn.getAttribute('onclick')) return;
-
-              const to = btn.dataset.goto;
-              if (to === 'profile') {
-                const modal = document.getElementById('profileModal');
-                if (modal) modal.style.display = 'block';
-                return;
-              }
-              setScreen(to);
-            });
-          }
-
-          // 7) Boot
-          function bootRouter() {
-            const pages = ensurePagesContainer();
-            buildHome(pages.home);
-            buildByTitles(pages);
-            hookNavbar();
-
-            // Pantalla inicial
-            let initial = 'home';
-            try { initial = localStorage.getItem('cc_screen') || 'home'; } catch (_) { }
-            // Si venimos de recargar en mochireal, asegurar que carga
-            if (initial === 'mochireal') setScreen('mochireal');
-            else setScreen(initial);
-          }
-
-          if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', bootRouter);
-          } else {
-            bootRouter();
-          }
-
-          // Exponemos setScreen globalmente para llamadas manuales (ej. desde botones internos)
-          window.setScreen = setScreen;
-        })();
 
         /* ========= Media: tabs ========= */
         function setupMediaTabs() {
@@ -11969,97 +11790,219 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         });
       </script>
 
-
       <script>
-        // === Lógica Historial MochiReal ===
+        /* ====================================================
+           1. LÓGICA HISTORIAL MOCHIREAL
+           ==================================================== */
         (function () {
           let historyLoaded = false;
-
           window.loadMochiRealHistory = async function () {
             const container = document.getElementById('mr-history-content');
             if (!container) return;
-
             container.innerHTML = '<div style="text-align:center; padding:40px;"><i class="fas fa-spinner fa-spin fa-2x" style="color:var(--primary-color)"></i></div>';
-
             try {
               const r = await fetch('/api/mochireal/history');
               const data = await r.json();
-
               if (!data.ok || !data.history || data.history.length === 0) {
                 container.innerHTML = '<p style="text-align:center; padding:20px;">No hay recuerdos guardados aún.</p>';
                 return;
               }
-
               let html = '';
               data.history.forEach(day => {
-                // Formatear fecha bonita (ej: 2023-11-24 -> 24 Noviembre)
                 const d = new Date(day.date);
                 const dateStr = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-
                 let postsHtml = '';
                 day.posts.forEach(post => {
                   postsHtml += `
                         <div class="mr-history-photo">
                             <img src="/mochireal/image/${post.post_id}" loading="lazy" onclick="window.open(this.src, '_blank')">
                             <div class="mr-history-user">${post.username}</div>
-                        </div>
-                    `;
+                        </div>`;
                 });
-
                 html += `
                     <div class="mr-day-card animate-in">
                         <div class="mr-day-header">
                             <div class="mr-date-label"><i class="far fa-calendar-alt"></i> ${dateStr}</div>
                             <div class="mr-time-badge"><i class="far fa-clock"></i> ${day.time}</div>
                         </div>
-                        <div class="mr-day-grid">
-                            ${postsHtml}
-                        </div>
-                    </div>
-                `;
+                        <div class="mr-day-grid">${postsHtml}</div>
+                    </div>`;
               });
-
               container.innerHTML = html;
               historyLoaded = true;
-
             } catch (e) {
               console.error(e);
               container.innerHTML = '<p style="text-align:center; color:red;">Error cargando recuerdos.</p>';
             }
           };
+        })();
 
-          // Hook en tu router existente (setScreen)
-          const originalSetScreen = window.__setScreen || window.setScreen; // Intenta encontrar tu función actual
+        /* ============================================
+           2. ROUTER UNIFICADO Y DEFINITIVO
+           ============================================ */
+        (function () {
+          const TITLE_KEYS = {
+            question: ['pregunta del día', 'pregunta diaria', 'pregunta'],
+            wishlist: ['nuestra lista de deseos', 'lista de deseos', 'wishlist'],
+            travels: ['nuestros viajes', 'viajes'],
+            schedules: ['nuestros horarios', 'horarios'],
+            intim: ['intimidad'],
+            media: ['películas', 'series', 'películas & series'] // <--- ¡ESTO ARREGLA QUE SE VEA TODO!
+          };
 
-          // Redefinimos setScreen para detectar cuando vamos al historial
+          // A. Crear estructura de páginas
+          function ensurePagesContainer() {
+            let pagesContainer = document.getElementById('pages');
+            if (!pagesContainer) {
+              pagesContainer = document.createElement('div');
+              pagesContainer.id = 'pages';
+              document.querySelector('.container')?.appendChild(pagesContainer);
+            }
+            const makePage = (id) => {
+              let el = document.getElementById('page-' + id);
+              if (!el) {
+                el = document.createElement('section');
+                el.id = 'page-' + id;
+                el.className = 'page';
+                pagesContainer.appendChild(el);
+              }
+              return el;
+            };
+            return {
+              home: makePage('home'),
+              question: makePage('question'),
+              wishlist: makePage('wishlist'),
+              media: makePage('media'),
+              travels: makePage('travels'),
+              schedules: makePage('schedules'),
+              intim: makePage('intim'),
+              mochireal: document.getElementById('page-mochireal'),
+              history: document.getElementById('page-mr-history')
+            };
+          }
+
+          // B. Mover las "tarjetas" sueltas a sus páginas
+          function organizeSections(pages) {
+            const sections = Array.from(document.querySelectorAll('.container > .section'));
+            sections.forEach(section => {
+              const h3 = section.querySelector('h3');
+              if (!h3) return;
+              const title = h3.textContent.toLowerCase().trim();
+
+              let moved = false;
+              for (const [pageName, keywords] of Object.entries(TITLE_KEYS)) {
+                if (keywords.some(k => title.includes(k))) {
+                  if (pages[pageName]) {
+                    pages[pageName].appendChild(section);
+                    moved = true;
+                  }
+                  break;
+                }
+              }
+              // Si no es de una página específica, va a la HOME
+              if (!moved) {
+                if (title.includes('nosotros') || title.includes('distancia') || title.includes('horarios')) {
+                  pages.home.appendChild(section);
+                  moved = true;
+                }
+              }
+            });
+
+            // Mover banner a home
+            const banner = document.querySelector('.container > .section.banner');
+            if (banner) pages.home.prepend(banner);
+          }
+
+          // C. Función para cambiar de pantalla
           window.setScreen = function (name) {
-            // Ocultar todas las páginas primero (simple toggle)
-            document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
-            document.querySelectorAll('.section:not(.page .section)').forEach(s => s.style.display = 'none'); // Ocultar home sections
+            const validPages = ['home', 'question', 'wishlist', 'media', 'travels', 'schedules', 'intim', 'mochireal', 'mr-history', 'profile'];
 
-            // Mostrar la solicitada
-            const target = document.getElementById('page-' + name);
-            if (target) {
-              target.style.display = 'block';
-              if (name === 'mr-history') loadMochiRealHistory();
-            } else {
-              // Si no es una "página" nuestra, quizás es el home normal
-              if (name === 'home') {
-                document.querySelectorAll('.section:not(.page .section)').forEach(s => s.style.display = 'block');
-                // Asegurarnos de ocultar las páginas extra
-                document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+            if (name === 'profile') {
+              const modal = document.getElementById('profileModal');
+              if (modal) modal.style.display = 'block';
+              return;
+            }
+
+            if (!validPages.includes(name)) name = 'home';
+
+            try { localStorage.setItem('cc_screen', name); } catch (_) { }
+            document.body.dataset.screen = name;
+
+            document.querySelectorAll('.page').forEach(p => {
+              p.classList.remove('active');
+              p.style.display = 'none';
+            });
+            // Asegurar que se ocultan secciones sueltas si quedara alguna
+            document.querySelectorAll('.container > .section').forEach(s => s.style.display = 'none');
+
+            const targetPage = document.getElementById('page-' + name);
+            if (targetPage) {
+              targetPage.style.display = 'block';
+              setTimeout(() => targetPage.classList.add('active'), 10);
+              if (name === 'mr-history' && window.loadMochiRealHistory) {
+                window.loadMochiRealHistory();
               }
             }
 
-            // Actualizar nav activo si existe
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            const activeBtn = document.querySelector(`.nav-btn[data-goto="${name}"]`);
-            if (activeBtn) activeBtn.classList.add('active');
+            // Gestión especial HOME
+            if (name === 'home') {
+              const homePage = document.getElementById('page-home');
+              if (homePage) {
+                homePage.querySelectorAll('.section').forEach(s => s.style.display = 'block');
+              }
+              setTimeout(() => { try { window.map?.invalidateSize(); window.updateDistanceLine?.(); } catch (_) { } }, 200);
+            }
+
+            // Menú activo
+            document.querySelectorAll('.nav-btn').forEach(b => {
+              const isActive = b.dataset.goto === name;
+              b.classList.toggle('active', isActive);
+              if (isActive && window.innerWidth < 992 && b.scrollIntoView) {
+                b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+              }
+            });
+
+            if (name === 'travels' && window.ensureTravelsLoaded) window.ensureTravelsLoaded();
+            if (name === 'intim' && window.ensureIntimLoaded) window.ensureIntimLoaded();
 
             window.scrollTo(0, 0);
           };
+
+          // D. Helper para repaginar pelis
+          window.rePageMedia = function (key) {
+            if (key === 'towatch' && window.mediaTowatchPager) window.mediaTowatchPager.refresh();
+            if (key === 'watched' && window.mediaWatchedPager) window.mediaWatchedPager.refresh();
+          };
+
+          // E. Arrancar
+          function init() {
+            const pages = ensurePagesContainer();
+            organizeSections(pages);
+
+            const nav = document.querySelector('.app-nav');
+            if (nav) {
+              nav.addEventListener('click', (e) => {
+                const btn = e.target.closest('.nav-btn');
+                if (!btn || btn.getAttribute('onclick')) return;
+                const to = btn.dataset.goto;
+                if (to) setScreen(to);
+              });
+            }
+
+            let initial = 'home';
+            try { initial = localStorage.getItem('cc_screen') || 'home'; } catch (_) { }
+            if (initial === 'mochireal' || initial === 'mr-history') setScreen(initial);
+            else setScreen('home');
+          }
+
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+          } else {
+            init();
+          }
         })();
       </script>
+
 </body>
 
 </html>

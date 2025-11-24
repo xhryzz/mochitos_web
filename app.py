@@ -2603,30 +2603,40 @@ def fmt_eur(cents: int | None) -> str:
     return f"{euros:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def _maybe_shrink_image(image_data: bytes, max_px: int = 1600, max_kb: int = 500):
+def _maybe_shrink_image(image_data: bytes, max_px: int = 800, max_kb: int = 100):
     """
-    Devuelve (bytes_optimizados, mime_override_o_None). Intenta convertir a WebP y limitar tamaño.
-    Si no hay PIL, corta a max_kb como red de seguridad (no cambia funcionalidad visible).
+    Convierte a WebP, redimensiona a 800px y baja calidad. 
+    Resultado: Imágenes de ~30-50KB.
     """
     try:
-        from PIL import Image  # pip install Pillow (opcional)
-        im = Image.open(io.BytesIO(image_data)).convert('RGB')
+        from PIL import Image, ImageOps
+        im = Image.open(io.BytesIO(image_data))
+        
+        # 1. Corregir rotación (EXIF) para que no salgan torcidas
+        try:
+            im = ImageOps.exif_transpose(im)
+        except Exception:
+            pass
+
+        im = im.convert('RGB')
         w, h = im.size
+        
+        # 2. Redimensionar si es gigante
         if max(w, h) > max_px:
             ratio = max_px / float(max(w, h))
             im = im.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+        
         out = io.BytesIO()
-        im.save(out, format='WEBP', quality=82, method=6)
+        # 3. Guardar como WebP calidad 60 (muy ligero)
+        im.save(out, format='WEBP', quality=60, method=6)
         out_bytes = out.getvalue()
-        if len(out_bytes) <= len(image_data):
-            return out_bytes, 'image/webp'
-    except Exception:
-        pass
-
-    if len(image_data) > max_kb * 1024:
-        # Último recurso: recorte duro para evitar BYTEA gigantes (mantiene “una imagen”, no cambia rutas)
-        return image_data[:max_kb * 1024], None
-    return image_data, None
+        return out_bytes, 'image/webp'
+    except Exception as e:
+        print(f"Error comprimiendo: {e}")
+        # Fallback de seguridad
+        if len(image_data) > max_kb * 1024:
+            return image_data[:max_kb * 1024], None
+        return image_data, None
 
 
 def notify_price_drop(row, old_cents: int, new_cents: int):
@@ -7837,9 +7847,9 @@ def mochireal_upload():
             c.execute("SELECT 1 FROM mochireal_posts WHERE window_id=%s AND username=%s", (window_id, user))
             already_posted = c.fetchone()
 
-            # 2. Procesar imagen
+            # 2. Procesar imagen (Súper comprimida para ahorrar DB)
             raw = file.read()
-            img_bytes, mime = _maybe_shrink_image(raw, max_px=1200, max_kb=600)
+            img_bytes, mime = _maybe_shrink_image(raw, max_px=800, max_kb=100)
             
             # 3. Guardar/Actualizar Post
             c.execute("""
@@ -7919,18 +7929,51 @@ def mochireal_upload():
 @app.route('/mochireal/image/<int:post_id>')
 def mochireal_image(post_id):
     if 'username' not in session: abort(403)
-    # Servir la imagen binaria
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
             c.execute("SELECT image_data, mime_type FROM mochireal_posts WHERE id=%s", (post_id,))
             row = c.fetchone()
-            if row:
+            
+            # Si existe el registro pero image_data es NULL (fue borrada para ahorrar espacio)
+            if row and row[0] is None:
+                # Puedes devolver una imagen placeholder pequeña transparente o un svg
+                svg = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#eee"/><text x="50" y="50" text-anchor="middle" dy=".3em" fill="#aaa" font-size="12">Expriada</text></svg>'
+                return Response(svg, mimetype="image/svg+xml")
+
+            # Si existe la imagen normal
+            if row and row[0]:
                 return send_file(io.BytesIO(row[0]), mimetype=row[1])
     finally:
         conn.close()
     return "Not found", 404
 
+
+@app.route('/debug/limpiar_mochireal_antiguo')
+def debug_clean_old_photos():
+    if 'username' not in session: return redirect('/')
+    
+    # Borrar contenido binario de fotos con más de 30 días
+    # Mantiene el registro (fecha, usuario) pero pone la imagen a NULL para liberar MBs.
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # Postgres syntax: uploaded_at es texto ISO, cast a date
+            # Borramos lo que sea más viejo de 30 días
+            c.execute("""
+                UPDATE mochireal_posts 
+                SET image_data = NULL 
+                WHERE image_data IS NOT NULL 
+                  AND to_date(uploaded_at, 'YYYY-MM-DD') < (current_date - INTERVAL '30 days')
+            """)
+            borradas = c.rowcount
+            conn.commit()
+    except Exception as e:
+        return f"Error: {e}"
+    finally:
+        conn.close()
+        
+    return f"<h1>Limpieza completada</h1><p>Se han vaciado {borradas} fotos antiguas para ahorrar espacio.</p><a href='/'>Volver</a>"
 
 # --- API: Historial de MochiReal ---
 @app.get('/api/mochireal/history')

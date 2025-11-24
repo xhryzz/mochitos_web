@@ -6655,7 +6655,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               let stream = null;
               let backPhoto = null;
               let frontPhoto = null;
-              let isFront = false;
+              let isFront = false; // false = trasera, true = frontal
 
               const overlay = document.getElementById('mr-camera-overlay');
               const video = document.getElementById('mr-video-feed');
@@ -6663,7 +6663,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               const canvas = document.getElementById('mr-canvas');
               const ctx = canvas ? canvas.getContext('2d') : null;
 
-              if (!overlay) return; // Evitar errores si no se renderiza el bloque
+              if (!overlay) return;
 
               // Constraints iniciales
               const constraints = {
@@ -6688,14 +6688,19 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                 try {
                   stream = await navigator.mediaDevices.getUserMedia(constraints);
                   video.srcObject = stream;
-                  // Espejo SOLO visual en pantalla para la frontal
-                  if (mode === 'user') video.classList.add('mirrored');
-                  else video.classList.remove('mirrored');
 
-                  // Asegurar play en móviles
+                  // Espejo VISUAL en pantalla
+                  if (mode === 'user') {
+                    video.classList.add('mirrored');
+                    isFront = true;
+                  } else {
+                    video.classList.remove('mirrored');
+                    isFront = false;
+                  }
+
                   video.onloadedmetadata = () => video.play();
                 } catch (err) {
-                  alert("Error de cámara: " + err + ". Asegúrate de usar HTTPS.");
+                  alert("Error de cámara: " + err);
                   closeMochiCamera();
                 }
               };
@@ -6706,36 +6711,48 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               };
 
               window.switchCamMode = function () {
+                // Toggle manual
                 isFront = !isFront;
                 initCamera(isFront ? "user" : "environment");
                 msg.innerText = isFront ? "🙂 Selfie" : "📸 Trasera";
               };
 
               document.getElementById('btn-snap')?.addEventListener('click', async () => {
-                // 1. Capturar al tamaño real del video
+                // 1. Configurar canvas al tamaño del video
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
 
-                // 2. Dibujar la imagen RAW (sin espejo)
-                // Esto asegura que el texto no salga invertido en la foto final
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                // 2. DIBUJAR (CORRECCIÓN DE INVERSIÓN AQUÍ)
+                // Si es frontal, invertimos el canvas para que la foto salga IGUAL que el espejo
+                if (isFront) {
+                  ctx.save(); // Guardar estado normal
+                  ctx.translate(canvas.width, 0);
+                  ctx.scale(-1, 1); // Invertir horizontalmente
+                  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                  ctx.restore(); // Restaurar para la siguiente
+                } else {
+                  // Trasera: Normal
+                  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                }
 
                 const data = canvas.toDataURL('image/jpeg', 0.9);
 
                 if (!backPhoto) {
-                  // FOTO 1: TRASERA GUARDADA
+                  // --- ACABAMOS DE TOMAR LA TRASERA ---
                   backPhoto = await loadImage(data);
 
-                  // Pausa dramática y cambio a frontal
+                  // Pausa y cambio automático a frontal
                   video.pause();
                   msg.innerText = "🙂 2. Ahora tu cara...";
+
                   setTimeout(() => {
-                    isFront = true;
+                    isFront = true; // Marcamos que vamos a frontal
                     video.play();
-                    initCamera("user");
+                    initCamera("user"); // Abrir selfie
                   }, 700);
+
                 } else {
-                  // FOTO 2: FRONTAL GUARDADA -> PROCESAR
+                  // --- ACABAMOS DE TOMAR LA FRONTAL ---
                   frontPhoto = await loadImage(data);
                   processMochiReal();
                 }
@@ -6749,28 +6766,28 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                 msg.innerText = "✨ Fusionando y subiendo...";
 
                 // 1. Lienzo base = Foto Trasera (Ocupa todo)
+                // Usamos el tamaño de la trasera como referencia
                 canvas.width = backPhoto.width;
                 canvas.height = backPhoto.height;
                 ctx.drawImage(backPhoto, 0, 0);
 
                 // 2. Foto Frontal en esquina (30% del ancho)
                 const w = backPhoto.width * 0.30;
-                // Mantener ratio de la foto frontal
                 const h = (frontPhoto.height / frontPhoto.width) * w;
-                const x = 40, y = 40; // Margen superior izquierdo
+                const x = 40, y = 40;
 
-                // Borde negro estilo BeReal
+                // Marco estilo BeReal
                 ctx.lineWidth = 15; ctx.strokeStyle = "black";
                 ctx.strokeRect(x, y, w, h);
 
-                // Dibujar foto frontal
+                // Dibujar frontal
                 ctx.drawImage(frontPhoto, x, y, w, h);
 
-                // Borde fino blanco decorativo
+                // Borde fino blanco
                 ctx.lineWidth = 3; ctx.strokeStyle = "white";
                 ctx.strokeRect(x, y, w, h);
 
-                // 3. Subir al servidor
+                // 3. Subir
                 canvas.toBlob(async (blob) => {
                   const fd = new FormData();
                   fd.append('photo', blob, 'mochireal_dual.jpg');

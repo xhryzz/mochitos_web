@@ -6076,6 +6076,10 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           <i class="fa-solid fa-question" aria-hidden="true"></i>
           <span class="nav-label">Pregunta del día</span>
         </button>
+        <button class="nav-btn" data-goto="mochireal" title="MochiReal">
+          <i class="fas fa-camera-retro" aria-hidden="true"></i>
+          <span class="nav-label">MochiReal</span>
+        </button>
         <button class="nav-btn" data-goto="wishlist" title="Wishlist">
           <i class="fa-solid fa-gifts" aria-hidden="true"></i>
           <span class="nav-label">Wishlist</span>
@@ -6643,10 +6647,11 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           {% endif %}
 
           <div style="margin-top: 15px; border-top: 1px dashed rgba(0,0,0,0.1); padding-top: 10px;">
-            <button onclick="setScreen('mr-history')" class="btn-mr-history"
-              style="color: inherit; border-color: currentColor;">
+            <button type="button" class="btn-mr-history" style="color: inherit; border-color: currentColor;"
+              onclick="document.getElementById('mr-history-content')?.scrollIntoView({ behavior: 'smooth' });">
               <i class="fas fa-history"></i> Ver recuerdos anteriores
             </button>
+
           </div>
         </div>
 
@@ -9689,8 +9694,10 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             wishlist: ['nuestra lista de deseos', 'lista de deseos', 'wishlist'],
             travels: ['nuestros viajes', 'viajes'],
             schedules: ['nuestros horarios', 'horarios'],
-            intim: ['intimidad']
+            intim: ['intimidad'],
+            mochireal: ['mochireal', 'historial mochi']  // 👈 nuevo
           };
+
 
           // 1) Crea páginas vacías
           function ensurePagesContainer() {
@@ -9717,7 +9724,9 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               travels: make('travels'),
               schedules: make('schedules'),
               intim: make('intim'),
+              mochireal: make('mochireal'),   // 👈 nuevo
             };
+
           }
 
           // 2) Helpers para localizar secciones por el título <h3>
@@ -9744,16 +9753,26 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           // 4) Resto de pantallas por título
           function buildByTitles(pages) {
             const pick = (key) => findSectionByTitleIncludes(TITLE_KEYS[key]);
+
             const q = pick('question'); if (q) pages.question.appendChild(q);
             const wl = pick('wishlist'); if (wl) pages.wishlist.appendChild(wl);
             const tr = pick('travels'); if (tr) pages.travels.appendChild(tr);
             const sc = pick('schedules'); if (sc) pages.schedules.appendChild(sc);
             const inx = pick('intim'); if (inx) pages.intim.appendChild(inx);
+
+            // 🔴 MochiReal — metemos el historial (la sección con <h3> "Historial MochiReal 📸")
+            const mrHist = pick('mochireal');
+            if (mrHist) pages.mochireal.appendChild(mrHist);
+
+            // 🔴 MochiReal — metemos el bloque activo (la tarjeta con id="mochireal")
+            const mrActive = document.getElementById('mochireal'); // <div class="mochireal-section ... id="mochireal">
+            if (mrActive) pages.mochireal.appendChild(mrActive);
           }
+
 
           // 5) Cambiar de pantalla
           function setScreen(name) {
-            const valid = ['home', 'question', 'wishlist', 'travels', 'schedules', 'intim'];
+            const valid = ['home', 'question', 'wishlist', 'travels', 'schedules', 'intim', 'mochireal'];
             if (!valid.includes(name)) name = 'home';
             document.body.dataset.screen = name;
 
@@ -9789,6 +9808,11 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             // ⚡ Lazy-load Intimidad
             if (name === 'intim' && typeof window.ensureIntimLoaded === 'function') {
               window.ensureIntimLoaded();
+            }
+
+            // ⚡ Lazy-load MochiReal (historial)
+            if (name === 'mochireal' && typeof window.ensureMochiRealHistoryLoaded === 'function') {
+              window.ensureMochiRealHistoryLoaded();
             }
 
             // Guarda preferencia
@@ -12077,31 +12101,35 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
               let html = '';
               data.history.forEach(day => {
-                // Formatear fecha bonita (ej: 2023-11-24 -> 24 Noviembre)
+                // Formatear fecha bonita (ej: 2023-11-24 -> 24 noviembre 2023)
                 const d = new Date(day.date);
-                const dateStr = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+                const dateStr = d.toLocaleDateString('es-ES', {
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric'
+                });
 
                 let postsHtml = '';
                 day.posts.forEach(post => {
                   postsHtml += `
-                        <div class="mr-history-photo">
-                            <img src="/mochireal/image/${post.post_id}" loading="lazy" onclick="window.open(this.src, '_blank')">
-                            <div class="mr-history-user">${post.username}</div>
-                        </div>
-                    `;
+              <div class="mr-history-photo">
+                  <img src="/mochireal/image/${post.post_id}" loading="lazy" onclick="window.open(this.src, '_blank')">
+                  <div class="mr-history-user">${post.username}</div>
+              </div>
+            `;
                 });
 
                 html += `
-                    <div class="mr-day-card animate-in">
-                        <div class="mr-day-header">
-                            <div class="mr-date-label"><i class="far fa-calendar-alt"></i> ${dateStr}</div>
-                            <div class="mr-time-badge"><i class="far fa-clock"></i> ${day.time}</div>
-                        </div>
-                        <div class="mr-day-grid">
-                            ${postsHtml}
-                        </div>
-                    </div>
-                `;
+            <div class="mr-day-card animate-in">
+                <div class="mr-day-header">
+                    <div class="mr-date-label"><i class="far fa-calendar-alt"></i> ${dateStr}</div>
+                    <div class="mr-time-badge"><i class="far fa-clock"></i> ${day.time}</div>
+                </div>
+                <div class="mr-day-grid">
+                    ${postsHtml}
+                </div>
+            </div>
+          `;
               });
 
               container.innerHTML = html;
@@ -12113,38 +12141,15 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             }
           };
 
-          // Hook en tu router existente (setScreen)
-          const originalSetScreen = window.__setScreen || window.setScreen; // Intenta encontrar tu función actual
-
-          // Redefinimos setScreen para detectar cuando vamos al historial
-          window.setScreen = function (name) {
-            // Ocultar todas las páginas primero (simple toggle)
-            document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
-            document.querySelectorAll('.section:not(.page .section)').forEach(s => s.style.display = 'none'); // Ocultar home sections
-
-            // Mostrar la solicitada
-            const target = document.getElementById('page-' + name);
-            if (target) {
-              target.style.display = 'block';
-              if (name === 'mr-history') loadMochiRealHistory();
-            } else {
-              // Si no es una "página" nuestra, quizás es el home normal
-              if (name === 'home') {
-                document.querySelectorAll('.section:not(.page .section)').forEach(s => s.style.display = 'block');
-                // Asegurarnos de ocultar las páginas extra
-                document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
-              }
+          // 👉 Función que usará el router para hacer lazy-load al entrar en la pantalla MochiReal
+          window.ensureMochiRealHistoryLoaded = function () {
+            if (!historyLoaded) {
+              window.loadMochiRealHistory();
             }
-
-            // Actualizar nav activo si existe
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            const activeBtn = document.querySelector(`.nav-btn[data-goto="${name}"]`);
-            if (activeBtn) activeBtn.classList.add('active');
-
-            window.scrollTo(0, 0);
           };
         })();
       </script>
+
 </body>
 
 </html>

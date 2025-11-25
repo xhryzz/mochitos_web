@@ -8096,6 +8096,38 @@ def api_mochireal_history():
         conn.close()
 
 
+
+@app.post("/admin/questions/bulk_delete")
+def admin_questions_bulk_delete():
+    require_admin()
+    # Obtenemos la lista de IDs seleccionados
+    ids = request.form.getlist("ids") 
+    
+    if not ids:
+        flash("No has seleccionado ninguna pregunta.", "warn")
+        return redirect("/admin/questions")
+
+    # Convertimos a enteros para seguridad
+    try:
+        clean_ids = [int(x) for x in ids]
+    except ValueError:
+        flash("IDs inválidos.", "error")
+        return redirect("/admin/questions")
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # Usamos ANY para pasar un array de IDs a Postgres de forma eficiente
+            c.execute("UPDATE question_bank SET active=FALSE WHERE id = ANY(%s)", (clean_ids,))
+            count = c.rowcount
+            conn.commit()
+    finally:
+        conn.close()
+        
+    flash(f"{count} preguntas desactivadas correctamente 🗑️", "success")
+    return redirect("/admin/questions")
+
+
 _old_init_db = init_db
 def init_db():
     _old_init_db()

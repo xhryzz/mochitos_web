@@ -5900,6 +5900,143 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
     #mr-canvas {
       display: none;
     }
+
+
+    /* === NAVBAR NUEVO & RESPONSIVE === */
+
+    .app-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 0 12px 12px;
+      z-index: 1100;
+      display: flex;
+      justify-content: center;
+      pointer-events: none;
+      /* el interior sí tiene pointer-events */
+      background: linear-gradient(to top, rgba(15, 23, 42, 0.55), transparent);
+    }
+
+    .app-nav-inner {
+      pointer-events: auto;
+      width: 100%;
+      max-width: 960px;
+      background: rgba(15, 23, 42, 0.92);
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px;
+      box-shadow:
+        0 18px 40px rgba(15, 23, 42, 0.65),
+        0 0 0 1px rgba(148, 163, 184, 0.15);
+      backdrop-filter: blur(22px);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .app-nav-inner::-webkit-scrollbar {
+      display: none;
+    }
+
+    .nav-btn {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      flex: 0 0 auto;
+      min-width: 60px;
+      padding: 6px 8px;
+      border-radius: 999px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      font-size: 11px;
+      color: #e5e7eb;
+      transition:
+        transform 0.15s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease,
+        color 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .nav-btn i {
+      font-size: 18px;
+      color: inherit;
+      pointer-events: none;
+    }
+
+    .nav-label {
+      display: block;
+      font-size: 10px;
+      line-height: 1.1;
+    }
+
+    /* Estado activo (píldora rosa/naranja) */
+    .nav-btn.active {
+      background: linear-gradient(135deg, var(--primary-color), #f97316);
+      color: #111827;
+      box-shadow:
+        0 12px 30px rgba(232, 67, 147, 0.55),
+        0 0 0 1px rgba(248, 250, 252, 0.6);
+      transform: translateY(-1px);
+    }
+
+    .nav-btn.active i,
+    .nav-btn.active .nav-label {
+      color: #111827;
+    }
+
+    /* Hover en escritorio */
+    @media (hover: hover) and (pointer: fine) {
+      .nav-btn:hover:not(.active) {
+        background: rgba(148, 163, 184, 0.25);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.55);
+      }
+    }
+
+    /* Ajustes móviles pequeños: iconos más importantes, texto más pequeño */
+    @media (max-width: 480px) {
+      .nav-btn {
+        padding: 5px 6px;
+        min-width: 56px;
+      }
+
+      .nav-btn i {
+        font-size: 17px;
+      }
+
+      .nav-label {
+        font-size: 9px;
+      }
+    }
+
+    /* En pantallas grandes, el navbar se siente más "top bar" pegado al contenido */
+    @media (min-width: 900px) {
+      .app-nav {
+        bottom: 12px;
+      }
+
+      .app-nav-inner {
+        max-width: 1040px;
+        padding: 8px 10px;
+      }
+
+      .nav-btn {
+        min-width: 80px;
+        font-size: 12px;
+      }
+
+      .nav-label {
+        font-size: 11px;
+      }
+    }
   </style>
 </head>
 
@@ -6068,47 +6205,60 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
       <!-- NAVBAR FONT AWESOME -->
       <nav class="app-nav" aria-label="Navegación principal">
-        <button class="nav-btn active" data-goto="home" title="Inicio">
-          <i class="fas fa-house" aria-hidden="true"></i>
-          <span class="nav-label">Inicio</span>
-        </button>
-        <button class="nav-btn" data-goto="question" title="Pregunta del día">
-          <i class="fa-solid fa-question" aria-hidden="true"></i>
-          <span class="nav-label">Pregunta del día</span>
-        </button>
-        <button class="nav-btn" data-goto="mochireal" title="MochiReal">
-          <i class="fas fa-camera-retro" aria-hidden="true"></i>
-          <span class="nav-label">MochiReal</span>
-        </button>
-        <button class="nav-btn" data-goto="wishlist" title="Wishlist">
-          <i class="fa-solid fa-gifts" aria-hidden="true"></i>
-          <span class="nav-label">Wishlist</span>
-        </button>
-        <button class="nav-btn" data-goto="media" title="Películas y Series">
-          <i class="fas fa-film" aria-hidden="true"></i>
-          <span class="nav-label">Películas/Series</span>
-        </button>
-        <button class="nav-btn" data-goto="travels" title="Viajes">
-          <i class="fa-solid fa-plane" aria-hidden="true"></i>
-          <span class="nav-label">Viajes</span>
-        </button>
-        <button class="nav-btn" data-goto="schedules" title="Horarios">
-          <i class="fas fa-calendar-days" aria-hidden="true"></i>
-          <span class="nav-label">Horarios</span>
-        </button>
-        <button class="nav-btn" data-goto="intim" title="Intimidad">
-          <i class="fas fa-lock" aria-hidden="true"></i>
-          <span class="nav-label">Intimidad</span>
-        </button>
-        <button class="nav-btn" title="Ciclo (Regla)" onclick="location.href='{{ url_for('regla_page') }}'">
-          <i class="fa-solid fa-droplet" aria-hidden="true"></i>
-          <span class="nav-label">Regla</span>
-        </button>
-        <button class="nav-btn" data-goto="profile" title="Perfil">
-          <i class="fas fa-user" aria-hidden="true"></i>
-          <span class="nav-label">Perfil</span>
-        </button>
+        <div class="app-nav-inner">
+          <button class="nav-btn active" data-goto="home" title="Inicio">
+            <i class="fas fa-house" aria-hidden="true"></i>
+            <span class="nav-label">Inicio</span>
+          </button>
+
+          <button class="nav-btn" data-goto="question" title="Pregunta del día">
+            <i class="fa-solid fa-question" aria-hidden="true"></i>
+            <span class="nav-label">Pregunta</span>
+          </button>
+
+          <!-- MochiReal separado en el navbar -->
+          <button class="nav-btn" data-goto="mochireal" title="MochiReal">
+            <i class="fa-solid fa-camera-retro" aria-hidden="true"></i>
+            <span class="nav-label">MochiReal</span>
+          </button>
+
+          <button class="nav-btn" data-goto="wishlist" title="Wishlist">
+            <i class="fa-solid fa-gifts" aria-hidden="true"></i>
+            <span class="nav-label">Wishlist</span>
+          </button>
+
+          <button class="nav-btn" data-goto="media" title="Películas y Series">
+            <i class="fas fa-film" aria-hidden="true"></i>
+            <span class="nav-label">Películas</span>
+          </button>
+
+          <button class="nav-btn" data-goto="travels" title="Viajes">
+            <i class="fa-solid fa-plane" aria-hidden="true"></i>
+            <span class="nav-label">Viajes</span>
+          </button>
+
+          <button class="nav-btn" data-goto="schedules" title="Horarios">
+            <i class="fas fa-calendar-days" aria-hidden="true"></i>
+            <span class="nav-label">Horarios</span>
+          </button>
+
+          <button class="nav-btn" data-goto="intim" title="Intimidad">
+            <i class="fas fa-lock" aria-hidden="true"></i>
+            <span class="nav-label">Intimidad</span>
+          </button>
+
+          <button class="nav-btn" title="Ciclo (Regla)" onclick="location.href='{{ url_for('regla_page') }}'">
+            <i class="fa-solid fa-droplet" aria-hidden="true"></i>
+            <span class="nav-label">Regla</span>
+          </button>
+
+          <button class="nav-btn" data-goto="profile" title="Perfil">
+            <i class="fas fa-user" aria-hidden="true"></i>
+            <span class="nav-label">Perfil</span>
+          </button>
+        </div>
       </nav>
+
 
       <!-- Contenedor de páginas -->
       <div id="pages"></div>

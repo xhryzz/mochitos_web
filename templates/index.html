@@ -6315,15 +6315,25 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
       <div id="page-mr-history" class="page" style="display:none;">
         <div class="section animate-in">
-          <div style="display:flex; align-items:center; margin-bottom:20px;">
-            <button onclick="setScreen('home')" class="icon-btn" style="margin-right:15px;">
-              <i class="fas fa-arrow-left"></i>
-            </button>
-            <h3>Historial MochiReal 📸</h3>
+          <div style="display:flex; align-items:center; justify-content: space-between; margin-bottom:20px;">
+            <div style="display:flex; align-items:center;">
+              <button onclick="closeMochiHistory()" class="icon-btn" style="margin-right:15px;">
+                <i class="fas fa-arrow-left"></i>
+              </button>
+              <h3 style="margin:0; font-size: 1.5rem;">Historial 📸</h3>
+            </div>
+            <span id="mr-page-indicator" style="font-size:0.9rem; color:#888; font-weight:600;"></span>
           </div>
 
           <div id="mr-history-content" class="mr-history-container">
-            <p style="text-align:center; color:#888; padding:20px;">Cargando recuerdos...</p>
+            <div style="text-align:center; padding:40px;">
+              <i class="fas fa-spinner fa-spin fa-2x" style="color:var(--primary-color)"></i>
+            </div>
+          </div>
+
+          <div class="pager" id="mr-history-pager" style="margin-top: 20px; display:none;">
+            <button type="button" id="mr-btn-prev" class="page-btn">« Anterior</button>
+            <button type="button" id="mr-btn-next" class="page-btn">Siguiente »</button>
           </div>
         </div>
       </div>
@@ -6848,10 +6858,9 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
           <div style="margin-top: 15px; border-top: 1px dashed rgba(0,0,0,0.1); padding-top: 10px;">
             <button type="button" class="btn-mr-history" style="color: inherit; border-color: currentColor;"
-              onclick="document.getElementById('mr-history-content')?.scrollIntoView({ behavior: 'smooth' });">
+              onclick="openMochiHistory()">
               <i class="fas fa-history"></i> Ver recuerdos anteriores
             </button>
-
           </div>
         </div>
 
@@ -11909,72 +11918,143 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
 
       <script>
-        // === Lógica Historial MochiReal ===
+        // === Lógica Historial MochiReal con Paginación ===
         (function () {
-          let historyLoaded = false;
+          let allHistoryData = []; // Guardamos todos los datos aquí
+          let currentPage = 1;
+          const ITEMS_PER_PAGE = 5; // Días por página
 
-          window.loadMochiRealHistory = async function () {
+          // Función principal para abrir el historial
+          window.openMochiHistory = async function () {
+            // 1. Ocultar vista principal, mostrar historial
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            const page = document.getElementById('page-mr-history');
+            if (page) {
+              page.style.display = 'block'; // Asegurar display
+              page.classList.add('active');
+            }
+            window.scrollTo(0, 0);
+
+            // 2. Si ya tenemos datos, solo renderizamos la página 1
+            if (allHistoryData.length > 0) {
+              renderHistoryPage();
+              return;
+            }
+
+            // 3. Si no, cargamos del servidor
             const container = document.getElementById('mr-history-content');
-            if (!container) return;
-
-            container.innerHTML = '<div style="text-align:center; padding:40px;"><i class="fas fa-spinner fa-spin fa-2x" style="color:var(--primary-color)"></i></div>';
+            container.innerHTML = '<div style="text-align:center; padding:40px;"><i class="fas fa-spinner fa-spin fa-2x" style="color:var(--primary-color)"></i><p>Recuperando recuerdos...</p></div>';
 
             try {
               const r = await fetch('/api/mochireal/history');
               const data = await r.json();
 
               if (!data.ok || !data.history || data.history.length === 0) {
-                container.innerHTML = '<p style="text-align:center; padding:20px;">No hay recuerdos guardados aún.</p>';
+                container.innerHTML = '<p style="text-align:center; padding:20px; color:#888;">No hay recuerdos guardados aún.</p>';
+                document.getElementById('mr-history-pager').style.display = 'none';
                 return;
               }
 
-              let html = '';
-              data.history.forEach(day => {
-                // Formatear fecha bonita (ej: 2023-11-24 -> 24 noviembre 2023)
-                const d = new Date(day.date);
-                const dateStr = d.toLocaleDateString('es-ES', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric'
-                });
+              // Guardamos datos y reseteamos a página 1
+              allHistoryData = data.history;
+              currentPage = 1;
+              renderHistoryPage();
 
-                let postsHtml = '';
-                day.posts.forEach(post => {
-                  postsHtml += `
-              <div class="mr-history-photo">
-                  <img src="/mochireal/image/${post.post_id}" loading="lazy" onclick="window.open(this.src, '_blank')">
-                  <div class="mr-history-user">${post.username}</div>
-              </div>
-            `;
-                });
+            } catch (e) {
+              console.error(e);
+              container.innerHTML = '<p style="text-align:center; color:salmon;">Error cargando recuerdos. Inténtalo luego.</p>';
+            }
+          };
 
-                html += `
-            <div class="mr-day-card animate-in">
-                <div class="mr-day-header">
-                    <div class="mr-date-label"><i class="far fa-calendar-alt"></i> ${dateStr}</div>
-                    <div class="mr-time-badge"><i class="far fa-clock"></i> ${day.time}</div>
-                </div>
-                <div class="mr-day-grid">
-                    ${postsHtml}
-                </div>
+          // Función para cerrar y volver a MochiReal principal
+          window.closeMochiHistory = function () {
+            const histPage = document.getElementById('page-mr-history');
+            if (histPage) {
+              histPage.classList.remove('active');
+              histPage.style.display = 'none';
+            }
+            // Volver a la pantalla "mochireal" usando tu router existente
+            if (typeof setScreen === 'function') {
+              setScreen('mochireal');
+            }
+          };
+
+          // Renderiza la página actual
+          function renderHistoryPage() {
+            const container = document.getElementById('mr-history-content');
+            const pager = document.getElementById('mr-history-pager');
+            const indicator = document.getElementById('mr-page-indicator');
+            const btnPrev = document.getElementById('mr-btn-prev');
+            const btnNext = document.getElementById('mr-btn-next');
+
+            // Calcular índices
+            const totalItems = allHistoryData.length;
+            const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+            // Validar página actual
+            if (currentPage < 1) currentPage = 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+
+            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
+
+            // Slice de datos para esta página
+            const pageItems = allHistoryData.slice(startIndex, endIndex);
+
+            // Generar HTML
+            let html = '';
+            pageItems.forEach(day => {
+              // Formatear fecha
+              const d = new Date(day.date);
+              const dateStr = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+              let postsHtml = '';
+              day.posts.forEach(post => {
+                postsHtml += `
+            <div class="mr-history-photo">
+                <img src="/mochireal/image/${post.post_id}" loading="lazy" onclick="window.open(this.src, '_blank')">
+                <div class="mr-history-user">${post.username}</div>
             </div>
           `;
               });
 
-              container.innerHTML = html;
-              historyLoaded = true;
+              html += `
+          <div class="mr-day-card animate-in">
+              <div class="mr-day-header">
+                  <div class="mr-date-label"><i class="far fa-calendar-alt"></i> ${dateStr}</div>
+                  <div class="mr-time-badge"><i class="far fa-clock"></i> ${day.time}</div>
+              </div>
+              <div class="mr-day-grid">
+                  ${postsHtml}
+              </div>
+          </div>
+        `;
+            });
 
-            } catch (e) {
-              console.error(e);
-              container.innerHTML = '<p style="text-align:center; color:red;">Error cargando recuerdos.</p>';
+            container.innerHTML = html;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            // Actualizar UI de Paginación
+            if (totalPages > 1) {
+              pager.style.display = 'flex';
+              indicator.textContent = `Página ${currentPage} de ${totalPages}`;
+
+              btnPrev.disabled = (currentPage === 1);
+              btnNext.disabled = (currentPage === totalPages);
+
+              // Eventos (limpiamos anteriores para no duplicar)
+              btnPrev.onclick = () => { currentPage--; renderHistoryPage(); };
+              btnNext.onclick = () => { currentPage++; renderHistoryPage(); };
+            } else {
+              pager.style.display = 'none';
+              indicator.textContent = '';
             }
-          };
+          }
 
-          // 👉 Función que usará el router para hacer lazy-load al entrar en la pantalla MochiReal
+          // Función del router para carga perezosa (si se accede directamente)
           window.ensureMochiRealHistoryLoaded = function () {
-            if (!historyLoaded) {
-              window.loadMochiRealHistory();
-            }
+            // En este diseño, preferimos que cargue al pulsar el botón "Ver recuerdos"
+            // así que lo dejamos vacío o precargamos sin mostrar.
           };
         })();
       </script>

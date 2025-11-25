@@ -4912,9 +4912,6 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
       color: #777;
     }
 
-    .distance-status-card #distanceMap {
-      display: none;
-    }
 
 
     /* === Ruleta diaria (botón flotante + modal) === */
@@ -5818,6 +5815,290 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
     #mr-canvas {
       display: none;
     }
+
+
+    /* Mapa de distancia (nuevo diseño) */
+    .distance-map-container {
+      position: relative;
+      height: 360px;
+      border-radius: 32px;
+      overflow: hidden;
+      background: #ffe8f3;
+      /* Color de fondo por si tarda en cargar */
+    }
+
+    /* El mapa rellena el contenedor */
+    #distanceMap {
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+
+    /* Panel de info flotante (arriba a la izquierda) */
+    .distance-floating-info {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .distance-current-label {
+      padding: 10px 14px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 10px 25px rgba(15, 23, 42, .18);
+      max-width: 260px;
+    }
+
+    .distance-current-label .ds-label {
+      display: block;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: #be185d;
+    }
+
+    .distance-current-label .ds-sub {
+      display: block;
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: 2px;
+    }
+
+    /* Pastilla de km */
+    .distance-km-pill {
+      align-self: flex-start;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 10px 25px rgba(248, 113, 169, .35);
+      font-size: 0.85rem;
+      color: #ec4899;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .distance-km-pill i {
+      font-size: 0.9rem;
+    }
+
+    /* Controles flotantes (glassmorphism) */
+    .distance-floating-controls {
+      position: absolute;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 22px 60px rgba(15, 23, 42, .35);
+    }
+
+    /* Estilo específico de los botones dentro del panel flotante */
+    .distance-floating-controls .ds-mode-btn {
+      border: none;
+      background: transparent;
+      border-radius: 999px;
+      padding: 8px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      color: #374151;
+      transition: all .18s ease;
+      white-space: nowrap;
+    }
+
+    .distance-floating-controls .ds-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(236, 72, 153, 0.08);
+      color: #ec4899;
+      font-size: 0.9rem;
+    }
+
+    .distance-floating-controls .ds-mode-title {
+      display: block;
+      font-weight: 600;
+    }
+
+    .distance-floating-controls .ds-mode-sub {
+      display: none;
+      /* para que no se sature el chip */
+      font-size: 0.7rem;
+      opacity: 0.7;
+    }
+
+    .distance-floating-controls .ds-mode-btn.active {
+      background: rgba(236, 72, 153, 0.1);
+      color: #9d174d;
+      box-shadow: 0 10px 30px rgba(236, 72, 153, .4);
+      transform: translateY(-1px);
+    }
+
+    .distance-floating-controls .ds-mode-btn:hover:not(.active) {
+      background: rgba(248, 250, 252, 0.9);
+      transform: translateY(-1px);
+    }
+
+    /* Tarjeta general Distancia */
+    .distance-status-card {
+      margin-top: 14px;
+      border-radius: 18px;
+      padding: 0;
+      background: transparent;
+      border: none;
+    }
+
+    /* Pie pequeño debajo del mapa */
+    .ds-footnote {
+      margin-top: 10px;
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    /* Avatares tipo radar en el mapa */
+    .avatar-marker {
+      position: relative;
+      width: 48px;
+      height: 48px;
+    }
+
+    .avatar-marker .avatar-circle {
+      position: relative;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 3px solid #ffffff;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, .45);
+      background: linear-gradient(135deg, #f9a8d4, #fbcfe8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .avatar-marker .avatar-circle img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* Anillo de radar / latido */
+    .avatar-marker .avatar-pulse {
+      position: absolute;
+      inset: -4px;
+      border-radius: 999px;
+      border: 2px solid rgba(236, 72, 153, .6);
+      animation: radarPulse 2.4s ease-out infinite;
+      transform-origin: center;
+    }
+
+    /* Un segundo anillo más suave para más "magia" */
+    .avatar-marker .avatar-pulse::after {
+      content: "";
+      position: absolute;
+      inset: 6px;
+      border-radius: inherit;
+      border: 2px solid rgba(236, 72, 153, .35);
+    }
+
+    /* Variar color sutil entre uno y otro */
+    .avatar-marker--christian .avatar-pulse {
+      border-color: rgba(59, 130, 246, .6);
+    }
+
+    .avatar-marker--christian .avatar-circle {
+      background: linear-gradient(135deg, #93c5fd, #bfdbfe);
+    }
+
+    .avatar-marker--clara .avatar-pulse {
+      border-color: rgba(236, 72, 153, .65);
+    }
+
+    .avatar-marker--clara .avatar-circle {
+      background: linear-gradient(135deg, #f9a8d4, #fecdd3);
+    }
+
+    @keyframes radarPulse {
+      0% {
+        transform: scale(0.7);
+        opacity: 0.8;
+      }
+
+      70% {
+        transform: scale(1.6);
+        opacity: 0;
+      }
+
+      100% {
+        transform: scale(1.9);
+        opacity: 0;
+      }
+    }
+
+    /* Línea de energía animada (entre vosotros) */
+    .leaflet-overlay-pane .distance-flow {
+      stroke: #e84393;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-dasharray: 12 18;
+      animation: dashFlow 2s linear infinite;
+    }
+
+    @keyframes dashFlow {
+      to {
+        stroke-dashoffset: -60;
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .distance-map-container {
+        height: 320px;
+      }
+
+      .distance-floating-info {
+        top: 10px;
+        left: 10px;
+        right: 10px;
+      }
+
+      .distance-current-label {
+        max-width: 100%;
+      }
+
+      .distance-floating-controls {
+        left: 50%;
+        bottom: 10px;
+        transform: translateX(-50%);
+        padding-inline: 8px;
+        gap: 4px;
+      }
+
+      .distance-floating-controls .ds-mode-btn {
+        padding-inline: 8px;
+        font-size: 0.72rem;
+      }
+    }
   </style>
 </head>
 
@@ -6480,288 +6761,6 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             font-size: 2rem;
             cursor: pointer;
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
-          }
-
-          /* Mapa de distancia (nuevo diseño) */
-          .distance-map-container {
-            margin-top: 20px;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 16px 40px rgba(232, 67, 147, .25);
-            height: 380px;
-            position: relative;
-            background: radial-gradient(circle at top left, #ffe4f3 0, #fdeaf7 30%, #ffffff 70%);
-          }
-
-          #distanceMap {
-            height: 100%;
-            width: 100%;
-            z-index: 1;
-          }
-
-          /* Panel de info flotante (arriba a la izquierda) */
-          .distance-floating-info {
-            position: absolute;
-            top: 16px;
-            left: 16px;
-            z-index: 20;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-          }
-
-          .distance-current-label {
-            padding: 10px 14px;
-            border-radius: 14px;
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            box-shadow: 0 10px 25px rgba(15, 23, 42, .18);
-            max-width: 260px;
-          }
-
-          .distance-current-label .ds-label {
-            display: block;
-            font-weight: 700;
-            font-size: 0.9rem;
-            color: #be185d;
-          }
-
-          .distance-current-label .ds-sub {
-            display: block;
-            font-size: 0.8rem;
-            color: #6b7280;
-            margin-top: 2px;
-          }
-
-          /* Pastilla de km */
-          .distance-km-pill {
-            align-self: flex-start;
-            padding: 8px 12px;
-            border-radius: 999px;
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            box-shadow: 0 10px 25px rgba(248, 113, 169, .35);
-            font-size: 0.85rem;
-            color: #ec4899;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-          }
-
-          .distance-km-pill i {
-            font-size: 0.9rem;
-          }
-
-          /* Controles flotantes (glassmorphism) */
-          .distance-floating-controls {
-            position: absolute;
-            left: 50%;
-            bottom: 16px;
-            transform: translateX(-50%);
-            z-index: 20;
-            display: flex;
-            gap: 8px;
-            padding: 10px 12px;
-            border-radius: 999px;
-            background: rgba(255, 255, 255, 0.82);
-            backdrop-filter: blur(18px);
-            -webkit-backdrop-filter: blur(18px);
-            box-shadow: 0 22px 60px rgba(15, 23, 42, .35);
-          }
-
-          /* Estilo específico de los botones dentro del panel flotante */
-          .distance-floating-controls .ds-mode-btn {
-            border: none;
-            background: transparent;
-            border-radius: 999px;
-            padding: 8px 12px;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-            font-size: 0.78rem;
-            color: #374151;
-            transition: all .18s ease;
-            white-space: nowrap;
-          }
-
-          .distance-floating-controls .ds-icon {
-            width: 22px;
-            height: 22px;
-            border-radius: 999px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(236, 72, 153, 0.08);
-            color: #ec4899;
-            font-size: 0.9rem;
-          }
-
-          .distance-floating-controls .ds-mode-title {
-            display: block;
-            font-weight: 600;
-          }
-
-          .distance-floating-controls .ds-mode-sub {
-            display: none;
-            /* para que no se sature el chip */
-            font-size: 0.7rem;
-            opacity: 0.7;
-          }
-
-          .distance-floating-controls .ds-mode-btn.active {
-            background: rgba(236, 72, 153, 0.1);
-            color: #9d174d;
-            box-shadow: 0 10px 30px rgba(236, 72, 153, .4);
-            transform: translateY(-1px);
-          }
-
-          .distance-floating-controls .ds-mode-btn:hover:not(.active) {
-            background: rgba(248, 250, 252, 0.9);
-            transform: translateY(-1px);
-          }
-
-          /* Tarjeta general Distancia */
-          .distance-status-card {
-            margin-top: 14px;
-            border-radius: 18px;
-            padding: 0;
-            background: transparent;
-            border: none;
-          }
-
-          /* Pie pequeño debajo del mapa */
-          .ds-footnote {
-            margin-top: 10px;
-            font-size: 0.8rem;
-            color: #6b7280;
-          }
-
-          /* Avatares tipo radar en el mapa */
-          .avatar-marker {
-            position: relative;
-            width: 48px;
-            height: 48px;
-          }
-
-          .avatar-marker .avatar-circle {
-            position: relative;
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            overflow: hidden;
-            border: 3px solid #ffffff;
-            box-shadow: 0 10px 25px rgba(15, 23, 42, .45);
-            background: linear-gradient(135deg, #f9a8d4, #fbcfe8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-
-          .avatar-marker .avatar-circle img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-          }
-
-          /* Anillo de radar / latido */
-          .avatar-marker .avatar-pulse {
-            position: absolute;
-            inset: -4px;
-            border-radius: 999px;
-            border: 2px solid rgba(236, 72, 153, .6);
-            animation: radarPulse 2.4s ease-out infinite;
-            transform-origin: center;
-          }
-
-          /* Un segundo anillo más suave para más "magia" */
-          .avatar-marker .avatar-pulse::after {
-            content: "";
-            position: absolute;
-            inset: 6px;
-            border-radius: inherit;
-            border: 2px solid rgba(236, 72, 153, .35);
-          }
-
-          /* Variar color sutil entre uno y otro */
-          .avatar-marker--christian .avatar-pulse {
-            border-color: rgba(59, 130, 246, .6);
-          }
-
-          .avatar-marker--christian .avatar-circle {
-            background: linear-gradient(135deg, #93c5fd, #bfdbfe);
-          }
-
-          .avatar-marker--clara .avatar-pulse {
-            border-color: rgba(236, 72, 153, .65);
-          }
-
-          .avatar-marker--clara .avatar-circle {
-            background: linear-gradient(135deg, #f9a8d4, #fecdd3);
-          }
-
-          @keyframes radarPulse {
-            0% {
-              transform: scale(0.7);
-              opacity: 0.8;
-            }
-
-            70% {
-              transform: scale(1.6);
-              opacity: 0;
-            }
-
-            100% {
-              transform: scale(1.9);
-              opacity: 0;
-            }
-          }
-
-          /* Línea de energía animada (entre vosotros) */
-          .leaflet-overlay-pane .distance-flow {
-            stroke: #e84393;
-            stroke-width: 4;
-            stroke-linecap: round;
-            stroke-dasharray: 12 18;
-            animation: dashFlow 2s linear infinite;
-          }
-
-          @keyframes dashFlow {
-            to {
-              stroke-dashoffset: -60;
-            }
-          }
-
-          /* Responsive */
-          @media (max-width: 768px) {
-            .distance-map-container {
-              height: 320px;
-            }
-
-            .distance-floating-info {
-              top: 10px;
-              left: 10px;
-              right: 10px;
-            }
-
-            .distance-current-label {
-              max-width: 100%;
-            }
-
-            .distance-floating-controls {
-              left: 50%;
-              bottom: 10px;
-              transform: translateX(-50%);
-              padding-inline: 8px;
-              gap: 4px;
-            }
-
-            .distance-floating-controls .ds-mode-btn {
-              padding-inline: 8px;
-              font-size: 0.72rem;
-            }
           }
         </style>
 
@@ -9764,15 +9763,27 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
             // Ajustes al entrar en Home: recalcular mapa
             // Ajustes al entrar en Home: recalcular mapa
+            // --- CAMBIA ESTE BLOQUE ---
+            // Ajustes al entrar en Home: recalcular mapa
             if (name === 'home') {
-              setTimeout(() => {
-                try {
-                  if (window.map && typeof map.invalidateSize === 'function') {
-                    map.invalidateSize();
-                    if (typeof updateDistanceLine === 'function') updateDistanceLine();
-                  }
-                } catch (_) { }
-              }, 200);
+              // Hacemos dos intentos para asegurar que el DOM ya pintó el div
+              [100, 500, 1000].forEach(delay => {
+                setTimeout(() => {
+                  try {
+                    if (window.map && typeof map.invalidateSize === 'function') {
+                      map.invalidateSize(); // Obliga al mapa a rellenar el hueco
+
+                      // Si tienes las coordenadas, recéntralo para que se vean los dos
+                      if (window.christianMarker && window.claraMarker) {
+                        const group = new L.featureGroup([window.christianMarker, window.claraMarker]);
+                        map.fitBounds(group.getBounds().pad(0.1));
+                      }
+
+                      if (typeof renderDistance === 'function') renderDistance();
+                    }
+                  } catch (_) { }
+                }, delay);
+              });
             }
 
             // ⚡ Lazy-load Viajes
@@ -12058,7 +12069,12 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         }
 
         /* Coloca/actualiza markers con iconos de avatar + radar */
+        /* Coloca/actualiza markers con iconos de avatar + radar */
         function upsertMarkers() {
+          // 1. Calculamos la distancia SIEMPRE, haya mapa o no
+          renderDistance();
+
+          // 2. Si el mapa no ha cargado aún, paramos aquí la parte visual
           if (!map || typeof L === 'undefined') return;
 
           // Christian / Mochito
@@ -12080,8 +12096,6 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           } else {
             claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
           }
-
-          renderDistance();
         }
 
         /* Asignar MI posición en función del usuario logueado */
@@ -12164,22 +12178,41 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         }
 
         /* Inicializa el mapa con tiles pastel tipo Voyager/Positron */
+        /* Inicializa el mapa con tiles pastel tipo Voyager/Positron */
         function initMap() {
-          const mapEl = document.getElementById('distanceMap');
-          if (!mapEl || typeof L === 'undefined') return;
+          // Si Leaflet no ha cargado aún, reintentar en 500ms
+          if (typeof L === 'undefined') {
+            console.log('Esperando a Leaflet...');
+            setTimeout(initMap, 500);
+            return;
+          }
 
-          map = L.map('distanceMap', {
-            zoomControl: true
+          const mapEl = document.getElementById('distanceMap');
+          if (!mapEl) return;
+
+          // Si ya existe el mapa, no lo recreamos
+          if (window.map) {
+            window.map.invalidateSize();
+            return;
+          }
+
+          window.map = L.map('distanceMap', {
+            zoomControl: true,
+            attributionControl: false
           }).setView([39.5, -3], 6);
 
-          // Tiles claritos (Carto Positron, combina bien con el rosa)
           L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
             subdomains: 'abcd',
-            attribution: '&copy; OpenStreetMap & CARTO'
-          }).addTo(map);
+          }).addTo(window.map);
 
           upsertMarkers();
+
+          // Truco final: forzar un redibujado tras 1 segundo por si estaba oculto
+          setTimeout(() => {
+            window.map.invalidateSize();
+            upsertMarkers(); // Asegura que la línea se dibuje
+          }, 1000);
         }
 
         /* Arranque */

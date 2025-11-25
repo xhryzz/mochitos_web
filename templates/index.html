@@ -9130,56 +9130,6 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           modal.style.display = 'block';
         };
 
-        (function () {
-          // Ya no necesitamos las funciones de zona horaria aquí
-          // porque el servidor hace el cálculo difícil por nosotros.
-
-          window.startDailyQuestionCountdown = async function () {
-            const el = document.getElementById('dqTimer');
-            if (!el) return;
-
-            try {
-              // 1. Pedimos al servidor el tiempo exacto que falta
-              const resp = await fetch('/api/daily-question-status');
-              const data = await resp.json();
-
-              if (!data.ok || typeof data.seconds_left !== 'number') {
-                console.warn('Datos de tiempo inválidos');
-                return;
-              }
-
-              // Calculamos el momento final en el tiempo local del navegador
-              const now = Date.now();
-              const endTime = now + (data.seconds_left * 1000);
-
-              function tick() {
-                const current = Date.now();
-                const diff = Math.floor((endTime - current) / 1000);
-
-                // Si llegamos a 0, recargamos para ver la nueva pregunta
-                if (diff <= 0) {
-                  el.textContent = '00:00:00';
-                  setTimeout(() => location.reload(), 1000);
-                  return;
-                }
-
-                // Formato HH:MM:SS
-                const h = String(Math.floor(diff / 3600)).padStart(2, '0');
-                const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
-                const s = String(diff % 60).padStart(2, '0');
-                el.textContent = `${h}:${m}:${s}`;
-              }
-
-              tick(); // Ejecutar inmediatamente
-              setInterval(tick, 1000); // Actualizar cada segundo
-
-            } catch (e) {
-              console.error("Error iniciando contador:", e);
-              // Fallback visual por si falla la conexión
-              el.textContent = "--:--:--";
-            }
-          };
-        })();
 
         // === Login UX helpers ===
         (function () {
@@ -12406,6 +12356,57 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
       </script>
 
 
+      <script>
+        (function () {
+          // Esta función se ejecuta sola y calcula la hora de Madrid en el navegador
+          function initMadridCountdown() {
+            const el = document.getElementById('dqTimer');
+            if (!el) return;
+
+            function tick() {
+              // 1. Obtenemos la hora actual
+              const now = new Date();
+
+              // 2. Convertimos esa hora a la hora de "Europe/Madrid"
+              // Esto funciona aunque el usuario esté en China o México
+              const madridString = now.toLocaleString("en-US", { timeZone: "Europe/Madrid" });
+              const madridTime = new Date(madridString);
+
+              // 3. Calculamos la próxima medianoche de Madrid
+              const nextMidnight = new Date(madridTime);
+              nextMidnight.setHours(24, 0, 0, 0);
+
+              // 4. Diferencia en milisegundos
+              const diff = nextMidnight - madridTime;
+
+              // Si ya pasó la hora (diferencia negativa o 0), recargamos
+              if (diff <= 0) {
+                el.textContent = "00:00:00";
+                setTimeout(() => location.reload(), 1000);
+                return;
+              }
+
+              // 5. Formatear a HH:MM:SS
+              const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
+              const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
+              const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+
+              el.textContent = `${h}:${m}:${s}`;
+            }
+
+            // Arrancar intervalo
+            tick(); // Primera ejecución inmediata
+            setInterval(tick, 1000);
+          }
+
+          // Ejecutar cuando cargue la página
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initMadridCountdown);
+          } else {
+            initMadridCountdown();
+          }
+        })();
+      </script>
 
 </body>
 

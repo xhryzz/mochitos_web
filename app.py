@@ -8047,6 +8047,11 @@ def api_mochireal_history():
     if 'username' not in session:
         return jsonify(ok=False, error="unauthorized"), 401
 
+    user = session['username']
+    
+    # Calculamos la fecha de hoy en formato texto para comparar
+    today_str = europe_madrid_now().date().isoformat() # 'YYYY-MM-DD'
+
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
@@ -8059,6 +8064,15 @@ def api_mochireal_history():
             """)
             rows = c.fetchall()
             
+            # 1. Averiguar si YO he subido foto HOY
+            has_posted_today = False
+            for r in rows:
+                r_date = r[1]
+                r_user = r[4]
+                if r_date == today_str and r_user == user:
+                    has_posted_today = True
+                    break
+            
             history = {}
             
             for r in rows:
@@ -8067,6 +8081,13 @@ def api_mochireal_history():
                 time_str = r[2] # Timestamp completo
                 pid = r[3]
                 p_user = r[4]
+                
+                # --- CORRECCIÓN DE SEGURIDAD ---
+                # Si la fecha es HOY, y YO NO he subido foto, y la foto NO es mía...
+                # ¡Saltamos la iteración (no la enviamos)!
+                if date_str == today_str and not has_posted_today and p_user != user:
+                    continue
+                # -------------------------------
                 
                 if date_str not in history:
                     # Parsear hora bonita (solo HH:MM)
@@ -8094,8 +8115,6 @@ def api_mochireal_history():
             return jsonify(ok=True, history=result)
     finally:
         conn.close()
-
-
 
 @app.post("/admin/questions/bulk_delete")
 def admin_questions_bulk_delete():

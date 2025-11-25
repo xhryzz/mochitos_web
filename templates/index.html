@@ -12079,9 +12079,16 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               histPage.classList.remove('active');
               histPage.style.display = 'none';
             }
-            // Volver a la pantalla "mochireal" usando tu router existente
-            if (typeof setScreen === 'function') {
-              setScreen('mochireal');
+
+            // SOLUCIÓN: Simular clic en el botón del menú
+            // Esto reactiva la página principal usando el router interno
+            const navBtn = document.querySelector('.app-nav .nav-btn[data-goto="mochireal"]');
+            if (navBtn) {
+              navBtn.click();
+            } else {
+              // Fallback de seguridad por si no encuentra el botón
+              const mainPage = document.getElementById('page-mochireal');
+              if (mainPage) mainPage.classList.add('active');
             }
           };
 

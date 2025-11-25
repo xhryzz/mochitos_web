@@ -5730,12 +5730,13 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
     }
 
 
-    /* === MOCHIREAL CAMERA UI === */
+    /* === MOCHIREAL CAMERA UI 2.0 === */
     #mr-camera-overlay {
       position: fixed;
       inset: 0;
       background: #000;
-      z-index: 9999;
+      z-index: 99999;
+      /* Muy alto para tapar todo */
       display: none;
       flex-direction: column;
     }
@@ -5744,13 +5745,14 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
       display: flex;
     }
 
+    /* Contenedor del video */
     .mr-cam-view {
       flex: 1;
       position: relative;
       overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      background: #000;
+      border-radius: 0 0 24px 24px;
+      /* Bordes redondeados abajo estilo iOS */
     }
 
     #mr-video-feed {
@@ -5759,57 +5761,160 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
       object-fit: cover;
     }
 
-    /* La cámara frontal (user) suele verse como espejo en preview para ser natural */
     #mr-video-feed.mirrored {
       transform: scaleX(-1);
     }
 
-    .mr-cam-controls {
-      height: 120px;
-      background: rgba(0, 0, 0, 0.8);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 40px;
-      padding-bottom: 20px;
-      /* safe area ios */
+    /* Efecto Flash al hacer foto */
+    .flash-effect {
+      animation: flash-animation 0.2s ease-out;
     }
 
+    @keyframes flash-animation {
+      0% {
+        background-color: rgba(255, 255, 255, 0.8);
+      }
+
+      100% {
+        background-color: transparent;
+      }
+    }
+
+    /* Interfaz superpuesta (mensajes) */
+    .mr-cam-ui-top {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 20px;
+      padding-top: max(20px, env(safe-area-inset-top));
+      text-align: center;
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
+      pointer-events: none;
+    }
+
+    .mr-cam-msg {
+      color: white;
+      font-weight: 700;
+      font-size: 1.1rem;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.3);
+      padding: 8px 16px;
+      border-radius: 20px;
+      display: inline-block;
+      backdrop-filter: blur(4px);
+    }
+
+    /* --- BARRA DE CONTROL INFERIOR --- */
+    .mr-cam-controls {
+      background: #000;
+      /* Fondo negro sólido abajo */
+      padding: 20px 30px;
+      padding-bottom: max(30px, env(safe-area-inset-bottom));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      /* Distribuye botones */
+      height: 140px;
+    }
+
+    /* Botón disparador PRO */
     #btn-snap {
-      width: 70px;
-      height: 70px;
+      width: 80px;
+      height: 80px;
       border-radius: 50%;
       border: 4px solid white;
       background: transparent;
       position: relative;
       cursor: pointer;
-      transition: transform 0.1s;
+      transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
+    /* Círculo interior del botón */
     #btn-snap::after {
       content: "";
-      position: absolute;
-      inset: 4px;
+      width: 68px;
+      height: 68px;
       background: white;
       border-radius: 50%;
+      transition: all 0.2s;
     }
 
     #btn-snap:active {
-      transform: scale(0.9);
+      transform: scale(0.95);
     }
 
-    .mr-cam-msg {
-      position: absolute;
-      top: 20px;
-      left: 0;
-      right: 0;
-      text-align: center;
+    #btn-snap:active::after {
+      width: 60px;
+      height: 60px;
+      opacity: 0.8;
+    }
+
+    /* Botones laterales (cerrar y cambiar cámara) */
+    .icon-cam-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
       color: white;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
-      font-weight: bold;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
       font-size: 1.2rem;
-      z-index: 10;
-      pointer-events: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .icon-cam-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* --- PANTALLA DE CARGA (FUSIONANDO) --- */
+    .mr-processing-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(10px);
+      z-index: 20;
+      display: none;
+      /* Oculto por defecto */
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+    }
+
+    .mr-processing-overlay.active {
+      display: flex;
+    }
+
+    /* Spinner animado */
+    .mr-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-left-color: var(--primary-color);
+      border-radius: 50%;
+      animation: mr-spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes mr-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .mr-processing-text {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      animation: pulse 1.5s infinite;
     }
 
     /* Canvas oculto para procesar */
@@ -6813,18 +6918,36 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           </div>
 
           <div id="mr-camera-overlay">
-            <div class="mr-cam-view">
+
+            <div class="mr-cam-view" id="mr-cam-view-container">
               <video id="mr-video-feed" autoplay playsinline muted></video>
-              <div class="mr-cam-ui">
-                <div class="mr-cam-msg" id="mr-msg">📸 1. Foto Trasera</div>
-                <div class="mr-cam-controls">
-                  <button class="icon-cam-btn" onclick="closeMochiCamera()"><i class="fas fa-times"></i></button>
-                  <button id="btn-snap"></button>
-                  <button class="icon-cam-btn" onclick="switchCamMode()"><i class="fas fa-sync-alt"></i></button>
-                </div>
+
+              <div id="mr-flash" style="position:absolute; inset:0; pointer-events:none;"></div>
+
+              <div class="mr-cam-ui-top">
+                <div class="mr-cam-msg" id="mr-msg">📸 Foto Trasera</div>
+              </div>
+
+              <div id="mr-processing" class="mr-processing-overlay">
+                <div class="mr-spinner"></div>
+                <div class="mr-processing-text">Fusionando fotos...</div>
+                <small style="margin-top:10px; opacity:0.7;">Creando magia ✨</small>
               </div>
             </div>
+
+            <div class="mr-cam-controls">
+              <button class="icon-cam-btn" onclick="closeMochiCamera()" title="Cancelar">
+                <i class="fas fa-times"></i>
+              </button>
+
+              <button id="btn-snap" title="Hacer foto"></button>
+
+              <button class="icon-cam-btn" onclick="switchCamMode()" title="Cambiar cámara">
+                <i class="fas fa-sync-alt"></i>
+              </button>
+            </div>
           </div>
+
           <canvas id="mr-canvas" style="display:none;"></canvas>
 
           {% else %}
@@ -6876,10 +6999,12 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             const msg = document.getElementById('mr-msg');
             const canvas = document.getElementById('mr-canvas');
             const ctx = canvas ? canvas.getContext('2d') : null;
+            const processingOverlay = document.getElementById('mr-processing');
+            const flashEl = document.getElementById('mr-flash');
 
             if (!overlay) return;
 
-            // Constraints iniciales
+            // Configuración inicial
             const constraints = {
               audio: false,
               video: {
@@ -6889,10 +7014,18 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               }
             };
 
+            // Efecto de flash visual
+            function triggerFlash() {
+              flashEl.classList.remove('flash-effect');
+              void flashEl.offsetWidth; // forzar reflow
+              flashEl.classList.add('flash-effect');
+            }
+
             window.startMochiCamera = async function () {
               isFront = false; backPhoto = null; frontPhoto = null;
               overlay.classList.add('active');
-              msg.innerText = "📸 1. Foto Trasera";
+              processingOverlay.classList.remove('active'); // asegurar que el loader esté oculto
+              msg.innerText = "📸 1. Paisaje (Trasera)";
               await initCamera("environment");
             };
 
@@ -6903,7 +7036,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = stream;
 
-                // Espejo VISUAL en pantalla
+                // Espejo solo visual para la frontal
                 if (mode === 'user') {
                   video.classList.add('mirrored');
                   isFront = true;
@@ -6921,52 +7054,54 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
             window.closeMochiCamera = function () {
               overlay.classList.remove('active');
+              processingOverlay.classList.remove('active');
               if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
             };
 
             window.switchCamMode = function () {
-              // Toggle manual
+              triggerFlash(); // pequeño flash al cambiar para feedback visual
               isFront = !isFront;
               initCamera(isFront ? "user" : "environment");
-              msg.innerText = isFront ? "🙂 Selfie" : "📸 Trasera";
+              msg.innerText = isFront ? "🙂 Selfie (Frontal)" : "📸 Paisaje (Trasera)";
             };
 
             document.getElementById('btn-snap')?.addEventListener('click', async () => {
-              // 1. Configurar canvas al tamaño del video
+              // Flashazo al hacer la foto
+              triggerFlash();
+
+              // 1. Configurar canvas
               canvas.width = video.videoWidth;
               canvas.height = video.videoHeight;
 
-              // 2. DIBUJAR (CORRECCIÓN DE INVERSIÓN AQUÍ)
-              // Si es frontal, invertimos el canvas para que la foto salga IGUAL que el espejo
+              // 2. Dibujar frame
               if (isFront) {
-                ctx.save(); // Guardar estado normal
+                ctx.save();
                 ctx.translate(canvas.width, 0);
-                ctx.scale(-1, 1); // Invertir horizontalmente
+                ctx.scale(-1, 1);
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                ctx.restore(); // Restaurar para la siguiente
+                ctx.restore();
               } else {
-                // Trasera: Normal
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
               }
 
               const data = canvas.toDataURL('image/jpeg', 0.9);
 
               if (!backPhoto) {
-                // --- ACABAMOS DE TOMAR LA TRASERA ---
+                // --- FOTO 1: TRASERA COMPLETADA ---
                 backPhoto = await loadImage(data);
 
-                // Pausa y cambio automático a frontal
+                // Pausa breve para feedback
                 video.pause();
-                msg.innerText = "🙂 2. Ahora tu cara...";
+                msg.innerText = "🙂 2. ¡Ahora tu cara!";
 
                 setTimeout(() => {
-                  isFront = true; // Marcamos que vamos a frontal
+                  isFront = true;
                   video.play();
-                  initCamera("user"); // Abrir selfie
-                }, 700);
+                  initCamera("user"); // Cambiar a frontal automáticamente
+                }, 600);
 
               } else {
-                // --- ACABAMOS DE TOMAR LA FRONTAL ---
+                // --- FOTO 2: FRONTAL COMPLETADA ---
                 frontPhoto = await loadImage(data);
                 processMochiReal();
               }
@@ -6977,39 +7112,58 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             }
 
             async function processMochiReal() {
-              msg.innerText = "✨ Fusionando y subiendo...";
+              // 1. Mostrar pantalla de carga bonita
+              processingOverlay.classList.add('active');
 
-              // 1. Lienzo base = Foto Trasera (Ocupa todo)
-              // Usamos el tamaño de la trasera como referencia
+              // Ocultar mensaje superior para limpiar
+              msg.innerText = "";
+
+              // 2. Procesamiento de imagen (Fusión)
+              // Usamos la trasera como lienzo base
               canvas.width = backPhoto.width;
               canvas.height = backPhoto.height;
               ctx.drawImage(backPhoto, 0, 0);
 
-              // 2. Foto Frontal en esquina (30% del ancho)
+              // Calcular recuadro pequeño (30% del ancho)
               const w = backPhoto.width * 0.30;
               const h = (frontPhoto.height / frontPhoto.width) * w;
-              const x = 40, y = 40;
+              const x = 50, y = 50;
 
-              // Marco estilo BeReal
-              ctx.lineWidth = 15; ctx.strokeStyle = "black";
+              // Sombra para dar profundidad
+              ctx.shadowColor = "rgba(0,0,0,0.5)";
+              ctx.shadowBlur = 20;
+
+              // Borde negro estilo Polaroid/BeReal
+              ctx.lineWidth = 15;
+              ctx.strokeStyle = "black";
               ctx.strokeRect(x, y, w, h);
+              ctx.shadowBlur = 0; // reset sombra para la imagen
 
               // Dibujar frontal
               ctx.drawImage(frontPhoto, x, y, w, h);
 
-              // Borde fino blanco
-              ctx.lineWidth = 3; ctx.strokeStyle = "white";
+              // Borde fino blanco interno para resaltar
+              ctx.lineWidth = 4;
+              ctx.strokeStyle = "white";
               ctx.strokeRect(x, y, w, h);
 
-              // 3. Subir
+              // 3. Subir al servidor
               canvas.toBlob(async (blob) => {
                 const fd = new FormData();
                 fd.append('photo', blob, 'mochireal_dual.jpg');
                 try {
                   const res = await fetch('/mochireal/upload', { method: 'POST', body: fd });
-                  if (res.ok || res.redirected) window.location.reload();
-                  else { alert("Error subiendo imagen"); closeMochiCamera(); }
-                } catch (e) { alert("Error red: " + e); closeMochiCamera(); }
+                  if (res.ok || res.redirected) {
+                    // Éxito: recargar
+                    window.location.reload();
+                  } else {
+                    alert("Error subiendo imagen");
+                    closeMochiCamera();
+                  }
+                } catch (e) {
+                  alert("Error red: " + e);
+                  closeMochiCamera();
+                }
               }, 'image/jpeg', 0.85);
             }
           })();

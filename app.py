@@ -4635,6 +4635,27 @@ def admin_home():
     except Exception as e:
         print("[admin] ensure_activity_table failed:", e)
 
+    # --- NUEVO: Datos para gestión de MochiReal ---
+    now = europe_madrid_now()
+    today = now.date()
+    tmr = today + timedelta(days=1)
+    
+    key_today = f"mochireal_plan::{today.isoformat()}"
+    key_tmr   = f"mochireal_plan::{tmr.isoformat()}"
+    
+    # Obtenemos el estado actual (puede ser HH:MM, 'skipped' o vacío)
+    mr_plans = {
+        "today": {
+            "date": today.isoformat(),
+            "time": state_get(key_today, ""), 
+        },
+        "tomorrow": {
+            "date": tmr.isoformat(),
+            "time": state_get(key_tmr, ""),
+        }
+    }
+    # ----------------------------------------------
+
     # Listar próximas programadas (pendientes) + últimas enviadas + actividad de mochita
     conn = get_db_connection()
     mochita_activity = []
@@ -4703,7 +4724,38 @@ def admin_home():
         mochita_activity_stats=mochita_activity_stats,
         mochita_presence=mochita_presence,
         vapid_public_key=get_vapid_public_base64url(),
+        mr_plans=mr_plans  # <--- NUEVO: Enviamos los planes a la plantilla
     )
+
+@app.post("/admin/mochireal/set")
+def admin_mochireal_set():
+    require_admin()
+    target_date = request.form.get("date") # YYYY-MM-DD
+    time_val = (request.form.get("time") or "").strip() # HH:MM
+    
+    if not target_date:
+        flash("Falta la fecha.", "error")
+        return redirect("/admin")
+
+    key = f"mochireal_plan::{target_date}"
+    
+    # Si viene vacío, lo borramos (o lo dejamos vacío para que sea random si no ha pasado)
+    # Pero tu lógica pide 'cambiar a la hora que yo quiera', así que guardamos la hora.
+    if time_val:
+        state_set(key, time_val)
+        flash(f"MochiReal para {target_date} fijado a las {time_val} ✅", "success")
+        
+        # Opcional: Log a discord
+        try:
+            send_discord("Admin: MochiReal updated", {"date": target_date, "time": time_val})
+        except: pass
+    else:
+        # Si lo dejas en blanco, podrías querer borrarlo para que sea random de nuevo,
+        # o simplemente no hacer nada. Aquí asumimos que si está blanco no hacemos cambio.
+        pass
+
+    return redirect("/admin")
+
 
 @app.post("/admin/reset_pw")
 def admin_reset_pw():

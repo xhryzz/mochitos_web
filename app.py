@@ -7877,17 +7877,20 @@ def mochireal_upload():
                     diff_seconds = (now_dt - trigger_dt).total_seconds()
                     diff_minutes = diff_seconds / 60
 
-                    # Reglas de puntos
-                    if diff_minutes <= 10:
+                    # Reglas de puntos (nuevas)
+                    if diff_minutes <= 60:  # ≤1 hora
                         points_earned = 20
                         time_label = "⚡ ¡Velocidad máxima!"
-                    elif diff_minutes <= 30:
+                    elif diff_minutes <= 120:  # 1-2 horas
                         points_earned = 15
                         time_label = "🔥 ¡Muy bien!"
-                    elif diff_minutes <= 60:
+                    elif diff_minutes <= 180:  # 2-3 horas
                         points_earned = 10
                         time_label = "👍 A tiempo"
-                    else:
+                    elif diff_minutes <= 300:  # 3-5 horas
+                        points_earned = 5
+                        time_label = "⏰ Justo a tiempo"
+                    else:  # >5 horas
                         points_earned = 0
                         time_label = "🐢 Un poco tarde..."
 
@@ -7905,6 +7908,18 @@ def mochireal_upload():
                                 INSERT INTO points_history (user_id, delta, source, note, created_at)
                                 VALUES (%s, %s, 'mochireal', %s, %s)
                             """, (uid, points_earned, f"MochiReal: {int(diff_minutes)} min", now_madrid_str()))
+                            
+                            # 🔔 NOTIFICACIÓN PUSH POR PUNTOS GANADOS
+                            try:
+                                send_push_to(
+                                    user,
+                                    title="¡Puntos MochiReal ganados! 🎉",
+                                    body=f"Has ganado {points_earned} puntos por subir tu MochiReal. {time_label}",
+                                    url="/#mochireal",
+                                    tag="mochireal-points"
+                                )
+                            except Exception as e:
+                                print(f"[push mochireal points] {e}")
 
                 except Exception as e:
                     print(f"[MochiReal Points Error]: {e}")

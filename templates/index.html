@@ -9130,53 +9130,69 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           modal.style.display = 'block';
         };
 
+        /* ==========================================
+       CORRECCIÓN RELOJ ROBUSTO (MADRID)
+       ========================================== */
         (function () {
-          const TZ = 'Europe/Madrid';
-
-          // Hora "ahora" en la zona horaria dada (mantiene coherencia incluso con cambios DST)
-          function nowInTz(tz) {
-            // Truco: convertimos a string en esa TZ y lo volvemos a Date;
-            // así los componentes reflejan el reloj de la TZ.
-            return new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
-          }
-
-          // Milisegundos hasta la próxima medianoche en esa TZ
-          function msUntilNextMidnightTz(tz) {
-            const now = nowInTz(tz);
-            const next = new Date(now);
-            // 24:00 del "hoy" de la TZ => próxima medianoche de esa TZ
-            next.setHours(24, 0, 0, 0);
-            return next - now;
-          }
-
-          function formatHMS(ms) {
-            if (ms < 0) ms = 0;
-            const totalSec = Math.floor(ms / 1000);
-            const h = String(Math.floor(totalSec / 3600)).padStart(2, '0');
-            const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
-            const s = String(totalSec % 60).padStart(2, '0');
-            return `${h}:${m}:${s}`;
-          }
-
           window.startDailyQuestionCountdown = function () {
             const el = document.getElementById('dqTimer');
             if (!el) return;
 
             function tick() {
-              const ms = msUntilNextMidnightTz(TZ);
-              // Si llegó la medianoche en España, refresca para cargar la nueva pregunta
-              if (ms <= 0) {
-                el.textContent = '00:00:00';
-                // Pequeño delay para evitar bucles
-                setTimeout(() => location.reload(), 800);
-                return;
+              try {
+                // 1. Usamos Intl para extraer la hora de Madrid sin errores de texto
+                const formatter = new Intl.DateTimeFormat('en-US', {
+                  timeZone: 'Europe/Madrid',
+                  hour: 'numeric',
+                  minute: 'numeric',
+                  second: 'numeric',
+                  hour12: false
+                });
+
+                // 2. Obtenemos las partes (hora, minuto, segundo) por separado
+                const parts = formatter.formatToParts(new Date());
+                const getPart = (type) => parseInt(parts.find(p => p.type === type).value, 10);
+
+                const h = getPart('hour');
+                const m = getPart('minute');
+                const s = getPart('second');
+
+                // 3. Calculamos cuántos segundos han pasado desde las 00:00
+                const currentSeconds = (h * 3600) + (m * 60) + s;
+                const totalSecondsInDay = 24 * 3600; // 86400 segundos tiene un día
+
+                // 4. Restamos para saber cuántos quedan
+                let diff = totalSecondsInDay - currentSeconds;
+
+                // 5. Si ya es medianoche (o pasamos por poco), recargar para nueva pregunta
+                if (diff <= 0) {
+                  el.textContent = '00:00:00';
+                  setTimeout(() => location.reload(), 1500);
+                  return;
+                }
+
+                // 6. Formatear a HH:MM:SS
+                const hh = Math.floor(diff / 3600).toString().padStart(2, '0');
+                const mm = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
+                const ss = (diff % 60).toString().padStart(2, '0');
+
+                el.textContent = `${hh}:${mm}:${ss}`;
+
+              } catch (e) {
+                console.error("Error reloj:", e);
+                el.textContent = "--:--:--";
               }
-              el.textContent = formatHMS(ms);
             }
 
-            tick(); // primer pintado inmediato
+            // Arrancar
+            tick();
             setInterval(tick, 1000);
           };
+
+          // Autoinicio de seguridad
+          if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            setTimeout(window.startDailyQuestionCountdown, 500);
+          }
         })();
 
         // === Login UX helpers ===

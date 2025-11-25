@@ -8128,6 +8128,35 @@ def admin_questions_bulk_delete():
     return redirect("/admin/questions")
 
 
+
+@app.post("/admin/questions/bulk_destroy")
+def admin_questions_bulk_destroy():
+    require_admin()
+    ids = request.form.getlist("ids")
+    
+    if not ids:
+        flash("No has seleccionado nada.", "warn")
+        return redirect("/admin/questions")
+
+    try:
+        clean_ids = [int(x) for x in ids]
+    except ValueError:
+        flash("IDs inválidos.", "error")
+        return redirect("/admin/questions")
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # DELETE real de la base de datos
+            c.execute("DELETE FROM question_bank WHERE id = ANY(%s)", (clean_ids,))
+            count = c.rowcount
+            conn.commit()
+    finally:
+        conn.close()
+        
+    flash(f"{count} preguntas eliminadas definitivamente 🗑️", "success")
+    return redirect("/admin/questions")
+
 _old_init_db = init_db
 def init_db():
     _old_init_db()

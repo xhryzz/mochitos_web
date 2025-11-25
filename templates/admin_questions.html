@@ -501,13 +501,20 @@
 
   <div class="bulk-bar" id="bulkBar">
     <span><strong id="selCount">0</strong> seleccionadas</span>
-    <form id="bulkForm" method="post" action="/admin/questions/bulk_delete" style="display:inline">
-      <button type="submit" class="dark" onclick="return confirm('¿Desactivar las preguntas seleccionadas?');">
-        🗑️ Desactivar seleccionadas
+
+    <form id="bulkForm" method="post">
+      <button type="submit" formaction="/admin/questions/bulk_delete" class="dark"
+        onclick="return confirm('¿Desactivar las preguntas seleccionadas? (Dejarán de salir en la ruleta)');">
+        💤 Desactivar
+      </button>
+
+      <button type="submit" formaction="/admin/questions/bulk_destroy" class="dark"
+        style="background: #ef4444; border-color: #ef4444;"
+        onclick="return confirm('⚠️ ¿Estás seguro? Se ELIMINARÁN DEFINITIVAMENTE de la base de datos.');">
+        🗑️ Eliminar
       </button>
     </form>
   </div>
-
   <script>
     /* ---- UI helpers ---- */
     function autoSize(el) {

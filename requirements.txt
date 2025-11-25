@@ -6,4 +6,5 @@ pywebpush
 cryptography
 pytz
 tzdata
+Pillow
 

@@ -1279,7 +1279,7 @@ def push_answer_edited_notice(editor: str):
 def push_mochireal_alert():
     send_push_both(
         title="⚠️ ¡Es hora de MochiReal!",
-        body="Tenéis 2 min para subir una foto de lo que estáis haciendo ahora mismo. 📸",
+        body="Tenéis que subir una foto de lo que estáis haciendo ahora mismo. 📸",
         url="/#mochireal",
         tag="mochireal-alert"
     )

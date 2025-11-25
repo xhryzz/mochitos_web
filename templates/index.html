@@ -5521,8 +5521,8 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
     .mr-photo-container {
       aspect-ratio: 3/4;
-      background: #f8f8f8;
-      /* Gris muy clarito */
+      background: #000;
+      /* CAMBIO 1: Fondo negro para que parezca cine/profesional */
       border-radius: 16px;
       position: relative;
       overflow: hidden;
@@ -5543,7 +5543,8 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
     .mr-img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
+      /* CAMBIO 2: Cambia 'cover' por 'contain' */
       border-radius: 16px;
     }
 
@@ -11980,24 +11981,25 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
       <script>
         // =====================
-        // MAPA Leaflet + DISTANCIA + AVATARES RADAR + LÍNEA ANIMADA
+        // MAPA Leaflet + DISTANCIA (CORREGIDO)
         // =====================
-        const LOGGED = {{ (username or '')| tojson }};
-        const OTHER = {{ (other_user or '')| tojson }};
+
+        // 1. CAMBIO DE NOMBRES PARA EVITAR CONFLICTO CON "OTHER"
+        const MAP_USER = {{ (username or '') | tojson}};
+        const MAP_OTHER = {{ (other_user or '') | tojson}};
 
         let map, christianMarker, claraMarker, distanceLine;
+        // Coordenadas iniciales (se actualizarán solas)
         let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" };
         let claraLocation = { lat: 37.8882, lng: -4.7794, name: "Córdoba" };
         let watchId = null;
 
-        /* Avatares desde la DB (o fallback SVG) */
-        const CHRISTIAN_AVATAR_URL = {{ (profile_pictures.get('mochito') or '')| tojson }};
-        const CLARA_AVATAR_URL = {{ (profile_pictures.get('mochita') or '')| tojson }};
+        /* Avatares */
+        const CHRISTIAN_AVATAR_URL = {{ (profile_pictures.get('mochito') or '') | tojson}};
+        const CLARA_AVATAR_URL = {{ (profile_pictures.get('mochita') or '') | tojson}};
 
         function buildAvatarHtml(url, fallbackLetter) {
-          if (url) {
-            return `<img src="${url}" alt="${fallbackLetter}">`;
-          }
+          if (url) return `<img src="${url}" alt="${fallbackLetter}">`;
           return `<span style="font-weight:700; font-size:1.1rem; color:white;">${fallbackLetter}</span>`;
         }
 
@@ -12006,24 +12008,14 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
         const christianIcon = L.divIcon({
           className: 'avatar-marker avatar-marker--christian',
-          html: `
-      <div class="avatar-pulse"></div>
-      <div class="avatar-circle">
-        ${christianAvatarHTML}
-      </div>
-    `,
+          html: `<div class="avatar-pulse"></div><div class="avatar-circle">${christianAvatarHTML}</div>`,
           iconSize: [48, 48],
           iconAnchor: [24, 24]
         });
 
         const claraIcon = L.divIcon({
           className: 'avatar-marker avatar-marker--clara',
-          html: `
-      <div class="avatar-pulse"></div>
-      <div class="avatar-circle">
-        ${claraAvatarHTML}
-      </div>
-    `,
+          html: `<div class="avatar-pulse"></div><div class="avatar-circle">${claraAvatarHTML}</div>`,
           iconSize: [48, 48],
           iconAnchor: [24, 24]
         });
@@ -12037,70 +12029,53 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           return 2 * R * Math.asin(Math.sqrt(h));
         }
 
-        /* Pinta distancia, chip y línea animada */
+        /* Pinta distancia */
         function renderDistance() {
           if (!christianLocation || !claraLocation) return;
           const km = haversine(christianLocation, claraLocation);
-
-          // Texto en la pill flotante
           const val = document.getElementById('distanceValue');
           if (val) val.textContent = `${km.toFixed(1)} km`;
 
-          // Línea entre los dos (con clase para animar)
-          if (distanceLine && map) {
-            map.removeLayer(distanceLine);
-          }
+          if (distanceLine && map) map.removeLayer(distanceLine);
 
           if (map) {
             distanceLine = L.polyline(
-              [
-                [christianLocation.lat, christianLocation.lng],
-                [claraLocation.lat, claraLocation.lng]
-              ],
+              [[christianLocation.lat, christianLocation.lng], [claraLocation.lat, claraLocation.lng]],
               { className: 'distance-flow' }
             ).addTo(map);
-
-            const bounds = L.latLngBounds(
-              [christianLocation.lat, christianLocation.lng],
-              [claraLocation.lat, claraLocation.lng]
-            );
-            map.fitBounds(bounds, { padding: [40, 50] });
+            // Ajustar zoom para ver a los dos
+            try {
+              const bounds = L.latLngBounds(
+                [christianLocation.lat, christianLocation.lng],
+                [claraLocation.lat, claraLocation.lng]
+              );
+              map.fitBounds(bounds, { padding: [80, 80] });
+            } catch (e) { }
           }
         }
 
-        /* Coloca/actualiza markers con iconos de avatar + radar */
-        /* Coloca/actualiza markers con iconos de avatar + radar */
+        /* Coloca markers */
         function upsertMarkers() {
-          // 1. Calculamos la distancia SIEMPRE, haya mapa o no
-          renderDistance();
+          renderDistance(); // Calcular texto aunque no haya mapa visual
 
-          // 2. Si el mapa no ha cargado aún, paramos aquí la parte visual
-          if (!map || typeof L === 'undefined') return;
+          if (!map) return;
 
-          // Christian / Mochito
           if (!christianMarker) {
-            christianMarker = L.marker(
-              [christianLocation.lat, christianLocation.lng],
-              { icon: christianIcon, title: 'Mochito' }
-            ).addTo(map);
+            christianMarker = L.marker([christianLocation.lat, christianLocation.lng], { icon: christianIcon }).addTo(map);
           } else {
             christianMarker.setLatLng([christianLocation.lat, christianLocation.lng]);
           }
 
-          // Clara / Mochita
           if (!claraMarker) {
-            claraMarker = L.marker(
-              [claraLocation.lat, claraLocation.lng],
-              { icon: claraIcon, title: 'Mochita' }
-            ).addTo(map);
+            claraMarker = L.marker([claraLocation.lat, claraLocation.lng], { icon: claraIcon }).addTo(map);
           } else {
             claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
           }
         }
 
-        /* Asignar MI posición en función del usuario logueado */
+        /* Asignar MI posición */
         function setMyCoords(lat, lng, acc) {
-          const who = (LOGGED || '').toLowerCase();
+          const who = (MAP_USER || '').toLowerCase(); // Usamos la nueva variable MAP_USER
           const point = { lat: Number(lat), lng: Number(lng) };
 
           if (who === 'mochito' || who === 'christian') {
@@ -12111,52 +12086,34 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           upsertMarkers();
         }
 
-        /* Traer la última posición de la otra persona desde el backend */
+        /* Traer posición del OTRO */
         async function fetchOtherCoords() {
           try {
-            const r = await fetch(`/api/other_location?user=${encodeURIComponent(OTHER || '')}`, { cache: 'no-store' });
+            // Usamos MAP_OTHER aquí
+            const r = await fetch(`/api/other_location?user=${encodeURIComponent(MAP_OTHER || '')}`, { cache: 'no-store' });
             if (!r.ok) return;
             const j = await r.json();
             if (!j || j.lat == null || j.lng == null) return;
 
             const point = { lat: Number(j.lat), lng: Number(j.lng) };
-            const otherIsChristian =
-              (OTHER || '').toLowerCase() === 'mochito' ||
-              (OTHER || '').toLowerCase() === 'christian';
+            const otherName = (MAP_OTHER || '').toLowerCase();
 
-            if (otherIsChristian) {
+            if (otherName === 'mochito' || otherName === 'christian') {
               christianLocation = { ...christianLocation, ...point };
             } else {
               claraLocation = { ...claraLocation, ...point };
             }
             upsertMarkers();
-          } catch (e) {
-            // silencioso
-          }
+          } catch (e) { }
         }
 
-        /* Geolocalización continua + envío al backend */
+        /* Geolocalización */
         function startAutoGeolocation() {
-          if (!('geolocation' in navigator)) {
-            window.showToast?.('error', 'Tu dispositivo no soporta geolocalización');
-            return;
-          }
-
-          // Avisar si está denegado
-          if (navigator.permissions && navigator.permissions.query) {
-            navigator.permissions.query({ name: 'geolocation' }).then(p => {
-              if (p.state === 'denied') {
-                window.showToast?.('error', 'Activa el permiso de ubicación para ver la distancia en tiempo real');
-              }
-            }).catch(() => { });
-          }
-
+          if (!('geolocation' in navigator)) return;
           try {
             watchId = navigator.geolocation.watchPosition(async pos => {
               const { latitude, longitude, accuracy } = pos.coords;
               setMyCoords(latitude, longitude, accuracy);
-
-              // Enviar al backend (ya lo tenías)
               try {
                 await fetch('/api/location', {
                   method: 'POST',
@@ -12164,64 +12121,54 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                   body: JSON.stringify({ lat: latitude, lng: longitude, acc: accuracy })
                 });
               } catch (_) { }
-            }, err => {
-              window.showToast?.('error',
-                'No se pudo obtener tu ubicación: ' + (err && err.message ? err.message : '')
-              );
-            }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 });
-          } catch (e) {
-            window.showToast?.('error', 'Error iniciando geolocalización');
-          }
-
-          // Refrescar cada 15s la ubicación de la otra persona
+            }, err => { console.log("Geo error", err); },
+              { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 });
+          } catch (e) { }
           setInterval(fetchOtherCoords, 15000);
         }
 
-        /* Inicializa el mapa con tiles pastel tipo Voyager/Positron */
-        /* Inicializa el mapa con tiles pastel tipo Voyager/Positron */
-        function initMap() {
-          // Si Leaflet no ha cargado aún, reintentar en 500ms
+        /* INICIALIZAR MAPA (A prueba de fallos) */
+        window.initMap = function () {
           if (typeof L === 'undefined') {
-            console.log('Esperando a Leaflet...');
+            console.log('Leaflet no cargado, reintentando...');
             setTimeout(initMap, 500);
             return;
           }
-
           const mapEl = document.getElementById('distanceMap');
           if (!mapEl) return;
 
-          // Si ya existe el mapa, no lo recreamos
           if (window.map) {
             window.map.invalidateSize();
             return;
           }
 
-          window.map = L.map('distanceMap', {
-            zoomControl: true,
-            attributionControl: false
-          }).setView([39.5, -3], 6);
+          try {
+            window.map = L.map('distanceMap', {
+              zoomControl: false, // Ocultar controles para móvil
+              attributionControl: false
+            }).setView([39.5, -3], 6);
 
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            subdomains: 'abcd',
-          }).addTo(window.map);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+              maxZoom: 19, subdomains: 'abcd'
+            }).addTo(window.map);
 
-          upsertMarkers();
+            upsertMarkers();
 
-          // Truco final: forzar un redibujado tras 1 segundo por si estaba oculto
-          setTimeout(() => {
-            window.map.invalidateSize();
-            upsertMarkers(); // Asegura que la línea se dibuje
-          }, 1000);
+            // Forzar repintado agresivo
+            setTimeout(() => { window.map.invalidateSize(); }, 500);
+            setTimeout(() => { window.map.invalidateSize(); renderDistance(); }, 2000);
+          } catch (e) {
+            console.error("Error fatal mapa:", e);
+          }
         }
 
-        /* Arranque */
         document.addEventListener('DOMContentLoaded', () => {
           initMap();
           startAutoGeolocation();
-          fetchOtherCoords(); // primer pull del otro
+          fetchOtherCoords();
         });
       </script>
+
 
 
 </body>

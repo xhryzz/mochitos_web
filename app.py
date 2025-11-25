@@ -8182,12 +8182,15 @@ def api_daily_question_status():
     now = europe_madrid_now()
     tomorrow = (now + timedelta(days=1)).date()
     next_reset = datetime.combine(tomorrow, datetime.min.time())
+    
+    # AÑADIDO: Calcular segundos exactos hasta medianoche
+    seconds_left = seconds_until_next_midnight_madrid()
+    
     return jsonify({
         "ok": True,
-        "next_reset_iso": next_reset.isoformat()
-    })
-
-
+        "next_reset_iso": next_reset.isoformat(),
+        "seconds_left": seconds_left  # <--- Nuevo campo
+    })   
 
 _old_init_db = init_db
 def init_db():

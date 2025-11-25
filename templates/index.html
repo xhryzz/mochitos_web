@@ -9131,51 +9131,53 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         };
 
         (function () {
-          const TZ = 'Europe/Madrid';
+          // Ya no necesitamos las funciones de zona horaria aquí
+          // porque el servidor hace el cálculo difícil por nosotros.
 
-          // Hora "ahora" en la zona horaria dada (mantiene coherencia incluso con cambios DST)
-          function nowInTz(tz) {
-            // Truco: convertimos a string en esa TZ y lo volvemos a Date;
-            // así los componentes reflejan el reloj de la TZ.
-            return new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
-          }
-
-          // Milisegundos hasta la próxima medianoche en esa TZ
-          function msUntilNextMidnightTz(tz) {
-            const now = nowInTz(tz);
-            const next = new Date(now);
-            // 24:00 del "hoy" de la TZ => próxima medianoche de esa TZ
-            next.setHours(24, 0, 0, 0);
-            return next - now;
-          }
-
-          function formatHMS(ms) {
-            if (ms < 0) ms = 0;
-            const totalSec = Math.floor(ms / 1000);
-            const h = String(Math.floor(totalSec / 3600)).padStart(2, '0');
-            const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
-            const s = String(totalSec % 60).padStart(2, '0');
-            return `${h}:${m}:${s}`;
-          }
-
-          window.startDailyQuestionCountdown = function () {
+          window.startDailyQuestionCountdown = async function () {
             const el = document.getElementById('dqTimer');
             if (!el) return;
 
-            function tick() {
-              const ms = msUntilNextMidnightTz(TZ);
-              // Si llegó la medianoche en España, refresca para cargar la nueva pregunta
-              if (ms <= 0) {
-                el.textContent = '00:00:00';
-                // Pequeño delay para evitar bucles
-                setTimeout(() => location.reload(), 800);
+            try {
+              // 1. Pedimos al servidor el tiempo exacto que falta
+              const resp = await fetch('/api/daily-question-status');
+              const data = await resp.json();
+
+              if (!data.ok || typeof data.seconds_left !== 'number') {
+                console.warn('Datos de tiempo inválidos');
                 return;
               }
-              el.textContent = formatHMS(ms);
-            }
 
-            tick(); // primer pintado inmediato
-            setInterval(tick, 1000);
+              // Calculamos el momento final en el tiempo local del navegador
+              const now = Date.now();
+              const endTime = now + (data.seconds_left * 1000);
+
+              function tick() {
+                const current = Date.now();
+                const diff = Math.floor((endTime - current) / 1000);
+
+                // Si llegamos a 0, recargamos para ver la nueva pregunta
+                if (diff <= 0) {
+                  el.textContent = '00:00:00';
+                  setTimeout(() => location.reload(), 1000);
+                  return;
+                }
+
+                // Formato HH:MM:SS
+                const h = String(Math.floor(diff / 3600)).padStart(2, '0');
+                const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+                const s = String(diff % 60).padStart(2, '0');
+                el.textContent = `${h}:${m}:${s}`;
+              }
+
+              tick(); // Ejecutar inmediatamente
+              setInterval(tick, 1000); // Actualizar cada segundo
+
+            } catch (e) {
+              console.error("Error iniciando contador:", e);
+              // Fallback visual por si falla la conexión
+              el.textContent = "--:--:--";
+            }
           };
         })();
 
@@ -11051,11 +11053,232 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           // Primera pasada
           applyFilter();
         });
+        /* ========= Distancia sencilla (juntos / separados) ========= */
+
+        /*
+          Modos:
+            - separated    -> Mochito en Algemesí, Mochita en Córdoba
+            - together_alg -> Juntos en Algemesí
+            - together_cor -> Juntos en Córdoba
+          Se guarda en /api/couple_mode para que valga para los dos.
+        */
+
+        const COUPLE_MODES = {
+          separated: {
+            chip: 'Separados',
+            badge: 'Mochito en Algemesí · Mochita en Córdoba',
+            icon: 'fa-route',
+            bar: 22
+          },
+          together_alg: {
+            chip: 'Juntos en Algemesí',
+            badge: 'Ambos en Algemesí',
+            icon: 'fa-house-chimney-heart',
+            bar: 100
+          },
+          together_cor: {
+            chip: 'Juntos en Córdoba',
+            badge: 'Ambos en Córdoba',
+            icon: 'fa-city',
+            bar: 100
+          }
+        };
+
+        function applyCoupleMode(mode) {
+          const cfg = COUPLE_MODES[mode] || COUPLE_MODES.separated;
+
+          // Chip del banner (id="chipDistance")
+          const chip = document.getElementById('chipDistance');
+          if (chip) {
+            chip.innerHTML = `<i class="fa-solid ${cfg.icon}"></i> ${cfg.chip}`;
+          }
+
+          // Tarjeta de la sección Distancia
+          const cardLabel = document.getElementById('distanceStatusLabel');
+          const cardSub = document.getElementById('distanceStatusSub');
+          if (cardLabel) cardLabel.textContent = cfg.chip;
+          if (cardSub) cardSub.textContent = cfg.badge;
+
+          // Barra de "cercanía"
+          const bar = document.getElementById('distanceFill');
+          if (bar) {
+            bar.style.width = (cfg.bar || 0) + '%';
+          }
+
+          // Resaltar botón activo
+          document.querySelectorAll('.ds-mode-btn').forEach(btn => {
+            const m = btn.dataset.mode;
+            if (m === mode) btn.classList.add('active');
+            else btn.classList.remove('active');
+          });
+        }
+
+        async function fetchCoupleMode() {
+          try {
+            const r = await fetch('/api/couple_mode');
+            if (!r.ok) throw new Error('resp');
+            const j = await r.json();
+            applyCoupleMode(j.mode || 'separated');
+          } catch (e) {
+            console.warn('No pude cargar couple_mode', e);
+            applyCoupleMode('separated');
+          }
+        }
+
+        async function setCoupleMode(mode) {
+          // feedback instantáneo en la UI
+          applyCoupleMode(mode);
+          try {
+            const r = await fetch('/api/couple_mode', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ mode })
+            });
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok || j.ok === false) {
+              throw new Error(j.error || 'error');
+            }
+            window.showToast?.('success', 'Estado de distancia actualizado 💌');
+          } catch (e) {
+            window.showToast?.('error', 'No se pudo guardar el estado');
+            console.error('setCoupleMode', e);
+          }
+        }
+
+        (function initCoupleModeUI() {
+          // listeners en los botones
+          document.querySelectorAll('.ds-mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const mode = btn.dataset.mode;
+              if (mode) setCoupleMode(mode);
+            });
+          });
+
+          // Cargar estado al iniciar
+          fetchCoupleMode();
+        })();
 
 
 
       </script>
 
+      <script>
+
+        // === Geolocalización controlada por clic ===
+        async function requestGeolocationOnce() {
+          if (!('geolocation' in navigator)) {
+            showToast?.('error', 'Tu navegador no soporta geolocalización');
+            return null;
+          }
+          // HTTPS o localhost es obligatorio
+          if (!window.isSecureContext && location.hostname !== 'localhost') {
+            showToast?.('error', 'Activa HTTPS para usar geolocalización');
+            return null;
+          }
+          return new Promise((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => resolve(pos),
+              (err) => {
+                let msg = 'No se pudo obtener tu ubicación';
+                if (err && err.code === err.PERMISSION_DENIED) msg = 'Permiso de ubicación denegado';
+                showToast?.('error', msg);
+                resolve(null);
+              },
+              { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+          });
+        }
+
+        // Actualiza tu marcador de "mi usuario" y el chip de distancia si procede
+        function applyMyLocationToMap(lat, lng, label = 'Mi ubicación') {
+          try {
+            // Si usas Christian como “yo”, actualizamos ese marcador:
+            if (typeof christianMarker !== 'undefined' && christianMarker) {
+              christianMarker.setLatLng([lat, lng]).bindPopup(label);
+              // Si tienes esa variable, actualízala también:
+              if (typeof christianLocation !== 'undefined') {
+                christianLocation.lat = lat;
+                christianLocation.lng = lng;
+                christianLocation.name = label;
+              }
+              map?.panTo([lat, lng]);
+            }
+            // Recalcula línea/distancia si tu lógica lo hace en otra función:
+            if (typeof updateDistanceUI === 'function') updateDistanceUI();
+          } catch (e) {
+            // Silencioso, por si aún no existe el mapa al cargar
+          }
+        }
+
+        // Evento del botón
+        document.addEventListener('DOMContentLoaded', () => {
+          const btn = document.getElementById('useMyLocationBtn');
+          btn?.addEventListener('click', async () => {
+            showToast?.('info', 'Solicitando tu ubicación…');
+            const pos = await requestGeolocationOnce();
+            if (!pos) return;
+            const { latitude, longitude } = pos.coords;
+            applyMyLocationToMap(latitude, longitude, 'Aquí estoy');
+
+            // (Opcional) Enviar al backend si tienes endpoint
+            // try {
+            //   await fetch('/update_my_location', {
+            //     method: 'POST',
+            //     headers: {'Content-Type':'application/json'},
+            //     body: JSON.stringify({ lat: latitude, lng: longitude })
+            //   });
+            // } catch {}
+            showToast?.('success', 'Ubicación actualizada');
+          });
+
+          // Estado del permiso (informativo)
+          if (navigator.permissions?.query) {
+            navigator.permissions.query({ name: 'geolocation' }).then((st) => {
+              if (st.state === 'denied') {
+                showToast?.('error', 'Tienes bloqueada la ubicación en el navegador');
+              }
+            }).catch(() => { });
+          }
+        });
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', async () => {
+            try {
+              // Registra tu SW (ya lo tienes en /sw.js)
+              const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+
+              // 1) Busca actualización siempre que abres la app/página
+              reg.update();
+
+              // 2) Y también al volver a primer plano (PWA instalada o pestaña)
+              document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') reg.update();
+              });
+
+              // 3) Cuando el nuevo SW tome el control, recargamos para aplicar la nueva versión
+              let refreshing = false;
+              navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (refreshing) return;
+                refreshing = true;
+                window.location.reload();
+              });
+
+              // (Opcional) Si quieres ver que detectó una actualización:
+              reg.addEventListener('updatefound', () => {
+                const nw = reg.installing;
+                nw?.addEventListener('statechange', () => {
+                  if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                    // Si usas toasts:
+                    window.showToast?.('info', 'Actualizando a la última versión…');
+                  }
+                });
+              });
+            } catch (e) {
+              console.warn('SW register error', e);
+            }
+          });
+        }
+
+      </script>
 
 
       <!-- NAVIDAD (tema) se puede borrar-->
@@ -11992,7 +12215,195 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         })();
       </script>
 
+      <script>
+        // =====================
+        // MAPA Leaflet + DISTANCIA (CORREGIDO)
+        // =====================
 
+        // 1. CAMBIO DE NOMBRES PARA EVITAR CONFLICTO CON "OTHER"
+        const MAP_USER = {{ (username or '') | tojson}};
+        const MAP_OTHER = {{ (other_user or '') | tojson}};
+
+        let map, christianMarker, claraMarker, distanceLine;
+        // Coordenadas iniciales (se actualizarán solas)
+        let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" };
+        let claraLocation = { lat: 37.8882, lng: -4.7794, name: "Córdoba" };
+        let watchId = null;
+
+        /* Avatares */
+        const CHRISTIAN_AVATAR_URL = {{ (profile_pictures.get('mochito') or '') | tojson}};
+        const CLARA_AVATAR_URL = {{ (profile_pictures.get('mochita') or '') | tojson}};
+
+        function buildAvatarHtml(url, fallbackLetter) {
+          if (url) return `<img src="${url}" alt="${fallbackLetter}">`;
+          return `<span style="font-weight:700; font-size:1.1rem; color:white;">${fallbackLetter}</span>`;
+        }
+
+        const christianAvatarHTML = buildAvatarHtml(CHRISTIAN_AVATAR_URL, 'M');
+        const claraAvatarHTML = buildAvatarHtml(CLARA_AVATAR_URL, 'C');
+
+        const christianIcon = L.divIcon({
+          className: 'avatar-marker avatar-marker--christian',
+          html: `<div class="avatar-pulse"></div><div class="avatar-circle">${christianAvatarHTML}</div>`,
+          iconSize: [48, 48],
+          iconAnchor: [24, 24]
+        });
+
+        const claraIcon = L.divIcon({
+          className: 'avatar-marker avatar-marker--clara',
+          html: `<div class="avatar-pulse"></div><div class="avatar-circle">${claraAvatarHTML}</div>`,
+          iconSize: [48, 48],
+          iconAnchor: [24, 24]
+        });
+
+        /* Haversine en km */
+        function haversine(a, b) {
+          const R = 6371, toRad = d => d * Math.PI / 180;
+          const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
+          const sLat1 = toRad(a.lat), sLat2 = toRad(b.lat);
+          const h = Math.sin(dLat / 2) ** 2 + Math.cos(sLat1) * Math.cos(sLat2) * Math.sin(dLng / 2) ** 2;
+          return 2 * R * Math.asin(Math.sqrt(h));
+        }
+
+        /* Pinta distancia */
+        function renderDistance() {
+          if (!christianLocation || !claraLocation) return;
+          const km = haversine(christianLocation, claraLocation);
+          const val = document.getElementById('distanceValue');
+          if (val) val.textContent = `${km.toFixed(1)} km`;
+
+          if (distanceLine && map) map.removeLayer(distanceLine);
+
+          if (map) {
+            distanceLine = L.polyline(
+              [[christianLocation.lat, christianLocation.lng], [claraLocation.lat, claraLocation.lng]],
+              { className: 'distance-flow' }
+            ).addTo(map);
+            // Ajustar zoom para ver a los dos
+            try {
+              const bounds = L.latLngBounds(
+                [christianLocation.lat, christianLocation.lng],
+                [claraLocation.lat, claraLocation.lng]
+              );
+              map.fitBounds(bounds, { padding: [80, 80] });
+            } catch (e) { }
+          }
+        }
+
+        /* Coloca markers */
+        function upsertMarkers() {
+          renderDistance(); // Calcular texto aunque no haya mapa visual
+
+          if (!map) return;
+
+          if (!christianMarker) {
+            christianMarker = L.marker([christianLocation.lat, christianLocation.lng], { icon: christianIcon }).addTo(map);
+          } else {
+            christianMarker.setLatLng([christianLocation.lat, christianLocation.lng]);
+          }
+
+          if (!claraMarker) {
+            claraMarker = L.marker([claraLocation.lat, claraLocation.lng], { icon: claraIcon }).addTo(map);
+          } else {
+            claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
+          }
+        }
+
+        /* Asignar MI posición */
+        function setMyCoords(lat, lng, acc) {
+          const who = (MAP_USER || '').toLowerCase(); // Usamos la nueva variable MAP_USER
+          const point = { lat: Number(lat), lng: Number(lng) };
+
+          if (who === 'mochito' || who === 'christian') {
+            christianLocation = { ...christianLocation, ...point, acc };
+          } else {
+            claraLocation = { ...claraLocation, ...point, acc };
+          }
+          upsertMarkers();
+        }
+
+        /* Traer posición del OTRO */
+        async function fetchOtherCoords() {
+          try {
+            // Usamos MAP_OTHER aquí
+            const r = await fetch(`/api/other_location?user=${encodeURIComponent(MAP_OTHER || '')}`, { cache: 'no-store' });
+            if (!r.ok) return;
+            const j = await r.json();
+            if (!j || j.lat == null || j.lng == null) return;
+
+            const point = { lat: Number(j.lat), lng: Number(j.lng) };
+            const otherName = (MAP_OTHER || '').toLowerCase();
+
+            if (otherName === 'mochito' || otherName === 'christian') {
+              christianLocation = { ...christianLocation, ...point };
+            } else {
+              claraLocation = { ...claraLocation, ...point };
+            }
+            upsertMarkers();
+          } catch (e) { }
+        }
+
+        /* Geolocalización */
+        function startAutoGeolocation() {
+          if (!('geolocation' in navigator)) return;
+          try {
+            watchId = navigator.geolocation.watchPosition(async pos => {
+              const { latitude, longitude, accuracy } = pos.coords;
+              setMyCoords(latitude, longitude, accuracy);
+              try {
+                await fetch('/api/location', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ lat: latitude, lng: longitude, acc: accuracy })
+                });
+              } catch (_) { }
+            }, err => { console.log("Geo error", err); },
+              { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 });
+          } catch (e) { }
+          setInterval(fetchOtherCoords, 15000);
+        }
+
+        /* INICIALIZAR MAPA (A prueba de fallos) */
+        window.initMap = function () {
+          if (typeof L === 'undefined') {
+            console.log('Leaflet no cargado, reintentando...');
+            setTimeout(initMap, 500);
+            return;
+          }
+          const mapEl = document.getElementById('distanceMap');
+          if (!mapEl) return;
+
+          if (window.map) {
+            window.map.invalidateSize();
+            return;
+          }
+
+          try {
+            window.map = L.map('distanceMap', {
+              zoomControl: false, // Ocultar controles para móvil
+              attributionControl: false
+            }).setView([39.5, -3], 6);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+              maxZoom: 19, subdomains: 'abcd'
+            }).addTo(window.map);
+
+            upsertMarkers();
+
+            // Forzar repintado agresivo
+            setTimeout(() => { window.map.invalidateSize(); }, 500);
+            setTimeout(() => { window.map.invalidateSize(); renderDistance(); }, 2000);
+          } catch (e) {
+            console.error("Error fatal mapa:", e);
+          }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+          initMap();
+          startAutoGeolocation();
+          fetchOtherCoords();
+        });
+      </script>
 
 
 

@@ -11117,13 +11117,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         });
         /* ========= Distancia sencilla (juntos / separados) ========= */
 
-        /*
-          Modos:
-            - separated    -> Mochito en Algemesí, Mochita en Córdoba
-            - together_alg -> Juntos en Algemesí
-            - together_cor -> Juntos en Córdoba
-          Se guarda en /api/couple_mode para que valga para los dos.
-        */
+        /* ========= Distancia: Lógica de Estados (ACTUALIZADA) ========= */
 
         const COUPLE_MODES = {
           separated: {
@@ -11149,42 +11143,38 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         function applyCoupleMode(mode) {
           const cfg = COUPLE_MODES[mode] || COUPLE_MODES.separated;
 
-          // Actualizar textos y chips
+          // 1. Actualizar Chip del Banner superior
           const chip = document.getElementById('chipDistance');
-          if (chip) chip.innerHTML = `<i class="fa-solid ${cfg.icon}"></i> ${cfg.chip}`;
+          if (chip) {
+            chip.innerHTML = `<i class="fa-solid ${cfg.icon}"></i> ${cfg.chip}`;
+          }
 
+          // 2. Actualizar Textos del Panel Flotante
           const cardLabel = document.getElementById('distanceStatusLabel');
-          if (cardLabel) cardLabel.textContent = cfg.chip;
-
           const cardSub = document.getElementById('distanceStatusSub');
+
+          if (cardLabel) cardLabel.textContent = cfg.chip;
           if (cardSub) cardSub.textContent = cfg.badge;
 
-          // Iluminar el botón correcto (clase .status-btn)
+          // 3. Resaltar el botón activo (CORREGIDO: usa .status-btn)
           document.querySelectorAll('.status-btn').forEach(btn => {
             const m = btn.dataset.mode;
-            if (m === mode) btn.classList.add('active');
-            else btn.classList.remove('active');
+            if (m === mode) {
+              btn.classList.add('active');
+            } else {
+              btn.classList.remove('active');
+            }
           });
 
-          // Si están juntos, quitamos la línea del mapa para que quede más limpio
-          if (map && distanceLine) {
-            if (mode !== 'separated') map.removeLayer(distanceLine);
-            else if (!map.hasLayer(distanceLine)) distanceLine.addTo(map);
+          // 4. Ajustes visuales en el mapa
+          // Si estáis juntos, quitamos la línea rosa para que quede más limpio
+          if (typeof map !== 'undefined' && map && typeof distanceLine !== 'undefined') {
+            if (mode !== 'separated') {
+              if (map.hasLayer(distanceLine)) map.removeLayer(distanceLine);
+            } else {
+              if (!map.hasLayer(distanceLine) && distanceLine) distanceLine.addTo(map);
+            }
           }
-        }
-
-        // Barra de "cercanía"
-        const bar = document.getElementById('distanceFill');
-        if (bar) {
-          bar.style.width = (cfg.bar || 0) + '%';
-        }
-
-        // Resaltar botón activo
-        document.querySelectorAll('.ds-mode-btn').forEach(btn => {
-          const m = btn.dataset.mode;
-          if (m === mode) btn.classList.add('active');
-          else btn.classList.remove('active');
-        });
         }
 
         async function fetchCoupleMode() {
@@ -11200,7 +11190,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         }
 
         async function setCoupleMode(mode) {
-          // feedback instantáneo en la UI
+          // Feedback instantáneo
           applyCoupleMode(mode);
           try {
             const r = await fetch('/api/couple_mode', {
@@ -11219,9 +11209,10 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           }
         }
 
+        // Inicialización de listeners (CORREGIDO)
         (function initCoupleModeUI() {
-          // listeners en los botones
-          document.querySelectorAll('.ds-mode-btn').forEach(btn => {
+          // Buscamos los botones nuevos (.status-btn) en lugar de los viejos
+          document.querySelectorAll('.status-btn').forEach(btn => {
             btn.addEventListener('click', () => {
               const mode = btn.dataset.mode;
               if (mode) setCoupleMode(mode);
@@ -11231,8 +11222,6 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           // Cargar estado al iniciar
           fetchCoupleMode();
         })();
-
-
 
       </script>
 

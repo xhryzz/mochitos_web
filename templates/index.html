@@ -9075,21 +9075,36 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         // DOMContentLoaded
         // =====================
         document.addEventListener('DOMContentLoaded', function () {
-          createHearts();
-          setupTabs();
-          initMap();
-          setupLocationForm();
-          setupUseMyLocation(); // <-- activa el botón de ubicación real
-          setupTravelPagination();
-          startDailyQuestionCountdown();
-          setupTravelSearch('visited-tab', 'visited-search', visitedPagerAPI);
-          setupTravelSearch('wishlist-travel-tab', 'wishlist-search', wishlistPagerAPI);
+          // Helper: que un fallo en algo no rompa lo demás
+          function safe(label, fn) {
+            try {
+              if (typeof fn === 'function') fn();
+            } catch (e) {
+              console.error('[init ' + label + ']', e);
+            }
+          }
 
+          safe('hearts', createHearts);
+          safe('tabs', setupTabs);
+          safe('map', initMap);
+          safe('locForm', setupLocationForm);
+          safe('useMyLocation', setupUseMyLocation);
+          safe('travelPagination', setupTravelPagination);
+          safe('dqCountdown', startDailyQuestionCountdown);
+          safe('travelSearchVisited', function () {
+            setupTravelSearch('visited-tab', 'visited-search', visitedPagerAPI);
+          });
+          safe('travelSearchWishlist', function () {
+            setupTravelSearch('wishlist-travel-tab', 'wishlist-search', wishlistPagerAPI);
+          });
+
+          // Animaciones de entrada
           document.querySelectorAll('.section, .banner').forEach((el, index) => {
             el.classList.add('animate-in');
             el.classList.add(`delay-${index % 5}`);
           });
 
+          // Icono ✅ en inputs de archivo
           document.querySelectorAll('input[type="file"]').forEach(input => {
             input.addEventListener('change', function () {
               const label = this.previousElementSibling;

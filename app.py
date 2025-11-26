@@ -8192,45 +8192,6 @@ def api_set_couple_mode():
     return jsonify(ok=True, mode=mode)
 
 
-
-
-# ==========================================
-# API: Fin de la Distancia (Cuenta Atrás)
-# ==========================================
-@app.get("/api/distance_end")
-def api_get_distance_end():
-    if "username" not in session:
-        return jsonify(ok=False, error="unauthorized"), 401
-    
-    # Recuperamos la fecha guardada
-    target_date = state_get("distance_end_date") # Formato YYYY-MM-DD
-    
-    return jsonify(ok=True, date=target_date)
-
-@app.post("/api/distance_end")
-def api_set_distance_end():
-    if "username" not in session:
-        return jsonify(ok=False, error="unauthorized"), 401
-    
-    data = request.get_json(silent=True) or {}
-    date_str = (data.get("date") or "").strip()
-    
-    # Guardamos en la base de datos
-    state_set("distance_end_date", date_str)
-    
-    # Notificar a la otra persona (opcional, recarga la página)
-    try:
-        broadcast("update", {
-            "kind": "distance_end", 
-            "date": date_str,
-            "by": session.get("username")
-        })
-    except Exception:
-        pass
-
-    return jsonify(ok=True)
-
-
 _old_init_db = init_db
 def init_db():
     _old_init_db()

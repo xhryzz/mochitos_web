@@ -8192,6 +8192,46 @@ def api_daily_question_status():
         "seconds_left": seconds_left  # <--- Nuevo campo
     })   
 
+
+# --- AÑADIR AL FINAL DE app.py ---
+
+@app.get("/api/couple_mode")
+def api_get_couple_mode():
+    if "username" not in session:
+        return jsonify(ok=False, error="unauthorized"), 401
+    
+    # Leemos de la tabla app_state (clave-valor)
+    mode = state_get("couple_mode", "") or "separated"
+    return jsonify(ok=True, mode=mode)
+
+@app.post("/api/couple_mode")
+def api_set_couple_mode():
+    if "username" not in session:
+        return jsonify(ok=False, error="unauthorized"), 401
+    
+    data = request.get_json(silent=True) or {}
+    mode = (data.get("mode") or "").strip()
+    
+    # Validamos modos permitidos
+    allowed = {"separated", "together_alg", "together_cor"}
+    if mode not in allowed:
+        return jsonify(ok=False, error="bad_mode"), 400
+
+    # Guardamos en app_state
+    state_set("couple_mode", mode)
+    
+    # Notificamos a ambos navegadores para que se actualice solo
+    try:
+        broadcast("update", {
+            "kind": "couple_mode",
+            "mode": mode, 
+            "by": session.get("username")
+        })
+    except Exception:
+        pass
+
+    return jsonify(ok=True, mode=mode)
+
 _old_init_db = init_db
 def init_db():
     _old_init_db()

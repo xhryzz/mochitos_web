@@ -8192,15 +8192,19 @@ def api_daily_question_status():
         "seconds_left": seconds_left  # <--- Nuevo campo
     })   
 
-# === API: Fin de la Distancia ===
+# === API: Fin de la Distancia (end + start) ===
 @app.get("/api/distance_end")
 def api_get_distance_end():
     if "username" not in session:
         return jsonify(ok=False, error="unauthorized"), 401
 
-    raw = state_get("distance_end_date", "")
-    date_str = (raw or "").strip() or None
-    return jsonify(ok=True, date=date_str)
+    raw_end = state_get("distance_end_date", "")
+    raw_start = state_get("distance_start_date", "")
+    return jsonify(
+        ok=True,
+        date=(raw_end or "").strip() or None,
+        start=(raw_start or "").strip() or None
+    )
 
 
 @app.post("/api/distance_end")
@@ -8218,10 +8222,10 @@ def api_set_distance_end():
     except ValueError:
         return jsonify(ok=False, error="bad_date"), 400
 
-    # Guardamos la fecha final en app_state
+    # Fin de la distancia
     state_set("distance_end_date", dt.isoformat())
 
-    # Opcional: guardamos también el día en que se configuró por primera vez
+    # Día en que se empezó a contar (solo se fija la primera vez)
     if not (state_get("distance_start_date", "") or "").strip():
         state_set("distance_start_date", europe_madrid_now().date().isoformat())
 

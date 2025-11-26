@@ -6483,6 +6483,219 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
       height: 1px;
       /* tachado más fino */
     }
+
+
+
+
+
+    /* === Mini Fin de la Distancia: strip pequeñito === */
+    .distance-mini-countdown {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.03);
+      border: 1px dashed rgba(148, 163, 184, 0.7);
+      font-size: 0.8rem;
+    }
+
+    .fd-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .fd-pill-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #f9fafb;
+      color: #6b7280;
+      font-weight: 600;
+      font-size: 0.75rem;
+    }
+
+    .fd-pill-label i {
+      color: var(--primary-color);
+      font-size: 0.85rem;
+    }
+
+    .fd-today {
+      margin-top: 4px;
+      color: #9ca3af;
+      font-size: 0.75rem;
+      font-style: italic;
+    }
+
+    .fd-target {
+      margin-top: 2px;
+      color: #6b7280;
+      font-size: 0.78rem;
+    }
+
+    .fd-target strong {
+      color: var(--primary-color);
+      font-weight: 700;
+    }
+
+    .fd-right {
+      text-align: right;
+    }
+
+    .fd-days-left {
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-size: 1.6rem;
+      font-weight: 800;
+      line-height: 1;
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .fd-days-caption {
+      font-size: 0.7rem;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: 2px;
+    }
+
+    .fd-strip-wrapper {
+      margin-top: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .fd-strip {
+      display: flex;
+      gap: 3px;
+      align-items: center;
+    }
+
+    .fd-strip-loading {
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+
+    .fd-day-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      background: #f9fafb;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .fd-day-dot span {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+
+    .fd-day-dot.past {
+      background: #f9fafb;
+      border-color: #e5e7eb;
+    }
+
+    .fd-day-dot.past::after {
+      content: "";
+      position: absolute;
+      width: 110%;
+      height: 1.2px;
+      background: #fb7185;
+      transform: rotate(-30deg);
+      top: 50%;
+      left: -5%;
+      opacity: 0.7;
+    }
+
+    .fd-day-dot.today {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 1px rgba(236, 72, 153, 0.6);
+    }
+
+    .fd-day-dot.target {
+      background: var(--gradient);
+      border-color: transparent;
+    }
+
+    .fd-day-dot.target span {
+      color: white;
+      font-weight: 700;
+    }
+
+    .fd-edit-btn {
+      margin-top: 6px;
+      border: none;
+      background: transparent;
+      color: #9ca3af;
+      font-size: 0.75rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+    }
+
+    .fd-edit-btn span {
+      font-size: 0.75rem;
+    }
+
+    .fd-edit-btn i {
+      font-size: 0.9rem;
+    }
+
+    .fd-edit-btn:hover {
+      color: var(--primary-color);
+    }
+
+    .fd-edit-form {
+      margin-top: 6px;
+      border-top: 1px dashed rgba(148, 163, 184, 0.4);
+      padding-top: 6px;
+    }
+
+    .fd-edit-form label {
+      display: block;
+      font-size: 0.75rem;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+
+    .fd-edit-row {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .fd-edit-row input[type="date"] {
+      font-size: 0.8rem;
+      padding: 4px 6px;
+    }
+
+    .fd-edit-row button {
+      font-size: 0.75rem;
+      padding: 5px 10px;
+    }
+
+    @media (max-width: 768px) {
+      .fd-top {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .fd-right {
+        text-align: left;
+      }
+    }
   </style>
 </head>
 
@@ -7056,83 +7269,48 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               </div>
             </div>
 
-            <p class="ds-footnote">
-              Cualquiera de los dos puede cambiar el estado. Se actualizará en el banner y el mapa para ambos. ✨
-            </p>
 
-            <!-- Mini Fin de la Distancia (integrado en Distancia) -->
-            <div class="countdown-card" id="countdownSection">
-              <div id="cd-loading" class="cd-loading">Cargando fecha...</div>
-
-              <div id="cd-content" style="display:none;">
-                <div class="cd-top-row">
-                  <div class="cd-main-label">
-                    <div class="cd-flag">
-                      <i class="fas fa-flag-checkered"></i>
-                    </div>
-                    <div>
-                      <div class="cd-title">Fin de la distancia</div>
-                      <div class="cd-sub">Mini cuenta atrás dentro del mapa 🩷</div>
-                    </div>
+            <!-- Mini Fin de la Distancia (integrado en Distancia, versión strip) -->
+            <div id="countdownSection" class="distance-mini-countdown">
+              <div class="fd-top">
+                <div class="fd-left">
+                  <div class="fd-pill-label">
+                    <i class="fas fa-flag-checkered"></i>
+                    Fin de la distancia
                   </div>
-
-                  <div class="cd-big-number">
-                    <span id="cd-days">—</span>
-                    <small id="cd-label">Días restantes</small>
+                  <div class="fd-today" id="fd-today-text">Hoy: —</div>
+                  <div class="fd-target">
+                    Meta: <strong id="fd-target-text">Sin fecha</strong>
                   </div>
                 </div>
 
-                <div class="cd-target-info">
-                  Meta: <strong id="cd-target-display">Sin fecha</strong>
-                </div>
-
-                <div class="calendar-controls">
-                  <button class="cal-btn" type="button" onclick="changeMonth(-1)">
-                    <i class="fas fa-chevron-left"></i>
-                  </button>
-
-                  <span class="cal-month-name" id="cal-month-name">...</span>
-
-                  <button class="cal-btn" type="button" onclick="changeMonth(1)">
-                    <i class="fas fa-chevron-right"></i>
-                  </button>
-                </div>
-
-
-                <div class="calendar-grid">
-                  <div class="cal-day-head">L</div>
-                  <div class="cal-day-head">M</div>
-                  <div class="cal-day-head">X</div>
-                  <div class="cal-day-head">J</div>
-                  <div class="cal-day-head">V</div>
-                  <div class="cal-day-head">S</div>
-                  <div class="cal-day-head">D</div>
-
-                  <div id="calendar-days" class="calendar-body"></div>
+                <div class="fd-right">
+                  <div class="fd-days-left" id="fd-days-left">—</div>
+                  <div class="fd-days-caption" id="fd-days-caption">Días restantes</div>
                 </div>
               </div>
 
-              <div class="cd-bottom-row">
-                <button class="icon-btn cd-edit-btn" type="button" onclick="toggleCountdownEdit()">
-                  <i class="fas fa-calendar-alt"></i>
-                </button>
+              <div class="fd-strip-wrapper">
+                <div id="fd-strip-loading" class="fd-strip-loading">Cargando calendario...</div>
+                <div id="fd-strip" class="fd-strip" style="display:none;"></div>
               </div>
 
-              <div id="cd-edit-form"
-                style="display:none; margin-top:10px; background:#f9faf9; padding:10px 12px; border-radius:10px;">
-                <label style="display:block; margin-bottom:4px; font-weight:600; font-size:0.8rem;">
-                  Fecha del fin de la distancia:
-                </label>
-                <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
-                  <input type="date" id="cd-date-input" style="max-width:150px; font-size:0.8rem; padding:4px 8px;">
-                  <button type="button" onclick="saveCountdownDate()" style="padding:6px 14px; font-size:0.8rem;">
-                    Guardar
-                  </button>
+              <button type="button" class="fd-edit-btn" onclick="toggleCountdownEdit()">
+                <i class="fas fa-calendar-alt"></i>
+                <span>Cambiar fecha</span>
+              </button>
+
+              <div id="cd-edit-form" class="fd-edit-form" style="display:none;">
+                <label>Fecha del fin de la distancia</label>
+                <div class="fd-edit-row">
+                  <input type="date" id="cd-date-input">
+                  <button type="button" onclick="saveCountdownDate()">Guardar</button>
                 </div>
               </div>
             </div>
           </div>
         </div>
+
 
 
 
@@ -12912,26 +13090,26 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
       </script>
 
 
+
+
       <script>
         (function () {
           const root = document.getElementById('countdownSection');
           if (!root) return;
 
-          let targetDate = null;
-          let viewDate = new Date();
-
           const els = {
-            loading: document.getElementById('cd-loading'),
-            content: document.getElementById('cd-content'),
-            daysCount: document.getElementById('cd-days'),
-            label: document.getElementById('cd-label'),
-            targetDisplay: document.getElementById('cd-target-display'),
+            todayText: document.getElementById('fd-today-text'),
+            targetText: document.getElementById('fd-target-text'),
+            daysLeft: document.getElementById('fd-days-left'),
+            daysCaption: document.getElementById('fd-days-caption'),
+            strip: document.getElementById('fd-strip'),
+            stripLoading: document.getElementById('fd-strip-loading'),
             form: document.getElementById('cd-edit-form'),
-            input: document.getElementById('cd-date-input'),
-            monthName: document.getElementById('cal-month-name'),
-            grid: document.getElementById('calendar-days'),
-            todayLabel: document.getElementById('cd-today-label')
+            input: document.getElementById('cd-date-input')
           };
+
+          let targetDate = null;
+          let startDate = null;
 
           function safeToday() {
             const t = new Date();
@@ -12939,29 +13117,146 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             return t;
           }
 
-          async function loadCountdownData() {
+          async function loadDistanceCountdown() {
             try {
               const r = await fetch('/api/distance_end');
               const d = await r.json().catch(() => ({}));
 
-              if (els.loading) els.loading.style.display = 'none';
-              if (els.content) els.content.style.display = 'block';
+              const today = safeToday();
 
-              viewDate = safeToday(); // SIEMPRE mes actual
+              if (els.todayText) {
+                els.todayText.textContent = 'Hoy: ' + today.toLocaleDateString('es-ES', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric'
+                });
+              }
 
               if (d.ok && d.date) {
                 targetDate = new Date(d.date);
                 targetDate.setHours(12, 0, 0, 0);
-                if (els.input) els.input.value = d.date;
-                updateCounterUI();
-              } else {
-                updateCounterUI();
-              }
 
-              renderCalendar();
+                if (d.start) {
+                  startDate = new Date(d.start);
+                  startDate.setHours(12, 0, 0, 0);
+                } else {
+                  startDate = new Date(today);
+                }
+
+                if (els.input) els.input.value = d.date;
+
+                updateCounters();
+                buildStrip();
+              } else {
+                targetDate = null;
+                startDate = null;
+                updateCounters();
+                clearStrip();
+              }
             } catch (e) {
               console.error('[fin-distancia] error cargando', e);
-              if (els.loading) els.loading.textContent = 'No se pudo cargar 😢';
+              if (els.stripLoading) els.stripLoading.textContent = 'No se pudo cargar 😢';
+            }
+          }
+
+          function updateCounters() {
+            const today = safeToday();
+
+            if (!targetDate || !els.daysLeft || !els.daysCaption || !els.targetText) {
+              if (els.daysLeft) els.daysLeft.textContent = '—';
+              if (els.daysCaption) els.daysCaption.textContent = 'Sin fecha';
+              if (els.targetText) els.targetText.textContent = 'Sin fecha';
+              return;
+            }
+
+            const diff = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));
+
+            if (diff > 0) {
+              els.daysLeft.textContent = diff;
+              els.daysCaption.textContent = 'Días restantes';
+            } else if (diff === 0) {
+              els.daysLeft.textContent = '0';
+              els.daysCaption.textContent = '¡Es hoy! 🥹';
+            } else {
+              els.daysLeft.textContent = '0';
+              els.daysCaption.textContent = 'La distancia terminó ✨';
+            }
+
+            els.targetText.textContent = targetDate.toLocaleDateString('es-ES', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric'
+            });
+          }
+
+          function clearStrip() {
+            if (!els.strip || !els.stripLoading) return;
+            els.strip.innerHTML = '';
+            els.strip.style.display = 'none';
+            els.stripLoading.style.display = 'block';
+            els.stripLoading.textContent = 'Elige una fecha para ver el calendario';
+          }
+
+          function buildStrip() {
+            if (!els.strip || !els.stripLoading) return;
+
+            els.strip.innerHTML = '';
+
+            const today = safeToday();
+
+            if (!targetDate) {
+              clearStrip();
+              return;
+            }
+
+            els.stripLoading.style.display = 'none';
+            els.strip.style.display = 'flex';
+
+            // Si no hay startDate, empezamos a contar hoy
+            let cur = startDate ? new Date(startDate) : new Date(today);
+            cur.setHours(12, 0, 0, 0);
+
+            const maxDots = 120; // límite por si el rango es enorme
+            let count = 0;
+            let todayDot = null;
+
+            while (cur <= targetDate && count < maxDots) {
+              const dot = document.createElement('div');
+              dot.className = 'fd-day-dot';
+
+              const span = document.createElement('span');
+              span.textContent = cur.getDate();
+              dot.appendChild(span);
+
+              if (cur.getTime() === targetDate.getTime()) {
+                dot.classList.add('target');
+                span.textContent = '🏁';
+              } else if (cur.getTime() === today.getTime()) {
+                dot.classList.add('today');
+                todayDot = dot;
+              } else if (cur < today) {
+                dot.classList.add('past');
+              }
+
+              els.strip.appendChild(dot);
+
+              count += 1;
+              cur = new Date(cur.getTime() + 24 * 60 * 60 * 1000);
+            }
+
+            // Si no hemos podido dibujar todos los días porque son muchos
+            if (cur <= targetDate) {
+              const more = document.createElement('div');
+              more.className = 'fd-day-dot';
+              const span = document.createElement('span');
+              span.textContent = '…';
+              more.appendChild(span);
+              els.strip.appendChild(more);
+            }
+
+            if (todayDot && todayDot.scrollIntoView) {
+              todayDot.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
             }
           }
 
@@ -12978,16 +13273,14 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               });
 
               const d = await r.json().catch(() => ({}));
-              if (!r.ok || d.ok === false) {
-                throw new Error(d.error || 'error');
-              }
+              if (!r.ok || d.ok === false) throw new Error(d.error || 'error');
 
               targetDate = new Date(val);
               targetDate.setHours(12, 0, 0, 0);
-              // La vista sigue en el mes actual, no saltamos al objetivo
-              updateCounterUI();
-              renderCalendar();
-              window.toggleCountdownEdit(false);
+              startDate = null; // que se recalcule en el siguiente load
+
+              await loadDistanceCountdown();
+              toggleCountdownEdit(false);
               window.showToast?.('success', 'Fecha de fin de la distancia guardada 🏁');
             } catch (e) {
               console.error('[fin-distancia] error guardando', e);
@@ -13002,110 +13295,14 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             els.form.style.display = show ? 'block' : 'none';
           };
 
-          function updateCounterUI() {
-            if (!els.daysCount || !els.label) return;
-
-            if (!targetDate) {
-              els.daysCount.textContent = '—';
-              els.label.textContent = 'Elige una fecha';
-              if (els.targetDisplay) els.targetDisplay.textContent = 'Sin fecha';
-              return;
-            }
-
-            const today = safeToday();
-            const diff = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));
-
-            if (diff > 0) {
-              els.daysCount.textContent = diff;
-              els.label.textContent = 'Días restantes';
-            } else if (diff === 0) {
-              els.daysCount.textContent = '0';
-              els.label.textContent = '¡Es hoy! 🥹';
-            } else {
-              els.daysCount.textContent = '0';
-              els.label.textContent = 'La distancia terminó ✨';
-            }
-
-            if (els.targetDisplay && targetDate) {
-              els.targetDisplay.textContent = targetDate.toLocaleDateString('es-ES', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric'
-              });
-            }
-          }
-
-          window.changeMonth = function (delta) {
-            viewDate.setMonth(viewDate.getMonth() + delta);
-            renderCalendar();
-          };
-
-          function renderCalendar() {
-            if (!els.grid || !els.monthName) return;
-
-            const year = viewDate.getFullYear();
-            const month = viewDate.getMonth();
-
-            const monthNames = [
-              'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-              'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-            ];
-            els.monthName.textContent = `${monthNames[month]} ${year}`;
-
-            els.grid.innerHTML = '';
-
-            const firstDayOfMonth = new Date(year, month, 1);
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-            let startDayIndex = firstDayOfMonth.getDay() - 1;
-            if (startDayIndex === -1) startDayIndex = 6;
-
-            const today = safeToday();
-
-            // Línea de "Hoy: ..."
-            if (els.todayLabel) {
-              els.todayLabel.textContent = 'Hoy: ' + today.toLocaleDateString('es-ES', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric'
-              });
-            }
-
-            // Huecos vacíos
-            for (let i = 0; i < startDayIndex; i++) {
-              const empty = document.createElement('div');
-              empty.className = 'cal-day empty';
-              els.grid.appendChild(empty);
-            }
-
-            // Días del mes
-            for (let d = 1; d <= daysInMonth; d++) {
-              const current = new Date(year, month, d, 12, 0, 0, 0);
-              const cell = document.createElement('div');
-              cell.className = 'cal-day';
-              cell.textContent = d;
-
-              if (targetDate && current.getTime() === targetDate.getTime()) {
-                cell.classList.add('target');
-                cell.innerHTML = '🏁';
-              } else if (current.getTime() === today.getTime()) {
-                cell.classList.add('today');
-              } else if (current < today) {
-                cell.classList.add('past');
-              }
-
-              els.grid.appendChild(cell);
-            }
-          }
-
           if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', loadCountdownData);
+            document.addEventListener('DOMContentLoaded', loadDistanceCountdown);
           } else {
-            loadCountdownData();
+            loadDistanceCountdown();
           }
         })();
       </script>
+
 
 
 </body>

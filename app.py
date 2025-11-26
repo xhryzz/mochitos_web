@@ -8192,6 +8192,43 @@ def api_daily_question_status():
         "seconds_left": seconds_left  # <--- Nuevo campo
     })   
 
+# === API: Fin de la Distancia ===
+@app.get("/api/distance_end")
+def api_get_distance_end():
+    if "username" not in session:
+        return jsonify(ok=False, error="unauthorized"), 401
+
+    raw = state_get("distance_end_date", "")
+    date_str = (raw or "").strip() or None
+    return jsonify(ok=True, date=date_str)
+
+
+@app.post("/api/distance_end")
+def api_set_distance_end():
+    if "username" not in session:
+        return jsonify(ok=False, error="unauthorized"), 401
+
+    data = request.get_json(silent=True) or {}
+    date_str = (data.get("date") or "").strip()
+    if not date_str:
+        return jsonify(ok=False, error="missing_date"), 400
+
+    try:
+        dt = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify(ok=False, error="bad_date"), 400
+
+    # Guardamos la fecha final en app_state
+    state_set("distance_end_date", dt.isoformat())
+
+    # Opcional: guardamos también el día en que se configuró por primera vez
+    if not (state_get("distance_start_date", "") or "").strip():
+        state_set("distance_start_date", europe_madrid_now().date().isoformat())
+
+    return jsonify(ok=True, date=dt.isoformat())
+
+
+
 _old_init_db = init_db
 def init_db():
     _old_init_db()

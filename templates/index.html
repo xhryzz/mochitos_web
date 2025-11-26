@@ -6205,6 +6205,197 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         font-size: 0.72rem;
       }
     }
+
+    /* === Fin de la Distancia (debajo del mapa) === */
+    .countdown-card {
+      background: var(--card-bg);
+      border-radius: 26px;
+      padding: 24px 22px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.06);
+      border: 1px solid rgba(232, 67, 147, 0.12);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .countdown-card::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      opacity: 0.05;
+      background: radial-gradient(circle at 0 0, #fca5f1, transparent 55%),
+        radial-gradient(circle at 100% 100%, #a29bfe, transparent 55%);
+      pointer-events: none;
+    }
+
+    .cd-big-number {
+      position: relative;
+      font-size: 3.4rem;
+      font-weight: 900;
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
+      margin-bottom: 4px;
+      font-family: 'Montserrat', system-ui, sans-serif;
+    }
+
+    .cd-big-number small {
+      display: block;
+      font-size: 0.85rem;
+      -webkit-text-fill-color: #888;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-top: 6px;
+      font-weight: 600;
+    }
+
+    .cd-target-info {
+      position: relative;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      padding: 6px 18px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 22px;
+      font-size: 0.85rem;
+      color: #555;
+    }
+
+    .cd-target-info strong {
+      font-weight: 700;
+      color: var(--primary-color);
+    }
+
+    .calendar-controls {
+      position: relative;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+      padding: 0 10px;
+    }
+
+    .cal-month-name {
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      font-size: 1.25rem;
+      text-transform: capitalize;
+      color: var(--dark-text);
+    }
+
+    .cal-btn {
+      background: transparent;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      cursor: pointer;
+      color: var(--primary-color);
+      font-size: 1.1rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.18s ease, background 0.18s ease;
+    }
+
+    .cal-btn:hover {
+      background: rgba(232, 67, 147, 0.08);
+      transform: scale(1.07);
+    }
+
+    .cal-btn:active {
+      transform: scale(0.94);
+    }
+
+    .calendar-grid {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 7px;
+      max-width: 100%;
+      margin: 0 auto;
+    }
+
+    .calendar-body {
+      display: contents;
+    }
+
+    .cal-day-head {
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: #b2bec3;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      letter-spacing: 0.08em;
+    }
+
+    .cal-day {
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 11px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      position: relative;
+      color: #444;
+      background: rgba(248, 250, 252, 0.9);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+
+    .cal-day.empty {
+      background: transparent;
+      border: none;
+    }
+
+    .cal-day.past {
+      color: #cbd5e1;
+      background: #f9fafb;
+    }
+
+    .cal-day.past::after {
+      content: "";
+      position: absolute;
+      width: 60%;
+      height: 2px;
+      background: #ff7675;
+      transform: rotate(-28deg);
+      opacity: 0.6;
+    }
+
+    .cal-day.today {
+      color: var(--primary-color);
+      background: #fff0f6;
+      font-weight: 800;
+      box-shadow: inset 0 0 0 2px var(--primary-color);
+    }
+
+    .cal-day.target {
+      background: var(--gradient);
+      color: #fff !important;
+      box-shadow: 0 5px 18px rgba(232, 67, 147, 0.45);
+      transform: scale(1.05);
+      z-index: 1;
+    }
+
+    .cal-day.target::after {
+      display: none;
+    }
+
+    @media (max-width: 768px) {
+      .countdown-card {
+        padding: 20px 16px;
+      }
+
+      .cd-big-number {
+        font-size: 2.8rem;
+      }
+    }
   </style>
 </head>
 
@@ -6763,7 +6954,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                 </button>
 
                 <button type="button" class="ds-mode-btn" data-mode="together_alg">
-                  <span class="ds-icon"><i class="fa-solid fa-house-chimney-heart"></i></span>
+                  <span class="ds-icon"><i class="fa-solid fa-house"></i></span>
                   <span class="ds-text">
                     <span class="ds-mode-title">Algemesí</span>
                   </span>
@@ -6781,6 +6972,71 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             <p class="ds-footnote">
               Cualquiera de los dos puede cambiar el estado. Se actualizará en el banner y el mapa para ambos. ✨
             </p>
+          </div>
+        </div>
+
+        <!-- Fin de la Distancia -->
+        <div class="section animate-in delay-3" id="countdownSection">
+          <h3>Fin de la Distancia</h3>
+          <p>Cada día tachado es un día menos para estar juntos. ✨</p>
+
+          <div class="countdown-card">
+            <div id="cd-loading" style="color:#888;">Cargando fecha...</div>
+
+            <div id="cd-content" style="display:none;">
+              <div class="cd-big-number">
+                <span id="cd-days">—</span>
+                <small id="cd-label">Días restantes</small>
+              </div>
+
+              <div class="cd-target-info">
+                Meta: <strong id="cd-target-display">Sin fecha</strong>
+              </div>
+
+              <div class="calendar-controls">
+                <button class="cal-btn" type="button" onclick="changeMonth(-1)">
+                  <i class="fas fa-chevron-left"></i>
+                </button>
+
+                <span class="cal-month-name" id="cal-month-name">...</span>
+
+                <button class="cal-btn" type="button" onclick="changeMonth(1)">
+                  <i class="fas fa-chevron-right"></i>
+                </button>
+              </div>
+
+              <div class="calendar-grid">
+                <div class="cal-day-head">L</div>
+                <div class="cal-day-head">M</div>
+                <div class="cal-day-head">X</div>
+                <div class="cal-day-head">J</div>
+                <div class="cal-day-head">V</div>
+                <div class="cal-day-head">S</div>
+                <div class="cal-day-head">D</div>
+
+                <div id="calendar-days" class="calendar-body"></div>
+              </div>
+            </div>
+
+            <div style="margin-top: 20px; text-align: right;">
+              <button class="icon-btn" type="button" onclick="toggleCountdownEdit()"
+                style="background:#f8f8f8; color:#888; box-shadow:none;">
+                <i class="fas fa-calendar-alt"></i>
+              </button>
+            </div>
+
+            <div id="cd-edit-form"
+              style="display:none; margin-top:15px; background:#f9f9f9; padding:15px; border-radius:12px;">
+              <label style="display:block; margin-bottom:5px; font-weight:bold;">
+                Elige la fecha del reencuentro:
+              </label>
+              <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                <input type="date" id="cd-date-input" style="max-width:160px;">
+                <button type="button" onclick="saveCountdownDate()" style="padding: 10px 20px;">
+                  Guardar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -8196,13 +8452,13 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             },
             together_alg: {
               chip: 'Juntos en Algemesí',
-              badge: 'Ambos en Algemesí',
+              badge: 'Juntos en Casita 🏠',
               icon: 'fa-house-chimney-heart',
               bar: 100
             },
             together_cor: {
               chip: 'Juntos en Córdoba',
-              badge: 'Ambos en Córdoba',
+              badge: 'Juntos en Córdobita 💃',
               icon: 'fa-city',
               bar: 100
             }
@@ -12558,6 +12814,186 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
 }) ();
       </script>
+
+
+      <script>
+        (function () {
+          const root = document.getElementById('countdownSection');
+          if (!root) return; // No estamos en Inicio
+
+          let targetDate = null;
+          let viewDate = new Date();
+
+          const els = {
+            loading: document.getElementById('cd-loading'),
+            content: document.getElementById('cd-content'),
+            daysCount: document.getElementById('cd-days'),
+            label: document.getElementById('cd-label'),
+            targetDisplay: document.getElementById('cd-target-display'),
+            form: document.getElementById('cd-edit-form'),
+            input: document.getElementById('cd-date-input'),
+            monthName: document.getElementById('cal-month-name'),
+            grid: document.getElementById('calendar-days')
+          };
+
+          function safeToday() {
+            const t = new Date();
+            t.setHours(12, 0, 0, 0);
+            return t;
+          }
+
+          async function loadCountdownData() {
+            try {
+              const r = await fetch('/api/distance_end');
+              const d = await r.json().catch(() => ({}));
+
+              if (els.loading) els.loading.style.display = 'none';
+              if (els.content) els.content.style.display = 'block';
+
+              if (d.ok && d.date) {
+                targetDate = new Date(d.date);
+                targetDate.setHours(12, 0, 0, 0);
+                if (els.input) els.input.value = d.date;
+                viewDate = new Date(targetDate);
+                updateCounterUI();
+              }
+
+              renderCalendar();
+            } catch (e) {
+              console.error('[fin-distancia] error cargando', e);
+              if (els.loading) els.loading.textContent = 'No se pudo cargar 😢';
+            }
+          }
+
+          window.saveCountdownDate = async function () {
+            if (!els.input) return;
+            const val = els.input.value;
+            if (!val) return;
+
+            try {
+              const r = await fetch('/api/distance_end', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date: val })
+              });
+
+              const d = await r.json().catch(() => ({}));
+              if (!r.ok || d.ok === false) {
+                throw new Error(d.error || 'error');
+              }
+
+              targetDate = new Date(val);
+              targetDate.setHours(12, 0, 0, 0);
+              viewDate = new Date(targetDate);
+              updateCounterUI();
+              renderCalendar();
+              window.toggleCountdownEdit(false);
+              window.showToast?.('success', 'Fecha de fin de la distancia guardada 🏁');
+            } catch (e) {
+              console.error('[fin-distancia] error guardando', e);
+              window.showToast?.('error', 'No se pudo guardar la fecha');
+            }
+          };
+
+          window.toggleCountdownEdit = function (force) {
+            if (!els.form) return;
+            const isHidden = els.form.style.display === 'none' || !els.form.style.display;
+            const show = typeof force === 'boolean' ? force : isHidden;
+            els.form.style.display = show ? 'block' : 'none';
+          };
+
+          function updateCounterUI() {
+            if (!els.daysCount || !els.label) return;
+
+            if (!targetDate) {
+              els.daysCount.textContent = '—';
+              els.label.textContent = 'Elige una fecha';
+              return;
+            }
+
+            const today = safeToday();
+            const diff = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));
+
+            if (diff > 0) {
+              els.daysCount.textContent = diff;
+              els.label.textContent = 'Días restantes';
+            } else if (diff === 0) {
+              els.daysCount.textContent = '0';
+              els.label.textContent = '¡Es hoy! 🥹';
+            } else {
+              els.daysCount.textContent = '0';
+              els.label.textContent = 'La distancia terminó ✨';
+            }
+
+            if (els.targetDisplay && targetDate) {
+              els.targetDisplay.textContent = targetDate.toLocaleDateString('es-ES', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+              });
+            }
+          }
+
+          window.changeMonth = function (delta) {
+            viewDate.setMonth(viewDate.getMonth() + delta);
+            renderCalendar();
+          };
+
+          function renderCalendar() {
+            if (!els.grid || !els.monthName) return;
+
+            const year = viewDate.getFullYear();
+            const month = viewDate.getMonth();
+
+            const monthNames = [
+              'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+              'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+            ];
+            els.monthName.textContent = `${monthNames[month]} ${year}`;
+
+            els.grid.innerHTML = '';
+
+            const firstDayOfMonth = new Date(year, month, 1);
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            let startDayIndex = firstDayOfMonth.getDay() - 1;
+            if (startDayIndex === -1) startDayIndex = 6;
+
+            const today = safeToday();
+
+            for (let i = 0; i < startDayIndex; i++) {
+              const empty = document.createElement('div');
+              empty.className = 'cal-day empty';
+              els.grid.appendChild(empty);
+            }
+
+            for (let d = 1; d <= daysInMonth; d++) {
+              const current = new Date(year, month, d, 12, 0, 0, 0);
+              const cell = document.createElement('div');
+              cell.className = 'cal-day';
+              cell.textContent = d;
+
+              if (targetDate && current.getTime() === targetDate.getTime()) {
+                cell.classList.add('target');
+                cell.innerHTML = '🏁';
+              } else if (current.getTime() === today.getTime()) {
+                cell.classList.add('today');
+              } else if (current < today) {
+                cell.classList.add('past');
+              }
+
+              els.grid.appendChild(cell);
+            }
+          }
+
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadCountdownData);
+          } else {
+            loadCountdownData();
+          }
+        })();
+      </script>
+
 
 </body>
 

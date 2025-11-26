@@ -19,7 +19,7 @@
   <!-- iOS PWA hints -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png?v=2">
   <style>
     :root {
       --primary-color: #e84393;
@@ -10035,26 +10035,21 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             // Ajustes al entrar en Home: recalcular mapa
             // --- CAMBIA ESTE BLOQUE ---
             // Ajustes al entrar en Home: recalcular mapa
+            // Ajustes al entrar en Home: inicializar / refrescar mapa de distancia
             if (name === 'home') {
-              // Hacemos dos intentos para asegurar que el DOM ya pintó el div
-              [100, 500, 1000].forEach(delay => {
+              [100, 400, 1000].forEach(delay => {
                 setTimeout(() => {
                   try {
-                    if (window.map && typeof map.invalidateSize === 'function') {
-                      map.invalidateSize(); // Obliga al mapa a rellenar el hueco
-
-                      // Si tienes las coordenadas, recéntralo para que se vean los dos
-                      if (window.christianMarker && window.claraMarker) {
-                        const group = new L.featureGroup([window.christianMarker, window.claraMarker]);
-                        map.fitBounds(group.getBounds().pad(0.1));
-                      }
-
-                      if (typeof renderDistance === 'function') renderDistance();
+                    if (typeof initMap === 'function') {
+                      initMap();
                     }
-                  } catch (_) { }
+                  } catch (e) {
+                    console.error('Error refrescando mapa de distancia', e);
+                  }
                 }, delay);
               });
             }
+
 
             // ⚡ Lazy-load Viajes
             if (name === 'travels' && typeof window.ensureTravelsLoaded === 'function') {
@@ -12438,6 +12433,12 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           const mapEl = document.getElementById('distanceMap');
           if (!mapEl) return;
 
+          // Si por lo que sea Leaflet aún no está cargado, salimos
+          if (typeof L === 'undefined') {
+            console.warn('Leaflet no está disponible aún');
+            return;
+          }
+
           // Si ya existía el mapa (por la recarga dinámica), lo limpiamos
           if (window.map && window.map.remove) {
             window.map.remove();
@@ -12450,6 +12451,10 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             dragging: !L.Browser.mobile,
             tap: !L.Browser.mobile
           }).setView([38.5, -3], 6);
+
+          // Muy importante:
+          window.map = map;
+
 
           L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             maxZoom: 19

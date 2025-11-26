@@ -4920,7 +4920,8 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
       position: fixed;
       right: 18px;
       bottom: 96px;
-      z-index: 1100;
+      z-index: 10050;
+      /* antes 1100 */
       width: 54px;
       height: 54px;
       border-radius: 999px;
@@ -6694,6 +6695,349 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
       .fd-right {
         text-align: left;
+      }
+    }
+
+    /* =======================
+   DISTANCIA RESPONSIVE
+   ======================= */
+
+    /* Tablet / móvil en vertical */
+    @media (max-width: 768px) {
+      .distance-status-card {
+        padding: 14px 12px;
+        border-radius: 18px;
+      }
+
+      .distance-map-container {
+        height: 280px;
+        /* menos alto en móvil */
+        border-radius: 22px;
+      }
+
+      .distance-floating-info {
+        top: 10px;
+        left: 10px;
+        gap: 6px;
+      }
+
+      .distance-current-label {
+        padding: 8px 10px;
+        max-width: 70%;
+        /* que no ocupe todo el mapa */
+      }
+
+      .distance-km-pill {
+        padding: 6px 10px;
+        font-size: 0.8rem;
+      }
+
+      .distance-floating-controls {
+        bottom: 10px;
+        padding: 6px 8px;
+        gap: 6px;
+        flex-wrap: wrap;
+        /* si no cabe, que pueda partirse en 2 filas */
+      }
+
+      .distance-floating-controls .ds-mode-btn {
+        padding: 7px 8px;
+        gap: 6px;
+      }
+
+      .distance-floating-controls .ds-mode-title {
+        font-size: 0.78rem;
+      }
+
+      /* Mini “fin de la distancia” más compacto en móvil */
+      .distance-mini-countdown {
+        margin-top: 8px;
+        padding: 8px 10px;
+      }
+    }
+
+    /* Móvil pequeñito (tipo 360px de ancho) */
+    @media (max-width: 480px) {
+      .distance-status-card {
+        padding: 12px 10px;
+        border-radius: 16px;
+      }
+
+      .distance-map-container {
+        height: 220px;
+        /* todavía más bajito */
+        border-radius: 18px;
+      }
+
+      .distance-floating-info {
+        top: 8px;
+        left: 8px;
+      }
+
+      .distance-current-label {
+        padding: 6px 8px;
+        font-size: 0.78rem;
+      }
+
+      .distance-km-pill {
+        padding: 5px 8px;
+        font-size: 0.78rem;
+      }
+
+      .distance-floating-controls {
+        bottom: 8px;
+        padding: 5px 6px;
+        gap: 4px;
+      }
+
+      /* En móviles muy estrechos, los botones del estado solo con iconos */
+      .distance-floating-controls .ds-mode-btn {
+        padding: 5px 6px;
+        border-radius: 999px;
+        justify-content: center;
+      }
+
+      .distance-floating-controls .ds-mode-btn .ds-text {
+        display: none;
+        /* escondemos el texto, solo icono */
+      }
+
+      .distance-floating-controls .ds-mode-btn .ds-icon {
+        width: 30px;
+        height: 30px;
+      }
+
+      /* Tira de días del “Fin de la distancia” aún más mini */
+      .fd-strip-wrapper {
+        margin-top: 4px;
+      }
+
+      .fd-day-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+      }
+    }
+
+    /* =========================
+       NAVBAR RESPONSIVE OPTIMIZADO
+       ========================= */
+
+    /* Tabbar móvil (abajo) con Scroll Horizontal */
+    .app-nav {
+      position: fixed;
+      inset: auto 0 0 0;
+      /* Pegado abajo */
+      height: 70px;
+      /* Altura cómoda para el dedo */
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(0, 0, 0, .06);
+      z-index: 1100;
+      box-shadow: 0 -5px 20px rgba(0, 0, 0, .05);
+
+      /* FLEXBOX MÁGICO PARA SCROLL */
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      /* Alineado al inicio para permitir scroll */
+      overflow-x: auto;
+      /* Habilita el scroll lateral */
+      overflow-y: hidden;
+      gap: 5px;
+      padding: 0 10px;
+
+      /* Ajuste para iPhone X y superiores (zona segura abajo) */
+      padding-bottom: env(safe-area-inset-bottom);
+      height: calc(65px + env(safe-area-inset-bottom));
+
+      /* Suavidad en iOS */
+      -webkit-overflow-scrolling: touch;
+
+      /* Ocultar barra de scroll visualmente pero mantener funcionalidad */
+      scrollbar-width: none;
+      /* Firefox */
+    }
+
+    /* Ocultar barra de scroll en Chrome/Safari */
+    .app-nav::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Botones de navegación */
+    .app-nav .nav-btn {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+
+      /* TAMAÑO FIJO: Importante para que no se aplasten */
+      flex: 0 0 60px;
+      /* No encoger, ancho fijo de 60px */
+      height: 50px;
+
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: #9ca3af;
+      /* Gris inactivo */
+      transition: all .2s ease;
+      position: relative;
+    }
+
+    /* Icono dentro del botón */
+    .app-nav .nav-btn i {
+      font-size: 22px;
+      margin-bottom: 2px;
+      transition: transform 0.2s;
+    }
+
+    /* Estado ACTIVO móvil */
+    .app-nav .nav-btn.active {
+      color: var(--primary-color);
+    }
+
+    /* Puntito indicador activo en móvil */
+    .app-nav .nav-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: 5px;
+      width: 4px;
+      height: 4px;
+      background: var(--primary-color);
+      border-radius: 50%;
+      box-shadow: 0 0 5px var(--primary-color);
+    }
+
+    /* Efecto al tocar */
+    .app-nav .nav-btn:active i {
+      transform: scale(0.9);
+    }
+
+    /* Ocultar etiquetas de texto en móvil (solo iconos para que quepan 10) */
+    .app-nav .nav-label {
+      display: none;
+    }
+
+    /* Padding extra al contenedor principal para que el nav no tape contenido */
+    .container {
+      padding-bottom: 100px;
+      /* Suficiente espacio abajo */
+    }
+
+    /* =========================
+       VERSION DESKTOP (PC)
+       ========================= */
+    @media (min-width: 992px) {
+      .app-nav {
+        inset: 0 auto 0 0;
+        /* Izquierda fija */
+        width: 80px;
+        /* Ancho de la barra lateral */
+        height: 100vh;
+        border-top: 0;
+        border-right: 1px solid rgba(0, 0, 0, .06);
+
+        /* Cambiamos a columna */
+        flex-direction: column;
+        justify-content: center;
+        /* Centrado verticalmente */
+        overflow-x: hidden;
+        overflow-y: auto;
+        /* Scroll vertical si la pantalla es bajita */
+        padding: 20px 0;
+        gap: 15px;
+        box-shadow: 5px 0 15px rgba(0, 0, 0, 0.03);
+      }
+
+      .app-nav .nav-btn {
+        flex: 0 0 auto;
+        width: 50px;
+        height: 50px;
+        border-radius: 14px;
+      }
+
+      /* Hover en escritorio */
+      .app-nav .nav-btn:hover {
+        background: rgba(232, 67, 147, 0.1);
+        color: var(--primary-color);
+        transform: translateX(3px);
+      }
+
+      /* Estado activo Desktop (fondo rosita) */
+      .app-nav .nav-btn.active {
+        background: var(--gradient);
+        color: white;
+        box-shadow: 0 4px 12px rgba(232, 67, 147, 0.4);
+      }
+
+      .app-nav .nav-btn.active i {
+        color: white;
+      }
+
+      /* Quitar el puntito en escritorio (usamos fondo) */
+      .app-nav .nav-btn.active::after {
+        display: none;
+      }
+
+      /* Ajustar margen del contenido principal */
+      .container {
+        padding-left: 100px;
+        /* Deja espacio a la izquierda */
+        padding-bottom: 40px;
+        max-width: 1300px;
+      }
+    }
+
+    /* === FIX superposición logout + tarjeta puntos + ruleta + toasts (MÓVIL) === */
+    @media (max-width: 991.98px) {
+
+      /* 1) Cerrar sesión deja de ser fijo y entra en el flujo arriba a la derecha */
+      .logout {
+        position: static;
+        margin: 12px 0 4px auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      /* 2) Tarjeta de puntos / Medallas / Tienda debajo del logout y a ancho completo */
+      .points-mini-card {
+        position: static;
+        width: 100%;
+        max-width: 100%;
+        margin: 0 0 16px 0;
+      }
+
+      /* 3) Ruleta flotante por encima del navbar inferior */
+      .floating-wheel-btn {
+        bottom: calc(16px + var(--nav-bottom-mobile));
+      }
+
+      /* 4) Toasts por encima del navbar y de la ruleta */
+      #toasts {
+        bottom: calc(16px + var(--nav-bottom-mobile) + 64px);
+      }
+    }
+
+    /* === FIX: Ruleta vs notificaciones en móvil === */
+    @media (max-width: 991.98px) {
+
+      /* Ruleta por encima de cualquier cosa flotante */
+      .floating-wheel-btn {
+        z-index: 10050;
+      }
+
+      /* Toasts se van un poco a la izquierda y suben por encima del navbar */
+      #toasts {
+        right: auto;
+        left: 16px;
+        bottom: calc(16px + var(--nav-bottom-mobile));
       }
     }
   </style>
@@ -12162,7 +12506,17 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           opacity: .85;
           font: 600 14px system-ui;
         }
+
+        /* En móvil lo subimos por encima del navbar inferior */
+        @media (max-width: 991.98px) {
+
+          .debug-fab,
+          #enablePushBtn {
+            bottom: calc(16px + var(--nav-bottom-mobile));
+          }
+        }
       </style>
+
       {% endif %}
       {% if username %}
       <button id="openWheelBtn" class="floating-wheel-btn" type="button" aria-label="Ruleta diaria">

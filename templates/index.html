@@ -6742,7 +6742,9 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               <div class="distance-floating-info">
                 <div class="distance-current-label">
                   <span class="ds-label" id="distanceStatusLabel">Separados</span>
-                  <span class="ds-sub" id="distanceStatusSub">Mochito en Algemesí · Mochita en Córdoba</span>
+                  <span class="ds-sub" id="distanceStatusSub">
+                    Mochito en Algemesí · Mochita en Córdoba
+                  </span>
                 </div>
 
                 <div class="distance-km-pill">
@@ -6763,24 +6765,25 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                 <button type="button" class="ds-mode-btn" data-mode="together_alg">
                   <span class="ds-icon"><i class="fa-solid fa-house-chimney-heart"></i></span>
                   <span class="ds-text">
-                    <span class="ds-mode-title">Juntos en Algemesí</span>
+                    <span class="ds-mode-title">Algemesí</span>
                   </span>
                 </button>
 
                 <button type="button" class="ds-mode-btn" data-mode="together_cor">
                   <span class="ds-icon"><i class="fa-solid fa-city"></i></span>
                   <span class="ds-text">
-                    <span class="ds-mode-title">Juntos en Córdoba</span>
+                    <span class="ds-mode-title">Córdoba</span>
                   </span>
                 </button>
               </div>
             </div>
 
             <p class="ds-footnote">
-              Cualquiera de los dos puede cambiarlo y se actualizará para los dos en tiempo real ✨
+              Cualquiera de los dos puede cambiar el estado. Se actualizará en el banner y el mapa para ambos. ✨
             </p>
           </div>
         </div>
+
 
 
         {% if mr_data and mr_data.active %}
@@ -8173,6 +8176,318 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
       </div>
 
       <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+      <script>
+        // =====================
+        // Distancia + mapa fijo Mochito/Mochita (sin geolocalización)
+        // =====================
+        (function () {
+          // --- 1) Configuración de modos ---
+          // Modos:
+          //   - separated    -> Mochito en Algemesí, Mochita en Córdoba
+          //   - together_alg -> Juntos en Algemesí
+          //   - together_cor -> Juntos en Córdoba
+
+          const COUPLE_MODES = {
+            separated: {
+              chip: 'Separados',
+              badge: 'Mochito en Algemesí · Mochita en Córdoba',
+              icon: 'fa-route',
+              bar: 22
+            },
+            together_alg: {
+              chip: 'Juntos en Algemesí',
+              badge: 'Ambos en Algemesí',
+              icon: 'fa-house-chimney-heart',
+              bar: 100
+            },
+            together_cor: {
+              chip: 'Juntos en Córdoba',
+              badge: 'Ambos en Córdoba',
+              icon: 'fa-city',
+              bar: 100
+            }
+          };
+
+          // --- 2) Coordenadas fijas ---
+          const ALGEMESI = { lat: 39.1925, lng: -0.4353, name: 'Algemesí, Valencia' };
+          const CORDOBA = { lat: 37.8882, lng: -4.7794, name: 'Córdoba' };
+
+          // Estado actual de posiciones
+          let christianLocation = { ...ALGEMESI };
+          let claraLocation = { ...CORDOBA };
+
+          // --- 3) Mapa + markers ---
+          let map = null;
+          let christianMarker = null;
+          let claraMarker = null;
+          let distanceLine = null;
+
+          // Avatares desde Flask (se rellenan en la plantilla)
+          const CHRISTIAN_AVATAR_URL = {{ (profile_pictures.get('mochito') or '') | tojson
+        }};
+        const CLARA_AVATAR_URL = {{ (profile_pictures.get('mochita') or '') | tojson }};
+
+        function buildAvatarHtml(url, fallbackLetter) {
+          if (url) {
+            return `<img src="${url}" alt="${fallbackLetter}">`;
+          }
+          return `<span style="font-weight:700; font-size:1.1rem; color:white;">${fallbackLetter}</span>`;
+        }
+
+        const christianAvatarHTML = buildAvatarHtml(CHRISTIAN_AVATAR_URL, 'M');
+        const claraAvatarHTML = buildAvatarHtml(CLARA_AVATAR_URL, 'C');
+
+        // Iconos personalizados tipo "radar"
+        let christianIcon = null;
+        let claraIcon = null;
+
+        function ensureIcons() {
+          if (christianIcon && claraIcon) return;
+          if (typeof L === 'undefined') return;
+
+          christianIcon = L.divIcon({
+            className: 'avatar-marker avatar-marker--christian',
+            html: `<div class="avatar-pulse"></div><div class="avatar-circle">${christianAvatarHTML}</div>`,
+            iconSize: [48, 48],
+            iconAnchor: [24, 24]
+          });
+
+          claraIcon = L.divIcon({
+            className: 'avatar-marker avatar-marker--clara',
+            html: `<div class="avatar-pulse"></div><div class="avatar-circle">${claraAvatarHTML}</div>`,
+            iconSize: [48, 48],
+            iconAnchor: [24, 24]
+          });
+        }
+
+        // --- 4) Distancia Haversine ---
+        function haversine(a, b) {
+          const R = 6371;
+          const toRad = d => d * Math.PI / 180;
+          const dLat = toRad(b.lat - a.lat);
+          const dLng = toRad(b.lng - a.lng);
+          const sLat1 = toRad(a.lat);
+          const sLat2 = toRad(b.lat);
+          const h = Math.sin(dLat / 2) ** 2 +
+            Math.cos(sLat1) * Math.cos(sLat2) * Math.sin(dLng / 2) ** 2;
+          return 2 * R * Math.asin(Math.sqrt(h));
+        }
+
+        function renderDistance() {
+          if (!christianLocation || !claraLocation) return;
+
+          const km = haversine(christianLocation, claraLocation);
+          const val = document.getElementById('distanceValue');
+          if (val) {
+            val.textContent = `${km.toFixed(1)} km`;
+          }
+
+          if (!map || typeof L === 'undefined') return;
+
+          // Quitar línea anterior
+          if (distanceLine) {
+            try { map.removeLayer(distanceLine); } catch (_) { }
+            distanceLine = null;
+          }
+
+          // Dibujar línea nueva con animación
+          try {
+            distanceLine = L.polyline(
+              [
+                [christianLocation.lat, christianLocation.lng],
+                [claraLocation.lat, claraLocation.lng]
+              ],
+              { className: 'distance-flow' }
+            ).addTo(map);
+
+            const bounds = L.latLngBounds(
+              [christianLocation.lat, christianLocation.lng],
+              [claraLocation.lat, claraLocation.lng]
+            );
+            map.fitBounds(bounds, { padding: [80, 80] });
+          } catch (_) { }
+        }
+
+        function upsertMarkers() {
+          if (!map || typeof L === 'undefined') {
+            renderDistance(); // al menos actualizamos el texto
+            return;
+          }
+
+          ensureIcons();
+
+          if (!christianMarker) {
+            christianMarker = L.marker(
+              [christianLocation.lat, christianLocation.lng],
+              { icon: christianIcon }
+            ).addTo(map);
+          } else {
+            christianMarker.setLatLng([christianLocation.lat, christianLocation.lng]);
+          }
+
+          if (!claraMarker) {
+            claraMarker = L.marker(
+              [claraLocation.lat, claraLocation.lng],
+              { icon: claraIcon }
+            ).addTo(map);
+          } else {
+            claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
+          }
+
+          // Exportar a window para que setScreen() pueda usarlos
+          window.christianMarker = christianMarker;
+          window.claraMarker = claraMarker;
+          window.map = map;
+
+          renderDistance();
+        }
+
+        function applyPositionsForMode(mode) {
+          // Separa o junta en base al modo
+          if (mode === 'together_alg') {
+            christianLocation = { ...ALGEMESI };
+            claraLocation = { ...ALGEMESI };
+          } else if (mode === 'together_cor') {
+            christianLocation = { ...CORDOBA };
+            claraLocation = { ...CORDOBA };
+          } else { // separated o cualquier cosa rara
+            christianLocation = { ...ALGEMESI };
+            claraLocation = { ...CORDOBA };
+          }
+
+          upsertMarkers();
+        }
+
+        // --- 5) UI de modos + banner ---
+        function applyCoupleMode(mode) {
+          const cfg = COUPLE_MODES[mode] || COUPLE_MODES.separated;
+
+          // Chip del banner
+          const chip = document.getElementById('chipDistance');
+          if (chip) {
+            chip.innerHTML = `<i class="fa-solid ${cfg.icon}"></i> ${cfg.chip}`;
+          }
+
+          // Tarjeta de la sección Distancia
+          const cardLabel = document.getElementById('distanceStatusLabel');
+          const cardSub = document.getElementById('distanceStatusSub');
+          if (cardLabel) cardLabel.textContent = cfg.chip;
+          if (cardSub) cardSub.textContent = cfg.badge;
+
+          // Barra de "cercanía"
+          const bar = document.getElementById('distanceFill');
+          if (bar) {
+            bar.style.width = (cfg.bar || 0) + '%';
+          }
+
+          // Resaltar botón activo
+          document.querySelectorAll('.ds-mode-btn').forEach(btn => {
+            const m = btn.dataset.mode;
+            btn.classList.toggle('active', m === mode);
+          });
+
+          // Actualizar posiciones + mapa
+          applyPositionsForMode(mode);
+        }
+
+        async function fetchCoupleMode() {
+          try {
+            const r = await fetch('/api/couple_mode');
+            if (!r.ok) throw new Error('resp');
+            const j = await r.json();
+            applyCoupleMode(j.mode || 'separated');
+          } catch (e) {
+            console.warn('No pude cargar couple_mode', e);
+            applyCoupleMode('separated');
+          }
+        }
+
+        async function setCoupleMode(mode) {
+          // feedback inmediato
+          applyCoupleMode(mode);
+          try {
+            const r = await fetch('/api/couple_mode', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ mode })
+            });
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok || j.ok === false) {
+              throw new Error(j.error || 'error');
+            }
+            window.showToast?.('success', 'Estado de distancia actualizado 💌');
+          } catch (e) {
+            window.showToast?.('error', 'No se pudo guardar el estado');
+            console.error('setCoupleMode', e);
+          }
+        }
+
+        function initCoupleModeUI() {
+          document.querySelectorAll('.ds-mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const mode = btn.dataset.mode;
+              if (mode) setCoupleMode(mode);
+            });
+          });
+
+          fetchCoupleMode();
+        }
+
+        // --- 6) Inicializar mapa sólo en Home ---
+        function initDistanceMap() {
+          const el = document.getElementById('distanceMap');
+          if (!el) return;
+          if (map || typeof L === 'undefined') {
+            // Si ya existe o aún no está Leaflet, no hacemos nada aquí
+            return;
+          }
+
+          try {
+            map = L.map('distanceMap', {
+              zoomControl: false,
+              attributionControl: false
+            }).setView([39.5, -3], 6);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+              maxZoom: 19,
+              subdomains: 'abcd'
+            }).addTo(map);
+
+            // Exportar también
+            window.map = map;
+
+            upsertMarkers();
+
+            // Forzar repintado (por si el contenedor se anima)
+            setTimeout(() => {
+              try {
+                map.invalidateSize();
+                renderDistance();
+              } catch (_) { }
+            }, 500);
+          } catch (e) {
+            console.error('Error inicializando mapa de distancia', e);
+          }
+        }
+
+        // Exponer helpers para el router (setScreen -> home)
+        window.renderDistance = renderDistance;
+        window.initDistanceMap = initDistanceMap;
+        window.applyCoupleMode = applyCoupleMode;
+
+        // Arranque suave: cuando cargue el DOM
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', () => {
+            initDistanceMap();
+            initCoupleModeUI();
+          });
+        } else {
+          initDistanceMap();
+          initCoupleModeUI();
+        }
+}) ();
+      </script>
+
 
       <script>
 
@@ -11003,232 +11318,11 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           // Primera pasada
           applyFilter();
         });
-        /* ========= Distancia sencilla (juntos / separados) ========= */
-
-        /*
-          Modos:
-            - separated    -> Mochito en Algemesí, Mochita en Córdoba
-            - together_alg -> Juntos en Algemesí
-            - together_cor -> Juntos en Córdoba
-          Se guarda en /api/couple_mode para que valga para los dos.
-        */
-
-        const COUPLE_MODES = {
-          separated: {
-            chip: 'Separados',
-            badge: 'Mochito en Algemesí · Mochita en Córdoba',
-            icon: 'fa-route',
-            bar: 22
-          },
-          together_alg: {
-            chip: 'Juntos en Algemesí',
-            badge: 'Ambos en Algemesí',
-            icon: 'fa-house-chimney-heart',
-            bar: 100
-          },
-          together_cor: {
-            chip: 'Juntos en Córdoba',
-            badge: 'Ambos en Córdoba',
-            icon: 'fa-city',
-            bar: 100
-          }
-        };
-
-        function applyCoupleMode(mode) {
-          const cfg = COUPLE_MODES[mode] || COUPLE_MODES.separated;
-
-          // Chip del banner (id="chipDistance")
-          const chip = document.getElementById('chipDistance');
-          if (chip) {
-            chip.innerHTML = `<i class="fa-solid ${cfg.icon}"></i> ${cfg.chip}`;
-          }
-
-          // Tarjeta de la sección Distancia
-          const cardLabel = document.getElementById('distanceStatusLabel');
-          const cardSub = document.getElementById('distanceStatusSub');
-          if (cardLabel) cardLabel.textContent = cfg.chip;
-          if (cardSub) cardSub.textContent = cfg.badge;
-
-          // Barra de "cercanía"
-          const bar = document.getElementById('distanceFill');
-          if (bar) {
-            bar.style.width = (cfg.bar || 0) + '%';
-          }
-
-          // Resaltar botón activo
-          document.querySelectorAll('.ds-mode-btn').forEach(btn => {
-            const m = btn.dataset.mode;
-            if (m === mode) btn.classList.add('active');
-            else btn.classList.remove('active');
-          });
-        }
-
-        async function fetchCoupleMode() {
-          try {
-            const r = await fetch('/api/couple_mode');
-            if (!r.ok) throw new Error('resp');
-            const j = await r.json();
-            applyCoupleMode(j.mode || 'separated');
-          } catch (e) {
-            console.warn('No pude cargar couple_mode', e);
-            applyCoupleMode('separated');
-          }
-        }
-
-        async function setCoupleMode(mode) {
-          // feedback instantáneo en la UI
-          applyCoupleMode(mode);
-          try {
-            const r = await fetch('/api/couple_mode', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ mode })
-            });
-            const j = await r.json().catch(() => ({}));
-            if (!r.ok || j.ok === false) {
-              throw new Error(j.error || 'error');
-            }
-            window.showToast?.('success', 'Estado de distancia actualizado 💌');
-          } catch (e) {
-            window.showToast?.('error', 'No se pudo guardar el estado');
-            console.error('setCoupleMode', e);
-          }
-        }
-
-        (function initCoupleModeUI() {
-          // listeners en los botones
-          document.querySelectorAll('.ds-mode-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-              const mode = btn.dataset.mode;
-              if (mode) setCoupleMode(mode);
-            });
-          });
-
-          // Cargar estado al iniciar
-          fetchCoupleMode();
-        })();
-
 
 
       </script>
 
-      <script>
 
-        // === Geolocalización controlada por clic ===
-        async function requestGeolocationOnce() {
-          if (!('geolocation' in navigator)) {
-            showToast?.('error', 'Tu navegador no soporta geolocalización');
-            return null;
-          }
-          // HTTPS o localhost es obligatorio
-          if (!window.isSecureContext && location.hostname !== 'localhost') {
-            showToast?.('error', 'Activa HTTPS para usar geolocalización');
-            return null;
-          }
-          return new Promise((resolve) => {
-            navigator.geolocation.getCurrentPosition(
-              (pos) => resolve(pos),
-              (err) => {
-                let msg = 'No se pudo obtener tu ubicación';
-                if (err && err.code === err.PERMISSION_DENIED) msg = 'Permiso de ubicación denegado';
-                showToast?.('error', msg);
-                resolve(null);
-              },
-              { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
-          });
-        }
-
-        // Actualiza tu marcador de "mi usuario" y el chip de distancia si procede
-        function applyMyLocationToMap(lat, lng, label = 'Mi ubicación') {
-          try {
-            // Si usas Christian como “yo”, actualizamos ese marcador:
-            if (typeof christianMarker !== 'undefined' && christianMarker) {
-              christianMarker.setLatLng([lat, lng]).bindPopup(label);
-              // Si tienes esa variable, actualízala también:
-              if (typeof christianLocation !== 'undefined') {
-                christianLocation.lat = lat;
-                christianLocation.lng = lng;
-                christianLocation.name = label;
-              }
-              map?.panTo([lat, lng]);
-            }
-            // Recalcula línea/distancia si tu lógica lo hace en otra función:
-            if (typeof updateDistanceUI === 'function') updateDistanceUI();
-          } catch (e) {
-            // Silencioso, por si aún no existe el mapa al cargar
-          }
-        }
-
-        // Evento del botón
-        document.addEventListener('DOMContentLoaded', () => {
-          const btn = document.getElementById('useMyLocationBtn');
-          btn?.addEventListener('click', async () => {
-            showToast?.('info', 'Solicitando tu ubicación…');
-            const pos = await requestGeolocationOnce();
-            if (!pos) return;
-            const { latitude, longitude } = pos.coords;
-            applyMyLocationToMap(latitude, longitude, 'Aquí estoy');
-
-            // (Opcional) Enviar al backend si tienes endpoint
-            // try {
-            //   await fetch('/update_my_location', {
-            //     method: 'POST',
-            //     headers: {'Content-Type':'application/json'},
-            //     body: JSON.stringify({ lat: latitude, lng: longitude })
-            //   });
-            // } catch {}
-            showToast?.('success', 'Ubicación actualizada');
-          });
-
-          // Estado del permiso (informativo)
-          if (navigator.permissions?.query) {
-            navigator.permissions.query({ name: 'geolocation' }).then((st) => {
-              if (st.state === 'denied') {
-                showToast?.('error', 'Tienes bloqueada la ubicación en el navegador');
-              }
-            }).catch(() => { });
-          }
-        });
-        if ('serviceWorker' in navigator) {
-          window.addEventListener('load', async () => {
-            try {
-              // Registra tu SW (ya lo tienes en /sw.js)
-              const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-
-              // 1) Busca actualización siempre que abres la app/página
-              reg.update();
-
-              // 2) Y también al volver a primer plano (PWA instalada o pestaña)
-              document.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'visible') reg.update();
-              });
-
-              // 3) Cuando el nuevo SW tome el control, recargamos para aplicar la nueva versión
-              let refreshing = false;
-              navigator.serviceWorker.addEventListener('controllerchange', () => {
-                if (refreshing) return;
-                refreshing = true;
-                window.location.reload();
-              });
-
-              // (Opcional) Si quieres ver que detectó una actualización:
-              reg.addEventListener('updatefound', () => {
-                const nw = reg.installing;
-                nw?.addEventListener('statechange', () => {
-                  if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-                    // Si usas toasts:
-                    window.showToast?.('info', 'Actualizando a la última versión…');
-                  }
-                });
-              });
-            } catch (e) {
-              console.warn('SW register error', e);
-            }
-          });
-        }
-
-      </script>
 
 
       <!-- NAVIDAD (tema) se puede borrar-->
@@ -12172,195 +12266,6 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         })();
       </script>
 
-      <script>
-        // =====================
-        // MAPA Leaflet + DISTANCIA (CORREGIDO)
-        // =====================
-
-        // 1. CAMBIO DE NOMBRES PARA EVITAR CONFLICTO CON "OTHER"
-        const MAP_USER = {{ (username or '') | tojson}};
-        const MAP_OTHER = {{ (other_user or '') | tojson}};
-
-        let map, christianMarker, claraMarker, distanceLine;
-        // Coordenadas iniciales (se actualizarán solas)
-        let christianLocation = { lat: 39.1925, lng: -0.4353, name: "Algemesí, Valencia" };
-        let claraLocation = { lat: 37.8882, lng: -4.7794, name: "Córdoba" };
-        let watchId = null;
-
-        /* Avatares */
-        const CHRISTIAN_AVATAR_URL = {{ (profile_pictures.get('mochito') or '') | tojson}};
-        const CLARA_AVATAR_URL = {{ (profile_pictures.get('mochita') or '') | tojson}};
-
-        function buildAvatarHtml(url, fallbackLetter) {
-          if (url) return `<img src="${url}" alt="${fallbackLetter}">`;
-          return `<span style="font-weight:700; font-size:1.1rem; color:white;">${fallbackLetter}</span>`;
-        }
-
-        const christianAvatarHTML = buildAvatarHtml(CHRISTIAN_AVATAR_URL, 'M');
-        const claraAvatarHTML = buildAvatarHtml(CLARA_AVATAR_URL, 'C');
-
-        const christianIcon = L.divIcon({
-          className: 'avatar-marker avatar-marker--christian',
-          html: `<div class="avatar-pulse"></div><div class="avatar-circle">${christianAvatarHTML}</div>`,
-          iconSize: [48, 48],
-          iconAnchor: [24, 24]
-        });
-
-        const claraIcon = L.divIcon({
-          className: 'avatar-marker avatar-marker--clara',
-          html: `<div class="avatar-pulse"></div><div class="avatar-circle">${claraAvatarHTML}</div>`,
-          iconSize: [48, 48],
-          iconAnchor: [24, 24]
-        });
-
-        /* Haversine en km */
-        function haversine(a, b) {
-          const R = 6371, toRad = d => d * Math.PI / 180;
-          const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
-          const sLat1 = toRad(a.lat), sLat2 = toRad(b.lat);
-          const h = Math.sin(dLat / 2) ** 2 + Math.cos(sLat1) * Math.cos(sLat2) * Math.sin(dLng / 2) ** 2;
-          return 2 * R * Math.asin(Math.sqrt(h));
-        }
-
-        /* Pinta distancia */
-        function renderDistance() {
-          if (!christianLocation || !claraLocation) return;
-          const km = haversine(christianLocation, claraLocation);
-          const val = document.getElementById('distanceValue');
-          if (val) val.textContent = `${km.toFixed(1)} km`;
-
-          if (distanceLine && map) map.removeLayer(distanceLine);
-
-          if (map) {
-            distanceLine = L.polyline(
-              [[christianLocation.lat, christianLocation.lng], [claraLocation.lat, claraLocation.lng]],
-              { className: 'distance-flow' }
-            ).addTo(map);
-            // Ajustar zoom para ver a los dos
-            try {
-              const bounds = L.latLngBounds(
-                [christianLocation.lat, christianLocation.lng],
-                [claraLocation.lat, claraLocation.lng]
-              );
-              map.fitBounds(bounds, { padding: [80, 80] });
-            } catch (e) { }
-          }
-        }
-
-        /* Coloca markers */
-        function upsertMarkers() {
-          renderDistance(); // Calcular texto aunque no haya mapa visual
-
-          if (!map) return;
-
-          if (!christianMarker) {
-            christianMarker = L.marker([christianLocation.lat, christianLocation.lng], { icon: christianIcon }).addTo(map);
-          } else {
-            christianMarker.setLatLng([christianLocation.lat, christianLocation.lng]);
-          }
-
-          if (!claraMarker) {
-            claraMarker = L.marker([claraLocation.lat, claraLocation.lng], { icon: claraIcon }).addTo(map);
-          } else {
-            claraMarker.setLatLng([claraLocation.lat, claraLocation.lng]);
-          }
-        }
-
-        /* Asignar MI posición */
-        function setMyCoords(lat, lng, acc) {
-          const who = (MAP_USER || '').toLowerCase(); // Usamos la nueva variable MAP_USER
-          const point = { lat: Number(lat), lng: Number(lng) };
-
-          if (who === 'mochito' || who === 'christian') {
-            christianLocation = { ...christianLocation, ...point, acc };
-          } else {
-            claraLocation = { ...claraLocation, ...point, acc };
-          }
-          upsertMarkers();
-        }
-
-        /* Traer posición del OTRO */
-        async function fetchOtherCoords() {
-          try {
-            // Usamos MAP_OTHER aquí
-            const r = await fetch(`/api/other_location?user=${encodeURIComponent(MAP_OTHER || '')}`, { cache: 'no-store' });
-            if (!r.ok) return;
-            const j = await r.json();
-            if (!j || j.lat == null || j.lng == null) return;
-
-            const point = { lat: Number(j.lat), lng: Number(j.lng) };
-            const otherName = (MAP_OTHER || '').toLowerCase();
-
-            if (otherName === 'mochito' || otherName === 'christian') {
-              christianLocation = { ...christianLocation, ...point };
-            } else {
-              claraLocation = { ...claraLocation, ...point };
-            }
-            upsertMarkers();
-          } catch (e) { }
-        }
-
-        /* Geolocalización */
-        function startAutoGeolocation() {
-          if (!('geolocation' in navigator)) return;
-          try {
-            watchId = navigator.geolocation.watchPosition(async pos => {
-              const { latitude, longitude, accuracy } = pos.coords;
-              setMyCoords(latitude, longitude, accuracy);
-              try {
-                await fetch('/api/location', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ lat: latitude, lng: longitude, acc: accuracy })
-                });
-              } catch (_) { }
-            }, err => { console.log("Geo error", err); },
-              { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 });
-          } catch (e) { }
-          setInterval(fetchOtherCoords, 15000);
-        }
-
-        /* INICIALIZAR MAPA (A prueba de fallos) */
-        window.initMap = function () {
-          if (typeof L === 'undefined') {
-            console.log('Leaflet no cargado, reintentando...');
-            setTimeout(initMap, 500);
-            return;
-          }
-          const mapEl = document.getElementById('distanceMap');
-          if (!mapEl) return;
-
-          if (window.map) {
-            window.map.invalidateSize();
-            return;
-          }
-
-          try {
-            window.map = L.map('distanceMap', {
-              zoomControl: false, // Ocultar controles para móvil
-              attributionControl: false
-            }).setView([39.5, -3], 6);
-
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-              maxZoom: 19, subdomains: 'abcd'
-            }).addTo(window.map);
-
-            upsertMarkers();
-
-            // Forzar repintado agresivo
-            setTimeout(() => { window.map.invalidateSize(); }, 500);
-            setTimeout(() => { window.map.invalidateSize(); renderDistance(); }, 2000);
-          } catch (e) {
-            console.error("Error fatal mapa:", e);
-          }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-          initMap();
-          startAutoGeolocation();
-          fetchOtherCoords();
-        });
-      </script>
 
 
       <script>
@@ -12413,6 +12318,245 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             initMadridCountdown();
           }
         })();
+      </script>
+
+
+
+      <script>
+        // =====================
+        // MAPA + DISTANCIA (MODO ESTADOS, SIN GEOLOCALIZACIÓN)
+        // =====================
+        (function () {
+          // --- Coordenadas fijas de las ciudades ---
+          const COORDS_ALG = { lat: 39.223, lng: -0.432, name: "Algemesí" };
+          const COORDS_COR = { lat: 37.888, lng: -4.779, name: "Córdoba" };
+
+          // --- Modos de pareja ---
+          const COUPLE_MODES = {
+            separated: {
+              label: 'Separados',
+              sub: 'Mochito en Algemesí · Mochita en Córdoba',
+              // Mochito en Algemesí, Mochita en Córdoba
+              posMochito: COORDS_ALG,
+              posMochita: COORDS_COR,
+              icon: 'fa-route',
+              bannerText: 'Separados'
+            },
+            together_alg: {
+              label: 'Juntos en Algemesí',
+              sub: 'Disfrutando en Valencia ❤️',
+              // Ambos en Algemesí, con pequeño offset para que no se tapen
+              posMochito: { lat: COORDS_ALG.lat, lng: COORDS_ALG.lng - 0.002 },
+              posMochita: { lat: COORDS_ALG.lat, lng: COORDS_ALG.lng + 0.002 },
+              icon: 'fa-house-chimney-heart',
+              bannerText: 'Juntos en Algemesí'
+            },
+            together_cor: {
+              label: 'Juntos en Córdoba',
+              sub: 'Disfrutando en el sur 💃',
+              // Ambos en Córdoba, con pequeño offset
+              posMochito: { lat: COORDS_COR.lat, lng: COORDS_COR.lng - 0.002 },
+              posMochita: { lat: COORDS_COR.lat, lng: COORDS_COR.lng + 0.002 },
+              icon: 'fa-city',
+              bannerText: 'Juntos en Córdoba'
+            }
+          };
+
+          // --- Avatares desde Flask ---
+          const PIC_MOCHITO = {{ (profile_pictures.get('mochito') or '') | tojson
+        }};
+        const PIC_MOCHITA = {{ (profile_pictures.get('mochita') or '') | tojson }};
+
+        function makeIconHtml(url, letter) {
+          if (url) return `<img src="${url}" alt="${letter}">`;
+          return `<span style="font-weight:800;color:white;font-size:1.2rem;">${letter}</span>`;
+        }
+
+        let map;
+        let markerMochito, markerMochita, polyline;
+        let iconMochito, iconMochita;
+
+        function ensureIcons() {
+          if (iconMochito && iconMochita) return;
+          if (!window.L) return;
+
+          iconMochito = L.divIcon({
+            className: 'avatar-marker avatar-marker--christian',
+            html: `<div class="avatar-pulse"></div><div class="avatar-circle">${makeIconHtml(PIC_MOCHITO, 'M')}</div>`,
+            iconSize: [48, 48],
+            iconAnchor: [24, 24]
+          });
+
+          iconMochita = L.divIcon({
+            className: 'avatar-marker avatar-marker--clara',
+            html: `<div class="avatar-pulse"></div><div class="avatar-circle">${makeIconHtml(PIC_MOCHITA, 'C')}</div>`,
+            iconSize: [48, 48],
+            iconAnchor: [24, 24]
+          });
+        }
+
+        // --- Distancia Haversine en km ---
+        function getDistKm(p1, p2) {
+          const R = 6371;
+          const toRad = d => d * Math.PI / 180;
+          const lat1 = toRad(p1.lat);
+          const lat2 = toRad(p2.lat);
+          const dLat = toRad(p2.lat - p1.lat);
+          const dLng = toRad(p2.lng - p1.lng);
+
+          const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          return R * c;
+        }
+
+        // --- Actualizar UI (texto + mapa + chip) ---
+        function applyModeUI(mode) {
+          const cfg = COUPLE_MODES[mode] || COUPLE_MODES.separated;
+
+          // 1) Textos en tarjeta Distancia
+          const labelEl = document.getElementById('distanceStatusLabel');
+          const subEl = document.getElementById('distanceStatusSub');
+          const kmEl = document.getElementById('distanceValue');
+
+          if (labelEl) labelEl.textContent = cfg.label;
+          if (subEl) subEl.textContent = cfg.sub;
+
+          // 2) Botones activos
+          document.querySelectorAll('.ds-mode-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+          });
+
+          // 3) Chip del banner (id="chipDistance")
+          const chip = document.getElementById('chipDistance');
+          if (chip) {
+            chip.innerHTML = `<i class="fa-solid ${cfg.icon}"></i> ${cfg.bannerText}`;
+            if (mode !== 'separated') chip.classList.add('soon');
+            else chip.classList.remove('soon');
+          }
+
+          // 4) Mapa + línea + km
+          if (!map || !markerMochito || !markerMochita || !window.L) {
+            return; // Todavía no existe el mapa
+          }
+
+          const p1 = [cfg.posMochito.lat, cfg.posMochito.lng];
+          const p2 = [cfg.posMochita.lat, cfg.posMochita.lng];
+
+          markerMochito.setLatLng(p1);
+          markerMochita.setLatLng(p2);
+
+          // Línea entre ellos
+          if (polyline) {
+            try { map.removeLayer(polyline); } catch (e) { }
+            polyline = null;
+          }
+
+          const km = getDistKm(cfg.posMochito, cfg.posMochita);
+          if (kmEl) {
+            const kmText = km < 1 ? '0 km (Juntos)' : Math.round(km) + ' km';
+            kmEl.textContent = kmText;
+          }
+
+          if (km > 5) {
+            polyline = L.polyline([p1, p2], { className: 'distance-flow' }).addTo(map);
+            map.fitBounds(L.latLngBounds(p1, p2), { padding: [50, 50], maxZoom: 10 });
+          } else {
+            // Están prácticamente juntos → zoom a la ciudad
+            map.setView(p1, 13);
+          }
+        }
+
+        // --- Backend: leer el modo guardado ---
+        async function fetchCoupleMode() {
+          try {
+            const r = await fetch('/api/couple_mode');
+            const d = await r.json();
+            if (d && d.ok) {
+              applyModeUI(d.mode || 'separated');
+            } else {
+              applyModeUI('separated');
+            }
+          } catch (e) {
+            console.error('[distancia] error fetchCoupleMode', e);
+            applyModeUI('separated');
+          }
+        }
+
+        // --- Backend: guardar modo cuando pulsas un botón ---
+        async function setCoupleMode(mode) {
+          applyModeUI(mode); // feedback instantáneo
+          try {
+            const r = await fetch('/api/couple_mode', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ mode })
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok || d.ok === false) {
+              throw new Error(d.error || 'error');
+            }
+            window.showToast?.('success', 'Estado de distancia actualizado 💌');
+          } catch (e) {
+            console.error('[distancia] error setCoupleMode', e);
+            window.showToast?.('error', 'No se pudo guardar el estado');
+          }
+        }
+
+        // --- Inicializar mapa SOLO si existe #distanceMap (Inicio) ---
+        function initDistanceMap() {
+          const el = document.getElementById('distanceMap');
+          if (!el) return;    // No estamos en Inicio
+          if (map) return;    // Ya creado
+          if (!window.L) {
+            console.error('[distancia] Leaflet no cargado');
+            return;
+          }
+
+          map = L.map('distanceMap', {
+            zoomControl: false,
+            attributionControl: false
+          }).setView([38.5, -3], 6);
+
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            subdomains: 'abcd'
+          }).addTo(map);
+
+          ensureIcons();
+
+          markerMochito = L.marker([COORDS_ALG.lat, COORDS_ALG.lng], { icon: iconMochito })
+            .addTo(map).bindPopup('<b>Mochito</b>');
+          markerMochita = L.marker([COORDS_COR.lat, COORDS_COR.lng], { icon: iconMochita })
+            .addTo(map).bindPopup('<b>Mochita</b>');
+
+          // Ajuste inicial según lo guardado
+          fetchCoupleMode();
+
+          // Por si la sección entra con animación
+          setTimeout(() => {
+            try { map.invalidateSize(); } catch (e) { }
+          }, 400);
+        }
+
+        // --- Botones de modos (Separados / Algemesí / Córdoba) ---
+        function initDistanceControls() {
+          document.querySelectorAll('.ds-mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const m = btn.dataset.mode;
+              if (m) setCoupleMode(m);
+            });
+          });
+        }
+
+        // --- Arranque cuando el DOM está listo ---
+        document.addEventListener('DOMContentLoaded', () => {
+          initDistanceMap();      // solo si existe #distanceMap
+          initDistanceControls(); // engancha los botones
+          fetchCoupleMode();      // asegura que el banner + tarjeta pillan el estado actual
+        });
+
+}) ();
       </script>
 
 </body>

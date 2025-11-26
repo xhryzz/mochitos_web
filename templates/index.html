@@ -7078,212 +7078,225 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
 <div class="section animate-in delay-3" id="countdownSection">
   <h3>Fin de la Distancia</h3>
-  <p>Tachando los días para estar juntos para siempre (o hasta la próxima fecha). ✨</p>
+  <p>Cada día tachado es un día menos para estar juntos. ✨</p>
 
   <div class="countdown-card">
-    <div id="cd-loading" style="color:#888; font-style:italic;">Cargando fecha...</div>
+    <div id="cd-loading" style="color:#888;">Cargando fecha...</div>
     
     <div id="cd-content" style="display:none;">
-      
       <div class="cd-big-number">
         <span id="cd-days">0</span>
         <small>Días restantes</small>
       </div>
 
-      <div class="cd-target-date">
-        Meta: <span id="cd-target-text" style="font-weight:700; color:var(--primary-color);">...</span>
+      <div class="cd-target-info">
+        Meta: <strong id="cd-target-display">...</strong>
       </div>
 
-      <div class="cd-calendar-strip" id="cd-strip">
-        </div>
+      <div class="calendar-controls">
+        <button class="cal-btn" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i></button>
+        <span class="cal-month-name" id="cal-month-name">Noviembre 2023</span>
+        <button class="cal-btn" onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button>
+      </div>
 
-      <div class="cd-message" id="cd-message"></div>
+      <div class="calendar-grid">
+        <div class="cal-day-head">Lun</div>
+        <div class="cal-day-head">Mar</div>
+        <div class="cal-day-head">Mié</div>
+        <div class="cal-day-head">Jue</div>
+        <div class="cal-day-head">Vie</div>
+        <div class="cal-day-head">Sáb</div>
+        <div class="cal-day-head">Dom</div>
+        
+        <div id="calendar-days" class="calendar-body"></div>
+      </div>
     </div>
 
     <div style="margin-top: 20px; text-align: right;">
-      <button class="icon-btn" onclick="toggleCountdownEdit()" title="Cambiar fecha objetivo" style="background:#f0f0f0; color:#555;">
+      <button class="icon-btn" onclick="toggleCountdownEdit()" style="background:#f0f0f0; color:#555;">
         <i class="fas fa-calendar-alt"></i>
       </button>
     </div>
 
     <div id="cd-edit-form" style="display:none; margin-top:15px; background:#f9f9f9; padding:15px; border-radius:12px;">
-      <label style="display:block; margin-bottom:5px; font-weight:600;">¿Cuándo se acaba la distancia?</label>
-      <div style="display:flex; gap:10px;">
-        <input type="date" id="cd-date-input" style="margin:0;">
+      <label style="display:block; margin-bottom:5px; font-weight:bold;">Elige la fecha del reencuentro:</label>
+      <div style="display:flex; gap:10px; justify-content:center;">
+        <input type="date" id="cd-date-input" style="max-width:160px;">
         <button onclick="saveCountdownDate()" style="padding: 10px 20px;">Guardar</button>
       </div>
     </div>
-
   </div>
 </div>
 
 <style>
-  /* Estilos para el Contador */
   .countdown-card {
     background: #fff;
     border-radius: 20px;
     padding: 20px;
-    text-align: center;
     box-shadow: 0 10px 30px rgba(0,0,0,0.05);
     border: 1px solid rgba(0,0,0,0.05);
+    text-align: center;
   }
 
   .cd-big-number {
-    font-size: 4rem;
+    font-size: 3.5rem;
     font-weight: 900;
-    line-height: 1;
     color: var(--primary-color);
-    margin: 10px 0;
-    font-family: 'Montserrat', sans-serif;
-    text-shadow: 2px 2px 0px rgba(232, 67, 147, 0.2);
+    line-height: 1;
+    margin-bottom: 10px;
   }
-
   .cd-big-number small {
-    display: block;
     font-size: 1rem;
-    font-weight: 600;
     color: #888;
-    margin-top: 5px;
-    text-shadow: none;
-    letter-spacing: 1px;
     text-transform: uppercase;
+    letter-spacing: 1px;
+    display: block;
+    margin-top: 5px;
   }
 
-  .cd-target-date {
-    margin-bottom: 20px;
-    font-size: 0.95rem;
-    color: #666;
-    background: #f8f8f8;
-    display: inline-block;
+  .cd-target-info {
+    background: #f4f4f4;
     padding: 5px 15px;
     border-radius: 50px;
+    display: inline-block;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    color: #555;
   }
 
-  /* Tira de días (Calendario) */
-  .cd-calendar-strip {
+  /* --- CALENDARIO --- */
+  .calendar-controls {
     display: flex;
-    justify-content: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 15px;
-  }
-
-  .cd-day-box {
-    width: 45px;
-    height: 55px;
-    border-radius: 10px;
-    background: #fff;
-    border: 2px solid #eee;
-    display: flex;
-    flex-direction: column;
+    justify-content: space-between;
     align-items: center;
-    justify-content: center;
-    position: relative;
-    transition: transform 0.2s;
+    margin-bottom: 15px;
+    padding: 0 10px;
   }
-
-  .cd-day-name {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    color: #999;
-    font-weight: 700;
-  }
-
-  .cd-day-num {
-    font-size: 1.1rem;
+  .cal-month-name {
     font-weight: 800;
-    color: #444;
+    font-size: 1.1rem;
+    text-transform: capitalize;
+    color: var(--dark-text);
+  }
+  .cal-btn {
+    background: #fff;
+    border: 1px solid #eee;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--primary-color);
+    transition: .2s;
+  }
+  .cal-btn:hover {
+    background: var(--primary-color);
+    color: white;
   }
 
-  /* Día tachado (Pasado) */
-  .cd-day-box.crossed {
-    background: #f0f0f0;
-    border-color: #e0e0e0;
-    opacity: 0.6;
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    max-width: 400px;
+    margin: 0 auto;
   }
   
-  /* La X roja */
-  .cd-day-box.crossed::after {
-    content: "✖";
-    position: absolute;
-    font-size: 2rem;
-    color: #ff4757;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    opacity: 0.8;
+  .calendar-body {
+    display: contents; /* Para que los hijos sigan el grid del padre */
   }
 
-  /* Día de Hoy */
-  .cd-day-box.today {
-    border-color: var(--primary-color);
-    box-shadow: 0 5px 15px rgba(232, 67, 147, 0.3);
-    transform: scale(1.1);
-    z-index: 2;
-    background: #fff0f6;
-  }
-  .cd-day-box.today .cd-day-num {
-    color: var(--primary-color);
+  .cal-day-head {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #aaa;
+    text-transform: uppercase;
+    margin-bottom: 5px;
   }
 
-  /* Día Meta */
-  .cd-day-box.target {
-    background: var(--gradient);
+  /* Celdas de días */
+  .cal-day {
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    position: relative;
+    background: #fff;
+    border: 1px solid transparent;
+    color: #333;
+  }
+
+  /* Día vacío (padding del mes) */
+  .cal-day.empty {
+    background: transparent;
     border: none;
   }
-  .cd-day-box.target .cd-day-name,
-  .cd-day-box.target .cd-day-num {
-    color: #fff;
-  }
-  .cd-day-box.target::before {
-    content: "🏁";
-    font-size: 1.2rem;
-  }
-  .cd-day-box.target .cd-day-num { display: none; } /* Ocultar número, mostrar bandera */
 
-  .cd-message {
-    margin-top: 15px;
-    font-weight: 600;
+  /* Días pasados (TACHADOS) */
+  .cal-day.past {
+    color: #ccc;
+    background: #f9f9f9;
+  }
+  .cal-day.past::after {
+    content: "✕";
+    position: absolute;
+    font-size: 1.4rem;
+    color: #ff6b6b; /* Rojo suave */
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  /* Día de HOY */
+  .cal-day.today {
+    border: 2px solid var(--primary-color);
     color: var(--primary-color);
+    background: #fff0f6;
+    font-weight: 800;
+  }
+
+  /* Día META (Fin distancia) */
+  .cal-day.target {
+    background: var(--gradient);
+    color: white !important;
+    box-shadow: 0 4px 10px rgba(232, 67, 147, 0.4);
+    animation: pulse 2s infinite;
+  }
+  
+  /* El día meta no debe estar tachado aunque sea hoy */
+  .cal-day.target::after {
+    display: none !important;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
   }
 </style>
 
 <script>
 (function() {
+  // Variables de estado
+  let targetDate = null; // Objeto Date
+  let viewDate = new Date(); // Mes que estamos viendo actualmente
+
   const els = {
     loading: document.getElementById('cd-loading'),
     content: document.getElementById('cd-content'),
-    days: document.getElementById('cd-days'),
-    strip: document.getElementById('cd-strip'),
-    targetText: document.getElementById('cd-target-text'),
-    msg: document.getElementById('cd-message'),
+    daysCount: document.getElementById('cd-days'),
+    targetDisplay: document.getElementById('cd-target-display'),
     form: document.getElementById('cd-edit-form'),
-    input: document.getElementById('cd-date-input')
+    input: document.getElementById('cd-date-input'),
+    monthName: document.getElementById('cal-month-name'),
+    grid: document.getElementById('calendar-days')
   };
 
-  window.toggleCountdownEdit = function() {
-    els.form.style.display = (els.form.style.display === 'none') ? 'block' : 'none';
-  };
+  // Inicializar
+  window.addEventListener('DOMContentLoaded', loadCountdownData);
 
-  window.saveCountdownDate = async function() {
-    const date = els.input.value;
-    if (!date) return alert("Selecciona una fecha primero.");
-    
-    try {
-      await fetch('/api/distance_end', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ date: date })
-      });
-      loadCountdown(); // Recargar
-      els.form.style.display = 'none';
-      showToast('success', 'Fecha actualizada 📅');
-    } catch (e) {
-      alert("Error guardando fecha");
-    }
-  };
-
-  async function loadCountdown() {
+  // 1. Cargar datos del servidor
+  async function loadCountdownData() {
     try {
       const r = await fetch('/api/distance_end');
       const d = await r.json();
@@ -7291,91 +7304,131 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
       els.loading.style.display = 'none';
       els.content.style.display = 'block';
 
-      if (!d.ok || !d.date) {
-        els.content.style.display = 'none';
-        els.loading.textContent = "No hay fecha fijada. Pulsa el calendario para añadirla.";
-        els.loading.style.display = 'block';
-        return;
+      if (d.ok && d.date) {
+        targetDate = new Date(d.date);
+        // Ajuste horario para evitar problemas de zona (fijamos a mediodía)
+        targetDate.setHours(12,0,0,0);
+        
+        els.input.value = d.date;
+        updateCounterUI();
+        renderCalendar();
+      } else {
+        // Si no hay fecha, mostramos el mes actual vacío
+        targetDate = null;
+        renderCalendar();
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  // 2. Guardar nueva fecha
+  window.saveCountdownDate = async function() {
+    const val = els.input.value;
+    if(!val) return alert("Elige una fecha");
+    
+    try {
+      await fetch('/api/distance_end', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ date: val })
+      });
+      
+      targetDate = new Date(val);
+      targetDate.setHours(12,0,0,0);
+      
+      // Si la fecha está en el futuro, movemos la vista del calendario a ese mes
+      viewDate = new Date(targetDate); 
+      
+      updateCounterUI();
+      renderCalendar();
+      toggleCountdownEdit();
+      showToast('success', 'Fecha guardada 🏁');
+    } catch(e) { alert("Error al guardar"); }
+  };
+
+  window.toggleCountdownEdit = () => {
+    els.form.style.display = (els.form.style.display === 'none') ? 'block' : 'none';
+  };
+
+  // 3. Actualizar el número gigante
+  function updateCounterUI() {
+    if(!targetDate) return;
+    
+    const today = new Date();
+    today.setHours(12,0,0,0); // Normalizamos hoy también
+    
+    const diff = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));
+    
+    els.daysCount.textContent = diff > 0 ? diff : 0;
+    els.targetDisplay.textContent = targetDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    if (diff <= 0) {
+        els.daysCount.textContent = "¡LLEGÓ!";
+    }
+  }
+
+  // 4. Navegación de Meses
+  window.changeMonth = function(delta) {
+    viewDate.setMonth(viewDate.getMonth() + delta);
+    renderCalendar();
+  };
+
+  // 5. Renderizar el Grid del Calendario
+  function renderCalendar() {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    
+    // Nombre del mes
+    const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    els.monthName.textContent = `${monthNames[month]} ${year}`;
+
+    els.grid.innerHTML = '';
+
+    // Calcular días
+    const firstDayOfMonth = new Date(year, month, 1);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    // Ajuste para que la semana empiece en Lunes (0=Lun, 6=Dom)
+    // getDay(): 0=Dom, 1=Lun...
+    let startDayIndex = firstDayOfMonth.getDay() - 1; 
+    if(startDayIndex === -1) startDayIndex = 6; 
+
+    const today = new Date();
+    today.setHours(12,0,0,0);
+
+    // Celdas vacías antes del día 1
+    for (let i = 0; i < startDayIndex; i++) {
+      const empty = document.createElement('div');
+      empty.className = 'cal-day empty';
+      els.grid.appendChild(empty);
+    }
+
+    // Días del mes
+    for (let d = 1; d <= daysInMonth; d++) {
+      const current = new Date(year, month, d, 12, 0, 0, 0);
+      const cell = document.createElement('div');
+      cell.className = 'cal-day';
+      cell.textContent = d;
+
+      // Lógica de estilos
+      
+      // 1. Es el objetivo?
+      if (targetDate && current.getTime() === targetDate.getTime()) {
+        cell.classList.add('target');
+        cell.title = "¡Día del encuentro!";
+        cell.innerHTML = "🏁"; // Reemplazar número por bandera o poner ambos
+      }
+      // 2. Es hoy?
+      else if (current.getTime() === today.getTime()) {
+        cell.classList.add('today');
+      }
+      // 3. Es pasado? (Tachar)
+      else if (current < today) {
+        cell.classList.add('past');
       }
 
-      renderCountdown(d.date);
-
-    } catch (e) {
-      console.error(e);
+      els.grid.appendChild(cell);
     }
   }
-
-  function renderCountdown(targetDateStr) {
-    const target = new Date(targetDateStr);
-    const today = new Date();
-    
-    // Resetear horas para comparar solo fechas
-    today.setHours(0,0,0,0);
-    target.setHours(0,0,0,0);
-
-    const diffMs = target - today;
-    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-
-    // 1. Texto Principal
-    if (diffDays < 0) {
-        els.days.textContent = "0";
-        els.msg.textContent = "¡La fecha ya pasó! 🎉 ¿Estamos juntos?";
-    } else if (diffDays === 0) {
-        els.days.textContent = "0";
-        els.msg.textContent = "¡ES HOY! 🚀❤️";
-    } else {
-        els.days.textContent = diffDays;
-        els.msg.textContent = "¡Ya queda menos! 💪";
-    }
-
-    // Fecha formateada
-    els.targetText.textContent = target.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-    els.input.value = targetDateStr;
-
-    // 2. Generar la Tira de Calendario (Strip)
-    // Mostramos: 3 días antes (tachados) + HOY + 3 días después
-    els.strip.innerHTML = '';
-
-    // Calcular rango de visualización
-    // Empezamos 3 días antes de hoy
-    let startRender = new Date(today);
-    startRender.setDate(today.getDate() - 3);
-
-    // Renderizamos 7 días en total
-    const daysToRender = 7;
-    const weekDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-
-    for (let i = 0; i < daysToRender; i++) {
-        let currentLoopDate = new Date(startRender);
-        currentLoopDate.setDate(startRender.getDate() + i);
-        
-        let isPast = currentLoopDate < today;
-        let isToday = currentLoopDate.getTime() === today.getTime();
-        let isTarget = currentLoopDate.getTime() === target.getTime();
-        
-        // Crear cajita
-        let box = document.createElement('div');
-        box.className = 'cd-day-box';
-        
-        if (isPast) box.classList.add('crossed');
-        if (isToday) box.classList.add('today');
-        if (isTarget) box.classList.add('target');
-
-        // Contenido de la caja
-        let dayName = weekDays[currentLoopDate.getDay()];
-        let dayNum = currentLoopDate.getDate();
-
-        box.innerHTML = `
-            <div class="cd-day-name">${dayName}</div>
-            <div class="cd-day-num">${dayNum}</div>
-        `;
-
-        els.strip.appendChild(box);
-    }
-  }
-
-  // Iniciar al cargar
-  document.addEventListener('DOMContentLoaded', loadCountdown);
 })();
 </script>
 
@@ -10428,12 +10481,20 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             return null;
           }
 
-          // 3) Construye Home: banner + “Nosotros” (días) + “Distancia”
+          // 3) Construye Home: banner + “Nosotros” + “Distancia” + “Cuenta Atrás”
           function buildHome(home) {
             const banner = document.querySelector('.section.banner');
-            const nosotros = findSectionByTitleIncludes(['nosotros']);   // días juntos / vernos
-            const distancia = findSectionByTitleIncludes(['distancia']); // mapa
-            [banner, nosotros, distancia].forEach(el => { if (el) home.appendChild(el); });
+            // Buscamos por título
+            const nosotros = findSectionByTitleIncludes(['nosotros']);   
+            const distancia = findSectionByTitleIncludes(['distancia']); 
+            
+            // NUEVO: Capturamos la sección de cuenta atrás por su ID
+            const countdown = document.getElementById('countdownSection');
+
+            // Añadimos 'countdown' al array para que se mueva dentro de la página Home
+            [banner, nosotros, distancia, countdown].forEach(el => { 
+                if (el) home.appendChild(el); 
+            });
           }
 
           // 4) Resto de pantallas por título

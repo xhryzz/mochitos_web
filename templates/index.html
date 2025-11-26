@@ -7094,26 +7094,32 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
       </div>
 
       <div class="calendar-controls">
-        <button class="cal-btn" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i></button>
-        <span class="cal-month-name" id="cal-month-name">Noviembre 2023</span>
-        <button class="cal-btn" onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button>
+        <button class="cal-btn" onclick="changeMonth(-1)">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        
+        <span class="cal-month-name" id="cal-month-name">...</span>
+        
+        <button class="cal-btn" onclick="changeMonth(1)">
+          <i class="fas fa-chevron-right"></i>
+        </button>
       </div>
 
       <div class="calendar-grid">
-        <div class="cal-day-head">Lun</div>
-        <div class="cal-day-head">Mar</div>
-        <div class="cal-day-head">Mié</div>
-        <div class="cal-day-head">Jue</div>
-        <div class="cal-day-head">Vie</div>
-        <div class="cal-day-head">Sáb</div>
-        <div class="cal-day-head">Dom</div>
+        <div class="cal-day-head">L</div>
+        <div class="cal-day-head">M</div>
+        <div class="cal-day-head">X</div>
+        <div class="cal-day-head">J</div>
+        <div class="cal-day-head">V</div>
+        <div class="cal-day-head">S</div>
+        <div class="cal-day-head">D</div>
         
         <div id="calendar-days" class="calendar-body"></div>
       </div>
     </div>
 
     <div style="margin-top: 20px; text-align: right;">
-      <button class="icon-btn" onclick="toggleCountdownEdit()" style="background:#f0f0f0; color:#555;">
+      <button class="icon-btn" onclick="toggleCountdownEdit()" style="background:#f8f8f8; color:#888; box-shadow:none;">
         <i class="fas fa-calendar-alt"></i>
       </button>
     </div>
@@ -7131,155 +7137,159 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 <style>
   .countdown-card {
     background: #fff;
-    border-radius: 20px;
-    padding: 20px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 24px; /* Más redondeado */
+    padding: 25px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.04);
+    border: 1px solid rgba(0,0,0,0.03);
     text-align: center;
   }
 
   .cd-big-number {
-    font-size: 3.5rem;
+    font-size: 4rem;
     font-weight: 900;
-    color: var(--primary-color);
+    /* Texto con gradiente */
+    background: var(--gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
     line-height: 1;
-    margin-bottom: 10px;
+    margin-bottom: 5px;
+    font-family: 'Montserrat', sans-serif;
   }
   .cd-big-number small {
-    font-size: 1rem;
+    font-size: 0.9rem;
+    -webkit-text-fill-color: #888; /* Reset del gradiente para el small */
     color: #888;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 2px;
     display: block;
     margin-top: 5px;
+    font-weight: 600;
   }
 
   .cd-target-info {
-    background: #f4f4f4;
-    padding: 5px 15px;
+    background: #fdfdfd;
+    border: 1px solid #eee;
+    padding: 6px 18px;
     border-radius: 50px;
     display: inline-block;
-    margin-bottom: 20px;
-    font-size: 0.9rem;
-    color: #555;
+    margin-bottom: 25px;
+    font-size: 0.85rem;
+    color: #666;
   }
 
-  /* --- CALENDARIO --- */
+  /* --- CALENDARIO ESTILOSO --- */
   .calendar-controls {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
     padding: 0 10px;
   }
+  
   .cal-month-name {
-    font-weight: 800;
-    font-size: 1.1rem;
+    font-family: 'Playfair Display', serif; /* Fuente elegante */
+    font-weight: 700;
+    font-size: 1.4rem;
     text-transform: capitalize;
     color: var(--dark-text);
   }
+
+  /* Flechas minimalistas (Ghost Buttons) */
   .cal-btn {
-    background: #fff;
-    border: 1px solid #eee;
-    width: 36px; height: 36px;
+    background: transparent;
+    border: none;
+    width: 40px; height: 40px;
     border-radius: 50%;
     cursor: pointer;
-    color: var(--primary-color);
-    transition: .2s;
+    color: var(--primary-color); /* Color rosa */
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-shadow: none; /* Quitamos sombras feas */
   }
+  
   .cal-btn:hover {
-    background: var(--primary-color);
-    color: white;
+    background: rgba(232, 67, 147, 0.08); /* Fondo rosita muy suave */
+    transform: scale(1.1);
+  }
+  .cal-btn:active {
+    transform: scale(0.95);
   }
 
   .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 6px;
-    max-width: 400px;
+    gap: 8px; /* Un poco más de aire */
+    max-width: 100%;
     margin: 0 auto;
   }
   
-  .calendar-body {
-    display: contents; /* Para que los hijos sigan el grid del padre */
-  }
+  .calendar-body { display: contents; }
 
   .cal-day-head {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: #aaa;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #b2bec3;
     text-transform: uppercase;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
   }
 
-  /* Celdas de días */
+  /* Celdas */
   .cal-day {
     aspect-ratio: 1 / 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 10px;
+    border-radius: 12px;
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     position: relative;
-    background: #fff;
-    border: 1px solid transparent;
-    color: #333;
+    color: #444;
+    transition: transform 0.2s;
   }
 
-  /* Día vacío (padding del mes) */
-  .cal-day.empty {
-    background: transparent;
-    border: none;
-  }
+  .cal-day.empty { background: transparent; }
 
-  /* Días pasados (TACHADOS) */
+  /* Pasado (tachado sutil) */
   .cal-day.past {
     color: #ccc;
-    background: #f9f9f9;
+    background: #fafafa;
   }
   .cal-day.past::after {
-    content: "✕";
+    content: "";
     position: absolute;
-    font-size: 1.4rem;
-    color: #ff6b6b; /* Rojo suave */
-    opacity: 0.7;
-    pointer-events: none;
+    width: 60%;
+    height: 2px;
+    background: #ff7675; /* Línea roja tachada */
+    transform: rotate(-45deg);
+    opacity: 0.6;
   }
 
-  /* Día de HOY */
+  /* Hoy */
   .cal-day.today {
-    border: 2px solid var(--primary-color);
     color: var(--primary-color);
     background: #fff0f6;
     font-weight: 800;
+    box-shadow: inset 0 0 0 2px var(--primary-color);
   }
 
-  /* Día META (Fin distancia) */
+  /* Meta */
   .cal-day.target {
     background: var(--gradient);
     color: white !important;
-    box-shadow: 0 4px 10px rgba(232, 67, 147, 0.4);
-    animation: pulse 2s infinite;
+    box-shadow: 0 5px 15px rgba(232, 67, 147, 0.4);
+    transform: scale(1.05);
+    z-index: 2;
   }
-  
-  /* El día meta no debe estar tachado aunque sea hoy */
-  .cal-day.target::after {
-    display: none !important;
-  }
-
-  @keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
-  }
+  .cal-day.target::after { display: none; } /* Sin tachado */
 </style>
 
 <script>
 (function() {
-  // Variables de estado
-  let targetDate = null; // Objeto Date
-  let viewDate = new Date(); // Mes que estamos viendo actualmente
+  let targetDate = null;
+  let viewDate = new Date(); 
 
   const els = {
     loading: document.getElementById('cd-loading'),
@@ -7292,10 +7302,8 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
     grid: document.getElementById('calendar-days')
   };
 
-  // Inicializar
   window.addEventListener('DOMContentLoaded', loadCountdownData);
 
-  // 1. Cargar datos del servidor
   async function loadCountdownData() {
     try {
       const r = await fetch('/api/distance_end');
@@ -7306,123 +7314,94 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
       if (d.ok && d.date) {
         targetDate = new Date(d.date);
-        // Ajuste horario para evitar problemas de zona (fijamos a mediodía)
         targetDate.setHours(12,0,0,0);
-        
         els.input.value = d.date;
+        viewDate = new Date(targetDate); // Ir directo al mes meta
         updateCounterUI();
         renderCalendar();
       } else {
-        // Si no hay fecha, mostramos el mes actual vacío
-        targetDate = null;
-        renderCalendar();
+        renderCalendar(); // Mes actual
       }
     } catch (e) { console.error(e); }
   }
 
-  // 2. Guardar nueva fecha
   window.saveCountdownDate = async function() {
     const val = els.input.value;
-    if(!val) return alert("Elige una fecha");
-    
+    if(!val) return;
     try {
       await fetch('/api/distance_end', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ date: val })
       });
-      
       targetDate = new Date(val);
       targetDate.setHours(12,0,0,0);
-      
-      // Si la fecha está en el futuro, movemos la vista del calendario a ese mes
       viewDate = new Date(targetDate); 
-      
       updateCounterUI();
       renderCalendar();
       toggleCountdownEdit();
-      showToast('success', 'Fecha guardada 🏁');
-    } catch(e) { alert("Error al guardar"); }
+      if(window.showToast) showToast('success', 'Fecha guardada 🏁');
+    } catch(e) { alert("Error"); }
   };
 
   window.toggleCountdownEdit = () => {
     els.form.style.display = (els.form.style.display === 'none') ? 'block' : 'none';
   };
 
-  // 3. Actualizar el número gigante
   function updateCounterUI() {
     if(!targetDate) return;
-    
     const today = new Date();
-    today.setHours(12,0,0,0); // Normalizamos hoy también
-    
+    today.setHours(12,0,0,0);
     const diff = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));
     
-    els.daysCount.textContent = diff > 0 ? diff : 0;
+    els.daysCount.textContent = diff > 0 ? diff : (diff === 0 ? "0" : "0");
     els.targetDisplay.textContent = targetDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-
-    if (diff <= 0) {
-        els.daysCount.textContent = "¡LLEGÓ!";
-    }
   }
 
-  // 4. Navegación de Meses
   window.changeMonth = function(delta) {
     viewDate.setMonth(viewDate.getMonth() + delta);
     renderCalendar();
   };
 
-  // 5. Renderizar el Grid del Calendario
   function renderCalendar() {
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
     
-    // Nombre del mes
     const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
     els.monthName.textContent = `${monthNames[month]} ${year}`;
 
     els.grid.innerHTML = '';
 
-    // Calcular días
     const firstDayOfMonth = new Date(year, month, 1);
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     
-    // Ajuste para que la semana empiece en Lunes (0=Lun, 6=Dom)
-    // getDay(): 0=Dom, 1=Lun...
     let startDayIndex = firstDayOfMonth.getDay() - 1; 
     if(startDayIndex === -1) startDayIndex = 6; 
 
     const today = new Date();
     today.setHours(12,0,0,0);
 
-    // Celdas vacías antes del día 1
+    // Rellenar vacíos
     for (let i = 0; i < startDayIndex; i++) {
       const empty = document.createElement('div');
       empty.className = 'cal-day empty';
       els.grid.appendChild(empty);
     }
 
-    // Días del mes
+    // Días
     for (let d = 1; d <= daysInMonth; d++) {
       const current = new Date(year, month, d, 12, 0, 0, 0);
       const cell = document.createElement('div');
       cell.className = 'cal-day';
       cell.textContent = d;
 
-      // Lógica de estilos
-      
-      // 1. Es el objetivo?
+      // Lógica: Meta > Hoy > Pasado
       if (targetDate && current.getTime() === targetDate.getTime()) {
         cell.classList.add('target');
-        cell.title = "¡Día del encuentro!";
-        cell.innerHTML = "🏁"; // Reemplazar número por bandera o poner ambos
-      }
-      // 2. Es hoy?
-      else if (current.getTime() === today.getTime()) {
+        cell.innerHTML = "🏁";
+      } else if (current.getTime() === today.getTime()) {
         cell.classList.add('today');
-      }
-      // 3. Es pasado? (Tachar)
-      else if (current < today) {
+      } else if (current < today) {
         cell.classList.add('past');
       }
 

@@ -6206,118 +6206,151 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
       }
     }
 
-    /* === Fin de la Distancia (debajo del mapa) === */
+    /* === Mini Fin de la Distancia (dentro de Distancia) === */
     .countdown-card {
-      background: var(--card-bg);
-      border-radius: 26px;
-      padding: 24px 22px;
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.06);
-      border: 1px solid rgba(232, 67, 147, 0.12);
-      text-align: center;
-      position: relative;
-      overflow: hidden;
+      margin-top: 10px;
+      background: rgba(255, 255, 255, 0.96);
+      border-radius: 16px;
+      padding: 12px 14px;
+      border: 1px solid rgba(148, 163, 184, 0.32);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+      font-size: 0.85rem;
     }
 
-    .countdown-card::before {
-      content: "";
-      position: absolute;
-      inset: -40%;
-      opacity: 0.05;
-      background: radial-gradient(circle at 0 0, #fca5f1, transparent 55%),
-        radial-gradient(circle at 100% 100%, #a29bfe, transparent 55%);
-      pointer-events: none;
+    .cd-loading {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      text-align: center;
+    }
+
+    .cd-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .cd-main-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cd-flag {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      background: rgba(232, 67, 147, 0.08);
+      color: var(--primary-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+
+    .cd-title {
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    .cd-sub {
+      font-size: 0.75rem;
+      color: #9ca3af;
     }
 
     .cd-big-number {
-      position: relative;
-      font-size: 3.4rem;
-      font-weight: 900;
+      text-align: right;
+      font-family: 'Montserrat', system-ui, sans-serif;
+    }
+
+    .cd-big-number span {
+      display: block;
+      font-size: 2.1rem;
+      font-weight: 800;
       background: var(--gradient);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      line-height: 1;
-      margin-bottom: 4px;
-      font-family: 'Montserrat', system-ui, sans-serif;
+      line-height: 1.1;
     }
 
     .cd-big-number small {
       display: block;
-      font-size: 0.85rem;
-      -webkit-text-fill-color: #888;
-      color: #888;
+      font-size: 0.7rem;
+      color: #9ca3af;
       text-transform: uppercase;
-      letter-spacing: 2px;
-      margin-top: 6px;
-      font-weight: 600;
+      letter-spacing: 0.12em;
+      margin-top: 2px;
     }
 
     .cd-target-info {
-      position: relative;
-      background: rgba(255, 255, 255, 0.9);
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      padding: 6px 18px;
-      border-radius: 999px;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 22px;
-      font-size: 0.85rem;
-      color: #555;
+      gap: 6px;
+      background: #f9fafb;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      color: #6b7280;
+      margin-bottom: 10px;
     }
 
     .cd-target-info strong {
-      font-weight: 700;
       color: var(--primary-color);
+      font-weight: 700;
     }
 
     .calendar-controls {
-      position: relative;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 18px;
-      padding: 0 10px;
+      margin-bottom: 4px;
     }
 
     .cal-month-name {
       font-family: 'Playfair Display', serif;
-      font-weight: 700;
-      font-size: 1.25rem;
-      text-transform: capitalize;
+      font-weight: 600;
+      font-size: 0.95rem;
       color: var(--dark-text);
     }
 
     .cal-btn {
       background: transparent;
       border: none;
-      width: 40px;
-      height: 40px;
+      width: 30px;
+      height: 30px;
       border-radius: 999px;
       cursor: pointer;
       color: var(--primary-color);
-      font-size: 1.1rem;
+      font-size: 0.9rem;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      transition: transform 0.18s ease, background 0.18s ease;
+      transition: background 0.15s ease, transform 0.15s ease;
     }
 
     .cal-btn:hover {
       background: rgba(232, 67, 147, 0.08);
-      transform: scale(1.07);
+      transform: scale(1.05);
     }
 
     .cal-btn:active {
-      transform: scale(0.94);
+      transform: scale(0.92);
+    }
+
+    .cd-today-line {
+      font-size: 0.72rem;
+      color: #9ca3af;
+      font-style: italic;
+      margin-bottom: 6px;
     }
 
     .calendar-grid {
-      position: relative;
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 7px;
-      max-width: 100%;
-      margin: 0 auto;
+      gap: 5px;
     }
 
     .calendar-body {
@@ -6325,12 +6358,13 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
     }
 
     .cal-day-head {
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       font-weight: 800;
-      color: #b2bec3;
+      color: #cbd5e1;
       text-transform: uppercase;
-      margin-bottom: 4px;
       letter-spacing: 0.08em;
+      margin-bottom: 2px;
+      text-align: center;
     }
 
     .cal-day {
@@ -6338,14 +6372,13 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 11px;
+      border-radius: 9px;
       font-weight: 600;
-      font-size: 0.9rem;
+      font-size: 0.8rem;
       position: relative;
-      color: #444;
-      background: rgba(248, 250, 252, 0.9);
-      border: 1px solid rgba(226, 232, 240, 0.8);
-      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+      color: #475569;
+      background: #f8fafc;
+      border: 1px solid rgba(226, 232, 240, 0.9);
     }
 
     .cal-day.empty {
@@ -6362,9 +6395,9 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
       content: "";
       position: absolute;
       width: 60%;
-      height: 2px;
+      height: 1.5px;
       background: #ff7675;
-      transform: rotate(-28deg);
+      transform: rotate(-25deg);
       opacity: 0.6;
     }
 
@@ -6378,23 +6411,77 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
     .cal-day.target {
       background: var(--gradient);
       color: #fff !important;
-      box-shadow: 0 5px 18px rgba(232, 67, 147, 0.45);
-      transform: scale(1.05);
-      z-index: 1;
+      box-shadow: 0 4px 14px rgba(232, 67, 147, 0.4);
     }
 
     .cal-day.target::after {
       display: none;
     }
 
+    .cd-bottom-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 6px;
+    }
+
+    .cd-edit-btn {
+      background: #f9fafb !important;
+      color: #9ca3af !important;
+      box-shadow: none !important;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border-radius: 999px;
+      font-size: 0.9rem;
+    }
+
+    .cd-edit-btn:hover {
+      background: #eef2ff !important;
+      color: var(--primary-color) !important;
+    }
+
     @media (max-width: 768px) {
-      .countdown-card {
-        padding: 20px 16px;
+      .cd-top-row {
+        flex-direction: column;
+        align-items: flex-start;
       }
 
       .cd-big-number {
-        font-size: 2.8rem;
+        align-self: flex-end;
       }
+    }
+
+    /* Overrides: hacer el calendario más pequeñito dentro de Distancia */
+    #countdownSection .calendar-grid {
+      max-width: 210px;
+      /* ancho total más pequeño */
+      margin: 0 auto;
+      /* centrado */
+      gap: 3px;
+      /* menos separación entre días */
+    }
+
+    #countdownSection .cal-day-head {
+      font-size: 0.6rem;
+      /* letras de L M X J V S D más pequeñas */
+      margin-bottom: 1px;
+    }
+
+    #countdownSection .cal-day {
+      font-size: 0.7rem;
+      /* número del día más pequeño */
+      border-radius: 6px;
+      border-width: 1px;
+    }
+
+    #countdownSection .cal-day.today {
+      box-shadow: inset 0 0 0 1.5px var(--primary-color);
+    }
+
+    #countdownSection .cal-day.past::after {
+      width: 55%;
+      height: 1px;
+      /* tachado más fino */
     }
   </style>
 </head>
@@ -6972,73 +7059,82 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             <p class="ds-footnote">
               Cualquiera de los dos puede cambiar el estado. Se actualizará en el banner y el mapa para ambos. ✨
             </p>
+
+            <!-- Mini Fin de la Distancia (integrado en Distancia) -->
+            <div class="countdown-card" id="countdownSection">
+              <div id="cd-loading" class="cd-loading">Cargando fecha...</div>
+
+              <div id="cd-content" style="display:none;">
+                <div class="cd-top-row">
+                  <div class="cd-main-label">
+                    <div class="cd-flag">
+                      <i class="fas fa-flag-checkered"></i>
+                    </div>
+                    <div>
+                      <div class="cd-title">Fin de la distancia</div>
+                      <div class="cd-sub">Mini cuenta atrás dentro del mapa 🩷</div>
+                    </div>
+                  </div>
+
+                  <div class="cd-big-number">
+                    <span id="cd-days">—</span>
+                    <small id="cd-label">Días restantes</small>
+                  </div>
+                </div>
+
+                <div class="cd-target-info">
+                  Meta: <strong id="cd-target-display">Sin fecha</strong>
+                </div>
+
+                <div class="calendar-controls">
+                  <button class="cal-btn" type="button" onclick="changeMonth(-1)">
+                    <i class="fas fa-chevron-left"></i>
+                  </button>
+
+                  <span class="cal-month-name" id="cal-month-name">...</span>
+
+                  <button class="cal-btn" type="button" onclick="changeMonth(1)">
+                    <i class="fas fa-chevron-right"></i>
+                  </button>
+                </div>
+
+
+                <div class="calendar-grid">
+                  <div class="cal-day-head">L</div>
+                  <div class="cal-day-head">M</div>
+                  <div class="cal-day-head">X</div>
+                  <div class="cal-day-head">J</div>
+                  <div class="cal-day-head">V</div>
+                  <div class="cal-day-head">S</div>
+                  <div class="cal-day-head">D</div>
+
+                  <div id="calendar-days" class="calendar-body"></div>
+                </div>
+              </div>
+
+              <div class="cd-bottom-row">
+                <button class="icon-btn cd-edit-btn" type="button" onclick="toggleCountdownEdit()">
+                  <i class="fas fa-calendar-alt"></i>
+                </button>
+              </div>
+
+              <div id="cd-edit-form"
+                style="display:none; margin-top:10px; background:#f9faf9; padding:10px 12px; border-radius:10px;">
+                <label style="display:block; margin-bottom:4px; font-weight:600; font-size:0.8rem;">
+                  Fecha del fin de la distancia:
+                </label>
+                <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
+                  <input type="date" id="cd-date-input" style="max-width:150px; font-size:0.8rem; padding:4px 8px;">
+                  <button type="button" onclick="saveCountdownDate()" style="padding:6px 14px; font-size:0.8rem;">
+                    Guardar
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Fin de la Distancia -->
-        <div class="section animate-in delay-3" id="countdownSection">
-          <h3>Fin de la Distancia</h3>
-          <p>Cada día tachado es un día menos para estar juntos. ✨</p>
 
-          <div class="countdown-card">
-            <div id="cd-loading" style="color:#888;">Cargando fecha...</div>
-
-            <div id="cd-content" style="display:none;">
-              <div class="cd-big-number">
-                <span id="cd-days">—</span>
-                <small id="cd-label">Días restantes</small>
-              </div>
-
-              <div class="cd-target-info">
-                Meta: <strong id="cd-target-display">Sin fecha</strong>
-              </div>
-
-              <div class="calendar-controls">
-                <button class="cal-btn" type="button" onclick="changeMonth(-1)">
-                  <i class="fas fa-chevron-left"></i>
-                </button>
-
-                <span class="cal-month-name" id="cal-month-name">...</span>
-
-                <button class="cal-btn" type="button" onclick="changeMonth(1)">
-                  <i class="fas fa-chevron-right"></i>
-                </button>
-              </div>
-
-              <div class="calendar-grid">
-                <div class="cal-day-head">L</div>
-                <div class="cal-day-head">M</div>
-                <div class="cal-day-head">X</div>
-                <div class="cal-day-head">J</div>
-                <div class="cal-day-head">V</div>
-                <div class="cal-day-head">S</div>
-                <div class="cal-day-head">D</div>
-
-                <div id="calendar-days" class="calendar-body"></div>
-              </div>
-            </div>
-
-            <div style="margin-top: 20px; text-align: right;">
-              <button class="icon-btn" type="button" onclick="toggleCountdownEdit()"
-                style="background:#f8f8f8; color:#888; box-shadow:none;">
-                <i class="fas fa-calendar-alt"></i>
-              </button>
-            </div>
-
-            <div id="cd-edit-form"
-              style="display:none; margin-top:15px; background:#f9f9f9; padding:15px; border-radius:12px;">
-              <label style="display:block; margin-bottom:5px; font-weight:bold;">
-                Elige la fecha del reencuentro:
-              </label>
-              <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-                <input type="date" id="cd-date-input" style="max-width:160px;">
-                <button type="button" onclick="saveCountdownDate()" style="padding: 10px 20px;">
-                  Guardar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
 
 
 
@@ -12819,7 +12915,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
       <script>
         (function () {
           const root = document.getElementById('countdownSection');
-          if (!root) return; // No estamos en Inicio
+          if (!root) return;
 
           let targetDate = null;
           let viewDate = new Date();
@@ -12833,7 +12929,8 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             form: document.getElementById('cd-edit-form'),
             input: document.getElementById('cd-date-input'),
             monthName: document.getElementById('cal-month-name'),
-            grid: document.getElementById('calendar-days')
+            grid: document.getElementById('calendar-days'),
+            todayLabel: document.getElementById('cd-today-label')
           };
 
           function safeToday() {
@@ -12850,11 +12947,14 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               if (els.loading) els.loading.style.display = 'none';
               if (els.content) els.content.style.display = 'block';
 
+              viewDate = safeToday(); // SIEMPRE mes actual
+
               if (d.ok && d.date) {
                 targetDate = new Date(d.date);
                 targetDate.setHours(12, 0, 0, 0);
                 if (els.input) els.input.value = d.date;
-                viewDate = new Date(targetDate);
+                updateCounterUI();
+              } else {
                 updateCounterUI();
               }
 
@@ -12884,7 +12984,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
               targetDate = new Date(val);
               targetDate.setHours(12, 0, 0, 0);
-              viewDate = new Date(targetDate);
+              // La vista sigue en el mes actual, no saltamos al objetivo
               updateCounterUI();
               renderCalendar();
               window.toggleCountdownEdit(false);
@@ -12908,6 +13008,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             if (!targetDate) {
               els.daysCount.textContent = '—';
               els.label.textContent = 'Elige una fecha';
+              if (els.targetDisplay) els.targetDisplay.textContent = 'Sin fecha';
               return;
             }
 
@@ -12961,12 +13062,24 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
             const today = safeToday();
 
+            // Línea de "Hoy: ..."
+            if (els.todayLabel) {
+              els.todayLabel.textContent = 'Hoy: ' + today.toLocaleDateString('es-ES', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+              });
+            }
+
+            // Huecos vacíos
             for (let i = 0; i < startDayIndex; i++) {
               const empty = document.createElement('div');
               empty.className = 'cal-day empty';
               els.grid.appendChild(empty);
             }
 
+            // Días del mes
             for (let d = 1; d <= daysInMonth; d++) {
               const current = new Date(year, month, d, 12, 0, 0, 0);
               const cell = document.createElement('div');

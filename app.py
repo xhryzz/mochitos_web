@@ -7372,42 +7372,6 @@ def historial():
                             today_iso=today_madrid().isoformat())  # <-- Cambiar a today_iso
 
 
-@app.get("/api/couple_mode")
-def api_get_couple_mode():
-    if "username" not in session:
-        return jsonify(ok=False, error="unauthorized"), 401
-
-    mode = state_get("couple_mode", "") or "separated"
-    return jsonify(ok=True, mode=mode)
-
-
-@app.post("/api/couple_mode")
-def api_set_couple_mode():
-    if "username" not in session:
-        return jsonify(ok=False, error="unauthorized"), 401
-
-    data = request.get_json(silent=True) or {}
-    mode = (data.get("mode") or "").strip()
-
-    allowed = {"separated", "together_alg", "together_cor"}
-    if mode not in allowed:
-        return jsonify(ok=False, error="bad_mode"), 400
-
-    # Guardamos en app_state (tabla ya creada en init_db)
-    state_set("couple_mode", mode)
-
-    # Aviso por SSE para que el otro lado se refresque
-    try:
-        broadcast("update", {
-            "kind": "couple_mode",
-            "mode": mode,
-            "by": session.get("username") or "unknown"
-        })
-    except Exception:
-        pass
-
-    return jsonify(ok=True, mode=mode)
-
 @app.post("/api/daily-wheel-spin")
 def api_daily_wheel_spin():
     if "username" not in session:
@@ -8193,14 +8157,12 @@ def api_daily_question_status():
     })   
 
 
-# --- AÑADIR AL FINAL DE app.py ---
-
+# ✅ ESTE ES EL BLOQUE CORRECTO (DÉJALO AQUÍ AL FINAL)
 @app.get("/api/couple_mode")
 def api_get_couple_mode():
     if "username" not in session:
         return jsonify(ok=False, error="unauthorized"), 401
     
-    # Leemos de la tabla app_state (clave-valor)
     mode = state_get("couple_mode", "") or "separated"
     return jsonify(ok=True, mode=mode)
 
@@ -8212,15 +8174,12 @@ def api_set_couple_mode():
     data = request.get_json(silent=True) or {}
     mode = (data.get("mode") or "").strip()
     
-    # Validamos modos permitidos
     allowed = {"separated", "together_alg", "together_cor"}
     if mode not in allowed:
         return jsonify(ok=False, error="bad_mode"), 400
 
-    # Guardamos en app_state
     state_set("couple_mode", mode)
     
-    # Notificamos a ambos navegadores para que se actualice solo
     try:
         broadcast("update", {
             "kind": "couple_mode",
@@ -8231,6 +8190,7 @@ def api_set_couple_mode():
         pass
 
     return jsonify(ok=True, mode=mode)
+
 
 _old_init_db = init_db
 def init_db():

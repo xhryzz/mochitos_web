@@ -838,6 +838,17 @@ def init_db():
         )
         """)
 
+
+        c.execute("""
+        CREATE TABLE IF NOT EXISTS mochireal_favorites (
+            user_from TEXT NOT NULL,
+            post_id   INTEGER NOT NULL REFERENCES mochireal_posts(id) ON DELETE CASCADE,
+            created_at TEXT,
+            PRIMARY KEY (user_from, post_id)
+        )
+        """)
+        
+
         # ======= Seguimiento de PRECIO: migraciones =======
         c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS track_price BOOLEAN DEFAULT FALSE""")
         c.execute("""ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS last_price_cents INTEGER""")
@@ -8432,79 +8443,94 @@ def debug_clean_old_photos():
     return f"<h1>Limpieza completada</h1><p>Se han vaciado {borradas} fotos antiguas para ahorrar espacio.</p><a href='/'>Volver</a>"
 
 # --- API: Historial de MochiReal ---
+# --- API: Historial de MochiReal ---
 @app.get('/api/mochireal/history')
 def api_mochireal_history():
     if 'username' not in session:
         return jsonify(ok=False, error="unauthorized"), 401
 
     user = session['username']
-    
-    # Calculamos la fecha de hoy en formato texto para comparar
-    today_str = europe_madrid_now().date().isoformat() # 'YYYY-MM-DD'
+    if user not in ('mochito', 'mochita'):
+        return jsonify(ok=False, error="bad_user"), 400
+
+    other = 'mochita' if user == 'mochito' else 'mochito'
+
+    # Fecha de hoy (para ocultar la foto del otro si tú no has subido la tuya aún)
+    today_str = europe_madrid_now().date().isoformat()  # 'YYYY-MM-DD'
 
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # Obtenemos todas las ventanas y sus posts
+            # Todas las ventanas + posts
             c.execute("""
-                SELECT w.id, w.date, w.triggered_at, p.id, p.username
+                SELECT 
+                    w.id         AS window_id,
+                    w.date       AS date,
+                    w.triggered_at AS triggered_at,
+                    p.id         AS post_id,
+                    p.username   AS username
                 FROM mochireal_windows w
                 JOIN mochireal_posts p ON p.window_id = w.id
-                ORDER BY w.date DESC
+                ORDER BY w.date DESC, p.username ASC
             """)
             rows = c.fetchall()
-            
-            # 1. Averiguar si YO he subido foto HOY
+
+            # ¿Tú has subido HOY?
             has_posted_today = False
             for r in rows:
-                r_date = r[1]
-                r_user = r[4]
+                r_date = r['date']
+                r_user = r['username']
                 if r_date == today_str and r_user == user:
                     has_posted_today = True
                     break
-            
-            history = {}
-            
+
+            # Favoritos de ambos (mochito / mochita)
+            c.execute("""
+                SELECT user_from, post_id
+                FROM mochireal_favorites
+                WHERE user_from IN (%s, %s)
+            """, (user, other))
+            fav_rows = c.fetchall()
+            fav_me = {fr['post_id'] for fr in fav_rows if fr['user_from'] == user}
+            fav_other = {fr['post_id'] for fr in fav_rows if fr['user_from'] == other}
+
+            # Construir estructura agrupada por día
+            history_by_date = {}  # date_str -> {date, time, posts:[...]}
             for r in rows:
-                w_id = r[0]
-                date_str = r[1] # YYYY-MM-DD
-                time_str = r[2] # Timestamp completo
-                pid = r[3]
-                p_user = r[4]
-                
-                # --- CORRECCIÓN DE SEGURIDAD ---
-                # Si la fecha es HOY, y YO NO he subido foto, y la foto NO es mía...
-                # ¡Saltamos la iteración (no la enviamos)!
-                if date_str == today_str and not has_posted_today and p_user != user:
+                date_str = r['date']
+                time_txt = r['triggered_at']
+                p_id = r['post_id']
+                p_user = r['username']
+
+                # Regla: si es HOY y la foto es del otro y tú no has subido la tuya → no la ves
+                if date_str == today_str and p_user != user and not has_posted_today:
                     continue
-                # -------------------------------
-                
-                if date_str not in history:
-                    # Parsear hora bonita (solo HH:MM)
-                    nice_time = "??:??"
-                    if time_str:
-                        try:
-                            # Asumiendo formato 'YYYY-MM-DD HH:MM:SS'
-                            nice_time = time_str.split(' ')[1][:5] 
-                        except: pass
-                        
-                    history[date_str] = {
-                        "date": date_str,
-                        "time": nice_time,
-                        "posts": []
+
+                if date_str not in history_by_date:
+                    history_by_date[date_str] = {
+                        'date': date_str,
+                        'time': time_txt,
+                        'posts': []
                     }
-                
-                history[date_str]["posts"].append({
-                    "post_id": pid,
-                    "username": p_user
+
+                history_by_date[date_str]['posts'].append({
+                    'post_id': p_id,
+                    'username': p_user,
+                    'is_fav_me': (p_id in fav_me),
+                    'is_fav_other': (p_id in fav_other),
                 })
 
-            # Convertir a lista ordenada
-            result = list(history.values())
-            
-            return jsonify(ok=True, history=result)
+            # Pasar a lista ordenada por fecha DESC
+            history_payload = sorted(
+                history_by_date.values(),
+                key=lambda d: d['date'],
+                reverse=True
+            )
+
+        return jsonify(ok=True, history=history_payload, has_posted_today=has_posted_today)
     finally:
         conn.close()
+
 
 @app.post("/admin/questions/bulk_delete")
 def admin_questions_bulk_delete():
@@ -8680,6 +8706,63 @@ def admin_poll_clear():
         app.logger.exception("[admin_poll_clear] %s", e)
         flash("No se pudo eliminar la votación.", "error")
     return redirect("/admin")
+
+
+@app.post('/api/mochireal/favorite')
+def api_mochireal_toggle_favorite():
+    if 'username' not in session:
+        return jsonify(ok=False, error="unauthorized"), 401
+
+    user = session['username']
+    if user not in ('mochito', 'mochita'):
+        return jsonify(ok=False, error="bad_user"), 400
+
+    data = request.get_json(silent=True) or {}
+    post_id = data.get('post_id')
+
+    try:
+        post_id = int(post_id)
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error="bad_post_id"), 400
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # Aseguramos que el post existe
+            c.execute("SELECT id FROM mochireal_posts WHERE id=%s", (post_id,))
+            row = c.fetchone()
+            if not row:
+                return jsonify(ok=False, error="not_found"), 404
+
+            # ¿Ya lo tenía marcado?
+            c.execute("""
+                SELECT 1 
+                FROM mochireal_favorites 
+                WHERE user_from=%s AND post_id=%s
+            """, (user, post_id))
+            exists = c.fetchone() is not None
+
+            if exists:
+                # Quitar favorito
+                c.execute("""
+                    DELETE FROM mochireal_favorites 
+                    WHERE user_from=%s AND post_id=%s
+                """, (user, post_id))
+                is_fav = False
+            else:
+                # Poner favorito
+                c.execute("""
+                    INSERT INTO mochireal_favorites (user_from, post_id, created_at)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (user_from, post_id) DO NOTHING
+                """, (user, post_id, now_madrid_str()))
+                is_fav = True
+
+            conn.commit()
+    finally:
+        conn.close()
+
+    return jsonify(ok=True, post_id=post_id, is_fav=is_fav)
 
 
 _old_init_db = init_db

@@ -7148,6 +7148,199 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
     .poll-result-row strong {
       min-width: 40px;
     }
+
+    /* === Historial MochiReal: filtros y favoritos === */
+
+    .mr-history-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: flex-end;
+      margin-bottom: 16px;
+      padding: 10px 12px;
+      border-radius: 16px;
+      background: rgba(249, 250, 251, 0.9);
+      border: 1px solid #e5e7eb;
+    }
+
+    .mr-history-dates {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    .mr-history-dates label {
+      font-weight: 600;
+    }
+
+    .mr-history-dates input[type="date"] {
+      padding: 4px 8px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      font-size: 0.8rem;
+      background: #fff;
+    }
+
+    .mr-history-dates button {
+      border: none;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      background: #f3f4f6;
+      color: #374151;
+      font-weight: 500;
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+
+    .mr-history-dates button:hover {
+      background: #e5e7eb;
+      transform: translateY(-1px);
+    }
+
+    .mr-history-dates button.mr-apply {
+      background: #111827;
+      color: #f9fafb;
+    }
+
+    .mr-history-dates button.mr-apply:hover {
+      background: #0f172a;
+    }
+
+    .mr-history-filters {
+      margin-left: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    .mr-fav-chip {
+      border-radius: 999px;
+      border: 1px solid #e5e7eb;
+      padding: 4px 9px;
+      background: #ffffff;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    }
+
+    .mr-fav-chip .icon {
+      font-size: 0.9rem;
+    }
+
+    .mr-fav-chip.active {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #b91c1c;
+      transform: translateY(-1px);
+    }
+
+    .mr-history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Badges de favoritos en cada foto */
+
+    .mr-history-photo-box {
+      position: relative;
+      flex: 1;
+      max-width: 220px;
+    }
+
+    .mr-fav-badges {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: flex-end;
+      z-index: 2;
+    }
+
+    .mr-fav-me-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 0.7rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(255, 255, 255, 0.9);
+      color: #4b5563;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+      transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+    }
+
+    .mr-fav-me-btn .icon {
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+
+    .mr-fav-me-btn.active {
+      background: #fee2e2;
+      color: #b91c1c;
+      box-shadow: 0 3px 8px rgba(239, 68, 68, 0.25);
+    }
+
+    .mr-fav-me-btn.active .icon {
+      color: #ef4444;
+    }
+
+    .mr-fav-me-btn:active {
+      transform: translateY(1px);
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
+    }
+
+    .mr-fav-other-pill {
+      border-radius: 999px;
+      padding: 2px 7px;
+      font-size: 0.68rem;
+      background: rgba(255, 255, 255, 0.9);
+      color: #4b5563;
+      box-shadow: 0 2px 5px rgba(148, 163, 184, 0.35);
+      opacity: 0.85;
+    }
+
+    .mr-fav-other-pill.active {
+      background: #dbeafe;
+      color: #1d4ed8;
+      opacity: 1;
+      font-weight: 600;
+    }
+
+    @media (max-width: 768px) {
+      .mr-history-tools {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .mr-history-filters {
+        margin-left: 0;
+      }
+
+      .mr-day-grid {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .mr-history-photo-box {
+        max-width: 260px;
+      }
+    }
   </style>
 </head>
 
@@ -9037,7 +9230,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               <!-- Fase de votación -->
               <div id="pollVotePhase">
                 <p class="small" id="pollSubtitle">
-                  Responde a la pregunta juntos 💬
+                  Responde a la encuesta
                 </p>
                 <div class="poll-options" id="pollOptions"></div>
                 <p class="small" id="pollOtherVoteInfo" style="display:none; margin-top:8px;"></p>
@@ -13189,151 +13382,380 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
 
       <script>
-        // === Lógica Historial MochiReal con Paginación ===
+        // === Historial MochiReal: paginación + filtros + favoritos ===
         (function () {
-          let allHistoryData = []; // Guardamos todos los datos aquí
+          let allHistoryData = [];    // Todos los días con sus posts
+          let filteredHistory = [];   // Resultado tras aplicar filtros
           let currentPage = 1;
-          const ITEMS_PER_PAGE = 5; // Días por página
+          const ITEMS_PER_PAGE = 5;   // Días por página
 
-          // Función principal para abrir el historial
+          const filters = {
+            from: '',
+            to: '',
+            favMode: 'all', // all | my | starred (cualquiera con favorito)
+          };
+
+          const container = document.getElementById('mr-history-content');
+          const pager = document.getElementById('mr-history-pager');
+          const indicator = document.getElementById('mr-page-indicator');
+          const btnPrev = document.getElementById('mr-btn-prev');
+          const btnNext = document.getElementById('mr-btn-next');
+
+          // --- Recalcular filteredHistory según filtros actuales ---
+          function recomputeFiltered() {
+            let data = allHistoryData.slice();
+
+            const hasFrom = !!filters.from;
+            const hasTo = !!filters.to;
+
+            if (hasFrom || hasTo) {
+              data = data.filter(day => {
+                const d = day.date; // 'YYYY-MM-DD'
+                if (hasFrom && d < filters.from) return false;
+                if (hasTo && d > filters.to) return false;
+                return true;
+              });
+            }
+
+            if (filters.favMode === 'my') {
+              data = data
+                .map(day => ({
+                  ...day,
+                  posts: day.posts.filter(p => !!p.is_fav_me)
+                }))
+                .filter(day => day.posts.length > 0);
+            } else if (filters.favMode === 'starred') {
+              data = data
+                .map(day => ({
+                  ...day,
+                  posts: day.posts.filter(p => !!p.is_fav_me || !!p.is_fav_other)
+                }))
+                .filter(day => day.posts.length > 0);
+            }
+
+            filteredHistory = data;
+          }
+
+          // --- Render de la página actual ---
+          function renderHistoryPage() {
+            if (!container) return;
+
+            recomputeFiltered();
+
+            const totalDays = filteredHistory.length;
+            if (totalDays === 0) {
+              container.innerHTML = `
+                <div class="mr-history-tools">
+                  <div class="mr-history-dates">
+                    <label for="mr-filter-from">Desde</label>
+                    <input type="date" id="mr-filter-from" value="${filters.from}">
+                    <label for="mr-filter-to">Hasta</label>
+                    <input type="date" id="mr-filter-to" value="${filters.to}">
+                    <button type="button" class="mr-apply" id="mr-filter-apply">Aplicar</button>
+                    <button type="button" id="mr-filter-clear">Quitar filtros</button>
+                  </div>
+                  <div class="mr-history-filters">
+                    <span>Favoritos:</span>
+                    <button type="button" class="mr-fav-chip ${filters.favMode === 'all' ? 'active' : ''}" data-mode="all">
+                      <span class="icon">📷</span> Todos
+                    </button>
+                    <button type="button" class="mr-fav-chip ${filters.favMode === 'my' ? 'active' : ''}" data-mode="my">
+                      <span class="icon">❤️</span> Mis favs
+                    </button>
+                    <button type="button" class="mr-fav-chip ${filters.favMode === 'starred' ? 'active' : ''}" data-mode="starred">
+                      <span class="icon">⭐</span> Con favoritos
+                    </button>
+                  </div>
+                </div>
+                <p style="text-align:center; padding:20px; color:#888;">
+                  No hay MochiReal que coincida con esos filtros todavía 💫
+                </p>
+              `;
+              if (pager) pager.style.display = 'none';
+              hookFilterBarEvents();
+              return;
+            }
+
+            const totalPages = Math.max(1, Math.ceil(totalDays / ITEMS_PER_PAGE));
+            if (currentPage > totalPages) currentPage = totalPages;
+
+            const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+            const endIdx = startIdx + ITEMS_PER_PAGE;
+            const pageDays = filteredHistory.slice(startIdx, endIdx);
+
+            let html = `
+              <div class="mr-history-tools">
+                <div class="mr-history-dates">
+                  <label for="mr-filter-from">Desde</label>
+                  <input type="date" id="mr-filter-from" value="${filters.from}">
+                  <label for="mr-filter-to">Hasta</label>
+                  <input type="date" id="mr-filter-to" value="${filters.to}">
+                  <button type="button" class="mr-apply" id="mr-filter-apply">Aplicar</button>
+                  <button type="button" id="mr-filter-clear">Quitar filtros</button>
+                </div>
+                <div class="mr-history-filters">
+                  <span>Favoritos:</span>
+                  <button type="button" class="mr-fav-chip ${filters.favMode === 'all' ? 'active' : ''}" data-mode="all">
+                    <span class="icon">📷</span> Todos
+                  </button>
+                  <button type="button" class="mr-fav-chip ${filters.favMode === 'my' ? 'active' : ''}" data-mode="my">
+                    <span class="icon">❤️</span> Mis favs
+                  </button>
+                  <button type="button" class="mr-fav-chip ${filters.favMode === 'starred' ? 'active' : ''}" data-mode="starred">
+                    <span class="icon">⭐</span> Con favoritos
+                  </button>
+                </div>
+              </div>
+              <div class="mr-history-list">
+            `;
+
+            pageDays.forEach(day => {
+              const postsHtml = day.posts.map(post => {
+                const favMe = !!post.is_fav_me;
+                const favOther = !!post.is_fav_other;
+
+                return `
+                  <div class="mr-history-photo-box">
+                    <div class="mr-history-photo">
+                      <img src="/mochireal/photo/${post.post_id}" alt="Foto de ${post.username}" loading="lazy">
+                      <div class="mr-fav-badges">
+                        <button type="button"
+                                class="mr-fav-me-btn ${favMe ? 'active' : ''}"
+                                data-post-id="${post.post_id}">
+                          <span class="icon">♥</span>
+                          <span>Mi favorito</span>
+                        </button>
+                        <div class="mr-fav-other-pill ${favOther ? 'active' : ''}">
+                          ${favOther ? 'Tu mochi lo ama ⭐' : 'Del otro mochi'}
+                        </div>
+                      </div>
+                      <div class="mr-history-user">
+                        ${post.username}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('');
+
+              html += `
+                <div class="mr-day-block">
+                  <div class="mr-day-header">
+                    <div class="mr-date-label">
+                      ${formatDateNice(day.date)}
+                    </div>
+                    <div class="mr-time-badge">
+                      ${day.time || ''}
+                    </div>
+                  </div>
+                  <div class="mr-day-grid">
+                    ${postsHtml}
+                  </div>
+                </div>
+              `;
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
+
+            // Paginador
+            if (pager) {
+              pager.style.display = 'flex';
+              btnPrev.disabled = (currentPage <= 1);
+              btnNext.disabled = (currentPage >= totalPages);
+              if (indicator) indicator.textContent = `${currentPage} / ${totalPages}`;
+            }
+
+            // Hooks de filtros y favoritos
+            hookFilterBarEvents();
+            hookFavoriteButtons();
+          }
+
+          // --- Formatear fecha bonita ---
+          function formatDateNice(dateStr) {
+            // dateStr viene como 'YYYY-MM-DD'
+            const [y, m, d] = (dateStr || '').split('-');
+            if (!y || !m || !d) return dateStr || '';
+            const date = new Date(Number(y), Number(m) - 1, Number(d));
+            return date.toLocaleDateString('es-ES', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long'
+            });
+          }
+
+          // --- Eventos barra de filtros ---
+          function hookFilterBarEvents() {
+            const fromInput = document.getElementById('mr-filter-from');
+            const toInput = document.getElementById('mr-filter-to');
+            const btnApply = document.getElementById('mr-filter-apply');
+            const btnClear = document.getElementById('mr-filter-clear');
+            const chips = container.querySelectorAll('.mr-fav-chip');
+
+            if (btnApply) {
+              btnApply.onclick = () => {
+                filters.from = fromInput?.value || '';
+                filters.to = toInput?.value || '';
+                currentPage = 1;
+                renderHistoryPage();
+              };
+            }
+
+            if (btnClear) {
+              btnClear.onclick = () => {
+                filters.from = '';
+                filters.to = '';
+                filters.favMode = 'all';
+                currentPage = 1;
+                renderHistoryPage();
+              };
+            }
+
+            chips.forEach(chip => {
+              chip.onclick = () => {
+                const mode = chip.dataset.mode || 'all';
+                filters.favMode = mode;
+                currentPage = 1;
+                renderHistoryPage();
+              };
+            });
+          }
+
+          // --- Click en corazón (favoritos) ---
+          function hookFavoriteButtons() {
+            const buttons = container.querySelectorAll('.mr-fav-me-btn');
+            buttons.forEach(btn => {
+              btn.onclick = async () => {
+                const id = btn.getAttribute('data-post-id');
+                if (!id) return;
+                btn.disabled = true;
+                try {
+                  const resp = await fetch('/api/mochireal/favorite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ post_id: id })
+                  });
+                  const data = await resp.json().catch(() => ({}));
+                  if (!resp.ok || !data.ok) {
+                    window.showToast?.('error', 'No se pudo guardar el favorito');
+                    return;
+                  }
+                  const isFav = !!data.is_fav;
+                  // Actualizar en memoria
+                  const pid = Number(id);
+                  allHistoryData.forEach(day => {
+                    day.posts.forEach(p => {
+                      if (p.post_id === pid) {
+                        p.is_fav_me = isFav;
+                      }
+                    });
+                  });
+                  // Re-render con filtros actuales (manteniendo página si se puede)
+                  renderHistoryPage();
+                } catch (e) {
+                  console.error(e);
+                  window.showToast?.('error', 'Error de conexión al marcar favorito');
+                } finally {
+                  btn.disabled = false;
+                }
+              };
+            });
+          }
+
+          // --- Abrir historial (se usa desde el botón "Ver MochiReal anteriores") ---
           window.openMochiHistory = async function () {
-            // 1. Ocultar vista principal, mostrar historial
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            // Cambiar a pantalla MochiReal (usa el router)
+            const navBtn = document.querySelector('.app-nav .nav-btn[data-goto="mochireal"]');
+            if (navBtn) navBtn.click();
+
             const page = document.getElementById('page-mr-history');
             if (page) {
-              page.style.display = 'block'; // Asegurar display
+              page.style.display = 'block';
               page.classList.add('active');
             }
+
             window.scrollTo(0, 0);
 
-            // 2. Si ya tenemos datos, solo renderizamos la página 1
             if (allHistoryData.length > 0) {
               renderHistoryPage();
               return;
             }
 
-            // 3. Si no, cargamos del servidor
-            const container = document.getElementById('mr-history-content');
-            container.innerHTML = '<div style="text-align:center; padding:40px;"><i class="fas fa-spinner fa-spin fa-2x" style="color:var(--primary-color)"></i><p>Recuperando recuerdos...</p></div>';
+            if (container) {
+              container.innerHTML = `
+                <div style="text-align:center; padding:40px;">
+                  <i class="fas fa-spinner fa-spin fa-2x" style="color:var(--primary-color)"></i>
+                  <p>Recuperando recuerdos...</p>
+                </div>`;
+            }
 
             try {
               const r = await fetch('/api/mochireal/history');
               const data = await r.json();
 
-              if (!data.ok || !data.history || data.history.length === 0) {
-                container.innerHTML = '<p style="text-align:center; padding:20px; color:#888;">No hay recuerdos guardados aún.</p>';
-                document.getElementById('mr-history-pager').style.display = 'none';
+              if (!data.ok || !Array.isArray(data.history) || data.history.length === 0) {
+                if (container) {
+                  container.innerHTML = `
+                    <p style="text-align:center; padding:20px; color:#888;">
+                      No hay recuerdos guardados aún.
+                    </p>`;
+                }
+                if (pager) pager.style.display = 'none';
                 return;
               }
 
-              // Guardamos datos y reseteamos a página 1
               allHistoryData = data.history;
               currentPage = 1;
               renderHistoryPage();
-
             } catch (e) {
               console.error(e);
-              container.innerHTML = '<p style="text-align:center; color:salmon;">Error cargando recuerdos. Inténtalo luego.</p>';
+              if (container) {
+                container.innerHTML = `
+                  <p style="text-align:center; color:salmon;">
+                    Error cargando recuerdos. Inténtalo luego.
+                  </p>`;
+              }
             }
           };
 
-          // Función para cerrar y volver a MochiReal principal
+          // --- Cerrar historial (volver a pantalla MochiReal) ---
           window.closeMochiHistory = function () {
             const histPage = document.getElementById('page-mr-history');
             if (histPage) {
               histPage.classList.remove('active');
               histPage.style.display = 'none';
             }
-
-            // SOLUCIÓN: Simular clic en el botón del menú
-            // Esto reactiva la página principal usando el router interno
             const navBtn = document.querySelector('.app-nav .nav-btn[data-goto="mochireal"]');
-            if (navBtn) {
-              navBtn.click();
-            } else {
-              // Fallback de seguridad por si no encuentra el botón
-              const mainPage = document.getElementById('page-mochireal');
-              if (mainPage) mainPage.classList.add('active');
-            }
+            if (navBtn) navBtn.click();
           };
 
-          // Renderiza la página actual
-          function renderHistoryPage() {
-            const container = document.getElementById('mr-history-content');
-            const pager = document.getElementById('mr-history-pager');
-            const indicator = document.getElementById('mr-page-indicator');
-            const btnPrev = document.getElementById('mr-btn-prev');
-            const btnNext = document.getElementById('mr-btn-next');
-
-            // Calcular índices
-            const totalItems = allHistoryData.length;
-            const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-
-            // Validar página actual
-            if (currentPage < 1) currentPage = 1;
-            if (currentPage > totalPages) currentPage = totalPages;
-
-            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-            const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
-
-            // Slice de datos para esta página
-            const pageItems = allHistoryData.slice(startIndex, endIndex);
-
-            // Generar HTML
-            let html = '';
-            pageItems.forEach(day => {
-              // Formatear fecha
-              const d = new Date(day.date);
-              const dateStr = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-
-              let postsHtml = '';
-              day.posts.forEach(post => {
-                postsHtml += `
-            <div class="mr-history-photo">
-                <img src="/mochireal/image/${post.post_id}" loading="lazy" onclick="window.open(this.src, '_blank')">
-                <div class="mr-history-user">${post.username}</div>
-            </div>
-          `;
-              });
-
-              html += `
-          <div class="mr-day-card animate-in">
-              <div class="mr-day-header">
-                  <div class="mr-date-label"><i class="far fa-calendar-alt"></i> ${dateStr}</div>
-                  <div class="mr-time-badge"><i class="far fa-clock"></i> ${day.time}</div>
-              </div>
-              <div class="mr-day-grid">
-                  ${postsHtml}
-              </div>
-          </div>
-        `;
-            });
-
-            container.innerHTML = html;
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-
-            // Actualizar UI de Paginación
-            if (totalPages > 1) {
-              pager.style.display = 'flex';
-              indicator.textContent = `Página ${currentPage} de ${totalPages}`;
-
-              btnPrev.disabled = (currentPage === 1);
-              btnNext.disabled = (currentPage === totalPages);
-
-              // Eventos (limpiamos anteriores para no duplicar)
-              btnPrev.onclick = () => { currentPage--; renderHistoryPage(); };
-              btnNext.onclick = () => { currentPage++; renderHistoryPage(); };
-            } else {
-              pager.style.display = 'none';
-              indicator.textContent = '';
-            }
-          }
-
-          // Función del router para carga perezosa (si se accede directamente)
+          // --- Lazy-load desde el router (setScreen) ---
           window.ensureMochiRealHistoryLoaded = function () {
-            // En este diseño, preferimos que cargue al pulsar el botón "Ver recuerdos"
-            // así que lo dejamos vacío o precargamos sin mostrar.
+            if (allHistoryData.length === 0) {
+              // No cargamos todavía; se dispara cuando pulses "ver historial"
+              return;
+            }
+            renderHistoryPage();
           };
+
+          // Botones prev / next paginador
+          if (btnPrev) {
+            btnPrev.addEventListener('click', () => {
+              if (currentPage > 1) {
+                currentPage--;
+                renderHistoryPage();
+              }
+            });
+          }
+          if (btnNext) {
+            btnNext.addEventListener('click', () => {
+              const totalDays = filteredHistory.length || allHistoryData.length;
+              const totalPages = Math.max(1, Math.ceil(totalDays / ITEMS_PER_PAGE));
+              if (currentPage < totalPages) {
+                currentPage++;
+                renderHistoryPage();
+              }
+            });
+          }
         })();
       </script>
 

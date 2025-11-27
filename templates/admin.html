@@ -477,7 +477,6 @@
           </p>
         </form>
       </div>
-
       <!-- Aviso modal en la web -->
       <div class="card">
         <h2>Aviso en la web (modal al entrar)</h2>
@@ -491,19 +490,50 @@
             <textarea id="modal_text" name="modal_text" rows="3" required
               placeholder="Texto que aparecerá en el modal...">{% if modal_cfg %}{{ modal_cfg.text }}{% endif %}</textarea>
           </div>
+
           <div>
             <label for="modal_from">Mostrar a partir de (Europe/Madrid)</label>
             <input id="modal_from" name="modal_from" type="datetime-local" required
               value="{% if modal_cfg and modal_cfg.from_local %}{{ modal_cfg.from_local }}{% endif %}">
           </div>
+
+          <div>
+            <label>¿Quién lo verá?</label>
+            <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;">
+              <label>
+                <input type="radio" name="modal_target" value="both" {% if not modal_cfg or modal_cfg.target=='both'
+                  %}checked{% endif %}>
+                Mochito y Mochita
+              </label>
+              <label>
+                <input type="radio" name="modal_target" value="mochito" {% if modal_cfg and modal_cfg.target=='mochito'
+                  %}checked{% endif %}>
+                Solo Mochito
+              </label>
+              <label>
+                <input type="radio" name="modal_target" value="mochita" {% if modal_cfg and modal_cfg.target=='mochita'
+                  %}checked{% endif %}>
+                Solo Mochita
+              </label>
+            </div>
+          </div>
+
           <div class="actions">
             <button class="btn brand" type="submit">
               {% if modal_cfg %}Actualizar aviso{% else %}Guardar aviso{% endif %}
             </button>
           </div>
+
           {% if modal_cfg %}
           <p class="small">
-            Aviso activo desde: {{ modal_cfg.from_local }} · ID: {{ modal_cfg.id }}
+            Aviso activo desde: {{ modal_cfg.from_local }} · ID: {{ modal_cfg.id }} · Destino:
+            {% if modal_cfg.target == 'mochito' %}
+            Solo Mochito
+            {% elif modal_cfg.target == 'mochita' %}
+            Solo Mochita
+            {% else %}
+            Ambos
+            {% endif %}
           </p>
           {% endif %}
         </form>

@@ -4794,19 +4794,24 @@ def admin_modal_save():
     require_admin()
     text = (request.form.get("modal_text") or "").strip()
     when_local = (request.form.get("modal_from") or "").strip()  # formato YYYY-MM-DDTHH:MM
+    target = (request.form.get("modal_target") or "both").strip()
 
     if not text or not when_local:
         flash("Falta texto o fecha/hora para el aviso modal.", "error")
         return redirect("/admin")
 
-    # Validar formato de fecha/hora (no hace falta zona, ya es Europe/Madrid local)
+    # Validar formato de fecha/hora
     try:
         datetime.strptime(when_local, "%Y-%m-%dT%H:%M")
     except ValueError:
         flash("Fecha/hora del aviso modal no es válida.", "error")
         return redirect("/admin")
 
-    # Construimos el payload y generamos un id incremental
+    # Normalizar target
+    if target not in ("both", "mochito", "mochita"):
+        target = "both"
+
+    # Generar id nuevo
     raw = state_get("modal_announcement", "")
     current_id = 0
     if raw:
@@ -4819,7 +4824,8 @@ def admin_modal_save():
     payload = {
         "id": new_id,
         "text": text,
-        "from_local": when_local,  # se interpreta siempre como Europe/Madrid
+        "from_local": when_local,  # Europe/Madrid
+        "target": target,          # 👈 NUEVO
     }
     try:
         state_set("modal_announcement", json.dumps(payload))
@@ -7706,10 +7712,10 @@ def api_daily_wheel_push_self():
 def api_modal_announcement():
     """
     Devuelve el aviso modal programado (si toca mostrarlo) para el usuario actual.
-    Solo se devuelve si:
-      - hay aviso configurado,
-      - la hora actual (Europe/Madrid) es >= from_local,
-      - y el usuario todavía no lo ha marcado como visto.
+    Tiene en cuenta:
+      - hora programada,
+      - si ya se ha visto,
+      - y si el aviso va dirigido a este usuario (mochito/mochita/ambos).
     """
     if "username" not in session:
         return jsonify(ok=False, error="unauthorized"), 401
@@ -7727,16 +7733,25 @@ def api_modal_announcement():
     ann_id = cfg.get("id")
     text = (cfg.get("text") or "").strip()
     when_local = cfg.get("from_local")
+    target = cfg.get("target", "both")
 
     if not ann_id or not text or not when_local:
         return jsonify(ok=True, has=False)
 
-    # ¿Ya lo ha visto este usuario?
+    # 1️⃣ Filtrar por destino (target)
+    # Aquí asumimos que los username son "mochito" y "mochita".
+    if target == "mochito" and user != "mochito":
+        return jsonify(ok=True, has=False)
+    if target == "mochita" and user != "mochita":
+        return jsonify(ok=True, has=False)
+    # target == "both" -> lo ve cualquiera de los dos
+
+    # 2️⃣ ¿Ya lo ha visto este usuario?
     seen_key = f"modal_seen::{user}::{ann_id}"
     if state_get(seen_key, ""):
         return jsonify(ok=True, has=False)
 
-    # Comprobar hora (usamos hora local Madrid como naive)
+    # 3️⃣ Comprobar hora
     try:
         from_dt = datetime.strptime(when_local, "%Y-%m-%dT%H:%M")
     except Exception:

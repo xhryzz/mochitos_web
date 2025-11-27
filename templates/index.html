@@ -7047,6 +7047,107 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
       z-index: 20000;
       /* más que ruleta, presencia, toasts, etc. */
     }
+
+    /* Modal de votación: centrado y por encima de todo */
+    #pollModal {
+      z-index: 20000;
+    }
+
+    /* Estilos específicos del modal de votación */
+    .poll-modal .modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .poll-question {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 4px;
+    }
+
+    .poll-options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .poll-option {
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #f9fafb;
+      cursor: pointer;
+      transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+
+    .poll-option:hover {
+      background: #fce7f3;
+      box-shadow: 0 8px 20px rgba(236, 72, 153, .20);
+      transform: translateY(-1px);
+    }
+
+    .poll-avatar-circle {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: #fff;
+      background: linear-gradient(135deg, #ec4899, #f97316);
+      flex-shrink: 0;
+    }
+
+    .poll-option-label strong {
+      display: block;
+      font-size: 0.95rem;
+      color: #111827;
+    }
+
+    .poll-option-label span {
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    .poll-result-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .poll-result-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .9rem;
+    }
+
+    .poll-result-bar {
+      flex: 1;
+      height: 10px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      overflow: hidden;
+    }
+
+    .poll-result-bar-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #ec4899, #f97316);
+      transition: width .25s ease;
+    }
+
+    .poll-result-row strong {
+      min-width: 40px;
+    }
   </style>
 </head>
 
@@ -8918,6 +9019,43 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             <div class="modal-footer"
               style="padding:16px 24px;border-top:1px solid #eee;display:flex;justify-content:flex-end;">
               <button type="button" id="announcementOkBtn" class="btn">Entendido ❤️</button>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- MODAL: Votación Mochitos (multi-opción) -->
+        <div id="pollModal" class="modal">
+          <div class="modal-content poll-modal">
+            <div class="modal-header">
+              <h2>🗳 Votación Mochitos</h2>
+              <span class="close-modal" data-poll-close>&times;</span>
+            </div>
+            <div class="modal-body">
+              <p id="pollQuestion" class="poll-question"></p>
+
+              <!-- Fase de votación -->
+              <div id="pollVotePhase">
+                <p class="small" id="pollSubtitle">
+                  Responde a la pregunta juntos 💬
+                </p>
+                <div class="poll-options" id="pollOptions"></div>
+                <p class="small" id="pollOtherVoteInfo" style="display:none; margin-top:8px;"></p>
+              </div>
+
+              <!-- Fase de resultados -->
+              <div id="pollResultPhase" style="display:none;">
+                <p class="small" id="pollResultSubtitle">
+                  Resultados finales de la votación:
+                </p>
+                <div id="pollResultsContainer" class="poll-result-bars"></div>
+                <p class="small" id="pollVotesDetail" style="margin-top:8px;"></p>
+              </div>
+            </div>
+
+            <div class="modal-footer"
+              style="padding:16px 24px;border-top:1px solid #eee;display:flex;justify-content:flex-end;">
+              <button type="button" id="pollPrimaryBtn" class="btn">Entendido 💖</button>
             </div>
           </div>
         </div>
@@ -13770,6 +13908,199 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           }
         })();
       </script>
+
+
+      <script>
+        (function () {
+          async function maybeShowPollModal() {
+            try {
+              const res = await fetch('/api/poll', { credentials: 'same-origin' });
+              if (!res.ok) return;
+              const data = await res.json();
+              if (!data.ok || !data.has) return;
+
+              const modal = document.getElementById('pollModal');
+              if (!modal) return;
+
+              const questionEl = document.getElementById('pollQuestion');
+              const votePhase = document.getElementById('pollVotePhase');
+              const resultPhase = document.getElementById('pollResultPhase');
+              const optionsContainer = document.getElementById('pollOptions');
+              const otherInfo = document.getElementById('pollOtherVoteInfo');
+              const resultsContainer = document.getElementById('pollResultsContainer');
+              const votesDetail = document.getElementById('pollVotesDetail');
+              const primaryBtn = document.getElementById('pollPrimaryBtn');
+
+              if (!questionEl || !votePhase || !resultPhase || !optionsContainer || !resultsContainer || !primaryBtn) return;
+
+              const options = data.options || [];
+              const meName = data.me === 'mochito' ? 'Mochito' : 'Mochita';
+              const otherName = data.other === 'mochito' ? 'Mochito' : 'Mochita';
+
+              questionEl.textContent = data.question || '';
+
+              function closeModal() {
+                modal.style.display = 'none';
+              }
+
+              // Cerrar con la X o clic fuera
+              modal.querySelectorAll('[data-poll-close]').forEach(function (el) {
+                el.addEventListener('click', function () {
+                  closeModal();
+                }, { once: true });
+              });
+              modal.addEventListener('click', function (ev) {
+                if (ev.target === modal) {
+                  closeModal();
+                }
+              }, { once: true });
+
+              if (data.phase === 'vote') {
+                // === FASE VOTACIÓN ===
+                votePhase.style.display = '';
+                resultPhase.style.display = 'none';
+                primaryBtn.style.display = 'none';
+
+                // Generar botones de opciones
+                optionsContainer.innerHTML = '';
+                options.forEach(function (opt, idx) {
+                  const btn = document.createElement('button');
+                  btn.type = 'button';
+                  btn.className = 'poll-option';
+                  btn.setAttribute('data-choice', String(idx));
+
+                  const avatar = document.createElement('div');
+                  avatar.className = 'poll-avatar-circle';
+                  avatar.textContent = String(idx + 1);
+
+                  const labelWrap = document.createElement('div');
+                  labelWrap.className = 'poll-option-label';
+
+                  const strong = document.createElement('strong');
+                  strong.textContent = opt;
+
+                  const span = document.createElement('span');
+                  span.textContent = 'Elegir esta opción';
+
+                  labelWrap.appendChild(strong);
+                  labelWrap.appendChild(span);
+                  btn.appendChild(avatar);
+                  btn.appendChild(labelWrap);
+
+                  btn.addEventListener('click', function () {
+                    const choice = btn.getAttribute('data-choice');
+                    if (!choice) return;
+
+                    fetch('/api/poll/vote', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ id: data.id, choice: choice })
+                    }).catch(function (e) {
+                      console.warn('Error enviando voto:', e);
+                    }).finally(function () {
+                      closeModal();
+                    });
+                  }, { once: true });
+
+                  optionsContainer.appendChild(btn);
+                });
+
+                // Mostrar si el otro ya ha votado
+                if (typeof data.other_vote === 'number' && data.other_vote >= 0 && data.other_vote < options.length) {
+                  otherInfo.style.display = '';
+                  otherInfo.textContent = otherName + ' ya ha votado: "' + options[data.other_vote] + '" 💘';
+                } else {
+                  otherInfo.style.display = 'none';
+                  otherInfo.textContent = '';
+                }
+
+              } else if (data.phase === 'result') {
+                // === FASE RESULTADOS ===
+                votePhase.style.display = 'none';
+                resultPhase.style.display = '';
+                primaryBtn.style.display = '';
+
+                const counts = data.counts || [];
+                const total = counts.reduce(function (acc, v) { return acc + (v || 0); }, 0);
+
+                resultsContainer.innerHTML = '';
+                options.forEach(function (opt, idx) {
+                  const count = counts[idx] || 0;
+                  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+
+                  const row = document.createElement('div');
+                  row.className = 'poll-result-row';
+
+                  const nameEl = document.createElement('strong');
+                  nameEl.textContent = String(idx + 1);
+
+                  const barWrap = document.createElement('div');
+                  barWrap.className = 'poll-result-bar';
+
+                  const barFill = document.createElement('div');
+                  barFill.className = 'poll-result-bar-fill';
+                  barFill.style.width = pct + '%';
+
+                  barWrap.appendChild(barFill);
+
+                  const countEl = document.createElement('span');
+                  countEl.textContent = count + ' (' + pct + '%)';
+
+                  row.appendChild(nameEl);
+                  row.appendChild(barWrap);
+                  row.appendChild(countEl);
+
+                  const label = document.createElement('div');
+                  label.style.fontSize = '0.82rem';
+                  label.style.color = '#4b5563';
+                  label.textContent = opt;
+
+                  const wrapper = document.createElement('div');
+                  wrapper.appendChild(row);
+                  wrapper.appendChild(label);
+
+                  resultsContainer.appendChild(wrapper);
+                });
+
+                var yourVoteText = '';
+                var otherVoteText = '';
+                if (typeof data.your_vote === 'number' && data.your_vote >= 0 && data.your_vote < options.length) {
+                  yourVoteText = options[data.your_vote];
+                }
+                if (typeof data.other_vote === 'number' && data.other_vote >= 0 && data.other_vote < options.length) {
+                  otherVoteText = options[data.other_vote];
+                }
+
+                votesDetail.textContent = meName + ' ha votado: "' + yourVoteText +
+                  '" · ' + otherName + ' ha votado: "' + otherVoteText + '"';
+
+                primaryBtn.onclick = function () {
+                  fetch('/api/poll/result_seen', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: data.id })
+                  }).catch(function (e) {
+                    console.warn('Error marcando resultado como visto:', e);
+                  }).finally(function () {
+                    closeModal();
+                  });
+                };
+              }
+
+              modal.style.display = 'block';
+            } catch (e) {
+              console.error('Error cargando votación Mochitos:', e);
+            }
+          }
+
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', maybeShowPollModal);
+          } else {
+            maybeShowPollModal();
+          }
+        })();
+      </script>
+
 
 </body>
 

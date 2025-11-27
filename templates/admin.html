@@ -547,6 +547,67 @@
         {% endif %}
       </div>
 
+      <!-- Votación Mochitos (multi-opción) -->
+      <div class="card">
+        <h2>Votación Mochitos 🗳</h2>
+        <p class="small">
+          Crea una votación para que Mochito y Mochita respondan. Cada uno vota una opción
+          y cuando los dos hayan votado verán un resumen con los resultados.
+        </p>
+
+        <form method="post" action="/admin/poll/save" class="row">
+          <div>
+            <label for="poll_question">Pregunta de la votación</label>
+            <textarea id="poll_question" name="poll_question" rows="2" required
+              placeholder="¿Implementar nuevo sistema de MochiReal?">{% if poll_cfg %}{{ poll_cfg.question }}{% endif %}</textarea>
+          </div>
+
+          <div>
+            <label for="poll_options">Opciones (una por línea)</label>
+            <textarea id="poll_options" name="poll_options" rows="4" required
+              placeholder="Sí&#10;No&#10;Más adelante">{% if poll_cfg and poll_cfg.options %}{{ '\\n'.join(poll_cfg.options) }}{% endif %}</textarea>
+          </div>
+
+          <div class="actions">
+            <button class="btn brand" type="submit">
+              {% if poll_cfg %}Actualizar votación{% else %}Crear votación{% endif %}
+            </button>
+          </div>
+
+          {% if poll_cfg %}
+          <p class="small">
+            Votación activa · ID: {{ poll_cfg.id }}<br>
+            Opciones: {{ poll_cfg.options|length }}
+          </p>
+          {% endif %}
+        </form>
+
+        {% if poll_cfg %}
+        <form method="post" action="/admin/poll/clear" onsubmit="return confirm('¿Quitar la votación actual?');">
+          <div class="actions" style="margin-top:8px">
+            <button class="btn" type="submit">Quitar votación</button>
+          </div>
+        </form>
+        {% endif %}
+      </div>
+
+
+      <!-- Votación -->
+      <div class="card">
+        <h2>Votación</h2>
+        {% if poll %}
+        <p class="small">
+          Votación activa desde: {{ poll.from_local }} · ID: {{ poll.id }} · Destino:
+          {% if poll.target == 'mochito' %}
+          Solo Mochito
+          {% elif poll.target == 'mochita' %}
+          Solo Mochita
+          {% else %}
+          Ambos
+          {% endif %}
+        </p>
+        {% endif %}
+      </div>
       <!-- Lista de programadas -->
       <div class="card">
         <h2>Programadas</h2>

@@ -4656,6 +4656,25 @@ def admin_home():
     }
     # ----------------------------------------------
 
+        # Aviso modal actual (si tienes ya el sistema de avisos)
+    raw_modal = state_get("modal_announcement", "")
+    modal_cfg = None
+    if raw_modal:
+        try:
+            modal_cfg = json.loads(raw_modal)
+        except Exception:
+            modal_cfg = None
+
+    # Votación activa (multi-opción)
+    raw_poll = state_get("poll_active", "")
+    poll_cfg = None
+    if raw_poll:
+        try:
+            poll_cfg = json.loads(raw_poll)
+        except Exception:
+            poll_cfg = None
+
+
     # Aviso modal actual (si existe)
     raw_modal = state_get("modal_announcement", "")
     modal_cfg = None
@@ -4734,7 +4753,8 @@ def admin_home():
         mochita_presence=mochita_presence,
         vapid_public_key=get_vapid_public_base64url(),
         mr_plans=mr_plans,  # <--- NUEVO: Enviamos los planes a la plantilla
-        modal_cfg=modal_cfg  # 👈 aviso modal
+        modal_cfg=modal_cfg,  # 👈 aviso modal
+        poll_cfg=poll_cfg
     )
 
 @app.post("/admin/mochireal/set")
@@ -7799,6 +7819,213 @@ def api_modal_announcement_seen():
 
 
 
+@app.get("/api/poll")
+def api_poll():
+    """
+    Devuelve info de la votación para el usuario actual (Mochito/Mochita).
+
+    Fases:
+      - phase = "vote": este usuario no ha votado todavía -> mostrar opciones.
+      - phase = "result": ambos han votado y este usuario aún no ha visto el resultado.
+    """
+    if "username" not in session:
+        return jsonify(ok=False, error="unauthorized"), 401
+
+    user = session["username"]
+    if user not in ("mochito", "mochita"):
+        # Solo participan ellos dos
+        return jsonify(ok=True, has=False)
+
+    raw = state_get("poll_active", "")
+    if not raw:
+        return jsonify(ok=True, has=False)
+
+    try:
+        cfg = json.loads(raw)
+    except Exception:
+        return jsonify(ok=True, has=False)
+
+    poll_id = cfg.get("id")
+    question = (cfg.get("question") or "").strip()
+    options = cfg.get("options") or []
+    if not poll_id or not question or not options:
+        return jsonify(ok=True, has=False)
+
+    other = "mochita" if user == "mochito" else "mochito"
+
+    me_key = f"poll_vote::{poll_id}::{user}"
+    other_key = f"poll_vote::{poll_id}::{other}"
+
+    me_vote = state_get(me_key, "")
+    other_vote = state_get(other_key, "")
+
+    both_voted = bool(me_vote and other_vote)
+
+    # Si ambos han votado -> fase resultados (si este no lo ha visto aún)
+    if both_voted:
+        seen_key = f"poll_result_seen::{poll_id}::{user}"
+        if state_get(seen_key, ""):
+            return jsonify(ok=True, has=False)
+
+        counts = [0] * len(options)
+
+        def add_vote(v):
+            try:
+                idx = int(v)
+            except (TypeError, ValueError):
+                return
+            if 0 <= idx < len(options):
+                counts[idx] += 1
+
+        add_vote(me_vote)
+        add_vote(other_vote)
+
+        try:
+            your_idx = int(me_vote)
+        except (TypeError, ValueError):
+            your_idx = None
+        try:
+            other_idx = int(other_vote)
+        except (TypeError, ValueError):
+            other_idx = None
+
+        return jsonify(
+            ok=True,
+            has=True,
+            phase="result",
+            id=int(poll_id),
+            question=question,
+            options=options,
+            counts=counts,
+            me=user,
+            other=other,
+            your_vote=your_idx,
+            other_vote=other_idx,
+        )
+
+    # Si este usuario ya ha votado pero el otro no -> no mostramos nada más de momento
+    if me_vote:
+        return jsonify(ok=True, has=False)
+
+    # Fase votación: este usuario aún no ha votado
+    other_idx = None
+    if other_vote:
+        try:
+            idx = int(other_vote)
+            if 0 <= idx < len(options):
+                other_idx = idx
+        except (TypeError, ValueError):
+            other_idx = None
+
+    return jsonify(
+        ok=True,
+        has=True,
+        phase="vote",
+        id=int(poll_id),
+        question=question,
+        options=options,
+        me=user,
+        other=other,
+        other_vote=other_idx,
+    )
+
+
+@app.post("/api/poll/vote")
+def api_poll_vote():
+    """Registra el voto de mochito/mochita: un índice de opción (0..N-1)."""
+    if "username" not in session:
+        return jsonify(ok=False, error="unauthorized"), 401
+
+    user = session["username"]
+    if user not in ("mochito", "mochita"):
+        return jsonify(ok=False, error="forbidden"), 403
+
+    if request.is_json:
+        try:
+            data = request.get_json() or {}
+        except Exception:
+            data = {}
+    else:
+        data = request.form or {}
+
+    poll_id = data.get("id")
+    choice = data.get("choice")
+
+    try:
+        poll_id_int = int(poll_id)
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error="bad_id"), 400
+
+    try:
+        choice_idx = int(choice)
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error="bad_choice"), 400
+
+    raw = state_get("poll_active", "")
+    if not raw:
+        return jsonify(ok=False, error="no_poll"), 400
+
+    try:
+        cfg = json.loads(raw)
+    except Exception:
+        return jsonify(ok=False, error="no_poll"), 400
+
+    active_id = cfg.get("id")
+    options = cfg.get("options") or []
+    if not active_id or int(active_id) != poll_id_int:
+        return jsonify(ok=False, error="poll_mismatch"), 400
+
+    if not options or not (0 <= choice_idx < len(options)):
+        return jsonify(ok=False, error="bad_choice"), 400
+
+    vote_key = f"poll_vote::{active_id}::{user}"
+    try:
+        state_set(vote_key, str(choice_idx))
+        # Por si acaso, borramos "resultado visto" para este poll/usuario
+        seen_key = f"poll_result_seen::{active_id}::{user}"
+        state_set(seen_key, "")
+    except Exception as e:
+        app.logger.exception("[api_poll_vote] %s", e)
+        return jsonify(ok=False, error="server_error"), 500
+
+    return jsonify(ok=True)
+
+
+@app.post("/api/poll/result_seen")
+def api_poll_result_seen():
+    """Marca que el usuario ha visto el resultado de la votación."""
+    if "username" not in session:
+        return jsonify(ok=False, error="unauthorized"), 401
+
+    user = session["username"]
+    if user not in ("mochito", "mochita"):
+        return jsonify(ok=False, error="forbidden"), 403
+
+    if request.is_json:
+        try:
+            data = request.get_json() or {}
+        except Exception:
+            data = {}
+    else:
+        data = request.form or {}
+
+    poll_id = data.get("id")
+    try:
+        poll_id_int = int(poll_id)
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error="bad_id"), 400
+
+    seen_key = f"poll_result_seen::{poll_id_int}::{user}"
+    try:
+        state_set(seen_key, "1")
+    except Exception as e:
+        app.logger.exception("[api_poll_result_seen] %s", e)
+        return jsonify(ok=False, error="server_error"), 500
+
+    return jsonify(ok=True)
+
+
+
 @app.get("/api/daily-wheel-status")
 def api_daily_wheel_status():
     if "username" not in session:
@@ -8394,6 +8621,65 @@ def api_set_distance_end():
 
     return jsonify(ok=True, date=dt.isoformat())
 
+
+@app.post("/admin/poll/save")
+def admin_poll_save():
+    """Crea o actualiza una votación de Mochitos (multi-opción)."""
+    require_admin()
+    question = (request.form.get("poll_question") or "").strip()
+    options_raw = (request.form.get("poll_options") or "").strip()
+
+    if not question:
+        flash("Falta la pregunta de la votación.", "error")
+        return redirect("/admin")
+
+    # Opciones: una por línea, mínimo 2
+    options = []
+    for line in options_raw.splitlines():
+        opt = line.strip()
+        if opt:
+            options.append(opt)
+    if len(options) < 2:
+        flash("La votación necesita al menos 2 opciones (una por línea).", "error")
+        return redirect("/admin")
+
+    # Generar id incremental para cada nueva votación
+    raw = state_get("poll_active", "")
+    current_id = 0
+    if raw:
+        try:
+            current_id = int(json.loads(raw).get("id", 0))
+        except Exception:
+            current_id = 0
+    new_id = current_id + 1
+
+    payload = {
+        "id": new_id,
+        "question": question,
+        "options": options,
+    }
+    try:
+        state_set("poll_active", json.dumps(payload))
+        flash("Votación creada / actualizada ✅", "success")
+    except Exception as e:
+        app.logger.exception("[admin_poll_save] %s", e)
+        flash("No se pudo guardar la votación.", "error")
+
+    return redirect("/admin")
+
+
+@app.post("/admin/poll/clear")
+def admin_poll_clear():
+    """Elimina la votación activa (deja de mostrarse)."""
+    require_admin()
+    try:
+        state_set("poll_active", "")
+        # Opcional: podrías limpiar votos antiguos, pero no es estrictamente necesario
+        flash("Votación eliminada ✅", "success")
+    except Exception as e:
+        app.logger.exception("[admin_poll_clear] %s", e)
+        flash("No se pudo eliminar la votación.", "error")
+    return redirect("/admin")
 
 
 _old_init_db = init_db

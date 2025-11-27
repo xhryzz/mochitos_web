@@ -8728,11 +8728,17 @@ def api_mochireal_toggle_favorite():
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # Aseguramos que el post existe
-            c.execute("SELECT id FROM mochireal_posts WHERE id=%s", (post_id,))
+            # Aseguramos que el post existe y de quién es
+            c.execute("SELECT id, username FROM mochireal_posts WHERE id=%s", (post_id,))
             row = c.fetchone()
             if not row:
                 return jsonify(ok=False, error="not_found"), 404
+
+            owner = row['username']
+
+            # Solo puedes marcar favoritos de la foto de tu mochi, no la tuya propia
+            if owner == user:
+                return jsonify(ok=False, error="own_photo"), 403
 
             # ¿Ya lo tenía marcado?
             c.execute("""

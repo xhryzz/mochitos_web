@@ -13382,7 +13382,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
 
       <script>
-        // === Historial MochiReal: paginación + filtros + favoritos ===
+        // === Historial MochiReal: paginación + filtros + favoritos cruzados ===
         (function () {
           let allHistoryData = [];    // Todos los días con sus posts
           let filteredHistory = [];   // Resultado tras aplicar filtros
@@ -13392,7 +13392,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           const filters = {
             from: '',
             to: '',
-            favMode: 'all', // all | my | starred (cualquiera con favorito)
+            favMode: 'all', // all | mine | theirs
           };
 
           const container = document.getElementById('mr-history-content');
@@ -13400,6 +13400,29 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           const indicator = document.getElementById('mr-page-indicator');
           const btnPrev = document.getElementById('mr-btn-prev');
           const btnNext = document.getElementById('mr-btn-next');
+
+          // Detectar usuario actual (intentamos varias opciones)
+          const guessedUser =
+            (window.CURRENT_USER) ||
+            (window.APP_USER) ||
+            (document.body && document.body.dataset && document.body.dataset.username) ||
+            '';
+
+          const currentUser = guessedUser === 'mochito' || guessedUser === 'mochita'
+            ? guessedUser
+            : '';
+
+          const otherUser = currentUser === 'mochito'
+            ? 'mochita'
+            : (currentUser === 'mochita' ? 'mochito' : 'tu mochi');
+
+          const labelMine = 'Mis favoritos';
+
+          const labelTheirs = currentUser === 'mochito'
+            ? 'Favoritos de Mochita'
+            : (currentUser === 'mochita'
+              ? 'Favoritos de Mochito'
+              : 'Favoritos de tu mochi');
 
           // --- Recalcular filteredHistory según filtros actuales ---
           function recomputeFiltered() {
@@ -13417,18 +13440,20 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               });
             }
 
-            if (filters.favMode === 'my') {
+            // Mis favoritos → fotos que YO he marcado (fotos de mi mochi)
+            if (filters.favMode === 'mine') {
               data = data
                 .map(day => ({
                   ...day,
                   posts: day.posts.filter(p => !!p.is_fav_me)
                 }))
                 .filter(day => day.posts.length > 0);
-            } else if (filters.favMode === 'starred') {
+              // Sus favoritos → fotos que ha marcado el otro (normalmente mis fotos)
+            } else if (filters.favMode === 'theirs') {
               data = data
                 .map(day => ({
                   ...day,
-                  posts: day.posts.filter(p => !!p.is_fav_me || !!p.is_fav_other)
+                  posts: day.posts.filter(p => !!p.is_fav_other)
                 }))
                 .filter(day => day.posts.length > 0);
             }
@@ -13455,15 +13480,15 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                     <button type="button" id="mr-filter-clear">Quitar filtros</button>
                   </div>
                   <div class="mr-history-filters">
-                    <span>Favoritos:</span>
+                    <span>Ver:</span>
                     <button type="button" class="mr-fav-chip ${filters.favMode === 'all' ? 'active' : ''}" data-mode="all">
-                      <span class="icon">📷</span> Todos
+                      <span class="icon">📷</span> Todo
                     </button>
-                    <button type="button" class="mr-fav-chip ${filters.favMode === 'my' ? 'active' : ''}" data-mode="my">
-                      <span class="icon">❤️</span> Mis favs
+                    <button type="button" class="mr-fav-chip ${filters.favMode === 'mine' ? 'active' : ''}" data-mode="mine">
+                      <span class="icon">❤️</span> ${labelMine}
                     </button>
-                    <button type="button" class="mr-fav-chip ${filters.favMode === 'starred' ? 'active' : ''}" data-mode="starred">
-                      <span class="icon">⭐</span> Con favoritos
+                    <button type="button" class="mr-fav-chip ${filters.favMode === 'theirs' ? 'active' : ''}" data-mode="theirs">
+                      <span class="icon">⭐</span> ${labelTheirs}
                     </button>
                   </div>
                 </div>
@@ -13494,15 +13519,15 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                   <button type="button" id="mr-filter-clear">Quitar filtros</button>
                 </div>
                 <div class="mr-history-filters">
-                  <span>Favoritos:</span>
+                  <span>Ver:</span>
                   <button type="button" class="mr-fav-chip ${filters.favMode === 'all' ? 'active' : ''}" data-mode="all">
-                    <span class="icon">📷</span> Todos
+                    <span class="icon">📷</span> Todo
                   </button>
-                  <button type="button" class="mr-fav-chip ${filters.favMode === 'my' ? 'active' : ''}" data-mode="my">
-                    <span class="icon">❤️</span> Mis favs
+                  <button type="button" class="mr-fav-chip ${filters.favMode === 'mine' ? 'active' : ''}" data-mode="mine">
+                    <span class="icon">❤️</span> ${labelMine}
                   </button>
-                  <button type="button" class="mr-fav-chip ${filters.favMode === 'starred' ? 'active' : ''}" data-mode="starred">
-                    <span class="icon">⭐</span> Con favoritos
+                  <button type="button" class="mr-fav-chip ${filters.favMode === 'theirs' ? 'active' : ''}" data-mode="theirs">
+                    <span class="icon">⭐</span> ${labelTheirs}
                   </button>
                 </div>
               </div>
@@ -13514,24 +13539,37 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                 const favMe = !!post.is_fav_me;
                 const favOther = !!post.is_fav_other;
 
-                return `
-    <div class="mr-history-photo-box">
-      <div class="mr-history-photo">
-        <img src="/mochireal/image/${post.post_id}" 
-             alt="Foto de ${post.username}" 
-             loading="lazy"
-             onclick="window.open(this.src, '_blank')">
-        <div class="mr-fav-badges">
-          ...
+                // Solo puedes marcar como fav la foto de tu mochi (no la tuya)
+                const canFavorite = !currentUser || post.username !== currentUser;
 
-                        <button type="button"
-                                class="mr-fav-me-btn ${favMe ? 'active' : ''}"
-                                data-post-id="${post.post_id}">
-                          <span class="icon">♥</span>
-                          <span>Mi favorito</span>
-                        </button>
-                        <div class="mr-fav-other-pill ${favOther ? 'active' : ''}">
-                          ${favOther ? 'Tu mochi lo ama ⭐' : 'Del otro mochi'}
+                const favButtonHtml = canFavorite ? `
+                  <button type="button"
+                          class="mr-fav-me-btn ${favMe ? 'active' : ''}"
+                          data-post-id="${post.post_id}">
+                    <span class="icon">♥</span>
+                    <span>${favMe ? 'Ya en mis favoritos' : 'Guardar esta foto'}</span>
+                  </button>
+                ` : '';
+
+                const otherText = favOther
+                  ? (otherUser === 'tu mochi'
+                    ? 'Tu mochi ha guardado esta foto'
+                    : otherUser.charAt(0).toUpperCase() + otherUser.slice(1) + ' la ha guardado')
+                  : `Aún sin favorito de ${otherUser}`;
+
+                const otherClass = favOther ? 'mr-fav-other-pill active' : 'mr-fav-other-pill';
+
+                return `
+                  <div class="mr-history-photo-box">
+                    <div class="mr-history-photo">
+                      <img src="/mochireal/image/${post.post_id}" 
+                           alt="Foto de ${post.username}" 
+                           loading="lazy"
+                           onclick="window.open(this.src, '_blank')">
+                      <div class="mr-fav-badges">
+                        ${favButtonHtml}
+                        <div class="${otherClass}">
+                          ${otherText}
                         </div>
                       </div>
                       <div class="mr-history-user">
@@ -13641,7 +13679,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                   });
                   const data = await resp.json().catch(() => ({}));
                   if (!resp.ok || !data.ok) {
-                    window.showToast?.('error', 'No se pudo guardar el favorito');
+                    window.showToast?.('error', data.error || 'No se pudo guardar el favorito');
                     return;
                   }
                   const isFav = !!data.is_fav;
@@ -13654,7 +13692,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                       }
                     });
                   });
-                  // Re-render con filtros actuales (manteniendo página si se puede)
+                  // Re-render con filtros actuales
                   renderHistoryPage();
                 } catch (e) {
                   console.error(e);
@@ -13666,9 +13704,8 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             });
           }
 
-          // --- Abrir historial (se usa desde el botón "Ver MochiReal anteriores") ---
+          // --- Abrir historial ---
           window.openMochiHistory = async function () {
-            // Cambiar a pantalla MochiReal (usa el router)
             const navBtn = document.querySelector('.app-nav .nav-btn[data-goto="mochireal"]');
             if (navBtn) navBtn.click();
 
@@ -13722,7 +13759,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             }
           };
 
-          // --- Cerrar historial (volver a pantalla MochiReal) ---
+          // --- Cerrar historial ---
           window.closeMochiHistory = function () {
             const histPage = document.getElementById('page-mr-history');
             if (histPage) {
@@ -13736,7 +13773,6 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           // --- Lazy-load desde el router (setScreen) ---
           window.ensureMochiRealHistoryLoaded = function () {
             if (allHistoryData.length === 0) {
-              // No cargamos todavía; se dispara cuando pulses "ver historial"
               return;
             }
             renderHistoryPage();
@@ -13763,6 +13799,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           }
         })();
       </script>
+
 
 
 

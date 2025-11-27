@@ -13515,10 +13515,15 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                 const favOther = !!post.is_fav_other;
 
                 return `
-                  <div class="mr-history-photo-box">
-                    <div class="mr-history-photo">
-                      <img src="/mochireal/photo/${post.post_id}" alt="Foto de ${post.username}" loading="lazy">
-                      <div class="mr-fav-badges">
+    <div class="mr-history-photo-box">
+      <div class="mr-history-photo">
+        <img src="/mochireal/image/${post.post_id}" 
+             alt="Foto de ${post.username}" 
+             loading="lazy"
+             onclick="window.open(this.src, '_blank')">
+        <div class="mr-fav-badges">
+          ...
+
                         <button type="button"
                                 class="mr-fav-me-btn ${favMe ? 'active' : ''}"
                                 data-post-id="${post.post_id}">

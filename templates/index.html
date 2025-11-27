@@ -7041,6 +7041,12 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         bottom: calc(16px + var(--nav-bottom-mobile));
       }
     }
+
+    /* === Aviso global: siempre por encima de todo === */
+    #announcementModal {
+      z-index: 20000;
+      /* más que ruleta, presencia, toasts, etc. */
+    }
   </style>
 </head>
 

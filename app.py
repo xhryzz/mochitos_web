@@ -4656,6 +4656,15 @@ def admin_home():
     }
     # ----------------------------------------------
 
+    # Aviso modal actual (si existe)
+    raw_modal = state_get("modal_announcement", "")
+    modal_cfg = None
+    if raw_modal:
+        try:
+            modal_cfg = json.loads(raw_modal)
+        except Exception:
+            modal_cfg = None
+
     # Listar próximas programadas (pendientes) + últimas enviadas + actividad de mochita
     conn = get_db_connection()
     mochita_activity = []
@@ -4724,7 +4733,8 @@ def admin_home():
         mochita_activity_stats=mochita_activity_stats,
         mochita_presence=mochita_presence,
         vapid_public_key=get_vapid_public_base64url(),
-        mr_plans=mr_plans  # <--- NUEVO: Enviamos los planes a la plantilla
+        mr_plans=mr_plans,  # <--- NUEVO: Enviamos los planes a la plantilla
+        modal_cfg=modal_cfg  # 👈 aviso modal
     )
 
 @app.post("/admin/mochireal/set")
@@ -4776,6 +4786,63 @@ def admin_reset_pw():
     finally:
         conn.close()
     return redirect("/admin")
+
+
+@app.post("/admin/modal/save")
+def admin_modal_save():
+    """Guarda / programa el aviso modal de la web."""
+    require_admin()
+    text = (request.form.get("modal_text") or "").strip()
+    when_local = (request.form.get("modal_from") or "").strip()  # formato YYYY-MM-DDTHH:MM
+
+    if not text or not when_local:
+        flash("Falta texto o fecha/hora para el aviso modal.", "error")
+        return redirect("/admin")
+
+    # Validar formato de fecha/hora (no hace falta zona, ya es Europe/Madrid local)
+    try:
+        datetime.strptime(when_local, "%Y-%m-%dT%H:%M")
+    except ValueError:
+        flash("Fecha/hora del aviso modal no es válida.", "error")
+        return redirect("/admin")
+
+    # Construimos el payload y generamos un id incremental
+    raw = state_get("modal_announcement", "")
+    current_id = 0
+    if raw:
+        try:
+            current_id = int(json.loads(raw).get("id", 0))
+        except Exception:
+            current_id = 0
+    new_id = current_id + 1
+
+    payload = {
+        "id": new_id,
+        "text": text,
+        "from_local": when_local,  # se interpreta siempre como Europe/Madrid
+    }
+    try:
+        state_set("modal_announcement", json.dumps(payload))
+        flash("Aviso modal guardado / actualizado ✅", "success")
+    except Exception as e:
+        app.logger.exception("[admin_modal_save] %s", e)
+        flash("No se pudo guardar el aviso modal.", "error")
+
+    return redirect("/admin")
+
+
+@app.post("/admin/modal/clear")
+def admin_modal_clear():
+    """Quita el aviso modal actual (no se mostrará nada)."""
+    require_admin()
+    try:
+        state_set("modal_announcement", "")
+        flash("Aviso modal eliminado ✅", "success")
+    except Exception as e:
+        app.logger.exception("[admin_modal_clear] %s", e)
+        flash("No se pudo eliminar el aviso modal.", "error")
+    return redirect("/admin")
+
 
 @app.post("/admin/push/send_now")
 def admin_push_send_now():
@@ -7631,6 +7698,87 @@ def api_daily_wheel_push_self():
     except Exception:
         # Si falla la push, no rompemos la web
         pass
+
+    return jsonify(ok=True)
+
+
+@app.get("/api/modal_announcement")
+def api_modal_announcement():
+    """
+    Devuelve el aviso modal programado (si toca mostrarlo) para el usuario actual.
+    Solo se devuelve si:
+      - hay aviso configurado,
+      - la hora actual (Europe/Madrid) es >= from_local,
+      - y el usuario todavía no lo ha marcado como visto.
+    """
+    if "username" not in session:
+        return jsonify(ok=False, error="unauthorized"), 401
+
+    user = session["username"]
+    raw = state_get("modal_announcement", "")
+    if not raw:
+        return jsonify(ok=True, has=False)
+
+    try:
+        cfg = json.loads(raw)
+    except Exception:
+        return jsonify(ok=True, has=False)
+
+    ann_id = cfg.get("id")
+    text = (cfg.get("text") or "").strip()
+    when_local = cfg.get("from_local")
+
+    if not ann_id or not text or not when_local:
+        return jsonify(ok=True, has=False)
+
+    # ¿Ya lo ha visto este usuario?
+    seen_key = f"modal_seen::{user}::{ann_id}"
+    if state_get(seen_key, ""):
+        return jsonify(ok=True, has=False)
+
+    # Comprobar hora (usamos hora local Madrid como naive)
+    try:
+        from_dt = datetime.strptime(when_local, "%Y-%m-%dT%H:%M")
+    except Exception:
+        return jsonify(ok=True, has=False)
+
+    now_md = europe_madrid_now()
+    now_local = now_md.replace(tzinfo=None)  # naive, misma zona
+
+    if now_local < from_dt:
+        return jsonify(ok=True, has=False)
+
+    return jsonify(ok=True, has=True, id=int(ann_id), text=text)
+
+
+@app.post("/api/modal_announcement/seen")
+def api_modal_announcement_seen():
+    """Marca el aviso modal actual como visto por el usuario actual."""
+    if "username" not in session:
+        return jsonify(ok=False, error="unauthorized"), 401
+
+    user = session["username"]
+    ann_id = None
+
+    if request.is_json:
+        try:
+            ann_id = (request.get_json() or {}).get("id")
+        except Exception:
+            ann_id = None
+    if ann_id is None:
+        ann_id = request.form.get("id")
+
+    try:
+        ann_id_int = int(ann_id)
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error="bad_id"), 400
+
+    seen_key = f"modal_seen::{user}::{ann_id_int}"
+    try:
+        state_set(seen_key, "1")
+    except Exception as e:
+        app.logger.exception("[api_modal_announcement_seen] %s", e)
+        return jsonify(ok=False, error="server_error"), 500
 
     return jsonify(ok=True)
 

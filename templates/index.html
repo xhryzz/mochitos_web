@@ -8899,6 +8899,24 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           </div>
         </div>
 
+        <!-- MODAL: Aviso general de la web -->
+        <div id="announcementModal" class="modal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2>🆕 Novedades en Mochitos</h2>
+              <span class="close-modal" data-ann-close>&times;</span>
+            </div>
+            <div class="modal-body">
+              <p id="announcementText" style="white-space:pre-wrap;"></p>
+            </div>
+            <div class="modal-footer"
+              style="padding:16px 24px;border-top:1px solid #eee;display:flex;justify-content:flex-end;">
+              <button type="button" id="announcementOkBtn" class="btn">Entendido ❤️</button>
+            </div>
+          </div>
+        </div>
+
+
         <!-- ===== JS para los dos modales ===== -->
         <script>
           function getCardFromBtn(btn) { return btn.closest('.media-card'); }
@@ -13659,6 +13677,69 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
       </script>
 
 
+      <script>
+        (function () {
+          async function maybeShowAnnouncementModal() {
+            try {
+              const res = await fetch('/api/modal_announcement', { credentials: 'same-origin' });
+              if (!res.ok) return;
+              const data = await res.json();
+              if (!data.ok || !data.has) return;
+
+              const modal = document.getElementById('announcementModal');
+              const txtEl = document.getElementById('announcementText');
+              const okBtn = document.getElementById('announcementOkBtn');
+
+              if (!modal || !txtEl || !okBtn) return;
+
+              txtEl.textContent = data.text || '';
+
+              function closeModal() {
+                modal.style.display = 'none';
+                // Avisamos al backend de que este usuario ya lo ha visto
+                try {
+                  fetch('/api/modal_announcement/seen', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: data.id })
+                  });
+                } catch (e) {
+                  console.warn('No se pudo marcar el aviso como visto:', e);
+                }
+              }
+
+              okBtn.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                closeModal();
+              }, { once: true });
+
+              modal.querySelectorAll('[data-ann-close]').forEach(function (el) {
+                el.addEventListener('click', function () {
+                  closeModal();
+                }, { once: true });
+              });
+
+              // Cerrar si pulsa fuera del contenido
+              modal.addEventListener('click', function (ev) {
+                if (ev.target === modal) {
+                  closeModal();
+                }
+              }, { once: true });
+
+              modal.style.display = 'block';
+            } catch (e) {
+              console.error('Error cargando aviso modal:', e);
+            }
+          }
+
+          // Lanzar cuando el DOM esté listo
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', maybeShowAnnouncementModal);
+          } else {
+            maybeShowAnnouncementModal();
+          }
+        })();
+      </script>
 
 </body>
 

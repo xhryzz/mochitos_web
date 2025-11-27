@@ -478,6 +478,45 @@
         </form>
       </div>
 
+      <!-- Aviso modal en la web -->
+      <div class="card">
+        <h2>Aviso en la web (modal al entrar)</h2>
+        <p class="small">
+          Muestra un modal a mochito/mochita cuando entren en la app
+          <b>a partir de la hora indicada</b>. Cada uno lo verá solo una vez.
+        </p>
+        <form method="post" action="/admin/modal/save" class="row">
+          <div>
+            <label for="modal_text">Mensaje</label>
+            <textarea id="modal_text" name="modal_text" rows="3" required
+              placeholder="Texto que aparecerá en el modal...">{% if modal_cfg %}{{ modal_cfg.text }}{% endif %}</textarea>
+          </div>
+          <div>
+            <label for="modal_from">Mostrar a partir de (Europe/Madrid)</label>
+            <input id="modal_from" name="modal_from" type="datetime-local" required
+              value="{% if modal_cfg and modal_cfg.from_local %}{{ modal_cfg.from_local }}{% endif %}">
+          </div>
+          <div class="actions">
+            <button class="btn brand" type="submit">
+              {% if modal_cfg %}Actualizar aviso{% else %}Guardar aviso{% endif %}
+            </button>
+          </div>
+          {% if modal_cfg %}
+          <p class="small">
+            Aviso activo desde: {{ modal_cfg.from_local }} · ID: {{ modal_cfg.id }}
+          </p>
+          {% endif %}
+        </form>
+
+        {% if modal_cfg %}
+        <form method="post" action="/admin/modal/clear" onsubmit="return confirm('¿Quitar el aviso modal actual?');">
+          <div class="actions" style="margin-top:8px">
+            <button class="btn" type="submit">Quitar aviso</button>
+          </div>
+        </form>
+        {% endif %}
+      </div>
+
       <!-- Lista de programadas -->
       <div class="card">
         <h2>Programadas</h2>

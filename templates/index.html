@@ -11461,57 +11461,81 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
         // Cerrar modal genérico ya lo tienes (delegación .close-modal)
 
-        /* ========= Media: init on DOMContentLoaded ========= */
-        document.addEventListener('DOMContentLoaded', () => {
-          setupMediaTabs();
-          setupMediaSortToggle();
-          setupMediaPagination();
-          setupMediaSearch();
-          initAllEditableRatings();
+        /* ========= Media: init LAZY (solo al entrar en Pelis) ========= */
+        (function () {
+          let mediaInitialized = false;
 
-          // "Añadir" — mostrar episodios si es serie
-          const addKind = document.getElementById('addKind');
-          const addRow = document.getElementById('addEpisodesRow');
-          if (addKind && addRow) {
-            toggleEpisodesRow(addKind, addRow);
-            addKind.addEventListener('change', () => toggleEpisodesRow(addKind, addRow));
-          }
+          // Igual que ensureTravelsLoaded / ensureIntimLoaded,
+          // pero para la sección de Películas.
+          window.ensureMediaLoaded = function ensureMediaLoaded() {
+            if (mediaInitialized) return;
+            mediaInitialized = true;
 
-          // "Editar" — cambiar visibilidad episodios al cambiar tipo
-          const editKind = document.getElementById('mediaKind');
-          const editRow = document.getElementById('editEpisodesRow');
-          if (editKind && editRow) {
-            editKind.addEventListener('change', () => toggleEpisodesRow(editKind, editRow));
-          }
-        });
+            // Inicializa pestañas, orden, paginación, buscador y estrellas
+            if (typeof setupMediaTabs === 'function') setupMediaTabs();
+            if (typeof setupMediaSortToggle === 'function') setupMediaSortToggle();
+            if (typeof setupMediaPagination === 'function') setupMediaPagination();
+            if (typeof setupMediaSearch === 'function') setupMediaSearch();
+            if (typeof initAllEditableRatings === 'function') initAllEditableRatings();
+
+            // "Añadir" — mostrar episodios si es serie
+            const addKind = document.getElementById('addKind');
+            const addRow = document.getElementById('addEpisodesRow');
+            if (addKind && addRow) {
+              toggleEpisodesRow(addKind, addRow);
+              addKind.addEventListener('change', () => toggleEpisodesRow(addKind, addRow));
+            }
+
+            // "Editar" — cambiar visibilidad episodios al cambiar tipo
+            const editKind = document.getElementById('mediaKind');
+            const editRow = document.getElementById('editEpisodesRow');
+            if (editKind && editRow) {
+              editKind.addEventListener('change', () => toggleEpisodesRow(editKind, editRow));
+            }
+          };
+        })();
 
 
-        // Navegación simple entre "Inicio" y "Películas/Series"
         function setupSimplePages() {
           const btns = document.querySelectorAll('.app-nav .nav-btn');
           btns.forEach(btn => {
             btn.addEventListener('click', () => {
-              // estado visual de la barra
-              btns.forEach(b => b.classList.remove('active'));
-              btn.classList.add('active');
-
               const dest = btn.dataset.goto;
 
-              // Si es "media", activamos la página de películas/series.
-              // Si no, volvemos al inicio.
               if (dest === 'media') {
+                // Marcamos Pelis como activa (el router no sabe lo que es "media")
+                btns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
                 document.body.classList.add('page-media');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                // 👉 Aquí es donde realmente "carga" Películas, solo la primera vez
+                if (typeof window.ensureMediaLoaded === 'function') {
+                  window.ensureMediaLoaded();
+                }
               } else {
+                // Al salir de Pelis quitamos el modo page-media
                 document.body.classList.remove('page-media');
               }
             });
           });
+
+          // Si entras directamente con /#pelis en la URL (por una push, por ejemplo),
+          // simulamos el click en el botón de Pelis.
+          const hash = (window.location.hash || '').toLowerCase();
+          if (hash.includes('pelis')) {
+            const pelisBtn = document.querySelector('.app-nav .nav-btn[data-goto="media"]');
+            if (pelisBtn) {
+              pelisBtn.click();
+            }
+          }
         }
 
         document.addEventListener('DOMContentLoaded', function () {
           setupSimplePages();
         });
+
 
 
         (function () {

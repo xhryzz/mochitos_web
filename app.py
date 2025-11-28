@@ -522,15 +522,21 @@ def build_wheel_time_payload(now_madrid: datetime | None = None) -> dict:
     next_reset_dt: datetime | None = None
 
     if reset_dt_today:
-        if now_madrid < reset_dt_today:
+        # MODIFICACIÓN: Ponemos 'if False' para ignorar la hora aleatoria
+        # y que se desbloquee en cuanto cambie el día (cada 24h real).
+        if False: # ANTES ERA: if now_madrid < reset_dt_today:
             can_spin_now = False
             seconds_to_unlock = max(0, int((reset_dt_today - now_madrid).total_seconds()))
             next_reset_dt = reset_dt_today
         else:
+            # Entra siempre aquí: Ruleta disponible inmediatamente
             can_spin_now = True
             seconds_to_unlock = 0
+            
+            # Calculamos ya el reset de MAÑANA para la cuenta atrás
             tomorrow = today + timedelta(days=1)
             next_reset_hhmm = ensure_wheel_reset_time(tomorrow, now_madrid + timedelta(days=1))
+            
             if next_reset_hhmm:
                 try:
                     hh2, mm2 = map(int, next_reset_hhmm.split(":"))

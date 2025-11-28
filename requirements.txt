@@ -7,4 +7,3 @@ cryptography
 pytz
 tzdata
 Pillow
-elevenlabs

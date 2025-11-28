@@ -46,7 +46,7 @@ app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
 
-ELEVEN_API_KEY = "53b591c680cce2319144fb214181c134e0beb573507983b1d3e01a5191701ffc"
+ELEVEN_API_KEY = "sk_9fa58cddcd81eee78de88fdbc5df03c476040d902aa17824"
 
 eleven_client: ElevenLabs | None = None
 if ELEVEN_API_KEY:

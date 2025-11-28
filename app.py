@@ -13,7 +13,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 import re  # <-- Seguimiento de precio
 from elevenlabs import ElevenLabs
-
+from typing import Any
 
 # Web Push
 from pywebpush import webpush, WebPushException

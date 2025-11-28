@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Mochitos · Transcriptor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#e84393" />
+
+  <!-- Fuentes & iconos igual que en la web principal -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&family=Montserrat:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    referrerpolicy="no-referrer" />
+
+  <style>
+    :root {
+      --primary-color: #e84393;
+      --secondary-color: #ff7675;
+      --accent-color: #a29bfe;
+      --bg-color: #fff0f6;
+      --card-bg: #ffffff;
+      --gradient: linear-gradient(135deg, #ff9ff3, #f368e0);
+      --shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: #111827;
+      background:
+        radial-gradient(circle at top, rgba(255, 255, 255, 0.9), var(--bg-color)),
+        linear-gradient(180deg, #ffe5f2, #ffeaf6);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.9), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.9), transparent 55%);
+      opacity: 0.8;
+      z-index: -1;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 700;
+      box-shadow: 0 8px 20px rgba(232, 67, 147, 0.4);
+      font-size: 1.1rem;
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.3rem;
+      letter-spacing: .03em;
+    }
+
+    .brand-sub {
+      font-size: 0.85rem;
+      color: #6b7280;
+    }
+
+    .back-btn {
+      border-radius: 999px;
+      padding: 9px 16px;
+      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(10px);
+      color: #374151;
+      cursor: pointer;
+      transition: all .2s ease;
+      box-shadow: 0 6px 16px rgba(148, 163, 184, 0.25);
+    }
+
+    .back-btn i {
+      color: var(--primary-color);
+    }
+
+    .back-btn:hover {
+      transform: translateY(-1px);
+      background: #fff;
+      border-color: rgba(148, 163, 184, 0.9);
+    }
+
+    .section {
+      position: relative;
+      margin-top: 24px;
+      background: var(--card-bg);
+      border-radius: 26px;
+      box-shadow: var(--shadow);
+      padding: 26px 22px 26px 22px;
+      overflow: hidden;
+    }
+
+    .section::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 5px;
+      background: var(--gradient);
+    }
+
+    .section-headline {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 18px;
+    }
+
+    .section h3 {
+      margin: 0;
+      color: var(--primary-color);
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      display: inline-block;
+      padding-bottom: 10px;
+      border-bottom: 3px solid var(--secondary-color);
+      position: relative;
+    }
+
+    .section h3::after {
+      content: "";
+      position: absolute;
+      bottom: -3px;
+      left: 0;
+      width: 50px;
+      height: 3px;
+      background: var(--accent-color);
+    }
+
+    .section-subtitle {
+      font-size: 0.95rem;
+      color: #6b7280;
+    }
+
+    .transcriptor-grid {
+      display: grid;
+      gap: 22px;
+    }
+
+    @media (min-width: 920px) {
+      .transcriptor-grid {
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr);
+        align-items: flex-start;
+      }
+    }
+
+    form {
+      margin-top: 10px;
+    }
+
+    input,
+    textarea,
+    button {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 0.95rem;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .file-row {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .file-label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #4b5563;
+    }
+
+    .file-helper {
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+
+    .file-chooser {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 18px;
+      border-radius: 999px;
+      background: #f5f3ff;
+      border: 1px solid #e5e7eb;
+      cursor: pointer;
+      transition: all .2s ease;
+      box-shadow: 0 4px 12px rgba(148, 163, 184, 0.25);
+    }
+
+    .file-chooser i {
+      color: var(--primary-color);
+      font-size: 1rem;
+    }
+
+    .file-chooser span {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #374151;
+    }
+
+    .file-chooser:hover {
+      background: #ede9fe;
+      transform: translateY(-1px);
+    }
+
+    .file-name {
+      font-size: 0.82rem;
+      color: #6b7280;
+      margin-left: 4px;
+    }
+
+    .options-row {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .chip-option {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #f9fafb;
+      border: 1px dashed #d1d5db;
+      font-size: 0.8rem;
+      color: #4b5563;
+    }
+
+    .chip-option input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      margin: 0;
+    }
+
+    .primary-btn {
+      margin-top: 16px;
+      border: none;
+      border-radius: 999px;
+      padding: 12px 24px;
+      background: var(--gradient);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 8px 20px rgba(232, 67, 147, 0.4);
+      transition: all .25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .primary-btn i {
+      font-size: 1rem;
+    }
+
+    .primary-btn::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -30%;
+      width: 30%;
+      height: 100%;
+      background: linear-gradient(120deg, rgba(255, 255, 255, 0.5), transparent);
+      transform: skewX(-20deg);
+      opacity: 0;
+    }
+
+    .primary-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(232, 67, 147, 0.5);
+    }
+
+    .primary-btn:hover::before {
+      animation: shine 0.9s forwards;
+    }
+
+    .primary-btn:disabled {
+      opacity: .6;
+      cursor: default;
+      transform: none;
+      box-shadow: none;
+    }
+
+    @keyframes shine {
+      0% {
+        transform: translateX(-100%) skewX(-20deg);
+        opacity: 0;
+      }
+
+      40% {
+        opacity: 1;
+      }
+
+      100% {
+        transform: translateX(260%) skewX(-20deg);
+        opacity: 0;
+      }
+    }
+
+    .status-msg {
+      margin-top: 12px;
+      font-size: 0.85rem;
+      color: #6b7280;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-msg i {
+      font-size: 0.95rem;
+    }
+
+    .status-ok {
+      color: #059669;
+    }
+
+    .status-ok i {
+      color: #059669;
+    }
+
+    .status-error {
+      color: #b91c1c;
+    }
+
+    .status-error i {
+      color: #b91c1c;
+    }
+
+    .status-working {
+      color: #2563eb;
+    }
+
+    .status-working i {
+      color: #2563eb;
+    }
+
+    .results-panel {
+      border-radius: 20px;
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      padding: 16px 14px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .results-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .results-title {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #4b5563;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .results-title i {
+      color: var(--primary-color);
+    }
+
+    .download-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .ghost-btn {
+      border-radius: 999px;
+      padding: 7px 13px;
+      border: 1px solid #d1d5db;
+      background: #fff;
+      font-size: 0.8rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      color: #374151;
+    }
+
+    .ghost-btn i {
+      font-size: 0.9rem;
+      color: var(--primary-color);
+    }
+
+    .ghost-btn:hover {
+      background: #f3f4f6;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 140px;
+      max-height: 260px;
+      resize: vertical;
+      border-radius: 14px;
+      border: 1px solid #e5e7eb;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      font-family: 'Montserrat', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background: #ffffff;
+      color: #111827;
+      line-height: 1.5;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent-color);
+      box-shadow: 0 0 0 3px rgba(162, 155, 254, .35);
+    }
+
+    .textarea-label {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+
+    .mini-note {
+      font-size: 0.78rem;
+      color: #9ca3af;
+    }
+
+    @media (max-width: 640px) {
+      .section {
+        padding: 22px 16px 20px;
+        border-radius: 20px;
+      }
+
+      .section h3 {
+        font-size: 1.6rem;
+      }
+
+      .back-btn {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="top-bar">
+      <div class="brand">
+        <div class="brand-logo">💖</div>
+        <div class="brand-text">
+          <div class="brand-title">Mochitos</div>
+          <div class="brand-sub">Transcriptor de audio (.wav)</div>
+        </div>
+      </div>
+      <button class="back-btn" type="button" onclick="window.location.href='/'">
+        <i class="fa-solid fa-house"></i>
+        <span>Volver al inicio</span>
+      </button>
+    </div>
+
+    <section class="section">
+      <div class="section-headline">
+        <h3>Transcriptor Mochitos 🎙️</h3>
+        <p class="section-subtitle">
+          Sube un archivo <strong>.wav</strong> y lo transcribimos con ElevenLabs para que puedas leerlo o
+          descargarlo en .txt y .srt.
+        </p>
+      </div>
+
+      <div class="transcriptor-grid">
+        <!-- Columna izquierda: formulario -->
+        <div>
+          <form id="transcribeForm">
+            <div class="file-row">
+              <div class="file-label">
+                Archivo de audio
+              </div>
+              <label class="file-chooser" for="audioFile">
+                <i class="fa-solid fa-file-audio"></i>
+                <span id="fileLabel">Seleccionar archivo (.wav)</span>
+              </label>
+              <input id="audioFile" name="audio" type="file" accept=".wav,audio/wav" required />
+
+              <div class="file-name" id="fileName">Ningún archivo seleccionado.</div>
+              <div class="file-helper">Solo se permiten archivos en formato <strong>.wav</strong>.</div>
+            </div>
+
+            <div class="options-row">
+              <label class="chip-option">
+                <input type="checkbox" id="optEvents" checked />
+                <span>Detectar eventos (risas, aplausos…)</span>
+              </label>
+              <label class="chip-option">
+                <input type="checkbox" id="optDiarize" checked />
+                <span>Diarizar (separar voces)</span>
+              </label>
+            </div>
+
+            <button type="submit" class="primary-btn" id="btnTranscribe">
+              <i class="fa-solid fa-microphone-lines"></i>
+              <span>Transcribir audio</span>
+            </button>
+
+            <div id="status" class="status-msg">
+              <!-- Mensajes de estado -->
+            </div>
+          </form>
+        </div>
+
+        <!-- Columna derecha: resultados -->
+        <div>
+          <div class="results-panel">
+            <div class="results-header">
+              <div class="results-title">
+                <i class="fa-solid fa-clipboard-list"></i>
+                <span>Resultados de la transcripción</span>
+              </div>
+              <div class="download-row">
+                <button type="button" class="ghost-btn" id="btnDownloadTxt">
+                  <i class="fa-regular fa-file-lines"></i>
+                  <span>Descargar .txt</span>
+                </button>
+                <button type="button" class="ghost-btn" id="btnDownloadSrt">
+                  <i class="fa-regular fa-file-video"></i>
+                  <span>Descargar .srt</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div class="textarea-label">Texto plano (.txt)</div>
+              <textarea id="txtOutput" readonly
+                placeholder="Aquí aparecerá el texto transcrito cuando subas un archivo .wav."></textarea>
+              <div class="mini-note">Ideal para copiar y pegar la transcripción completa.</div>
+            </div>
+
+            <div>
+              <div class="textarea-label">Subtítulos (.srt)</div>
+              <textarea id="srtOutput" readonly
+                placeholder="Aquí aparecerá el contenido en formato .srt listo para usar en vídeos."></textarea>
+              <div class="mini-note">Úsalo directamente como subtítulos en tus vídeos.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('audioFile');
+    const fileLabel = document.getElementById('fileLabel');
+    const fileName = document.getElementById('fileName');
+    const form = document.getElementById('transcribeForm');
+    const statusEl = document.getElementById('status');
+    const btnTranscribe = document.getElementById('btnTranscribe');
+    const txtOutput = document.getElementById('txtOutput');
+    const srtOutput = document.getElementById('srtOutput');
+    const btnDownloadTxt = document.getElementById('btnDownloadTxt');
+    const btnDownloadSrt = document.getElementById('btnDownloadSrt');
+    const optEvents = document.getElementById('optEvents');
+    const optDiarize = document.getElementById('optDiarize');
+
+    function setStatus(msg, type) {
+      statusEl.className = 'status-msg';
+      if (!msg) {
+        statusEl.textContent = '';
+        return;
+      }
+      let iconClass = 'fa-circle-info';
+      if (type === 'ok') {
+        statusEl.classList.add('status-ok');
+        iconClass = 'fa-circle-check';
+      } else if (type === 'error') {
+        statusEl.classList.add('status-error');
+        iconClass = 'fa-circle-xmark';
+      } else if (type === 'working') {
+        statusEl.classList.add('status-working');
+        iconClass = 'fa-circle-notch fa-spin';
+      }
+      statusEl.innerHTML = `<i class="fa-solid ${iconClass}"></i><span>${msg}</span>`;
+    }
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (!file) {
+        fileLabel.textContent = 'Seleccionar archivo (.wav)';
+        fileName.textContent = 'Ningún archivo seleccionado.';
+        return;
+      }
+      fileLabel.textContent = 'Cambiar archivo';
+      fileName.textContent = file.name;
+    });
+
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+
+      const file = fileInput.files[0];
+      if (!file) {
+        setStatus('Selecciona primero un archivo .wav.', 'error');
+        return;
+      }
+
+      if (!file.name.toLowerCase().endsWith('.wav')) {
+        setStatus('Solo se permiten archivos con extensión .wav.', 'error');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('audio', file);
+
+      setStatus('Transcribiendo audio… puede tardar unos segundos ⏳', 'working');
+      btnTranscribe.disabled = true;
+
+      try {
+        const resp = await fetch('/api/transcriptor', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await resp.json().catch(() => null);
+
+        if (!resp.ok || !data) {
+          setStatus('Error al transcribir. Inténtalo de nuevo.', 'error');
+          return;
+        }
+
+        if (!data.ok) {
+          setStatus(data.error || 'Error en el servidor de transcripción.', 'error');
+          return;
+        }
+
+        txtOutput.value = data.text || '';
+        srtOutput.value = data.srt || '';
+
+        if (!data.text && !data.srt) {
+          setStatus('No se ha recibido texto de la transcripción.', 'error');
+        } else {
+          setStatus('¡Transcripción lista! 💖', 'ok');
+        }
+      } catch (e) {
+        console.error(e);
+        setStatus('Error de red al contactar con el servidor.', 'error');
+      } finally {
+        btnTranscribe.disabled = false;
+      }
+    });
+
+    function downloadBlob(filename, content) {
+      if (!content) return;
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    btnDownloadTxt.addEventListener('click', () => {
+      const text = txtOutput.value || '';
+      if (!text.trim()) {
+        setStatus('No hay texto para descargar en .txt.', 'error');
+        return;
+      }
+      downloadBlob('transcripcion_mochitos.txt', text);
+    });
+
+    btnDownloadSrt.addEventListener('click', () => {
+      const text = srtOutput.value || '';
+      if (!text.trim()) {
+        setStatus('No hay contenido para descargar en .srt.', 'error');
+        return;
+      }
+      downloadBlob('transcripcion_mochitos.srt', text);
+    });
+  </script>
+</body>
+
+</html>

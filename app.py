@@ -12,6 +12,8 @@ from base64 import b64encode
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 import re  # <-- Seguimiento de precio
+from elevenlabs import ElevenLabs
+
 
 # Web Push
 from pywebpush import webpush, WebPushException
@@ -42,6 +44,17 @@ def _fast_head_for_healthchecks():
 app.config['TEMPLATES_AUTO_RELOAD'] = False
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
+
+
+ELEVEN_API_KEY = "53b591c680cce2319144fb214181c134e0beb573507983b1d3e01a5191701ffc"
+
+eleven_client: ElevenLabs | None = None
+if ELEVEN_API_KEY:
+    try:
+        eleven_client = ElevenLabs(api_key=ELEVEN_API_KEY)
+    except Exception as e:
+        print("[ElevenLabs] Error inicializando cliente:", e)
+        eleven_client = None
 
 
 
@@ -87,6 +100,124 @@ def send_discord(event: str, payload: dict | None = None):
     """Logs a Discord desactivados.
     Deja la firma igual para no tocar el resto del código."""
     return
+
+
+
+
+
+# ========= Helpers Transcriptor =========
+
+def _extract_text_from_transcription(transcription: Any) -> str:
+    """Saca el texto “plano” de la respuesta de ElevenLabs, sin complicarse."""
+    if transcription is None:
+        return ""
+    # 1) Objeto con atributo .text
+    txt = getattr(transcription, "text", None)
+    if isinstance(txt, str) and txt.strip():
+        return txt.strip()
+
+    # 2) Dict con clave "text"
+    if isinstance(transcription, dict):
+        txt = transcription.get("text")
+        if isinstance(txt, str) and txt.strip():
+            return txt.strip()
+
+    # 3) Último recurso: str()
+    try:
+        return str(transcription)
+    except Exception:
+        return ""
+
+
+def _fmt_ts(seconds: float) -> str:
+    """Convierte segundos (float) a formato SRT HH:MM:SS,mmm."""
+    try:
+        if seconds is None or seconds < 0:
+            seconds = 0.0
+    except Exception:
+        seconds = 0.0
+
+    total_ms = int(round(float(seconds) * 1000))
+    hours, rem = divmod(total_ms, 3600_000)
+    minutes, rem = divmod(rem, 60_000)
+    secs, ms = divmod(rem, 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{ms:03d}"
+
+
+def build_srt_from_transcription(transcription: Any) -> str:
+    """
+    Intenta construir un .srt decente:
+    - Primero usando transcription.segments (si existe)
+    - Si no, creando bloques simples con el texto completo.
+    """
+    segments = None
+
+    # 1) Intentar conseguir segmentos (objeto o dict)
+    try:
+        if hasattr(transcription, "segments"):
+            segments = getattr(transcription, "segments")
+        elif isinstance(transcription, dict) and "segments" in transcription:
+            segments = transcription.get("segments")
+    except Exception:
+        segments = None
+
+    lines: list[str] = []
+
+    if segments:
+        idx = 1
+        for seg in segments:
+            # seg puede ser dict o tener atributos
+            start = getattr(seg, "start", None)
+            end = getattr(seg, "end", None)
+            text = getattr(seg, "text", None)
+
+            if isinstance(seg, dict):
+                start = seg.get("start", start)
+                end = seg.get("end", end)
+                text = seg.get("text", text)
+
+            if text is None:
+                continue
+
+            try:
+                s = _fmt_ts(float(start or 0))
+                e = _fmt_ts(float(end or (start or 0) + 0.5))
+            except Exception:
+                s = _fmt_ts(0)
+                e = _fmt_ts(1)
+
+            text_line = str(text).strip()
+            if not text_line:
+                continue
+
+            lines.append(str(idx))
+            lines.append(f"{s} --> {e}")
+            lines.append(text_line)
+            lines.append("")
+            idx += 1
+
+        return "\n".join(lines).strip()
+
+    # 2) Sin segmentos: un SRT sencillo con bloques de 4s
+    full_text = _extract_text_from_transcription(transcription)
+    if not full_text:
+        return ""
+
+    # Dividir por líneas, por si el modelo mete saltos
+    chunks = [p.strip() for p in full_text.replace("\r", "").split("\n") if p.strip()]
+    if not chunks:
+        chunks = [full_text.strip()]
+
+    for idx, ch in enumerate(chunks, start=1):
+        start_s = _fmt_ts((idx - 1) * 4.0)
+        end_s = _fmt_ts(idx * 4.0)
+        lines.append(str(idx))
+        lines.append(f"{start_s} --> {end_s}")
+        lines.append(ch)
+        lines.append("")
+
+    return "\n".join(lines).strip()
+
 
 # ========= Config Postgres + POOL =========
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
@@ -8693,6 +8824,63 @@ def admin_poll_clear():
     return redirect("/admin")
 
 
+# ========= Rutas Transcriptor (SIN login) =========
+
+@app.get("/transcriptor")
+def transcriptor_page():
+    """
+    Página del transcriptor. No requiere login.
+    """
+    return render_template("transcriptor.html")
+
+
+@app.post("/api/transcriptor")
+def api_transcriptor():
+    """
+    Endpoint que recibe un .wav, llama a ElevenLabs y devuelve texto + srt.
+    """
+    if eleven_client is None:
+        return jsonify(ok=False, error="Transcriptor no configurado en el servidor"), 500
+
+    file = request.files.get("audio")
+    if file is None or file.filename == "":
+        return jsonify(ok=False, error="No se ha enviado ningún archivo"), 400
+
+    filename = file.filename.lower()
+    if not filename.endswith(".wav"):
+        return jsonify(ok=False, error="Solo se permiten archivos .wav"), 400
+
+    tmp_path = None
+    try:
+        # Guardar temporalmente el .wav
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+            tmp_path = tmp.name
+            file.save(tmp_path)
+
+        # Llamar a ElevenLabs
+        with open(tmp_path, "rb") as f:
+            transcription = eleven_client.speech_to_text.convert(
+                file=f,
+                model_id="scribe_v1",
+                tag_audio_events=True,  # igual que en tu app de escritorio
+                diarize=True,
+            )
+
+        text = _extract_text_from_transcription(transcription)
+        srt = build_srt_from_transcription(transcription)
+
+        return jsonify(ok=True, text=text, srt=srt)
+
+    except Exception as e:
+        print("[Transcriptor] Error:", e)
+        return jsonify(ok=False, error=str(e)), 500
+
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
 
 
 _old_init_db = init_db

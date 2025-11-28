@@ -517,40 +517,34 @@ def build_wheel_time_payload(now_madrid: datetime | None = None) -> dict:
         except Exception:
             reset_dt_today = None
 
-    can_spin_now = False
-    seconds_to_unlock: int | None = None
-    next_reset_dt: datetime | None = None
-
-    if reset_dt_today:
-        # CAMBIO: Forzamos el 'else' con 'if False' para que la ruleta
-        # esté disponible siempre, sin importar la hora aleatoria.
-        if False: # if now_madrid < reset_dt_today:
-            can_spin_now = False
-            seconds_to_unlock = max(0, int((reset_dt_today - now_madrid).total_seconds()))
-            next_reset_dt = reset_dt_today
-        else:
-            # Entra siempre aquí: Disponible inmediatamente (desde las 00:00)
-            can_spin_now = True
-            seconds_to_unlock = 0
-            
-            # Calculamos ya el reset de MAÑANA para la cuenta atrás
-            tomorrow = today + timedelta(days=1)
-            next_reset_hhmm = ensure_wheel_reset_time(tomorrow, now_madrid + timedelta(days=1))
-            
-            if next_reset_hhmm:
-                try:
-                    hh2, mm2 = map(int, next_reset_hhmm.split(":"))
-                    next_reset_dt = reset_dt_today.replace(
-                        year=tomorrow.year,
-                        month=tomorrow.month,
-                        day=tomorrow.day,
-                        hour=hh2,
-                        minute=mm2,
-                        second=0,
-                        microsecond=0,
-                    )
-                except Exception:
-                    next_reset_dt = None
+    # --- CAMBIO: Forzar ruleta siempre disponible ---
+    # Ignoramos la hora calculada (reset_dt_today) y abrimos directamente.
+    
+    can_spin_now = True
+    seconds_to_unlock = 0
+    
+    # Calculamos ya el reset de MAÑANA para mostrar la cuenta atrás
+    tomorrow = today + timedelta(days=1)
+    next_reset_hhmm = ensure_wheel_reset_time(tomorrow, now_madrid + timedelta(days=1))
+    
+    if next_reset_hhmm:
+        try:
+            hh2, mm2 = map(int, next_reset_hhmm.split(":"))
+            # Usamos reset_dt_today como base si existe, sino now_madrid
+            base_dt = reset_dt_today if reset_dt_today else now_madrid
+            next_reset_dt = base_dt.replace(
+                year=tomorrow.year,
+                month=tomorrow.month,
+                day=tomorrow.day,
+                hour=hh2,
+                minute=mm2,
+                second=0,
+                microsecond=0,
+            )
+        except Exception:
+            next_reset_dt = None
+    else:
+        next_reset_dt = None
 
     seconds_to_next_reset: int | None = None
     next_reset_iso: str | None = None

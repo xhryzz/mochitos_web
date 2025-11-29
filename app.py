@@ -473,8 +473,9 @@ def ensure_wheel_reset_time(day: date, now_madrid: datetime | None = None) -> st
     if re.fullmatch(r"\d{2}:\d{2}", raw):
         return raw
 
-    start_min = 9 * 60   # 09:00
-    end_min   = 22 * 60  # 22:00
+    # NUEVO HORARIO: 21:30 a 23:00
+    start_min = 21 * 60 + 30  # 21:30 (1290 minutos)
+    end_min   = 23 * 60       # 23:00 (1380 minutos)
 
     if now_madrid.date() == day:
         now_min = now_madrid.hour * 60 + now_madrid.minute
@@ -520,32 +521,40 @@ def build_wheel_time_payload(now_madrid: datetime | None = None) -> dict:
     # --- CAMBIO: Forzar ruleta siempre disponible ---
     # Ignoramos la hora calculada (reset_dt_today) y abrimos directamente.
     
-    can_spin_now = True
+   # --- LÓGICA RESTAURADA: Respetar el horario ---
+    can_spin_now = False
     seconds_to_unlock = 0
-    
-    # Calculamos ya el reset de MAÑANA para mostrar la cuenta atrás
-    tomorrow = today + timedelta(days=1)
-    next_reset_hhmm = ensure_wheel_reset_time(tomorrow, now_madrid + timedelta(days=1))
-    
-    if next_reset_hhmm:
-        try:
-            hh2, mm2 = map(int, next_reset_hhmm.split(":"))
-            # Usamos reset_dt_today como base si existe, sino now_madrid
-            base_dt = reset_dt_today if reset_dt_today else now_madrid
-            next_reset_dt = base_dt.replace(
-                year=tomorrow.year,
-                month=tomorrow.month,
-                day=tomorrow.day,
-                hour=hh2,
-                minute=mm2,
-                second=0,
-                microsecond=0,
-            )
-        except Exception:
-            next_reset_dt = None
-    else:
-        next_reset_dt = None
+    next_reset_dt = None
 
+    if reset_dt_today:
+        # Si todavía es temprano (ej: son las 10:00 y toca a las 21:30) -> BLOQUEADO
+        if now_madrid < reset_dt_today:
+            can_spin_now = False
+            seconds_to_unlock = max(0, int((reset_dt_today - now_madrid).total_seconds()))
+            next_reset_dt = reset_dt_today
+        else:
+            # Ya pasó la hora -> DESBLOQUEADO
+            can_spin_now = True
+            seconds_to_unlock = 0
+            
+            # Calculamos la hora de mañana para mostrar "Próximo reset..."
+            tomorrow = today + timedelta(days=1)
+            next_reset_hhmm = ensure_wheel_reset_time(tomorrow, now_madrid + timedelta(days=1))
+            
+            if next_reset_hhmm:
+                try:
+                    hh2, mm2 = map(int, next_reset_hhmm.split(":"))
+                    next_reset_dt = reset_dt_today.replace(
+                        year=tomorrow.year,
+                        month=tomorrow.month,
+                        day=tomorrow.day,
+                        hour=hh2,
+                        minute=mm2,
+                        second=0,
+                        microsecond=0,
+                    )
+                except Exception:
+                    next_reset_dt = None
     seconds_to_next_reset: int | None = None
     next_reset_iso: str | None = None
     if next_reset_dt:

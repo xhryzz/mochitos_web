@@ -7151,7 +7151,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
   </style>
 </head>
 
-<body class="loading">
+<body class="loading" data-is-logged="{{ '1' if session.username else '0' }}">
   <div id="loader">
     <div class="loader-content">
       <div class="loader-heart">❤️</div>
@@ -9512,17 +9512,21 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         window.initDistanceMap = initDistanceMap;
         window.applyCoupleMode = applyCoupleMode;
 
-        // Arranque suave: cuando cargue el DOM
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', () => {
+        // Arranque suave: cuando cargue el DOM (solo logeado)
+        const _isLoggedForDistance = document.body.dataset.isLogged === '1';
+
+        if (_isLoggedForDistance) {
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+              initDistanceMap();
+              initCoupleModeUI();
+            });
+          } else {
             initDistanceMap();
             initCoupleModeUI();
-          });
-        } else {
-          initDistanceMap();
-          initCoupleModeUI();
+          }
         }
-}) ();
+  }) ();
       </script>
 
 
@@ -10426,7 +10430,21 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
         // =====================
         // DOMContentLoaded
         // =====================
+        // =====================
+        // DOMContentLoaded
+        // =====================
         document.addEventListener('DOMContentLoaded', function () {
+          const isLogged = document.body.dataset.isLogged === '1';
+
+          // Si NO está logeado → solo cosas mínimas del login
+          if (!isLogged) {
+            // Si quieres, dejamos solo corazones suaves y quitamos loader
+            try { createHearts(); } catch (e) { }
+            document.body.classList.remove('loading');
+            return;
+          }
+
+          // 🟢 A partir de aquí, solo cuando SÍ está logeado
           createHearts();
           setupTabs();
           initMap();

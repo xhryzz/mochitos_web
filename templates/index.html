@@ -7175,7 +7175,6 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
 
 
-    <!-- MODAL EDITAR WISHLIST -->
     <div id="editWishlistModal" class="modal">
       <div class="modal-content">
         <div class="modal-header">
@@ -7200,6 +7199,31 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               <input type="checkbox" id="editIsGift" name="is_gift" style="width:auto;">
               <label for="editIsGift" style="margin:0;">¿Es un regalo? 🎁</label>
             </div>
+
+            <button type="submit"><i class="fas fa-save"></i> Guardar cambios</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div id="editTravelModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Editar Viaje</h2>
+          <span class="close-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+          <form method="POST" action="/edit_travel">
+            <input type="hidden" name="travel_id" id="editTravelId">
+
+            <label>Destino</label>
+            <input type="text" name="destination" id="editTravelDest" required>
+
+            <label>Descripción</label>
+            <textarea name="description" id="editTravelDesc" rows="3"></textarea>
+
+            <label>Fecha</label>
+            <input type="date" name="travel_date" id="editTravelDate">
 
             <button type="submit"><i class="fas fa-save"></i> Guardar cambios</button>
           </form>
@@ -10006,6 +10030,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               const photosById = data.photos || {};
 
               // Crea una tarjeta igual de “bonita” que las tuyas, pero en JS
+              // --- 1. Función para crear la tarjeta con los nuevos botones ---
               function createCard(travel) {
                 const id = travel.id;
                 const destination = travel.destination || '';
@@ -10020,27 +10045,40 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                 card.className = 'travel-card ' + (isVisited ? 'visited' : 'wishlist');
                 card.dataset.id = id;
 
-                // COVER
+                // Datos ocultos para que el buscador (setupTravelSearch) funcione
+                card.innerHTML = `<span style="display:none" class="travel-destination">${destination}</span>
+                                  <span style="display:none" class="travel-description">${description}</span>
+                                  <span style="display:none" class="travel-date">${travel_date}</span>`;
+
+                // --- COVER (FOTO) ---
                 const cover = document.createElement('div');
                 cover.className = 'travel-cover';
 
                 if (photos.length) {
                   const phWrap = document.createElement('div');
                   phWrap.className = 'travel-photos';
-                  photos.forEach(p => {
-                    const img = document.createElement('img');
-                    img.src = p.image_url;
-                    img.alt = destination;
-                    img.style.maxWidth = '100%';
-                    img.style.borderRadius = '10px';
-                    img.style.margin = '5px 0';
-                    phWrap.appendChild(img);
-                  });
+                  // Mostramos la primera foto como portada
+                  const img = document.createElement('img');
+                  img.src = photos[0].image_url;
+                  img.alt = destination;
+                  img.style.maxWidth = '100%';
+                  img.style.borderRadius = '10px';
+                  img.style.margin = '5px 0';
+                  // Al hacer click, abrir la imagen en pestaña nueva
+                  img.style.cursor = 'pointer';
+                  img.onclick = () => window.open(photos[0].image_url, '_blank');
+
+                  phWrap.appendChild(img);
                   cover.appendChild(phWrap);
                 } else {
                   const empty = document.createElement('div');
                   empty.className = 'empty-album';
-                  empty.innerHTML = '<i class="fas fa-map-marker-alt"></i>';
+                  empty.innerHTML = '<i class="fas fa-map-marker-alt" style="font-size:3rem; opacity:0.3;"></i>';
+                  empty.style.display = 'flex';
+                  empty.style.alignItems = 'center';
+                  empty.style.justifyContent = 'center';
+                  empty.style.height = '100%';
+                  empty.style.background = '#f0f0f0';
                   cover.appendChild(empty);
                 }
 
@@ -10050,7 +10088,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                 cover.appendChild(status);
                 card.appendChild(cover);
 
-                // INFO
+                // --- INFO ---
                 const info = document.createElement('div');
                 info.className = 'travel-info';
 
@@ -10062,7 +10100,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                 if (travel_date) {
                   const p = document.createElement('p');
                   p.className = 'travel-date';
-                  p.textContent = travel_date;
+                  p.innerHTML = `<i class="far fa-calendar"></i> ${travel_date}`;
                   info.appendChild(p);
                 }
 
@@ -10073,35 +10111,71 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                   info.appendChild(p);
                 }
 
-                const meta = document.createElement('div');
-                meta.className = 'travel-meta';
-                const inicial = (created_by || '?').trim().charAt(0).toUpperCase() || '?';
-                meta.innerHTML = `
-          <span>
-            <div class="avatar-circle small">${inicial}</div>
-            Creado por ${created_by || '—'}
-          </span>
-          <span>${created_at}</span>
-        `;
-                info.appendChild(meta);
-
-                // ACCIONES (usar tus endpoints actuales)
+                // --- ACTIONS (BOTONES) ---
                 const actions = document.createElement('div');
                 actions.className = 'travel-actions';
 
-                // Cambiar visitado / quiero ir
+                // 1. BOTÓN AÑADIR FOTO (Con Popover)
+                const photoContainer = document.createElement('div');
+                photoContainer.style.position = 'relative';
+
+                const btnPhoto = document.createElement('button');
+                btnPhoto.className = 'icon-btn plus';
+                btnPhoto.title = 'Añadir foto (URL)';
+                btnPhoto.innerHTML = '<i class="fas fa-camera"></i>';
+                btnPhoto.onclick = (e) => {
+                  e.stopPropagation();
+                  // Llama a la función global togglePhotoMenu definida en tu HTML
+                  if (window.togglePhotoMenu) window.togglePhotoMenu(id);
+                };
+
+                const popover = document.createElement('div');
+                popover.className = 'photo-popover';
+                popover.id = 'photo-popover-' + id;
+                // Formulario para pegar URL
+                popover.innerHTML = `
+                  <div class="photo-popover-header">
+                    <span class="photo-popover-title">Nueva foto</span>
+                    <button type="button" class="close-btn" onclick="togglePhotoMenu('${id}')">&times;</button>
+                  </div>
+                  <form method="POST" class="photo-form-inline">
+                    <input type="hidden" name="travel_id" value="${id}">
+                    <input type="url" name="travel_photo_url" placeholder="https://..." required>
+                    <button type="submit" class="button">Guardar</button>
+                  </form>
+                  <div class="photo-hint">Pega el enlace de la imagen</div>
+                `;
+
+                photoContainer.appendChild(btnPhoto);
+                photoContainer.appendChild(popover);
+                actions.appendChild(photoContainer);
+
+                // 2. BOTÓN EDITAR (Lápiz)
+                const btnEdit = document.createElement('button');
+                btnEdit.className = 'icon-btn';
+                btnEdit.title = 'Editar viaje';
+                btnEdit.innerHTML = '<i class="fas fa-pen"></i>';
+                // Llama a la función global openEditTravelModal definida en tu HTML
+                btnEdit.onclick = () => {
+                  if (window.openEditTravelModal) {
+                    window.openEditTravelModal(id, destination, description, travel_date);
+                  }
+                };
+                actions.appendChild(btnEdit);
+
+                // 3. CAMBIAR ESTADO (Visitado/Deseado)
                 const formToggle = document.createElement('form');
                 formToggle.method = 'POST';
                 formToggle.action = '/toggle_travel_status';
                 formToggle.innerHTML = `
-          <input type="hidden" name="travel_id" value="${id}">
-          <button type="submit" class="icon-btn" title="Cambiar estado">
-            <i class="fas fa-exchange-alt"></i>
-          </button>
-        `;
+                  <input type="hidden" name="travel_id" value="${id}">
+                  <button type="submit" class="icon-btn" title="Cambiar estado">
+                    <i class="fas fa-exchange-alt"></i>
+                  </button>
+                `;
                 actions.appendChild(formToggle);
 
-                // Eliminar viaje
+                // 4. ELIMINAR VIAJE
                 const formDelete = document.createElement('form');
                 formDelete.method = 'POST';
                 formDelete.action = '/delete_travel';
@@ -10109,20 +10183,37 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                   return confirm('¿Estás seguro de que quieres eliminar este viaje?');
                 };
                 formDelete.innerHTML = `
-          <input type="hidden" name="travel_id" value="${id}">
-          <button type="submit" class="icon-btn" title="Eliminar viaje">
-            <i class="fas fa-trash"></i>
-          </button>
-        `;
+                  <input type="hidden" name="travel_id" value="${id}">
+                  <button type="submit" class="icon-btn" title="Eliminar viaje">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                `;
                 actions.appendChild(formDelete);
 
                 info.appendChild(actions);
+
+                // META INFO (Creado por...)
+                const meta = document.createElement('div');
+                meta.className = 'travel-meta';
+                const inicial = (created_by || '?').trim().charAt(0).toUpperCase() || '?';
+                meta.innerHTML = `
+                  <span>
+                    <div class="avatar-circle small" style="width:20px;height:20px;font-size:0.7rem;display:inline-flex;align-items:center;justify-content:center;background:#eee;border-radius:50%;margin-right:5px;">${inicial}</div>
+                    <small>Por ${created_by || '—'}</small>
+                  </span>
+                  <small>${created_at}</small>
+                `;
+                meta.style.borderTop = '1px solid #eee';
+                meta.style.marginTop = '10px';
+                meta.style.paddingTop = '10px';
+
+                info.appendChild(meta);
                 card.appendChild(info);
 
                 return card;
               }
 
-              // Rellenar grids
+              // --- 2. Renderizar las tarjetas en los Grids ---
               visitedGrid.innerHTML = '';
               wishlistGrid.innerHTML = '';
 
@@ -10135,7 +10226,7 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
                 }
               });
 
-              // Re-crear paginación y buscador con tu código actual
+              // --- 3. Reactivar Paginación y Buscador ---
               if (typeof setupTravelPagination === 'function') {
                 setupTravelPagination();
               }
@@ -10155,8 +10246,26 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
           // Exponer para el router
           window.ensureTravelsLoaded = loadTravels;
-        })();
 
+          // --- 4. Helper Global para abrir el Modal de Edición ---
+          // Asegúrate de tener el modal HTML <div id="editTravelModal"> en tu código
+          window.openEditTravelModal = function (id, dest, desc, date) {
+            const modal = document.getElementById('editTravelModal');
+            if (!modal) return;
+
+            const idInput = document.getElementById('editTravelId');
+            const destInput = document.getElementById('editTravelDest');
+            const descInput = document.getElementById('editTravelDesc');
+            const dateInput = document.getElementById('editTravelDate');
+
+            if (idInput) idInput.value = id;
+            if (destInput) destInput.value = dest || '';
+            if (descInput) descInput.value = desc || '';
+            if (dateInput) dateInput.value = date || '';
+
+            modal.style.display = 'block';
+          };
+        })();
 
 
         // ==== Intimidad: lazy load desde /api/intimidad ====
@@ -14117,6 +14226,18 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
             maybeShowPollModal();
           }
         })();
+
+        window.openEditTravelModal = function (id, dest, desc, date) {
+          const modal = document.getElementById('editTravelModal');
+          if (!modal) return;
+
+          document.getElementById('editTravelId').value = id;
+          document.getElementById('editTravelDest').value = dest || '';
+          document.getElementById('editTravelDesc').value = desc || '';
+          document.getElementById('editTravelDate').value = date || '';
+
+          modal.style.display = 'block';
+        };
       </script>
 
 

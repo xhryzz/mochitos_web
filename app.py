@@ -8703,6 +8703,41 @@ def admin_poll_clear():
 
 
 
+@app.route('/edit_travel', methods=['POST'])
+def edit_travel():
+    if 'username' not in session:
+        return redirect('/')
+    try:
+        travel_id = request.form.get('travel_id')
+        destination = (request.form.get('destination') or '').strip()
+        description = (request.form.get('description') or '').strip()
+        travel_date = request.form.get('travel_date')
+
+        if not travel_id or not destination:
+            flash("Faltan datos para editar el viaje.", "error")
+            return redirect('/')
+
+        conn = get_db_connection()
+        with conn.cursor() as c:
+            c.execute("""
+                UPDATE travels
+                SET destination=%s, description=%s, travel_date=%s
+                WHERE id=%s
+            """, (destination, description, travel_date, travel_id))
+            conn.commit()
+            
+        flash("Viaje actualizado ✏️", "success")
+        # Enviar actualización en tiempo real
+        broadcast("travel_update", {"type": "edit", "id": int(travel_id)})
+        return redirect('/')
+    except Exception as e:
+        print(f"Error en edit_travel: {e}")
+        flash("No se pudo editar el viaje.", "error")
+        return redirect('/')
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
 
 _old_init_db = init_db
 def init_db():

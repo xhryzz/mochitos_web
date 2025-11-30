@@ -419,12 +419,12 @@ INTIM_PIN = os.environ.get('INTIM_PIN', '6969')
 # Index 0..5, mismo orden que en el HTML de la ruleta:
 # +0, +5, +10, +20, +50, +100
 DAILY_WHEEL_SEGMENTS = [
-    {"label": "+0",   "delta": 0,   "weight": 29},  # 29% - más frecuente
-    {"label": "+5",   "delta": 5,   "weight": 24},  # 24% - muy común
-    {"label": "+10",  "delta": 10,  "weight": 21},  # 21% - común
-    {"label": "+20",  "delta": 20,  "weight": 15},  # 15% - un poco más complicado
-    {"label": "+50",  "delta": 50,  "weight": 9},   # 9%  - difícil
-    {"label": "+100", "delta": 100, "weight": 2},   # 2%  - MUY difícil
+    {"label": "+0",   "delta": 0,   "weight": 5},   # 5%  (Antes 29%) - Muy raro que falles
+    {"label": "+5",   "delta": 5,   "weight": 10},  # 10% (Antes 24%) - Poco común
+    {"label": "+10",  "delta": 10,  "weight": 30},  # 30% (Antes 21%) - Lo más probable
+    {"label": "+20",  "delta": 20,  "weight": 30},  # 30% (Antes 15%) - Muy probable también
+    {"label": "+50",  "delta": 50,  "weight": 15},  # 15% (Antes 9%)  - Sale bastante
+    {"label": "+100", "delta": 100, "weight": 10},  # 10% (Antes 2%)  - ¡1 de cada 10 veces!
 ]
 
 
@@ -8743,3 +8743,4 @@ _old_init_db = init_db
 def init_db():
     _old_init_db()
     _ensure_gamification_schema()
+

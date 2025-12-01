@@ -8945,17 +8945,16 @@ def ai_send_message():
     data = request.json
     chat_id = data.get('chat_id')
     user_msg = data.get('message')
-    user = session['username']
-    other_user = 'mochita' if user == 'mochito' else 'mochito'
+    user = session['username'] # 'mochito' o 'mochita'
 
     conn = get_db_connection()
     try:
-        # 1. Guardar mensaje usuario
+        # 1. Guardar mensaje usuario en la base de datos
         with conn.cursor() as c:
             c.execute("INSERT INTO ai_messages (chat_id, role, content, created_at) VALUES (%s, 'user', %s, %s)", 
                       (chat_id, user_msg, now_madrid_str()))
             
-            # Actualizar título si es el primer mensaje
+            # Actualizar título del chat si es el primer mensaje
             c.execute("SELECT COUNT(*) FROM ai_messages WHERE chat_id=%s", (chat_id,))
             count = c.fetchone()[0]
             if count <= 2:
@@ -8963,74 +8962,56 @@ def ai_send_message():
                 c.execute("UPDATE ai_chats SET title=%s WHERE id=%s", (title, chat_id))
             conn.commit()
 
-        # 2. Construir historial para Groq
-        messages = [
-            {
-                "role": "system",
-                "content": f"Eres MochiAI, un asistente amoroso y útil para la pareja formada por Mochito (él) y Mochita (ella). "
-                           f"Estás hablando con {user}. Tu objetivo es ayudarles a gestionar su web, añadir películas, ver viajes, etc. "
-                           f"Sé simpático, usa emojis. Si te piden añadir una peli, usa la herramienta adecuada."
-            }
-        ]
+        # 2. Definir la Personalidad y la Historia de Amor
+        historia_amor = """
+        DATOS DE LA PAREJA:
+        - Él: Christian (apodo: Mochito).
+        - Ella: Clara (apodo: Mochita).
+        - Fecha de inicio: 2 de agosto de 2025.
+        - Cómo se conocieron: A través de su grupo de amigos.
+        - El momento clave: Fue un día en la discoteca "Rumbo" de Valencia. Allí hablaron y conectaron.
+        - El flechazo: Después de la discoteca, fueron al piso de Paula (una amiga en común) y se quedaron hablando hasta tarde.
+        - El inicio: Al día siguiente, Mochita (Clara) le habló a Mochito (Christian) y a partir de ahí se fueron conociendo poco a poco hasta hoy.
+        """
+
+        system_prompt = f"""
+        Eres MochiAI, la asistente virtual exclusiva de Christian y Clara.
+        Tu tono debe ser cariñoso, cercano, divertido y romántico. Usa emojis.
         
-        # Recuperar contexto previo (últimos 10 mensajes)
+        TU OBJETIVO:
+        - Responder preguntas sobre su relación basándote en su historia.
+        - Proponer planes, citas o ideas románticas cuando te lo pidan.
+        - Resolver dudas o dar consejos de pareja.
+        - NO tienes capacidad para gestionar la base de datos de la web (no puedes añadir pelis ni viajes). Solo conversas.
+        
+        HISTORIA QUE DEBES SABER DE MEMORIA:
+        {historia_amor}
+        
+        Estás hablando con: {user}.
+        """
+
+        # 3. Construir historial de mensajes para la IA
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        # Recuperar contexto previo (últimos 20 mensajes)
         with conn.cursor() as c:
             c.execute("SELECT role, content FROM ai_messages WHERE chat_id=%s ORDER BY id ASC LIMIT 20", (chat_id,))
             for r in c.fetchall():
-                messages.append({"role": r['role'], "content": r['content']})
+                # Filtramos mensajes de sistema antiguos si los hubiera
+                if r['role'] in ['user', 'assistant']:
+                    messages.append({"role": r['role'], "content": r['content']})
 
-        # 3. Llamada a Groq (PRIMERA VEZ)
+        # 4. Llamada a Groq (SIN HERRAMIENTAS, SOLO CHAT)
         completion = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",  # <--- CAMBIAR AQUÍ
+            model="llama-3.3-70b-versatile",
             messages=messages,
-            tools=AI_TOOLS,
-            tool_choice="auto",
-            max_tokens=1024
+            max_tokens=1024,
+            temperature=0.7 # Un poco de creatividad para los planes
         )
 
-        response_message = completion.choices[0].message
-        tool_calls = response_message.tool_calls
-        
-        final_content = response_message.content
+        final_content = completion.choices[0].message.content
 
-        # 4. Si la IA quiere usar herramientas
-        if tool_calls:
-            # Añadir el mensaje de la IA con la llamada a tools al historial
-            messages.append(response_message)
-            
-            for tool_call in tool_calls:
-                function_name = tool_call.function.name
-                function_args = json.loads(tool_call.function.arguments)
-                tool_response = None
-                
-                if function_name == "add_media":
-                    tool_response = ai_tool_add_media(
-                        title=function_args.get("title"),
-                        kind=function_args.get("kind", "movie"),
-                        platform=function_args.get("platform", "both"),
-                        user=user
-                    )
-                elif function_name == "get_pending_media":
-                    tool_response = ai_tool_get_pending_media()
-                elif function_name == "get_couple_stats":
-                    tool_response = ai_tool_get_stats()
-                
-                # Añadir respuesta de la herramienta al historial
-                messages.append({
-                    "tool_call_id": tool_call.id,
-                    "role": "tool",
-                    "name": function_name,
-                    "content": str(tool_response),
-                })
-
-            # Segunda llamada a Groq con el resultado de la herramienta
-            second_response = groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",  # <--- CAMBIAR AQUÍ TAMBIÉN
-                messages=messages
-            )
-            final_content = second_response.choices[0].message.content
-
-        # 5. Guardar respuesta final IA
+        # 5. Guardar respuesta de la IA
         with conn.cursor() as c:
             c.execute("INSERT INTO ai_messages (chat_id, role, content, created_at) VALUES (%s, 'assistant', %s, %s)", 
                       (chat_id, final_content, now_madrid_str()))

@@ -7242,21 +7242,43 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
   justify-content: center;
 }
 
+/* --- Actualización CSS para la lista de chats --- */
 .chat-item {
-  padding: 10px;
+  padding: 10px 12px;
   border-radius: 10px;
   cursor: pointer;
   transition: background 0.2s;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   font-size: 0.9rem;
+  display: flex;              /* Para alinear texto y basura */
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
 }
 
 .chat-item:hover, .chat-item.active {
   background: #f0f0f0;
   color: var(--primary-color);
   font-weight: 600;
+}
+
+/* Estilo del botón de borrar */
+.chat-del-btn {
+  background: none;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  padding: 4px;
+  font-size: 0.9rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.chat-del-btn:hover {
+  color: #ff4757; /* Rojo al pasar el ratón */
+  background: rgba(255, 0, 0, 0.1);
 }
 
 .new-chat-btn {
@@ -14547,6 +14569,95 @@ window.setScreen = function(name) {
         document.body.classList.remove('page-media'); // Limpieza de otras páginas
     }
 };
+
+/* === MOCHIAI LOGIC ACTUALIZADA === */
+
+async function loadAiChats() {
+  const list = document.getElementById('ai-history-list');
+  if(!list) return;
+  
+  // Loader suave
+  list.innerHTML = '<div style="text-align:center; padding:10px; color:#ccc"><i class="fas fa-spinner fa-spin"></i></div>';
+  
+  try {
+    const r = await fetch('/api/ai/chats');
+    const data = await r.json();
+    list.innerHTML = '';
+    
+    if(data.chats && data.chats.length > 0) {
+      data.chats.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'chat-item';
+        if(c.id === currentChatId) div.classList.add('active');
+        
+        // HTML interno: Texto + Botón Papelera
+        // Usamos stopPropagation en el botón para que al clicar borrar NO cargue el chat
+        div.innerHTML = `
+            <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1;">
+                ${c.title || 'Chat sin título'}
+            </span>
+            <button class="chat-del-btn" title="Borrar chat" onclick="deleteAiChat(event, ${c.id})">
+                <i class="fas fa-trash"></i>
+            </button>
+        `;
+        
+        // Clic en el div carga el chat
+        div.onclick = () => loadAiChat(c.id);
+        
+        list.appendChild(div);
+      });
+    } else {
+      list.innerHTML = '<small style="color:#999; display:block; text-align:center; margin-top:10px;">No hay historial</small>';
+    }
+  } catch(e) {
+    console.error(e);
+    list.innerHTML = '<small style="color:red">Error cargando lista</small>';
+  }
+}
+
+// Función para borrar chat
+async function deleteAiChat(event, id) {
+    // Evita que el clic se propague al div padre (que abriría el chat)
+    event.stopPropagation(); 
+    
+    if(!confirm('¿Seguro que quieres borrar este chat?')) return;
+
+    try {
+        const r = await fetch('/api/ai/chat/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ chat_id: id })
+        });
+        const data = await r.json();
+        
+        if(data.ok) {
+            // Si borramos el chat activo, limpiamos la vista
+            if(currentChatId === id) {
+                currentChatId = null;
+                document.getElementById('ai-messages-box').innerHTML = `
+                    <div style="text-align:center; color:#aaa; margin-top:20px;">
+                        <i class="fas fa-robot fa-3x"></i>
+                        <p>Chat eliminado. Crea uno nuevo o selecciona otro.</p>
+                    </div>`;
+            }
+            // Recargar la lista
+            loadAiChats(); 
+        } else {
+            alert('Error al borrar: ' + (data.error || 'Desconocido'));
+        }
+    } catch(e) {
+        alert('Error de conexión al borrar');
+    }
+}
+
+// --- IMPORTANTE: Cargar la lista al iniciar la web ---
+document.addEventListener('DOMContentLoaded', function() {
+    // Intentar cargar la lista si el usuario ya está en la pantalla mochiai
+    // o simplemente cargarla en background para que esté lista.
+    if(document.body.dataset.isLogged === '1') {
+        loadAiChats();
+    }
+});
       </script>
 
 

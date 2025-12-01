@@ -9045,6 +9045,31 @@ def ai_send_message():
         conn.close()
 
 
+@app.route('/api/ai/chat/delete', methods=['POST'])
+def ai_delete_chat():
+    if 'username' not in session: return jsonify(ok=False), 401
+    
+    chat_id = request.form.get('chat_id') or request.json.get('chat_id')
+    if not chat_id: return jsonify(ok=False, error="No ID"), 400
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # Verificar que el chat pertenece al usuario antes de borrar
+            c.execute("""
+                DELETE FROM ai_chats 
+                WHERE id=%s AND user_id=(SELECT id FROM users WHERE username=%s)
+            """, (chat_id, session['username']))
+            
+            if c.rowcount == 0:
+                return jsonify(ok=False, error="No se pudo borrar (o no es tuyo)"), 403
+            
+            conn.commit()
+    finally:
+        conn.close()
+    return jsonify(ok=True)
+
+
 _old_init_db = init_db
 def init_db():
     _old_init_db()

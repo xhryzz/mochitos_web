@@ -11499,12 +11499,15 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
           // 5) Cambiar de pantalla
           function setScreen(name) {
-            const valid = ['home', 'question', 'wishlist', 'travels', 'schedules', 'intim', 'mochireal'];
+            // AÑADIDO 'mochiai' A LA LISTA:
+            const valid = ['home', 'question', 'wishlist', 'travels', 'schedules', 'intim', 'mochireal', 'mochiai'];
+            
             if (!valid.includes(name)) name = 'home';
             document.body.dataset.screen = name;
 
-            // Activa la página
-            document.querySelectorAll('#pages .page').forEach(p => p.classList.remove('active'));
+            // Activa la página (CORREGIDO: busca todas las .page, estén dentro o fuera de #pages)
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            
             const page = document.getElementById('page-' + name);
             if (page) page.classList.add('active');
 
@@ -11514,9 +11517,6 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
               b.setAttribute('aria-pressed', b.dataset.goto === name ? 'true' : 'false');
             });
 
-            // Ajustes al entrar en Home: recalcular mapa
-            // Ajustes al entrar en Home: recalcular mapa
-            // --- CAMBIA ESTE BLOQUE ---
             // Ajustes al entrar en Home: recalcular mapa
             if (name === 'home') {
               // Hacemos dos intentos para asegurar que el DOM ya pintó el div

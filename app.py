@@ -8979,9 +8979,9 @@ def ai_send_message():
             for r in c.fetchall():
                 messages.append({"role": r['role'], "content": r['content']})
 
-        # 3. Llamada a Groq
+        # 3. Llamada a Groq (PRIMERA VEZ)
         completion = groq_client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-versatile",  # <--- CAMBIAR AQUÍ
             messages=messages,
             tools=AI_TOOLS,
             tool_choice="auto",
@@ -9025,7 +9025,7 @@ def ai_send_message():
 
             # Segunda llamada a Groq con el resultado de la herramienta
             second_response = groq_client.chat.completions.create(
-                model="llama3-70b-8192",
+                model="llama-3.3-70b-versatile",  # <--- CAMBIAR AQUÍ TAMBIÉN
                 messages=messages
             )
             final_content = second_response.choices[0].message.content

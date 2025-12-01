@@ -8739,6 +8739,306 @@ def edit_travel():
             conn.close()
 
 
+# ==========================================
+# MOCHIAI - INTELIGENCIA ARTIFICIAL DEL AMOR
+# ==========================================
+from groq import Groq
+
+# Configura tu API Key de Groq en las variables de entorno
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+
+# --- 1. Tablas para el Chat ---
+def _ensure_ai_schema():
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS ai_chats (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id),
+                    title TEXT,
+                    created_at TEXT
+                )
+            """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS ai_messages (
+                    id SERIAL PRIMARY KEY,
+                    chat_id INTEGER REFERENCES ai_chats(id) ON DELETE CASCADE,
+                    role TEXT NOT NULL, -- 'user', 'assistant', 'system'
+                    content TEXT,
+                    created_at TEXT
+                )
+            """)
+            conn.commit()
+    finally:
+        conn.close()
+
+# Inyectamos esto en el init_db original
+_original_init_db_ai = init_db
+def init_db():
+    _original_init_db_ai()
+    _ensure_ai_schema()
+
+# --- 2. Herramientas (Tools) que la IA puede usar ---
+
+def tool_search_cover(query):
+    """Intenta buscar una imagen para la película usando scraping básico o placeholder"""
+    try:
+        # Intento básico usando iTunes API (es gratis y pública para carátulas)
+        search_url = "https://itunes.apple.com/search"
+        params = {"term": query, "media": "movie", "limit": 1}
+        r = requests.get(search_url, params=params, timeout=5)
+        data = r.json()
+        if data["resultCount"] > 0:
+            # Conseguimos la imagen de mayor resolución
+            img = data["results"][0]["artworkUrl100"]
+            return img.replace("100x100", "600x600")
+    except Exception:
+        pass
+    return "" # Fallback vacío
+
+def ai_tool_add_media(title, kind='movie', platform='both', user='mochito'):
+    """Añade una película/serie a la DB."""
+    cover_url = tool_search_cover(title)
+    
+    on_netflix = 'netflix' in platform.lower() or 'both' in platform.lower()
+    on_prime = 'prime' in platform.lower() or 'both' in platform.lower()
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO media_items (title, cover_url, link_url, on_netflix, on_prime, priority, comment, created_by, created_at, is_watched)
+                VALUES (%s, %s, '', %s, %s, 'media', 'Añadido por MochiAI 🤖', %s, %s, FALSE)
+                RETURNING id
+            """, (title, cover_url, on_netflix, on_prime, user, now_madrid_str()))
+            mid = c.fetchone()[0]
+            conn.commit()
+            
+            # Notificar
+            try:
+                push_media_added(user, mid, title, on_netflix, on_prime)
+                broadcast("media_update", {"type": "add"})
+            except: pass
+            
+            return f"He añadido '{title}' a la lista de pendientes ({kind}) con portada."
+    except Exception as e:
+        return f"Error al añadir media: {str(e)}"
+    finally:
+        conn.close()
+
+def ai_tool_get_pending_media():
+    """Consulta qué hay por ver."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT title, priority FROM media_items WHERE is_watched = FALSE ORDER BY created_at DESC LIMIT 5")
+            rows = c.fetchall()
+            if not rows: return "No hay nada pendiente."
+            return "Pendientes recientes: " + ", ".join([f"{r[0]} ({r[1]})" for r in rows])
+    finally:
+        conn.close()
+
+def ai_tool_get_stats():
+    """Devuelve estadísticas de la pareja."""
+    d = days_together()
+    return f"Lleváis {d} días juntos. El próximo encuentro está a {days_until_meeting() or '?'} días."
+
+# Definición de herramientas para Groq
+AI_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "add_media",
+            "description": "Añade una película o serie a la lista de 'Por ver'. Busca la portada automáticamente.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Título de la película o serie"},
+                    "kind": {"type": "string", "enum": ["movie", "show"], "description": "Tipo de contenido"},
+                    "platform": {"type": "string", "enum": ["netflix", "prime", "both", "other"], "description": "Plataforma"}
+                },
+                "required": ["title"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_pending_media",
+            "description": "Consulta las últimas películas o series que tienen pendientes por ver.",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_couple_stats",
+            "description": "Obtiene estadísticas de la relación: días juntos y días para verse.",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    }
+]
+
+# --- 3. Rutas API para el Chat ---
+
+@app.route('/api/ai/chats', methods=['GET'])
+def ai_get_chats():
+    if 'username' not in session: return jsonify(ok=False), 401
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # Obtener chats del usuario
+            c.execute("""
+                SELECT c.id, c.title, c.created_at 
+                FROM ai_chats c 
+                JOIN users u ON c.user_id = u.id 
+                WHERE u.username = %s 
+                ORDER BY c.id DESC
+            """, (session['username'],))
+            chats = [dict(r) for r in c.fetchall()]
+    finally:
+        conn.close()
+    return jsonify(ok=True, chats=chats)
+
+@app.route('/api/ai/chat/<int:chat_id>', methods=['GET'])
+def ai_get_messages(chat_id):
+    if 'username' not in session: return jsonify(ok=False), 401
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT role, content FROM ai_messages WHERE chat_id=%s ORDER BY id ASC", (chat_id,))
+            msgs = [dict(r) for r in c.fetchall()]
+    finally:
+        conn.close()
+    return jsonify(ok=True, messages=msgs)
+
+@app.route('/api/ai/new', methods=['POST'])
+def ai_new_chat():
+    if 'username' not in session: return jsonify(ok=False), 401
+    user = session['username']
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT id FROM users WHERE username=%s", (user,))
+            uid = c.fetchone()[0]
+            c.execute("INSERT INTO ai_chats (user_id, title, created_at) VALUES (%s, 'Nuevo chat', %s) RETURNING id", 
+                      (uid, now_madrid_str()))
+            new_id = c.fetchone()[0]
+            conn.commit()
+    finally:
+        conn.close()
+    return jsonify(ok=True, id=new_id)
+
+@app.route('/api/ai/send', methods=['POST'])
+def ai_send_message():
+    if 'username' not in session or not groq_client:
+        return jsonify(ok=False, error="No config"), 400
+    
+    data = request.json
+    chat_id = data.get('chat_id')
+    user_msg = data.get('message')
+    user = session['username']
+    other_user = 'mochita' if user == 'mochito' else 'mochito'
+
+    conn = get_db_connection()
+    try:
+        # 1. Guardar mensaje usuario
+        with conn.cursor() as c:
+            c.execute("INSERT INTO ai_messages (chat_id, role, content, created_at) VALUES (%s, 'user', %s, %s)", 
+                      (chat_id, user_msg, now_madrid_str()))
+            
+            # Actualizar título si es el primer mensaje
+            c.execute("SELECT COUNT(*) FROM ai_messages WHERE chat_id=%s", (chat_id,))
+            count = c.fetchone()[0]
+            if count <= 2:
+                title = user_msg[:30] + "..."
+                c.execute("UPDATE ai_chats SET title=%s WHERE id=%s", (title, chat_id))
+            conn.commit()
+
+        # 2. Construir historial para Groq
+        messages = [
+            {
+                "role": "system",
+                "content": f"Eres MochiAI, un asistente amoroso y útil para la pareja formada por Mochito (él) y Mochita (ella). "
+                           f"Estás hablando con {user}. Tu objetivo es ayudarles a gestionar su web, añadir películas, ver viajes, etc. "
+                           f"Sé simpático, usa emojis. Si te piden añadir una peli, usa la herramienta adecuada."
+            }
+        ]
+        
+        # Recuperar contexto previo (últimos 10 mensajes)
+        with conn.cursor() as c:
+            c.execute("SELECT role, content FROM ai_messages WHERE chat_id=%s ORDER BY id ASC LIMIT 20", (chat_id,))
+            for r in c.fetchall():
+                messages.append({"role": r['role'], "content": r['content']})
+
+        # 3. Llamada a Groq
+        completion = groq_client.chat.completions.create(
+            model="llama3-70b-8192",
+            messages=messages,
+            tools=AI_TOOLS,
+            tool_choice="auto",
+            max_tokens=1024
+        )
+
+        response_message = completion.choices[0].message
+        tool_calls = response_message.tool_calls
+        
+        final_content = response_message.content
+
+        # 4. Si la IA quiere usar herramientas
+        if tool_calls:
+            # Añadir el mensaje de la IA con la llamada a tools al historial
+            messages.append(response_message)
+            
+            for tool_call in tool_calls:
+                function_name = tool_call.function.name
+                function_args = json.loads(tool_call.function.arguments)
+                tool_response = None
+                
+                if function_name == "add_media":
+                    tool_response = ai_tool_add_media(
+                        title=function_args.get("title"),
+                        kind=function_args.get("kind", "movie"),
+                        platform=function_args.get("platform", "both"),
+                        user=user
+                    )
+                elif function_name == "get_pending_media":
+                    tool_response = ai_tool_get_pending_media()
+                elif function_name == "get_couple_stats":
+                    tool_response = ai_tool_get_stats()
+                
+                # Añadir respuesta de la herramienta al historial
+                messages.append({
+                    "tool_call_id": tool_call.id,
+                    "role": "tool",
+                    "name": function_name,
+                    "content": str(tool_response),
+                })
+
+            # Segunda llamada a Groq con el resultado de la herramienta
+            second_response = groq_client.chat.completions.create(
+                model="llama3-70b-8192",
+                messages=messages
+            )
+            final_content = second_response.choices[0].message.content
+
+        # 5. Guardar respuesta final IA
+        with conn.cursor() as c:
+            c.execute("INSERT INTO ai_messages (chat_id, role, content, created_at) VALUES (%s, 'assistant', %s, %s)", 
+                      (chat_id, final_content, now_madrid_str()))
+            conn.commit()
+
+        return jsonify(ok=True, reply=final_content)
+
+    except Exception as e:
+        print(f"AI Error: {e}")
+        return jsonify(ok=False, error=str(e)), 500
+    finally:
+        conn.close()
+
+
 _old_init_db = init_db
 def init_db():
     _old_init_db()

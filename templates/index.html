@@ -7148,6 +7148,128 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
     .poll-result-row strong {
       min-width: 40px;
     }
+
+    /* --- MOCHIAI CHAT --- */
+.ai-container {
+  display: flex;
+  height: calc(100vh - 140px); /* Ajuste altura */
+  gap: 20px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.ai-sidebar {
+  width: 250px;
+  background: white;
+  border-radius: 20px;
+  padding: 15px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: var(--shadow);
+}
+
+.ai-chat-area {
+  flex: 1;
+  background: white;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  position: relative;
+}
+
+.ai-messages {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.ai-msg {
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  position: relative;
+  word-wrap: break-word;
+}
+
+.ai-msg.user {
+  align-self: flex-end;
+  background: var(--gradient);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.ai-msg.assistant {
+  align-self: flex-start;
+  background: #f1f0f0;
+  color: #333;
+  border-bottom-left-radius: 4px;
+}
+
+.ai-input-area {
+  padding: 15px;
+  background: #fff;
+  border-top: 1px solid #eee;
+  display: flex;
+  gap: 10px;
+}
+
+.ai-input-area textarea {
+  flex: 1;
+  border: 2px solid #eee;
+  border-radius: 20px;
+  padding: 12px;
+  resize: none;
+  height: 50px;
+  outline: none;
+}
+
+.ai-input-area button {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-item {
+  padding: 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.9rem;
+}
+
+.chat-item:hover, .chat-item.active {
+  background: #f0f0f0;
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.new-chat-btn {
+  width: 100%;
+  border-radius: 12px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 768px) {
+  .ai-container { flex-direction: column; height: auto; }
+  .ai-sidebar { width: 100%; height: 150px; }
+  .ai-chat-area { height: 60vh; }
+}
   </style>
 </head>
 
@@ -7376,6 +7498,10 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           <i class="fa-solid fa-droplet" aria-hidden="true"></i>
           <span class="nav-label">Regla</span>
         </button>
+        <button class="nav-btn" data-goto="mochiai" title="MochiAI">
+  <i class="fas fa-robot" aria-hidden="true"></i>
+  <span class="nav-label">IA</span>
+</button>
         <button class="nav-btn" data-goto="profile" title="Perfil">
           <i class="fas fa-user" aria-hidden="true"></i>
           <span class="nav-label">Perfil</span>
@@ -7409,6 +7535,38 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
           </div>
         </div>
       </div>
+
+      <div id="page-mochiai" class="page">
+  <div class="section animate-in">
+    <h3>MochiAI 🤖 <small style="font-size:0.9rem; color:#888;">Tu asistente personal</small></h3>
+    
+    <div class="ai-container">
+      <div class="ai-sidebar">
+        <button class="new-chat-btn" onclick="createNewChat()">
+          <i class="fas fa-plus"></i> Nuevo Chat
+        </button>
+        <div id="ai-history-list">
+          </div>
+      </div>
+
+      <div class="ai-chat-area">
+        <div id="ai-messages-box" class="ai-messages">
+          <div style="text-align:center; color:#aaa; margin-top:20px;">
+            <i class="fas fa-robot fa-3x"></i>
+            <p>Hola, soy MochiAI. ¿En qué puedo ayudaros hoy?</p>
+          </div>
+        </div>
+        
+        <div class="ai-input-area">
+          <textarea id="ai-input" placeholder="Escribe un mensaje... (ej: 'Añade la peli Matrix')"></textarea>
+          <button onclick="sendAiMessage()" id="ai-send-btn">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
       <!-- BANNER -->
       <div class="section banner animate-in">
@@ -14238,6 +14396,157 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
 
           modal.style.display = 'block';
         };
+
+        /* === MOCHIAI LOGIC === */
+let currentChatId = null;
+
+async function loadAiChats() {
+  const list = document.getElementById('ai-history-list');
+  list.innerHTML = '<div style="text-align:center"><i class="fas fa-spinner fa-spin"></i></div>';
+  
+  try {
+    const r = await fetch('/api/ai/chats');
+    const data = await r.json();
+    list.innerHTML = '';
+    
+    if(data.chats && data.chats.length > 0) {
+      data.chats.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'chat-item';
+        if(c.id === currentChatId) div.classList.add('active');
+        div.textContent = c.title || 'Chat sin título';
+        div.onclick = () => loadAiChat(c.id);
+        list.appendChild(div);
+      });
+      // Cargar el último si no hay uno activo
+      if(!currentChatId) loadAiChat(data.chats[0].id);
+    } else {
+      list.innerHTML = '<small style="color:#999">No hay historial</small>';
+      createNewChat(); // Auto-crear uno
+    }
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+async function createNewChat() {
+  try {
+    const r = await fetch('/api/ai/new', {method:'POST'});
+    const data = await r.json();
+    if(data.ok) {
+      currentChatId = data.id;
+      loadAiChats(); // Recargar lista
+      document.getElementById('ai-messages-box').innerHTML = `
+        <div style="text-align:center; color:#aaa; margin-top:20px;">
+            <i class="fas fa-robot fa-3x"></i>
+            <p>Nuevo chat iniciado. ¡Pídeme lo que quieras!</p>
+        </div>`;
+    }
+  } catch(e) { alert('Error creando chat'); }
+}
+
+async function loadAiChat(id) {
+  currentChatId = id;
+  document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
+  // Re-render lista simple para marcar active (se podría optimizar)
+  // ...
+  
+  const box = document.getElementById('ai-messages-box');
+  box.innerHTML = '<div style="text-align:center; padding:20px"><i class="fas fa-spinner fa-spin"></i></div>';
+  
+  try {
+    const r = await fetch(`/api/ai/chat/${id}`);
+    const data = await r.json();
+    box.innerHTML = '';
+    
+    if(data.messages) {
+      data.messages.forEach(m => appendAiMessage(m.role, m.content));
+    }
+    scrollToBottom();
+  } catch(e) {
+    box.innerHTML = '<p style="color:red">Error cargando mensajes</p>';
+  }
+}
+
+function appendAiMessage(role, text) {
+  const box = document.getElementById('ai-messages-box');
+  const div = document.createElement('div');
+  div.className = `ai-msg ${role}`;
+  // Convertir saltos de línea a <br> simple
+  div.innerHTML = text.replace(/\n/g, '<br>'); 
+  box.appendChild(div);
+  scrollToBottom();
+}
+
+function scrollToBottom() {
+  const box = document.getElementById('ai-messages-box');
+  box.scrollTop = box.scrollHeight;
+}
+
+async function sendAiMessage() {
+  const input = document.getElementById('ai-input');
+  const btn = document.getElementById('ai-send-btn');
+  const text = input.value.trim();
+  
+  if(!text || !currentChatId) return;
+  
+  // UI Optimista
+  appendAiMessage('user', text);
+  input.value = '';
+  btn.disabled = true;
+  
+  // Loader IA
+  const loadingDiv = document.createElement('div');
+  loadingDiv.className = 'ai-msg assistant';
+  loadingDiv.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Pensando...';
+  loadingDiv.id = 'ai-loading-bubble';
+  document.getElementById('ai-messages-box').appendChild(loadingDiv);
+  scrollToBottom();
+  
+  try {
+    const r = await fetch('/api/ai/send', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ chat_id: currentChatId, message: text })
+    });
+    const data = await r.json();
+    
+    document.getElementById('ai-loading-bubble').remove();
+    
+    if(data.ok) {
+      appendAiMessage('assistant', data.reply);
+    } else {
+      appendAiMessage('assistant', '⚠️ Error: ' + (data.error || 'Desconocido'));
+    }
+  } catch(e) {
+    document.getElementById('ai-loading-bubble')?.remove();
+    appendAiMessage('assistant', '⚠️ Error de conexión.');
+  }
+  
+  btn.disabled = false;
+  // Recargar la lista de chats para actualizar títulos si es el primero
+  loadAiChats();
+}
+
+// Permitir Enter para enviar
+document.getElementById('ai-input').addEventListener('keypress', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendAiMessage();
+    }
+});
+
+// Hook en el router existente para cargar chats al entrar
+const originalSetScreen = window.setScreen || function(){};
+window.setScreen = function(name) {
+    if(typeof originalSetScreen === 'function') originalSetScreen(name);
+    
+    // Lógica propia
+    if(name === 'mochiai') {
+        loadAiChats();
+        document.body.classList.remove('page-media'); // Limpieza de otras páginas
+    }
+};
       </script>
 
 

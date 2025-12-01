@@ -8924,18 +8924,139 @@ def ai_get_messages(chat_id):
 def ai_new_chat():
     if 'username' not in session: return jsonify(ok=False), 401
     user = session['username']
+    
+    # Recibimos el modo: 'couple' (amor) o 'general' (cerebrito)
+    data = request.get_json(silent=True) or {}
+    mode = data.get('mode', 'couple') 
+
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
             c.execute("SELECT id FROM users WHERE username=%s", (user,))
             uid = c.fetchone()[0]
-            c.execute("INSERT INTO ai_chats (user_id, title, created_at) VALUES (%s, 'Nuevo chat', %s) RETURNING id", 
-                      (uid, now_madrid_str()))
+            
+            # Título inicial según el modo
+            initial_title = "MochiAI (Mochis) ❤️" if mode == 'couple' else "MochiAI (General) 🧠"
+            
+            c.execute("""
+                INSERT INTO ai_chats (user_id, title, created_at, mode) 
+                VALUES (%s, %s, %s, %s) 
+                RETURNING id
+            """, (uid, initial_title, now_madrid_str(), mode))
+            
             new_id = c.fetchone()[0]
             conn.commit()
     finally:
         conn.close()
     return jsonify(ok=True, id=new_id)
+
+@app.route('/api/ai/send', methods=['POST'])
+def ai_send_message():
+    if 'username' not in session or not groq_client:
+        return jsonify(ok=False, error="No config"), 400
+    
+    data = request.json
+    chat_id = data.get('chat_id')
+    user_msg = data.get('message')
+    user = session['username']
+
+    conn = get_db_connection()
+    try:
+        # 1. Obtener el MODO del chat actual
+        mode = 'couple' # por defecto
+        with conn.cursor() as c:
+            c.execute("SELECT mode FROM ai_chats WHERE id=%s", (chat_id,))
+            row = c.fetchone()
+            if row:
+                mode = row[0]
+
+            # 2. Guardar mensaje usuario
+            c.execute("INSERT INTO ai_messages (chat_id, role, content, created_at) VALUES (%s, 'user', %s, %s)", 
+                      (chat_id, user_msg, now_madrid_str()))
+            
+            # Actualizar título si es el inicio
+            c.execute("SELECT COUNT(*) FROM ai_messages WHERE chat_id=%s", (chat_id,))
+            count = c.fetchone()[0]
+            if count <= 2:
+                # Icono según modo para identificarlo fácil en la lista
+                icon = "❤️" if mode == 'couple' else "🧠"
+                title = f"{icon} {user_msg[:25]}..."
+                c.execute("UPDATE ai_chats SET title=%s WHERE id=%s", (title, chat_id))
+            conn.commit()
+
+        # 3. Configurar la personalidad (System Prompt) según el modo
+        if mode == 'general':
+            # --- MODO CEREBRITO (CLASE, TRABAJO, ETC) ---
+            system_prompt = f"""
+            Eres MochiAI, un asistente de inteligencia artificial avanzado, útil y preciso.
+            Estás hablando con {user}.
+            
+            TU OBJETIVO:
+            - Ayudar con tareas complejas: programación, redacción, estudios, análisis, matemáticas, etc.
+            - Dar respuestas detalladas, estructuradas y bien pensadas.
+            - Puedes usar formato Markdown (negritas, listas, código).
+            - Mantén un tono profesional pero amigable.
+            - NO hace falta que hables de la relación de pareja, céntrate en resolver la duda técnica o intelectual.
+            """
+        else:
+            # --- MODO AMOR (CHRISTIAN & CLARA) ---
+            historia_amor = """
+            DATOS DE LA PAREJA:
+            - Él: Christian (apodo: Mochito).
+            - Ella: Clara (apodo: Mochita).
+            - Fecha de inicio: 2 de agosto de 2025.
+            - Cómo se conocieron: A través de su grupo de amigos.
+            - El momento clave: Fue un día en la discoteca "Rumbo" de Valencia. Allí hablaron y conectaron.
+            - El flechazo: Después de la discoteca, fueron al piso de Paula (una amiga en común) y se quedaron hablando hasta tarde.
+            - El inicio: Al día siguiente, Mochita (Clara) le habló a Mochito (Christian) y a partir de ahí se fueron conociendo poco a poco hasta hoy.
+            """
+            system_prompt = f"""
+            Eres MochiAI, la asistente virtual exclusiva de Christian y Clara.
+            Tu tono debe ser cariñoso, cercano, divertido y romántico. Usa emojis.
+            
+            TU OBJETIVO:
+            - Responder preguntas sobre su relación basándote en su historia.
+            - Proponer planes, citas o ideas románticas.
+            - Resolver dudas sentimentales.
+            
+            HISTORIA QUE DEBES SABER DE MEMORIA:
+            {historia_amor}
+            
+            Estás hablando con: {user}.
+            """
+
+        # 4. Construir historial
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        with conn.cursor() as c:
+            c.execute("SELECT role, content FROM ai_messages WHERE chat_id=%s ORDER BY id ASC LIMIT 20", (chat_id,))
+            for r in c.fetchall():
+                if r['role'] in ['user', 'assistant']:
+                    messages.append({"role": r['role'], "content": r['content']})
+
+        # 5. Llamada a Groq
+        completion = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=messages,
+            max_tokens=2048, # Más espacio para respuestas largas de trabajo
+            temperature=0.6  # Un poco más preciso
+        )
+
+        final_content = completion.choices[0].message.content
+
+        # 6. Guardar respuesta
+        with conn.cursor() as c:
+            c.execute("INSERT INTO ai_messages (chat_id, role, content, created_at) VALUES (%s, 'assistant', %s, %s)", 
+                      (chat_id, final_content, now_madrid_str()))
+            conn.commit()
+
+        return jsonify(ok=True, reply=final_content)
+
+    except Exception as e:
+        print(f"AI Error: {e}")
+        return jsonify(ok=False, error=str(e)), 500
+    finally:
+        conn.close()
 
 @app.route('/api/ai/send', methods=['POST'])
 def ai_send_message():

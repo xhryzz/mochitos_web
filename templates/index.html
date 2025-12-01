@@ -7564,9 +7564,34 @@ body > *:not(#xmas-stage){ position: relative; z-index: 1; }
     
     <div class="ai-container">
       <div class="ai-sidebar">
-        <button class="new-chat-btn" onclick="createNewChat()">
-          <i class="fas fa-plus"></i> Nuevo Chat
+        <button class="new-chat-btn" onclick="openModeModal()">
+  <i class="fas fa-plus"></i> Nuevo Chat
+</button>
+
+<div id="aiModeModal" class="modal" style="z-index: 2000;">
+  <div class="modal-content" style="max-width: 400px; text-align:center;">
+    <div class="modal-header">
+        <h3>Elige tu MochiAI 🤖</h3>
+        <span class="close-modal" onclick="closeModeModal()">&times;</span>
+    </div>
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:10px;">
+        
+        <button onclick="createNewChat('couple')" style="background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%); color:#d63031; border:none; padding:15px; border-radius:15px; font-weight:bold; font-size:1.1rem; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+            ❤️ Mochi Amor
+            <small style="display:block; font-size:0.8rem; font-weight:normal; margin-top:4px;">Para cosas de nosotros, planes, historia...</small>
         </button>
+
+        <button onclick="createNewChat('general')" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); color:#fff; border:none; padding:15px; border-radius:15px; font-weight:bold; font-size:1.1rem; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+            🧠 Mochi Cerebrito
+            <small style="display:block; font-size:0.8rem; font-weight:normal; margin-top:4px;">Para trabajo, estudios, código, dudas...</small>
+        </button>
+
+    </div>
+  </div>
+</div>
+
+<div id="ai-history-list">
+  </div>
         <div id="ai-history-list">
           </div>
       </div>
@@ -14451,21 +14476,52 @@ async function loadAiChats() {
   }
 }
 
-async function createNewChat() {
+/* === MOCHIAI LOGIC ACTUALIZADA CON MODOS === */
+
+// Abrir modal de selección
+function openModeModal() {
+    document.getElementById('aiModeModal').style.display = 'block';
+}
+
+// Cerrar modal
+function closeModeModal() {
+    document.getElementById('aiModeModal').style.display = 'none';
+}
+
+// Crear chat con el modo seleccionado
+async function createNewChat(mode) {
+  closeModeModal(); // Cerramos el modal
+  
   try {
-    const r = await fetch('/api/ai/new', {method:'POST'});
+    const r = await fetch('/api/ai/new', {
+        method:'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ mode: mode }) // Enviamos el modo al backend
+    });
     const data = await r.json();
+    
     if(data.ok) {
       currentChatId = data.id;
-      loadAiChats(); // Recargar lista
+      loadAiChats(); // Recargar lista para ver el nuevo
+      
+      // Mensaje de bienvenida diferente según el modo
+      let welcomeMsg = "";
+      if(mode === 'couple') {
+          welcomeMsg = "¡Hola! Soy tu Mochi del amor ❤️. ¿Recordamos algo bonito o planeamos una cita?";
+      } else {
+          welcomeMsg = "Hola. Soy MochiAI General 🧠. Estoy lista para ayudarte con trabajo, estudios o cualquier duda compleja.";
+      }
+
       document.getElementById('ai-messages-box').innerHTML = `
         <div style="text-align:center; color:#aaa; margin-top:20px;">
-            <i class="fas fa-robot fa-3x"></i>
-            <p>Nuevo chat iniciado. ¡Pídeme lo que quieras!</p>
+            <i class="fas ${mode === 'couple' ? 'fa-heart' : 'fa-brain'} fa-3x"></i>
+            <p>${welcomeMsg}</p>
         </div>`;
     }
   } catch(e) { alert('Error creando chat'); }
 }
+
+
 
 async function loadAiChat(id) {
   currentChatId = id;

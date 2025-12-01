@@ -8744,7 +8744,6 @@ def edit_travel():
         if 'conn' in locals():
             conn.close()
 
-
 # ==========================================
 # MOCHIAI - INTELIGENCIA ARTIFICIAL DEL AMOR
 # ==========================================
@@ -8754,19 +8753,26 @@ from groq import Groq
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
-# --- 1. Tablas para el Chat ---
+# --- 1. Gestión de Base de Datos IA ---
 def _ensure_ai_schema():
+    """Crea las tablas necesarias para el chat si no existen."""
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
+            # Tabla de chats (ahora con columna 'mode')
             c.execute("""
                 CREATE TABLE IF NOT EXISTS ai_chats (
                     id SERIAL PRIMARY KEY,
                     user_id INTEGER REFERENCES users(id),
                     title TEXT,
-                    created_at TEXT
+                    created_at TEXT,
+                    mode TEXT DEFAULT 'couple'
                 )
             """)
+            # Asegurarse de que la columna mode existe (migración automática simple)
+            c.execute("ALTER TABLE ai_chats ADD COLUMN IF NOT EXISTS mode TEXT DEFAULT 'couple'")
+
+            # Tabla de mensajes
             c.execute("""
                 CREATE TABLE IF NOT EXISTS ai_messages (
                     id SERIAL PRIMARY KEY,
@@ -8780,114 +8786,8 @@ def _ensure_ai_schema():
     finally:
         conn.close()
 
-# Inyectamos esto en el init_db original
-_original_init_db_ai = init_db
-def init_db():
-    _original_init_db_ai()
-    _ensure_ai_schema()
 
-# --- 2. Herramientas (Tools) que la IA puede usar ---
-
-def tool_search_cover(query):
-    """Intenta buscar una imagen para la película usando scraping básico o placeholder"""
-    try:
-        # Intento básico usando iTunes API (es gratis y pública para carátulas)
-        search_url = "https://itunes.apple.com/search"
-        params = {"term": query, "media": "movie", "limit": 1}
-        r = requests.get(search_url, params=params, timeout=5)
-        data = r.json()
-        if data["resultCount"] > 0:
-            # Conseguimos la imagen de mayor resolución
-            img = data["results"][0]["artworkUrl100"]
-            return img.replace("100x100", "600x600")
-    except Exception:
-        pass
-    return "" # Fallback vacío
-
-def ai_tool_add_media(title, kind='movie', platform='both', user='mochito'):
-    """Añade una película/serie a la DB."""
-    cover_url = tool_search_cover(title)
-    
-    on_netflix = 'netflix' in platform.lower() or 'both' in platform.lower()
-    on_prime = 'prime' in platform.lower() or 'both' in platform.lower()
-    
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("""
-                INSERT INTO media_items (title, cover_url, link_url, on_netflix, on_prime, priority, comment, created_by, created_at, is_watched)
-                VALUES (%s, %s, '', %s, %s, 'media', 'Añadido por MochiAI 🤖', %s, %s, FALSE)
-                RETURNING id
-            """, (title, cover_url, on_netflix, on_prime, user, now_madrid_str()))
-            mid = c.fetchone()[0]
-            conn.commit()
-            
-            # Notificar
-            try:
-                push_media_added(user, mid, title, on_netflix, on_prime)
-                broadcast("media_update", {"type": "add"})
-            except: pass
-            
-            return f"He añadido '{title}' a la lista de pendientes ({kind}) con portada."
-    except Exception as e:
-        return f"Error al añadir media: {str(e)}"
-    finally:
-        conn.close()
-
-def ai_tool_get_pending_media():
-    """Consulta qué hay por ver."""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as c:
-            c.execute("SELECT title, priority FROM media_items WHERE is_watched = FALSE ORDER BY created_at DESC LIMIT 5")
-            rows = c.fetchall()
-            if not rows: return "No hay nada pendiente."
-            return "Pendientes recientes: " + ", ".join([f"{r[0]} ({r[1]})" for r in rows])
-    finally:
-        conn.close()
-
-def ai_tool_get_stats():
-    """Devuelve estadísticas de la pareja."""
-    d = days_together()
-    return f"Lleváis {d} días juntos. El próximo encuentro está a {days_until_meeting() or '?'} días."
-
-# Definición de herramientas para Groq
-AI_TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "add_media",
-            "description": "Añade una película o serie a la lista de 'Por ver'. Busca la portada automáticamente.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "title": {"type": "string", "description": "Título de la película o serie"},
-                    "kind": {"type": "string", "enum": ["movie", "show"], "description": "Tipo de contenido"},
-                    "platform": {"type": "string", "enum": ["netflix", "prime", "both", "other"], "description": "Plataforma"}
-                },
-                "required": ["title"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_pending_media",
-            "description": "Consulta las últimas películas o series que tienen pendientes por ver.",
-            "parameters": {"type": "object", "properties": {}}
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_couple_stats",
-            "description": "Obtiene estadísticas de la relación: días juntos y días para verse.",
-            "parameters": {"type": "object", "properties": {}}
-        }
-    }
-]
-
-# --- 3. Rutas API para el Chat ---
+# --- 2. Rutas API para el Chat ---
 
 @app.route('/api/ai/chats', methods=['GET'])
 def ai_get_chats():
@@ -8895,9 +8795,9 @@ def ai_get_chats():
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
-            # Obtener chats del usuario
+            # Obtener chats del usuario ordenados por ID descendente
             c.execute("""
-                SELECT c.id, c.title, c.created_at 
+                SELECT c.id, c.title, c.created_at, c.mode
                 FROM ai_chats c 
                 JOIN users u ON c.user_id = u.id 
                 WHERE u.username = %s 
@@ -8914,6 +8814,15 @@ def ai_get_messages(chat_id):
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
+            # Verificar que el chat es del usuario (seguridad básica)
+            c.execute("""
+                SELECT 1 FROM ai_chats c 
+                JOIN users u ON c.user_id = u.id 
+                WHERE c.id = %s AND u.username = %s
+            """, (chat_id, session['username']))
+            if not c.fetchone():
+                return jsonify(ok=False, error="Chat no encontrado o no autorizado"), 403
+
             c.execute("SELECT role, content FROM ai_messages WHERE chat_id=%s ORDER BY id ASC", (chat_id,))
             msgs = [dict(r) for r in c.fetchall()]
     finally:
@@ -8936,7 +8845,7 @@ def ai_new_chat():
             uid = c.fetchone()[0]
             
             # Título inicial según el modo
-            initial_title = "MochiAI (Mochis) ❤️" if mode == 'couple' else "MochiAI (General) 🧠"
+            initial_title = "Mochi Amor ❤️" if mode == 'couple' else "Mochi Cerebrito 🧠"
             
             c.execute("""
                 INSERT INTO ai_chats (user_id, title, created_at, mode) 
@@ -8958,7 +8867,7 @@ def ai_send_message():
     data = request.json
     chat_id = data.get('chat_id')
     user_msg = data.get('message')
-    user = session['username']
+    user = session['username'] # 'mochito' o 'mochita'
 
     conn = get_db_connection()
     try:
@@ -8974,29 +8883,27 @@ def ai_send_message():
             c.execute("INSERT INTO ai_messages (chat_id, role, content, created_at) VALUES (%s, 'user', %s, %s)", 
                       (chat_id, user_msg, now_madrid_str()))
             
-            # Actualizar título si es el inicio
+            # Actualizar título si es el inicio (mensaje 1 o 2)
             c.execute("SELECT COUNT(*) FROM ai_messages WHERE chat_id=%s", (chat_id,))
             count = c.fetchone()[0]
             if count <= 2:
                 # Icono según modo para identificarlo fácil en la lista
                 icon = "❤️" if mode == 'couple' else "🧠"
-                title = f"{icon} {user_msg[:25]}..."
+                title = f"{icon} {user_msg[:20]}..."
                 c.execute("UPDATE ai_chats SET title=%s WHERE id=%s", (title, chat_id))
             conn.commit()
 
         # 3. Configurar la personalidad (System Prompt) según el modo
         if mode == 'general':
-            # --- MODO CEREBRITO (CLASE, TRABAJO, ETC) ---
+            # --- MODO CEREBRITO ---
             system_prompt = f"""
             Eres MochiAI, un asistente de inteligencia artificial avanzado, útil y preciso.
             Estás hablando con {user}.
-            
             TU OBJETIVO:
             - Ayudar con tareas complejas: programación, redacción, estudios, análisis, matemáticas, etc.
             - Dar respuestas detalladas, estructuradas y bien pensadas.
-            - Puedes usar formato Markdown (negritas, listas, código).
+            - Puedes usar formato Markdown.
             - Mantén un tono profesional pero amigable.
-            - NO hace falta que hables de la relación de pareja, céntrate en resolver la duda técnica o intelectual.
             """
         else:
             # --- MODO AMOR (CHRISTIAN & CLARA) ---
@@ -9013,15 +8920,12 @@ def ai_send_message():
             system_prompt = f"""
             Eres MochiAI, la asistente virtual exclusiva de Christian y Clara.
             Tu tono debe ser cariñoso, cercano, divertido y romántico. Usa emojis.
-            
             TU OBJETIVO:
             - Responder preguntas sobre su relación basándote en su historia.
             - Proponer planes, citas o ideas románticas.
             - Resolver dudas sentimentales.
-            
             HISTORIA QUE DEBES SABER DE MEMORIA:
             {historia_amor}
-            
             Estás hablando con: {user}.
             """
 
@@ -9034,12 +8938,12 @@ def ai_send_message():
                 if r['role'] in ['user', 'assistant']:
                     messages.append({"role": r['role'], "content": r['content']})
 
-        # 5. Llamada a Groq
+        # 5. Llamada a Groq (modelo nuevo)
         completion = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
-            max_tokens=2048, # Más espacio para respuestas largas de trabajo
-            temperature=0.6  # Un poco más preciso
+            max_tokens=2048,
+            temperature=0.7
         )
 
         final_content = completion.choices[0].message.content
@@ -9057,95 +8961,6 @@ def ai_send_message():
         return jsonify(ok=False, error=str(e)), 500
     finally:
         conn.close()
-
-@app.route('/api/ai/send', methods=['POST'])
-def ai_send_message():
-    if 'username' not in session or not groq_client:
-        return jsonify(ok=False, error="No config"), 400
-    
-    data = request.json
-    chat_id = data.get('chat_id')
-    user_msg = data.get('message')
-    user = session['username'] # 'mochito' o 'mochita'
-
-    conn = get_db_connection()
-    try:
-        # 1. Guardar mensaje usuario en la base de datos
-        with conn.cursor() as c:
-            c.execute("INSERT INTO ai_messages (chat_id, role, content, created_at) VALUES (%s, 'user', %s, %s)", 
-                      (chat_id, user_msg, now_madrid_str()))
-            
-            # Actualizar título del chat si es el primer mensaje
-            c.execute("SELECT COUNT(*) FROM ai_messages WHERE chat_id=%s", (chat_id,))
-            count = c.fetchone()[0]
-            if count <= 2:
-                title = user_msg[:30] + "..."
-                c.execute("UPDATE ai_chats SET title=%s WHERE id=%s", (title, chat_id))
-            conn.commit()
-
-        # 2. Definir la Personalidad y la Historia de Amor
-        historia_amor = """
-        DATOS DE LA PAREJA:
-        - Él: Christian (apodo: Mochito).
-        - Ella: Clara (apodo: Mochita).
-        - Fecha de inicio: 2 de agosto de 2025.
-        - Cómo se conocieron: A través de su grupo de amigos.
-        - El momento clave: Fue un día en la discoteca "Rumbo" de Valencia. Allí hablaron y conectaron.
-        - El flechazo: Después de la discoteca, fueron al piso de Paula (una amiga en común) y se quedaron hablando hasta tarde.
-        - El inicio: Al día siguiente, Mochita (Clara) le habló a Mochito (Christian) y a partir de ahí se fueron conociendo poco a poco hasta hoy.
-        """
-
-        system_prompt = f"""
-        Eres MochiAI, la asistente virtual exclusiva de Christian y Clara.
-        Tu tono debe ser cariñoso, cercano, divertido y romántico. Usa emojis.
-        
-        TU OBJETIVO:
-        - Responder preguntas sobre su relación basándote en su historia.
-        - Proponer planes, citas o ideas románticas cuando te lo pidan.
-        - Resolver dudas o dar consejos de pareja.
-        - NO tienes capacidad para gestionar la base de datos de la web (no puedes añadir pelis ni viajes). Solo conversas.
-        
-        HISTORIA QUE DEBES SABER DE MEMORIA:
-        {historia_amor}
-        
-        Estás hablando con: {user}.
-        """
-
-        # 3. Construir historial de mensajes para la IA
-        messages = [{"role": "system", "content": system_prompt}]
-        
-        # Recuperar contexto previo (últimos 20 mensajes)
-        with conn.cursor() as c:
-            c.execute("SELECT role, content FROM ai_messages WHERE chat_id=%s ORDER BY id ASC LIMIT 20", (chat_id,))
-            for r in c.fetchall():
-                # Filtramos mensajes de sistema antiguos si los hubiera
-                if r['role'] in ['user', 'assistant']:
-                    messages.append({"role": r['role'], "content": r['content']})
-
-        # 4. Llamada a Groq (SIN HERRAMIENTAS, SOLO CHAT)
-        completion = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=messages,
-            max_tokens=1024,
-            temperature=0.7 # Un poco de creatividad para los planes
-        )
-
-        final_content = completion.choices[0].message.content
-
-        # 5. Guardar respuesta de la IA
-        with conn.cursor() as c:
-            c.execute("INSERT INTO ai_messages (chat_id, role, content, created_at) VALUES (%s, 'assistant', %s, %s)", 
-                      (chat_id, final_content, now_madrid_str()))
-            conn.commit()
-
-        return jsonify(ok=True, reply=final_content)
-
-    except Exception as e:
-        print(f"AI Error: {e}")
-        return jsonify(ok=False, error=str(e)), 500
-    finally:
-        conn.close()
-
 
 @app.route('/api/ai/chat/delete', methods=['POST'])
 def ai_delete_chat():
@@ -9171,7 +8986,16 @@ def ai_delete_chat():
         conn.close()
     return jsonify(ok=True)
 
+# --- EJECUCIÓN INICIAL ---
+# Forzamos la creación de tablas al final para evitar errores de orden
+try:
+    print("--- Iniciando MochiAI Schema... ---")
+    _ensure_ai_schema()
+    print("--- MochiAI Schema OK ---")
+except Exception as e:
+    print(f"Advertencia MochiAI DB: {e}")
 
+    
 _old_init_db = init_db
 def init_db():
     _old_init_db()

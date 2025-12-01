@@ -6164,6 +6164,12 @@ def dq_chat_send():
 if os.environ.get("RUN_SCHEDULER", "1") == "1":
     threading.Thread(target=background_loop, daemon=True).start()
 
+try:
+    print("Verificando tablas de MochiAI...")
+    _ensure_ai_schema()
+    print("Tablas MochiAI listas.")
+except Exception as e:
+    print(f"Advertencia iniciando tablas AI: {e}")
 
 # ======= WSGI / Run =======
 if __name__ == '__main__':

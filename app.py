@@ -459,10 +459,7 @@ def _wheel_reset_time_key(day: date) -> str:
 def ensure_wheel_reset_time(day: date, now_madrid: datetime | None = None) -> str | None:
     """
     Devuelve la hora HH:MM (Europe/Madrid) a la que se desbloquea la ruleta ese día.
-    - Una vez elegida, se guarda en app_state.
-    - Entre las 09:00 y las 22:00.
-    - Si el server arranca tarde, elige entre 'ahora' y las 22:00.
-    - Si ya es demasiado tarde, devuelve None y guarda '-'.
+    - Horario: 20:30 a 23:00.
     """
     now_madrid = now_madrid or europe_madrid_now()
     key = _wheel_reset_time_key(day)
@@ -473,9 +470,9 @@ def ensure_wheel_reset_time(day: date, now_madrid: datetime | None = None) -> st
     if re.fullmatch(r"\d{2}:\d{2}", raw):
         return raw
 
-    # NUEVO HORARIO: 21:30 a 23:00
-    start_min = 21 * 60 + 30  # 21:30 (1290 minutos)
-    end_min   = 23 * 60       # 23:00 (1380 minutos)
+    # --- NUEVO HORARIO: 20:30 a 23:00 ---
+    start_min = 20 * 60 + 30  # 20:30
+    end_min   = 23 * 60       # 23:00
 
     if now_madrid.date() == day:
         now_min = now_madrid.hour * 60 + now_madrid.minute
@@ -493,7 +490,6 @@ def ensure_wheel_reset_time(day: date, now_madrid: datetime | None = None) -> st
     hhmm = f"{hh:02d}:{mm:02d}"
     state_set(key, hhmm)
     return hhmm
-
 
 def build_wheel_time_payload(now_madrid: datetime | None = None) -> dict:
     """
@@ -2900,26 +2896,33 @@ def run_scheduled_jobs(now=None):
                         state_set(key, "1")
 
     # 7) Ruleta diaria:
-    #    - Aviso cuando se desbloquea (según hora aleatoria 09:00–22:00).
-    #    - Recordatorio en las últimas 2h del día si alguien no ha girado todavía.
+    #    - Aviso cuando se desbloquea.
+    #    - Recordatorio si alguien no ha girado (SOLO si ya está abierta).
     try:
         reset_hhmm = ensure_wheel_reset_time(today, now)
         if reset_hhmm:
+            # A) Notificación de APERTURA
             sent_key = f"wheel_open::{today.isoformat()}::{reset_hhmm}"
-            if not state_get(sent_key, "") and is_due_or_overdue(now, reset_hhmm, grace_minutes=5):
+            is_open_now = is_due_or_overdue(now, reset_hhmm, grace_minutes=300) # Grace amplio por si el server duerme
+
+            if not state_get(sent_key, "") and is_open_now:
                 push_wheel_available()
                 state_set(sent_key, "1")
 
-        secs_left_day = seconds_until_next_midnight_madrid()
-        if secs_left_day <= 2 * 3600:  # últimas 2 horas del día
-            for u in ("mochito", "mochita"):
-                spin_key = f"wheel_spin::{u}::{today.isoformat()}"
-                if state_get(spin_key, ""):
-                    continue  # ya ha girado hoy
-                last_key = f"wheel_last_reminder::{today.isoformat()}::{u}"
-                if not state_get(last_key, ""):
-                    push_wheel_last_hours(u)
-                    state_set(last_key, "1")
+            # B) Notificación de RECORDATORIO (Últimas horas)
+            # Solo avisamos si falta poco para medianoche (1.5h) Y si la ruleta YA ESTÁ ABIERTA
+            secs_left_day = seconds_until_next_midnight_madrid()
+            
+            if secs_left_day <= 1.5 * 3600 and is_open_now:  # <--- CORRECCIÓN CLAVE
+                for u in ("mochito", "mochita"):
+                    spin_key = f"wheel_spin::{u}::{today.isoformat()}"
+                    if state_get(spin_key, ""):
+                        continue  # ya ha girado hoy
+                    
+                    last_key = f"wheel_last_reminder::{today.isoformat()}::{u}"
+                    if not state_get(last_key, ""):
+                        push_wheel_last_hours(u)
+                        state_set(last_key, "1")
     except Exception as e:
         print("[tick wheel]", e)
 
@@ -8743,4 +8746,5 @@ _old_init_db = init_db
 def init_db():
     _old_init_db()
     _ensure_gamification_schema()
+
 
